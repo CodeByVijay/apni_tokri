@@ -50,32 +50,45 @@ layout_public_start([
     'showBottomNav' => false,
 ]);
 ?>
-<div class="at-container py-10 md:py-16 max-w-md">
-    <h1 class="at-h1">Verify your number</h1>
-    <p class="mt-2 at-muted">Code sent to <strong class="text-[var(--at-ink)]"><?= Security::escape($mobile) ?></strong>
-        <?php if (!Install::isSchemaReady()): ?>
-            <span class="at-badge at-badge--neutral">Demo code 123456</span>
-        <?php elseif (OtpSmsService::operationMode() === OtpSmsService::MODE_TEST): ?>
-            <span class="at-badge at-badge--neutral">Test mode — check SMS admin for fixed test code if configured</span>
-        <?php endif; ?>
-    </p>
-    <?php if ($error !== ''): ?>
-        <div class="at-alert at-alert--error mt-4" role="alert"><?= at_icon('info', 'w-5 h-5 flex-shrink-0') ?><span><?= Security::escape($error) ?></span></div>
-    <?php endif; ?>
-    <form method="post" class="at-card mt-6">
-        <div class="at-card__body grid gap-4">
-            <?= Csrf::field() ?>
-            <div>
-                <label class="at-label" for="otp">6-digit OTP</label>
-                <input id="otp" name="otp" type="text" class="at-input at-focusable text-center text-2xl font-bold tracking-[0.5em]" maxlength="6" inputmode="numeric" autocomplete="one-time-code" required>
+<div class="at-container py-10 md:py-16">
+    <div class="grid md:grid-cols-2 gap-8 lg:gap-16 items-center max-w-4xl mx-auto">
+        <div class="hidden md:block rounded-[var(--at-radius-lg)] overflow-hidden aspect-[4/5] relative">
+            <img src="<?= Security::escape(asset_url('assets/images/demo/p-tomato-2.jpg')) ?>" alt="" class="w-full h-full object-cover">
+            <div class="absolute inset-x-0 bottom-0 p-6 text-white" style="background:linear-gradient(180deg,transparent,rgba(19,52,33,.9))">
+                <p class="at-display !text-white text-2xl">Har Ghar Ki Taazgi</p>
+                <p class="text-sm opacity-90 mt-1">One last step — enter the code we sent to your phone.</p>
             </div>
-            <div>
-                <label class="at-label" for="name">Your name <span class="at-muted font-normal">(optional)</span></label>
-                <input id="name" name="name" type="text" class="at-input at-focusable" autocomplete="name">
-            </div>
-            <button type="submit" class="at-btn at-btn--primary at-btn--lg at-btn--block at-focusable">Verify &amp; continue</button>
-            <a href="<?= Security::escape(url_base()) ?>/login.php" class="at-btn at-btn--ghost at-btn--sm at-focusable self-center">Use a different number</a>
         </div>
-    </form>
+        <div>
+            <h1 class="at-h1">Verify your number</h1>
+            <p class="mt-2 at-muted">Code sent to <strong class="text-[var(--at-ink)]">+91 <?= Security::escape($mobile) ?></strong>
+                <?php if (!Install::isSchemaReady()): ?>
+                    <span class="at-badge at-badge--neutral">Demo code 123456</span>
+                <?php elseif (OtpSmsService::operationMode() === OtpSmsService::MODE_TEST): ?>
+                    <span class="at-badge at-badge--neutral">Test mode — no real SMS sent</span>
+                <?php endif; ?>
+            </p>
+            <?php if ($error !== ''): ?>
+                <div class="at-alert at-alert--error mt-4" role="alert"><?= at_icon('info', 'w-5 h-5 flex-shrink-0') ?><span><?= Security::escape($error) ?></span></div>
+            <?php endif; ?>
+            <form method="post" class="at-card mt-6" id="otp-form">
+                <div class="at-card__body grid gap-4">
+                    <?= Csrf::field() ?>
+                    <div>
+                        <label class="at-label" for="otp">6-digit OTP</label>
+                        <input id="otp" name="otp" type="text" class="at-input at-focusable text-center text-2xl font-bold tracking-[0.5em]" maxlength="6" inputmode="numeric" pattern="[0-9]{6}" autocomplete="one-time-code" placeholder="••••••" required aria-describedby="otp-hint">
+                        <p id="otp-hint" class="at-field-error hidden" role="alert">Enter the 6-digit OTP.</p>
+                    </div>
+                    <div>
+                        <label class="at-label" for="name">Your name <span class="at-muted font-normal">(optional)</span></label>
+                        <input id="name" name="name" type="text" class="at-input at-focusable" autocomplete="name" maxlength="120">
+                    </div>
+                    <button type="submit" class="at-btn at-btn--primary at-btn--lg at-btn--block at-focusable">Verify &amp; continue</button>
+                    <p class="text-xs at-muted flex gap-2"><?= at_icon('lock', 'w-4 h-4 flex-shrink-0') ?>The code expires in 5 minutes. Need a new one? Go back and request again.</p>
+                    <a href="<?= Security::escape(url_base()) ?>/login.php" class="at-btn at-btn--ghost at-btn--sm at-focusable self-center">Use a different number / resend OTP</a>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 <?php layout_public_end(); ?>

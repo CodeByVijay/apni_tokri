@@ -39,4 +39,4 @@ $_acItems = [
             <button type="submit" class="at-focusable"><?= at_icon('logout') ?>Logout</button>
         </form>
     </nav>
-    <div class="min-w-0 grid gap-5">
+    <div class="min-w-0 grid gap-5 at-account-main">

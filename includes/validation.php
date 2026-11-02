@@ -21,6 +21,11 @@ final class Validation
 
     public static function normalizeMobileIndia(string $value): ?string
     {
+        $value = trim($value, " \t\r\n");
+        // Only digits and common phone separators are tolerated; letters/symbols mean a malformed request.
+        if (preg_match('/[^0-9\s+\-().]/', $value) || (strpos($value, '+') !== false && strpos($value, '+') !== 0)) {
+            return null;
+        }
         $digits = preg_replace('/\D+/', '', $value) ?? '';
         if ($digits === '') {
             return null;

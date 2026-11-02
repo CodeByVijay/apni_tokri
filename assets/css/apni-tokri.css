@@ -3626,3 +3626,18 @@ input:disabled + .at-chip {
   height: 1.15rem;
   flex-shrink: 0;
 }
+
+/* Account pages: single grid track must not grow with long <select> option text */
+.at-account-main {
+  grid-template-columns: minmax(0, 1fr);
+}
+.at-account-main select.at-input {
+  max-width: 100%;
+  min-width: 0;
+}
+
+/* Admin: keep pills vertically centred in flex headers/rows (customer pills use flex-start) */
+.at-admin-card__head .at-status,
+.at-admin-main .at-status {
+  align-self: center;
+}

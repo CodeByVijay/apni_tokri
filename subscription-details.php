@@ -100,20 +100,24 @@ require APNI_TOKRI_ROOT . '/includes/partials/account-shell-start.php';
 <?php else: ?>
     <?php if ($dayCredits !== []): ?>
         <div class="at-alert at-alert--info text-sm mt-2">
-            <p class="font-semibold mb-1">Delivery credits &amp; refunds</p>
-            <ul class="space-y-1">
-                <?php foreach ($dayCredits as $cr): ?>
-                    <li><?= Security::escape((string) ($cr['delivery_date'] ?? '')) ?> — <?= Security::escape(SubscriptionRefundService::publicRefundStatusLabel($cr)) ?></li>
-                <?php endforeach; ?>
-            </ul>
+            <div class="min-w-0">
+                <p class="font-semibold mb-1">Delivery credits &amp; refunds</p>
+                <ul class="space-y-1">
+                    <?php foreach ($dayCredits as $cr): ?>
+                        <li><?= Security::escape((string) ($cr['delivery_date'] ?? '')) ?> — <?= Security::escape(SubscriptionRefundService::publicRefundStatusLabel($cr)) ?></li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
         </div>
     <?php endif; ?>
 
     <?php if ($notifications !== []): ?>
         <div class="at-alert at-alert--warning text-sm mt-2">
-            <?php foreach ($notifications as $n): ?>
-                <p class="mb-1"><strong><?= Security::escape((string) $n['title']) ?></strong> — <?= Security::escape((string) $n['body']) ?></p>
-            <?php endforeach; ?>
+            <div class="min-w-0">
+                <?php foreach ($notifications as $n): ?>
+                    <p class="mb-1"><strong><?= Security::escape((string) $n['title']) ?></strong> — <?= Security::escape((string) $n['body']) ?></p>
+                <?php endforeach; ?>
+            </div>
         </div>
     <?php endif; ?>
 
@@ -155,7 +159,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/account-shell-start.php';
             <div class="mt-4 grid gap-2" id="at-multi-lines">
                 <?php foreach (array_slice($selectableVariants, 0, 5) as $i => $v): ?>
                     <div class="flex flex-wrap gap-2 items-center multi-line">
-                        <select class="at-input at-focusable variant-select">
+                        <select class="at-input at-focusable variant-select min-w-0 max-w-full">
                             <?php foreach ($selectableVariants as $opt): ?>
                                 <option value="<?= (int) $opt['id'] ?>" <?= (int) $opt['id'] === (int) $v['id'] ? 'selected' : '' ?>>
                                     <?= Security::escape($opt['product_name'] . ' — ' . $opt['name']) ?>
@@ -196,7 +200,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/account-shell-start.php';
                 </dl>
 
                 <?php if ($dp['substitutions'] !== []): ?>
-                    <div class="at-alert at-alert--warning text-sm mt-3">
+                    <div class="at-alert at-alert--warning text-sm mt-3 flex-col">
                         <p><strong>Substitution approval required</strong> — we never replace items without your consent.</p>
                         <ul class="mt-2 space-y-2">
                             <?php foreach ($dp['substitutions'] as $sub): ?>
@@ -211,7 +215,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/account-shell-start.php';
                                             (no extra charge)
                                         <?php endif; ?>
                                     </span>
-                                    <span class="flex gap-2">
+                                    <span class="flex flex-wrap gap-2">
                                         <button type="button" class="at-btn at-btn--secondary at-focusable at-sub-sub-reject-partial" data-id="<?= (int) $sub['id'] ?>">Deliver without item</button>
                                         <button type="button" class="at-btn at-btn--secondary at-focusable at-sub-sub-reject-cancel" data-id="<?= (int) $sub['id'] ?>">Cancel this day</button>
                                         <button type="button" class="at-btn at-btn--primary at-focusable at-sub-sub-approve" data-id="<?= (int) $sub['id'] ?>">Approve<?= (float) $sub['price_difference_inr'] > 0.01 ? ' & pay ' . catalogue_format_price((float) $sub['price_difference_inr']) : '' ?></button>

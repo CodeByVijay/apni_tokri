@@ -458,7 +458,36 @@
     initDeliveryPinCheck();
     initPaymentPage();
     initMobileLogin();
+    initOtpVerify();
   });
+
+  function initOtpVerify() {
+    var $otp = $('#otp');
+    if (!$otp.length) {
+      return;
+    }
+    var $hint = $('#otp-hint');
+    function sync() {
+      var d = ($otp.val() || '').replace(/\D/g, '').slice(0, 6);
+      if ($otp.val() !== d) {
+        $otp.val(d);
+      }
+      if ($hint.length && d.length === 6) {
+        $hint.addClass('hidden');
+      }
+      return d.length === 6;
+    }
+    $otp.on('input paste', function () {
+      setTimeout(sync, 0);
+    });
+    $otp.closest('form').on('submit', function (e) {
+      if (!sync()) {
+        e.preventDefault();
+        $hint.removeClass('hidden');
+        $otp.focus();
+      }
+    });
+  }
 
   function initMobileLogin() {
     var $input = $('#mobile');

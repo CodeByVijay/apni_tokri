@@ -33,6 +33,11 @@ for ($i = 0; $i < 4; $i++) {
     }
 }
 
+$pdo->prepare('DELETE FROM customer_otp_attempts WHERE mobile = ?')->execute([$mobile]);
+AppSettings::set('sms.operation_mode', OtpSmsService::MODE_DISABLED);
+AppSettings::set('sms.test.fixed_otp', '');
+AppSettings::resetCache();
+
 if ($blockedOnFourth && $failures === 0) {
     echo "PASS: rate limit triggered.\n";
     exit(0);

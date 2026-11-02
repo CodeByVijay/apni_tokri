@@ -45,6 +45,20 @@ ok(Validation::normalizeMobileIndia('91987654321099') === null, '6 long +91 over
 // Invalid starting digit
 ok(Validation::normalizeMobileIndia('5876543210') === null, 'invalid leading digit rejected');
 
+// Backend matrix: lengths, letters, symbols
+ok(Validation::normalizeMobileIndia('987654321') === null, 'M 9 digits rejected');
+ok(Validation::normalizeMobileIndia('9876543210') === '9876543210', 'M 10 digits accepted');
+ok(Validation::normalizeMobileIndia('98765432101') === null, 'M 11 digits rejected');
+ok(Validation::normalizeMobileIndia('919876543210') === '9876543210', 'M 12 digits with 91 accepted');
+ok(Validation::normalizeMobileIndia('989876543210') === null, 'M 12 digits without 91 rejected');
+ok(Validation::normalizeMobileIndia('987654321012345') === null, 'M 15 digits rejected');
+ok(Validation::normalizeMobileIndia('+919876543210') === '9876543210', 'M +91 accepted');
+ok(Validation::normalizeMobileIndia('98765abc43210') === null, 'M letters mixed with digits rejected');
+ok(Validation::normalizeMobileIndia('9876543210; DROP') === null, 'M injection chars rejected');
+ok(Validation::normalizeMobileIndia('98765#43210') === null, 'M # symbol rejected');
+ok(Validation::normalizeMobileIndia('98765+43210') === null, 'M + not at start rejected');
+ok(Validation::normalizeMobileIndia("9876543210\0") === null, 'M NUL byte rejected');
+
 // 8 invalid must not create OTP row when schema ready
 if (Install::isSchemaReady()) {
     Install::ensureConnection();
@@ -60,6 +74,19 @@ if (Install::isSchemaReady()) {
     $after = (int) $pdo->query('SELECT COUNT(*) FROM customer_otp_attempts')->fetchColumn();
     ok($threw && $after === $before, '8 invalid number does not issue OTP (exception, no new row)');
     unset($mobile);
+    $bad = ['987654321', '98765432101', '989876543210', '987654321012345', '98765abc43210', '98765#43210'];
+    $allRejected = true;
+    $before = (int) $pdo->query('SELECT COUNT(*) FROM customer_otp_attempts')->fetchColumn();
+    foreach ($bad as $b) {
+        try {
+            CustomerAuth::issueOtp($b);
+            $allRejected = false;
+        } catch (OtpRequestException $e) {
+            $allRejected = $allRejected && $e->errorCode() === OtpSmsService::ERR_INVALID_MOBILE;
+        }
+    }
+    $after = (int) $pdo->query('SELECT COUNT(*) FROM customer_otp_attempts')->fetchColumn();
+    ok($allRejected && $before === $after, 'issueOtp rejects malformed inputs with INVALID_MOBILE, no rows');
 } else {
     ok(true, '8 OTP row check skipped (schema not ready)');
 }
