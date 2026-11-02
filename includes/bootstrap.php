@@ -1,0 +1,164 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * Single entry bootstrap for web and CLI (cron) scripts.
+ */
+
+if (!defined('APNI_TOKRI_ROOT')) {
+    define('APNI_TOKRI_ROOT', dirname(__DIR__));
+}
+
+require_once APNI_TOKRI_ROOT . '/includes/constants.php';
+require_once APNI_TOKRI_ROOT . '/includes/compat/php73.php';
+require_once APNI_TOKRI_ROOT . '/includes/helpers.php';
+require_once APNI_TOKRI_ROOT . '/includes/lang.php';
+require_once APNI_TOKRI_ROOT . '/includes/layout/public.php';
+require_once APNI_TOKRI_ROOT . '/includes/admin/bootstrap.php';
+require_once APNI_TOKRI_ROOT . '/includes/layout/admin.php';
+require_once APNI_TOKRI_ROOT . '/includes/security.php';
+require_once APNI_TOKRI_ROOT . '/includes/validation.php';
+require_once APNI_TOKRI_ROOT . '/includes/csrf.php';
+require_once APNI_TOKRI_ROOT . '/includes/ajax.php';
+require_once APNI_TOKRI_ROOT . '/includes/database.php';
+require_once APNI_TOKRI_ROOT . '/includes/install.php';
+require_once APNI_TOKRI_ROOT . '/includes/auth.php';
+require_once APNI_TOKRI_ROOT . '/includes/permissions.php';
+require_once APNI_TOKRI_ROOT . '/includes/audit.php';
+require_once APNI_TOKRI_ROOT . '/includes/admin/rbac.php';
+require_once APNI_TOKRI_ROOT . '/includes/upload.php';
+require_once APNI_TOKRI_ROOT . '/includes/demo/catalogue.php';
+require_once APNI_TOKRI_ROOT . '/includes/catalogue/slug.php';
+require_once APNI_TOKRI_ROOT . '/includes/catalogue/category_repository.php';
+require_once APNI_TOKRI_ROOT . '/includes/catalogue/product_repository.php';
+require_once APNI_TOKRI_ROOT . '/includes/catalogue/inventory.php';
+require_once APNI_TOKRI_ROOT . '/includes/catalogue/gateway.php';
+require_once APNI_TOKRI_ROOT . '/includes/delivery/config.php';
+require_once APNI_TOKRI_ROOT . '/includes/subscription/entitlement.php';
+require_once APNI_TOKRI_ROOT . '/includes/subscription/restock.php';
+require_once APNI_TOKRI_ROOT . '/includes/delivery/slots.php';
+require_once APNI_TOKRI_ROOT . '/includes/delivery/status_transitions.php';
+require_once APNI_TOKRI_ROOT . '/includes/delivery/assignment.php';
+require_once APNI_TOKRI_ROOT . '/includes/delivery/customer_timeline.php';
+require_once APNI_TOKRI_ROOT . '/includes/notifications/sms_environment.php';
+require_once APNI_TOKRI_ROOT . '/includes/notifications/sms_diagnostics.php';
+require_once APNI_TOKRI_ROOT . '/includes/notifications/sms_settings.php';
+require_once APNI_TOKRI_ROOT . '/includes/notifications/sms_gateway.php';
+require_once APNI_TOKRI_ROOT . '/includes/notifications/otp_sms.php';
+require_once APNI_TOKRI_ROOT . '/includes/notifications/smtp_settings.php';
+require_once APNI_TOKRI_ROOT . '/includes/notifications/smtp_mailer.php';
+require_once APNI_TOKRI_ROOT . '/includes/notifications/sms_http_policy.php';
+require_once APNI_TOKRI_ROOT . '/includes/notifications/sms_send_lock.php';
+require_once APNI_TOKRI_ROOT . '/includes/notifications/delivery_sms.php';
+require_once APNI_TOKRI_ROOT . '/includes/notifications/template_repository.php';
+require_once APNI_TOKRI_ROOT . '/includes/notifications/template_renderer.php';
+require_once APNI_TOKRI_ROOT . '/includes/notifications/queue_service.php';
+require_once APNI_TOKRI_ROOT . '/includes/notifications/dispatcher.php';
+require_once APNI_TOKRI_ROOT . '/includes/notifications/admin_notifications.php';
+require_once APNI_TOKRI_ROOT . '/includes/reports/date_range.php';
+require_once APNI_TOKRI_ROOT . '/includes/reports/csv_export.php';
+require_once APNI_TOKRI_ROOT . '/includes/reports/sales_report.php';
+require_once APNI_TOKRI_ROOT . '/includes/reports/inventory_report.php';
+require_once APNI_TOKRI_ROOT . '/includes/reports/payment_report.php';
+require_once APNI_TOKRI_ROOT . '/includes/reports/refund_report.php';
+require_once APNI_TOKRI_ROOT . '/includes/reports/subscription_report.php';
+require_once APNI_TOKRI_ROOT . '/includes/delivery/slot_reservations.php';
+require_once APNI_TOKRI_ROOT . '/includes/delivery/slot_admin.php';
+require_once APNI_TOKRI_ROOT . '/includes/commerce/gateway.php';
+require_once APNI_TOKRI_ROOT . '/includes/commerce/delivery.php';
+require_once APNI_TOKRI_ROOT . '/includes/delivery/distance.php';
+require_once APNI_TOKRI_ROOT . '/includes/delivery/zone_resolver.php';
+require_once APNI_TOKRI_ROOT . '/includes/delivery/quote.php';
+require_once APNI_TOKRI_ROOT . '/includes/delivery/order_snapshot.php';
+require_once APNI_TOKRI_ROOT . '/includes/commerce/coupon.php';
+require_once APNI_TOKRI_ROOT . '/includes/commerce/offer.php';
+require_once APNI_TOKRI_ROOT . '/includes/commerce/pricing.php';
+require_once APNI_TOKRI_ROOT . '/includes/commerce/cart.php';
+require_once APNI_TOKRI_ROOT . '/includes/commerce/customer.php';
+require_once APNI_TOKRI_ROOT . '/includes/commerce/account.php';
+require_once APNI_TOKRI_ROOT . '/includes/encryption.php';
+require_once APNI_TOKRI_ROOT . '/includes/settings/store.php';
+require_once APNI_TOKRI_ROOT . '/includes/settings/branding.php';
+require_once APNI_TOKRI_ROOT . '/includes/settings/business.php';
+require_once APNI_TOKRI_ROOT . '/includes/payment/http.php';
+require_once APNI_TOKRI_ROOT . '/includes/payment/razorpay.php';
+require_once APNI_TOKRI_ROOT . '/includes/payment/cashfree.php';
+require_once APNI_TOKRI_ROOT . '/includes/payment/config.php';
+require_once APNI_TOKRI_ROOT . '/includes/payment/service.php';
+require_once APNI_TOKRI_ROOT . '/includes/payment/refund_gateway.php';
+require_once APNI_TOKRI_ROOT . '/includes/payment/completion_exception.php';
+require_once APNI_TOKRI_ROOT . '/includes/trust/order_fulfillment.php';
+require_once APNI_TOKRI_ROOT . '/includes/trust/review.php';
+require_once APNI_TOKRI_ROOT . '/includes/trust/refund.php';
+require_once APNI_TOKRI_ROOT . '/includes/trust/refund_completion.php';
+require_once APNI_TOKRI_ROOT . '/includes/trust/cashfree_refund_webhook.php';
+require_once APNI_TOKRI_ROOT . '/includes/trust/refund_webhook.php';
+require_once APNI_TOKRI_ROOT . '/includes/trust/support.php';
+require_once APNI_TOKRI_ROOT . '/includes/trust/testimonial.php';
+require_once APNI_TOKRI_ROOT . '/includes/cms/sanitize.php';
+require_once APNI_TOKRI_ROOT . '/includes/cms/page_repository.php';
+require_once APNI_TOKRI_ROOT . '/includes/cms/page_service.php';
+require_once APNI_TOKRI_ROOT . '/includes/faq/repository.php';
+require_once APNI_TOKRI_ROOT . '/includes/faq/service.php';
+require_once APNI_TOKRI_ROOT . '/includes/seo/url.php';
+require_once APNI_TOKRI_ROOT . '/includes/seo/metadata.php';
+require_once APNI_TOKRI_ROOT . '/includes/seo/resolver.php';
+require_once APNI_TOKRI_ROOT . '/includes/seo/redirect_path.php';
+require_once APNI_TOKRI_ROOT . '/includes/seo/redirect_repository.php';
+require_once APNI_TOKRI_ROOT . '/includes/seo/redirect_service.php';
+require_once APNI_TOKRI_ROOT . '/includes/seo/sitemap.php';
+require_once APNI_TOKRI_ROOT . '/includes/seo/robots.php';
+require_once APNI_TOKRI_ROOT . '/includes/seo/json_ld.php';
+require_once APNI_TOKRI_ROOT . '/includes/seo/structured_data.php';
+require_once APNI_TOKRI_ROOT . '/includes/homepage/trust.php';
+require_once APNI_TOKRI_ROOT . '/includes/homepage/trust_render.php';
+require_once APNI_TOKRI_ROOT . '/includes/subscription/schedule.php';
+require_once APNI_TOKRI_ROOT . '/includes/subscription/plan.php';
+require_once APNI_TOKRI_ROOT . '/includes/subscription/cutoff.php';
+require_once APNI_TOKRI_ROOT . '/includes/subscription/audit.php';
+require_once APNI_TOKRI_ROOT . '/includes/subscription/menu.php';
+require_once APNI_TOKRI_ROOT . '/includes/subscription/basket.php';
+require_once APNI_TOKRI_ROOT . '/includes/subscription/auto_confirm.php';
+require_once APNI_TOKRI_ROOT . '/includes/subscription/lifecycle.php';
+require_once APNI_TOKRI_ROOT . '/includes/subscription/cron_lock.php';
+require_once APNI_TOKRI_ROOT . '/includes/subscription/notify.php';
+require_once APNI_TOKRI_ROOT . '/includes/subscription/notification_dedupe.php';
+require_once APNI_TOKRI_ROOT . '/includes/subscription/inventory_reserve.php';
+require_once APNI_TOKRI_ROOT . '/includes/subscription/substitution.php';
+require_once APNI_TOKRI_ROOT . '/includes/subscription/fulfilment.php';
+require_once APNI_TOKRI_ROOT . '/includes/subscription/reservation_recovery.php';
+require_once APNI_TOKRI_ROOT . '/includes/subscription/recovery_log.php';
+require_once APNI_TOKRI_ROOT . '/includes/subscription/refund.php';
+require_once APNI_TOKRI_ROOT . '/includes/subscription/slot.php';
+require_once APNI_TOKRI_ROOT . '/includes/subscription/substitution_payment.php';
+require_once APNI_TOKRI_ROOT . '/includes/subscription/activation.php';
+require_once APNI_TOKRI_ROOT . '/includes/subscription/checkout.php';
+require_once APNI_TOKRI_ROOT . '/includes/commerce/checkout.php';
+require_once APNI_TOKRI_ROOT . '/includes/commerce/payment_gateway_settings.php';
+require_once APNI_TOKRI_ROOT . '/includes/commerce/admin_orders.php';
+require_once APNI_TOKRI_ROOT . '/includes/demo/cart.php';
+require_once APNI_TOKRI_ROOT . '/includes/demo/customer.php';
+require_once APNI_TOKRI_ROOT . '/includes/error_handler.php';
+
+/** @var array<string, mixed> $config */
+$config = require APNI_TOKRI_ROOT . '/includes/config.php';
+
+App::setConfig($config);
+AppErrorHandler::register($config);
+
+if (Install::hasLocalConfig()) {
+    try {
+        Database::connect($config['database']);
+    } catch (Throwable $e) {
+        if (App::isDebug()) {
+            error_log('DB connect: ' . $e->getMessage());
+        }
+    }
+}
+
+if (PHP_SAPI !== 'cli') {
+    AppSession::start($config['session'] ?? []);
+    Lang::bootstrapFromRequest();
+    require_once APNI_TOKRI_ROOT . '/includes/seo/redirect_request.php';
+}

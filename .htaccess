@@ -1,0 +1,16 @@
+# Apni Tokri — basic hardening (adjust for your host)
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^sitemap\.xml$ sitemap.php [L]
+    RewriteRule ^sitemap-([0-9]+)\.xml$ sitemap.php?part=$1 [L,QSA]
+    RewriteRule ^robots\.txt$ robots.php [L]
+    # Block direct web access to includes and storage (when DocumentRoot is project root)
+    RewriteRule ^includes/ - [F,L]
+    RewriteRule ^storage/ - [F,L]
+    RewriteRule ^database/ - [F,L]
+</IfModule>
+
+# Upload PHP deny rules: configure in Apache vhost when needed (DirectoryMatch is not valid in .htaccess on all hosts).
+
+Options -Indexes

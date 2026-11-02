@@ -1,0 +1,14 @@
+/includes/config.local.php
+/storage/logs/*
+!/storage/logs/.gitkeep
+/storage/temporary/*
+!/storage/temporary/.gitkeep
+/uploads/*
+!/uploads/.gitkeep
+!/uploads/products/.gitkeep
+!/uploads/categories/.gitkeep
+!/uploads/reviews/.gitkeep
+!/uploads/testimonials/.gitkeep
+!/uploads/cms/.gitkeep
+.env
+*.log
