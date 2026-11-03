@@ -296,11 +296,17 @@ final class CheckoutService
             return ['ok' => false, 'message' => 'Choose a valid delivery slot.'];
         }
 
-        if (CommerceGateway::useDatabase()) {
+        if (!StorefrontReadiness::isStorefrontOperational()) {
+            return ['ok' => false, 'message' => 'The store is not available for checkout yet. Please check back soon.'];
+        }
+        if (AppEnvironment::usePersistedStorefront()) {
             return self::placeOrderDb($addressId, $slot, $paySim);
         }
+        if (AppEnvironment::allowsSessionDemoCommerce()) {
+            return self::placeOrderSession($addressId, $slot, $paySim);
+        }
 
-        return self::placeOrderSession($addressId, $slot, $paySim);
+        return ['ok' => false, 'message' => 'Checkout is unavailable in this environment.'];
     }
 
     /** @return array{ok: bool, message?: string, order_number?: string, redirect?: string} */

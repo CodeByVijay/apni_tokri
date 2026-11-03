@@ -52,7 +52,6 @@ $form = [
 $categories = $useDb ? FaqRepository::listCategoriesForAdmin(true) : [];
 
 admin_layout_start(['pageTitle' => 'FAQ categories', 'activeAdminNav' => 'faqs']);
-admin_flash_render();
 $pageHeading = 'FAQ categories';
 $pageActionsHtml = '<a href="' . Security::escape(url_base()) . '/admin/faqs/index.php" class="at-btn at-btn--secondary at-btn--sm at-focusable">All FAQs</a>';
 require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
@@ -97,40 +96,30 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
             ['label' => 'Slug', 'key' => 'slug'],
             ['label' => 'Order', 'key' => 'sort_order', 'align' => 'num'],
             ['label' => 'Status', 'key' => 'status'],
-            ['label' => '', 'key' => 'link', 'align' => 'actions'],
+            ['label' => 'Actions', 'key' => 'actions', 'align' => 'actions', 'raw' => true],
         ];
         $rows = [];
         foreach ($categories as $c) {
             $cid = (int) ($c['id'] ?? 0);
+            $name = (string) ($c['name'] ?? '');
+            $editHref = url_base() . '/admin/faqs/categories.php?edit=' . $cid;
+            $deleteForm = $cid > 0
+                ? '<form method="post" class="at-admin-actions__form" onsubmit="return confirm(' . json_encode('Delete category “' . $name . '”?', JSON_UNESCAPED_UNICODE) . ');">'
+                    . Csrf::field()
+                    . '<input type="hidden" name="category_id" value="' . $cid . '">'
+                    . admin_icon_delete_button('Delete', 'form_action', 'delete')
+                    . '</form>'
+                : '';
             $rows[] = [
-                'name' => (string) ($c['name'] ?? ''),
+                'name' => $name,
                 'slug' => (string) ($c['slug'] ?? ''),
                 'sort_order' => (string) ($c['sort_order'] ?? '0'),
                 'status' => !empty($c['is_active']) ? 'active' : 'inactive',
-                'link' => 'Edit',
-                'action_href' => url_base() . '/admin/faqs/categories.php?edit=' . $cid,
-                'cid' => $cid,
+                'actions' => '<span class="at-admin-actions">' . admin_action_edit_link($editHref, 'Edit') . $deleteForm . '</span>',
             ];
         }
         require APNI_TOKRI_ROOT . '/includes/partials/admin/data-table.php';
         ?>
-        <?php if ($useDb && $rows !== []): ?>
-            <div class="mt-3 space-y-2">
-                <?php foreach ($rows as $r):
-                    $cid = (int) ($r['cid'] ?? 0);
-                    if ($cid <= 0) {
-                        continue;
-                    }
-                    ?>
-                <form method="post" class="inline-flex gap-2 text-sm">
-                    <?= Csrf::field() ?>
-                    <input type="hidden" name="category_id" value="<?= $cid ?>">
-                    <button type="submit" name="form_action" value="toggle_active" class="at-btn at-btn--ghost at-btn--sm at-focusable">Toggle active · <?= Security::escape($r['name']) ?></button>
-                    <button type="submit" name="form_action" value="delete" class="at-btn at-btn--ghost at-btn--sm at-focusable" onclick="return confirm('Delete this category?');">Delete</button>
-                </form>
-                <?php endforeach; ?>
-            </div>
-        <?php endif; ?>
     </div>
 </div>
 <?php admin_layout_end();

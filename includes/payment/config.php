@@ -21,8 +21,11 @@ final class PaymentGatewayConfig
 
     public static function useSimulatedCheckout(): bool
     {
+        if (AppEnvironment::isProduction()) {
+            return false;
+        }
         if (!CommerceGateway::useDatabase()) {
-            return true;
+            return !AppEnvironment::isProduction();
         }
         $active = self::activeGateway();
         if ($active === 'simulate') {
@@ -134,11 +137,31 @@ final class PaymentGatewayConfig
      */
     public static function assertLivePaymentsReady(): array
     {
+        if (AppEnvironment::isProduction()) {
+            return AppEnvironment::assertProductionPaymentsReady();
+        }
         if (self::useSimulatedCheckout()) {
             return ['ok' => true];
         }
         $gateway = self::activeGateway();
         return self::readinessFor($gateway);
+    }
+
+    /**
+     * Fail closed before creating or completing a payment row (orders, subscriptions, webhooks).
+     *
+     * @return array{ok: bool, message?: string}
+     */
+    public static function assertPaymentExecutionAllowed(string $gateway): array
+    {
+        if ($gateway === 'simulate' && AppEnvironment::isProduction()) {
+            return ['ok' => false, 'message' => 'Simulated payments are disabled in production. Configure Razorpay or Cashfree.'];
+        }
+        if (AppEnvironment::isProduction()) {
+            return AppEnvironment::assertProductionPaymentsReady();
+        }
+
+        return ['ok' => true];
     }
 
     public static function currency(): string

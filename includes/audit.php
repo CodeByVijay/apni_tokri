@@ -8,7 +8,8 @@ final class AuditLog
         string $action,
         ?string $entityType = null,
         ?string $entityId = null,
-        ?array $payload = null
+        ?array $payload = null,
+        ?int $actingAdminUserId = null
     ): void {
         if (!Install::isSchemaReady()) {
             return;
@@ -20,8 +21,9 @@ final class AuditLog
                  VALUES (?, ?, ?, ?, ?, ?, ?)'
             );
             $json = $payload !== null ? json_encode($payload, JSON_UNESCAPED_UNICODE) : null;
+            $adminId = $actingAdminUserId ?? AdminAuth::id();
             $stmt->execute([
-                AdminAuth::id(),
+                $adminId,
                 $action,
                 $entityType,
                 $entityId,

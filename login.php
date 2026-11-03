@@ -25,6 +25,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             error_log('login OTP request failed: ' . get_class($e));
             $error = OtpSmsService::publicErrorMessage(OtpSmsService::ERR_SERVER_ERROR);
         }
+    } elseif (AppEnvironment::isProduction()) {
+        $error = 'Login is unavailable until the database is configured.';
     } else {
         $_SESSION['otp_pending_mobile'] = $normalized;
         $_SESSION['otp_demo_code'] = '123456';
@@ -66,7 +68,15 @@ layout_public_start([
                         <p id="mobile-hint" class="at-field-error hidden" role="alert">Enter a valid 10-digit mobile number starting with 6–9.</p>
                     </div>
                     <button type="submit" class="at-btn at-btn--primary at-btn--lg at-btn--block at-focusable">Send OTP</button>
-                    <p class="text-xs at-muted flex gap-2"><?= at_icon('lock', 'w-4 h-4 flex-shrink-0') ?><?= Install::isSchemaReady() ? 'OTP is hashed in the database. Rate limits apply (3 per number / 15 min).' : 'Demo mode — use code 123456 on the next screen.' ?></p>
+                    <p class="text-xs at-muted flex gap-2"><?= at_icon('lock', 'w-4 h-4 flex-shrink-0') ?><?php
+                        if (Install::isSchemaReady()) {
+                            echo 'OTP is hashed in the database. Rate limits apply (3 per number / 15 min).';
+                        } elseif (AppEnvironment::isProduction()) {
+                            echo 'Login requires a configured database.';
+                        } else {
+                            echo 'Demo mode — use code 123456 on the next screen.';
+                        }
+                    ?></p>
                 </div>
             </form>
         </div>

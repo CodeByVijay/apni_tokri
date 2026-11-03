@@ -15,8 +15,8 @@ ALTER TABLE `orders`
 
 INSERT INTO `coupons` (`code`, `discount_type`, `discount_value`, `min_cart_value`, `max_discount`, `usage_limit`, `is_active`, `starts_at`)
 VALUES
-  ('WELCOME10', 'percent', 10.00, 100.00, 200.00, NULL, 1, NOW()),
-  ('SAVE50', 'fixed', 50.00, 200.00, NULL, NULL, 1, NOW())
-ON DUPLICATE KEY UPDATE `is_active` = VALUES(`is_active`);
+  ('WELCOME10', 'percent', 10.00, 100.00, 200.00, NULL, 0, NOW()),
+  ('SAVE50', 'fixed', 50.00, 200.00, NULL, NULL, 0, NOW())
+ON DUPLICATE KEY UPDATE `code` = `code`;
 
 UPDATE `settings` SET `setting_value` = '1.2.0' WHERE `setting_key` = 'schema_version';

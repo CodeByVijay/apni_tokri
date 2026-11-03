@@ -12,7 +12,7 @@ $offer = ($useDb && $id) ? OfferRepository::find($id) : null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     Csrf::requireValid();
     if (!$useDb) {
-        admin_flash_set('Offer saved (demo UI).');
+        admin_flash_persistence_blocked('Offer saved (demo UI).');
         header('Location: ' . url_base() . '/admin/offers/index.php', true, 302);
         exit;
     }
@@ -50,7 +50,6 @@ $o = $offer ?? [
 ];
 
 admin_layout_start(['pageTitle' => 'Edit offer', 'activeAdminNav' => 'offers']);
-admin_flash_render();
 $pageHeading = $id ? 'Edit offer' : 'New offer';
 require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
 ?>

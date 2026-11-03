@@ -4,36 +4,166 @@ declare(strict_types=1);
 
 final class ProductRepository
 {
+    /** @var array<int, true>|null */
+    private static $visibleCategoryIds = null;
+
+    public static function resetPublicVisibilityCache(): void
+    {
+        self::$visibleCategoryIds = null;
+    }
+
+    /**
+     * Category ids assigned to a product row (extensible if multi-category is added later).
+     *
+     * @param array<string, mixed> $productRow
+     * @return list<int>
+     */
+    public static function assignedCategoryIds(array $productRow): array
+    {
+        $id = $productRow['category_id'] ?? null;
+        if ($id === null || $id === '') {
+            return [];
+        }
+
+        return [(int) $id];
+    }
+
+    /**
+     * True when at least one assigned category id is publicly visible (published ancestor chain).
+     *
+     * @param list<int> $categoryIds
+     */
+    public static function hasPublicCategoryAssignment(array $categoryIds): bool
+    {
+        if ($categoryIds === []) {
+            return false;
+        }
+        $visible = self::publiclyVisibleCategoryIds();
+        foreach ($categoryIds as $cid) {
+            if (isset($visible[$cid])) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Storefront visibility: published product with at least one publicly visible category assignment.
+     *
+     * @param array<string, mixed> $row products row (+ optional category_slug from join)
+     */
+    public static function isPubliclyVisibleRow(array $row): bool
+    {
+        if ((string) ($row['status'] ?? '') !== 'published') {
+            return false;
+        }
+
+        return self::hasPublicCategoryAssignment(self::assignedCategoryIds($row));
+    }
+
+    /** @return array<int, true> */
+    private static function publiclyVisibleCategoryIds(): array
+    {
+        if (self::$visibleCategoryIds !== null) {
+            return self::$visibleCategoryIds;
+        }
+        Install::ensureConnection();
+        $meta = Database::pdo()->query('SELECT id, parent_id, status FROM categories')->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        self::$visibleCategoryIds = CategoryRepository::visibleIdSet($meta);
+
+        return self::$visibleCategoryIds;
+    }
+
     /** @return list<array<string, mixed>> */
     public static function adminList(?string $query = null, ?string $categorySlug = null, ?string $status = null): array
     {
+        $result = self::searchForAdmin(
+            $query ?? '',
+            $categorySlug ?? '',
+            $status ?? '',
+            1,
+            500,
+            'updated_at',
+            'desc'
+        );
+
+        return $result['rows'];
+    }
+
+    /**
+     * @return array{rows: list<array<string, mixed>>, total: int, page: int, per_page: int, total_pages: int}
+     */
+    public static function searchForAdmin(
+        string $query,
+        string $categorySlug,
+        string $status,
+        int $page,
+        int $perPage,
+        string $sortColumn = 'updated_at',
+        string $sortDirection = 'desc'
+    ): array {
+        if (!Install::isSchemaReady()) {
+            return ['rows' => [], 'total' => 0, 'page' => 1, 'per_page' => $perPage, 'total_pages' => 1];
+        }
         Install::ensureConnection();
         $pdo = Database::pdo();
-        $sql = 'SELECT p.*, c.slug AS category_slug, c.name AS category_name
-                FROM products p
-                LEFT JOIN categories c ON c.id = p.category_id
-                WHERE 1=1';
+        $page = max(1, $page);
+        $perPage = max(1, min(100, $perPage));
+        $where = ['1=1'];
         $params = [];
-        if ($query !== null && trim($query) !== '') {
-            $sql .= ' AND (p.name LIKE ? OR p.sku LIKE ? OR p.slug LIKE ?)';
-            $like = '%' . trim($query) . '%';
+        $q = trim($query);
+        if ($q !== '') {
+            $like = '%' . AdminServerList::escapeLike($q) . '%';
+            $where[] = '(p.name LIKE ? OR p.sku LIKE ? OR p.slug LIKE ?)';
             $params[] = $like;
             $params[] = $like;
             $params[] = $like;
         }
-        if ($categorySlug !== null && $categorySlug !== '') {
-            $sql .= ' AND c.slug = ?';
+        if ($categorySlug !== '') {
+            $where[] = 'c.slug = ?';
             $params[] = $categorySlug;
         }
-        if ($status !== null && $status !== '') {
-            $sql .= ' AND p.status = ?';
+        if ($status !== '') {
+            $where[] = 'p.status = ?';
             $params[] = $status;
         }
-        $sql .= ' ORDER BY p.updated_at DESC, p.name';
+        $whereSql = implode(' AND ', $where);
+        $sortMap = [
+            'name' => 'p.name',
+            'sku' => 'p.sku',
+            'updated_at' => 'p.updated_at',
+            'id' => 'p.id',
+            'status' => 'p.status',
+        ];
+        $orderSql = AdminServerList::orderBySql($sortColumn, $sortDirection, $sortMap, 'updated_at');
+        $from = ' FROM products p LEFT JOIN categories c ON c.id = p.category_id WHERE ' . $whereSql;
+        $countStmt = $pdo->prepare('SELECT COUNT(*)' . $from);
+        $countStmt->execute($params);
+        $total = (int) $countStmt->fetchColumn();
+        $totalPages = max(1, (int) ceil($total / $perPage));
+        if ($page > $totalPages) {
+            $page = $totalPages;
+        }
+        $offset = ($page - 1) * $perPage;
+        $sql = 'SELECT p.*, c.slug AS category_slug, c.name AS category_name' . $from
+            . ' ORDER BY ' . $orderSql . ', p.id DESC LIMIT ? OFFSET ?';
         $stmt = $pdo->prepare($sql);
-        $stmt->execute($params);
+        $i = 1;
+        foreach ($params as $p) {
+            $stmt->bindValue($i++, $p);
+        }
+        $stmt->bindValue($i++, $perPage, PDO::PARAM_INT);
+        $stmt->bindValue($i, $offset, PDO::PARAM_INT);
+        $stmt->execute();
 
-        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        return [
+            'rows' => $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [],
+            'total' => $total,
+            'page' => $page,
+            'per_page' => $perPage,
+            'total_pages' => $totalPages,
+        ];
     }
 
     public static function find(int $id): ?array
@@ -61,8 +191,29 @@ final class ProductRepository
         $stmt = Database::pdo()->prepare($sql);
         $stmt->execute([$slug]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$row) {
+            return null;
+        }
+        if ($publicOnly && !self::isPubliclyVisibleRow($row)) {
+            return null;
+        }
 
-        return $row ?: null;
+        return $row;
+    }
+
+    public static function slugTaken(string $slug, ?int $excludeId = null): bool
+    {
+        Install::ensureConnection();
+        $sql = 'SELECT COUNT(*) FROM products WHERE slug = ?';
+        $params = [$slug];
+        if ($excludeId !== null) {
+            $sql .= ' AND id != ?';
+            $params[] = $excludeId;
+        }
+        $stmt = Database::pdo()->prepare($sql);
+        $stmt->execute($params);
+
+        return (int) $stmt->fetchColumn() > 0;
     }
 
     /** @return list<array<string, mixed>> */
@@ -125,10 +276,13 @@ final class ProductRepository
     {
         $errors = Validation::requiredFields($input, ['name']);
         $name = trim((string) ($input['name'] ?? ''));
-        $slugInput = trim((string) ($input['slug'] ?? ''));
-        $slug = $slugInput !== '' ? $slugInput : CatalogueSlug::fromName($name);
-        if (!Validation::slug($slug)) {
-            $errors['slug'] = 'Invalid slug format.';
+        $existing = $id !== null ? self::find($id) : null;
+        $slugRes = CatalogueSlug::resolveForAdminSave('product', $name, $input, $existing, $id);
+        if (!$slugRes['ok']) {
+            $errors = array_merge($errors, $slugRes['errors']);
+            $slug = '';
+        } else {
+            $slug = $slugRes['slug'];
         }
         $status = (string) ($input['status'] ?? 'draft');
         if (!in_array($status, ['draft', 'published', 'archived'], true)) {
@@ -145,7 +299,6 @@ final class ProductRepository
             return ['ok' => false, 'errors' => $errors];
         }
 
-        $slug = CatalogueSlug::uniqueProductSlug($slug, $id);
         $sku = trim((string) ($input['sku'] ?? ''));
         $short = trim((string) ($input['short_description'] ?? ''));
         $desc = trim((string) ($input['description'] ?? ''));
@@ -433,7 +586,7 @@ final class ProductRepository
         if ($withRelations) {
             foreach (self::relatedProductIds($productId) as $rid) {
                 $rp = self::find($rid);
-                if ($rp && ($rp['status'] ?? '') === 'published') {
+                if ($rp !== null && self::isPubliclyVisibleRow($rp)) {
                     $relatedSlugs[] = (string) $rp['slug'];
                 }
             }
@@ -470,6 +623,9 @@ final class ProductRepository
         );
         $out = [];
         foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            if (!self::isPubliclyVisibleRow($row)) {
+                continue;
+            }
             $out[] = self::toPublicArray($row);
         }
 
@@ -487,6 +643,48 @@ final class ProductRepository
             return (int) Database::pdo()->query('SELECT COUNT(*) FROM products')->fetchColumn();
         } catch (Throwable $e) {
             return 0;
+        }
+    }
+
+    /** @return array{ok: bool, message: string, archived?: bool} */
+    public static function deleteOrArchiveForAdmin(int $id): array
+    {
+        $row = self::find($id);
+        if ($row === null) {
+            return ['ok' => false, 'message' => 'Product not found.'];
+        }
+        $pdo = Database::pdo();
+        $st = $pdo->prepare(
+            'SELECT COUNT(*) FROM order_items oi
+             INNER JOIN product_variants pv ON pv.id = oi.variant_id
+             WHERE pv.product_id = ?'
+        );
+        $st->execute([$id]);
+        $viaVariant = (int) $st->fetchColumn();
+        $sku = trim((string) ($row['sku'] ?? ''));
+        $viaSku = 0;
+        if ($sku !== '') {
+            $sk = $pdo->prepare('SELECT COUNT(*) FROM order_items WHERE sku = ?');
+            $sk->execute([$sku]);
+            $viaSku = (int) $sk->fetchColumn();
+        }
+        if ($viaVariant > 0 || $viaSku > 0) {
+            $pdo->prepare("UPDATE products SET status = 'archived', updated_at = NOW() WHERE id = ?")->execute([$id]);
+            CatalogueGateway::reset();
+            AuditLog::write('product.archive', 'product', (string) $id, ['reason' => 'order_history']);
+
+            return ['ok' => true, 'message' => 'Product appears on past orders and was archived instead of deleted.', 'archived' => true];
+        }
+        try {
+            $pdo->prepare('DELETE FROM products WHERE id = ?')->execute([$id]);
+            CatalogueGateway::reset();
+            AuditLog::write('product.delete', 'product', (string) $id, ['slug' => (string) $row['slug']]);
+
+            return ['ok' => true, 'message' => 'Product deleted.'];
+        } catch (Throwable $e) {
+            error_log('ProductRepository::deleteOrArchiveForAdmin: ' . $e->getMessage());
+
+            return ['ok' => false, 'message' => 'Could not delete product. Try archiving it from the editor instead.'];
         }
     }
 }

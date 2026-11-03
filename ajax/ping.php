@@ -12,8 +12,11 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     Csrf::requireValid();
 }
 
+if (Install::isApplicationInstalled() && !AdminAuth::check()) {
+    Ajax::success(['status' => 'ok'], 'OK');
+}
+
 Ajax::success([
     'app' => (string) (App::config()['app']['name'] ?? 'Apni Tokri'),
-    'env' => App::env(),
-    'time' => date('c'),
+    'status' => 'ok',
 ], 'OK');

@@ -49,7 +49,6 @@ $zones = $useDb ? DeliveryZoneRepository::allZones() : [];
 $missingWeights = $useDb ? DeliveryZoneAdminService::countVariantsMissingWeight() : 0;
 
 admin_layout_start(['pageTitle' => 'Delivery policies', 'activeAdminNav' => 'settings']);
-admin_flash_render();
 $pageHeading = 'Delivery policies';
 $pageDescription = 'Zone resolution mode, distance source, and checkout provider fallback flags.';
 require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';

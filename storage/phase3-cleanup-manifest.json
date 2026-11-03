@@ -1,0 +1,1805 @@
+{
+    "generated_at": "2026-11-03T14:59:18+05:30",
+    "phase3_1_reviewed_at": "2026-11-03T15:05:30+05:30",
+    "phase3_1_status": "READY FOR MANUAL APPROVAL",
+    "read_only": true,
+    "phase": "3_cleanup_planning",
+    "app_env": "local",
+    "schema_version": "1.20.0-invoices",
+    "audit_snapshot": "\/var\/www\/html\/Apni_Tokri\/storage\/audit-demo-test-data.json",
+    "classification_totals": {
+        "confirmed_qa_test": 149,
+        "confirmed_demo_seed": 9,
+        "likely_qa_verify": 22,
+        "qa_debug_generated": 9679,
+        "genuine_business": 96,
+        "unknown_manual_review": 53
+    },
+    "classification_legend": {
+        "confirmed_qa_test": "Named fixture\/script marker present in DB",
+        "confirmed_demo_seed": "seed-catalogue.php \/ DemoCatalogue slugs",
+        "likely_qa_verify": "Heuristic (simulate gateway, bulk) — verify before delete",
+        "qa_debug_generated": "Bulk automated suite side effects",
+        "genuine_business": "Config, admin, or non-simulate payments — protect",
+        "unknown_manual_review": "Insufficient marker — human decision"
+    },
+    "tier_a_fixture_scopes": [
+        {
+            "scope_id": "stage12_c1_orders",
+            "label": "Stage 12 C1 — AT-C1FIX orders",
+            "classification": "confirmed_qa_test",
+            "evidence": {
+                "fixture": "scripts\/includes\/stage12_phase_c1_fixture.php",
+                "fixture_teardown": "stage12_phase_c1_teardown",
+                "marker": "orders.order_number LIKE 'AT-C1FIX-%'"
+            },
+            "proposed_operation": "DELETE scoped by marker (future phase — not executed here)",
+            "approval": "automatic_candidate",
+            "backup_requirement": "table_level_export_before_delete",
+            "rollback": "restore from mysqldump table extract or full DB backup",
+            "root_table": "orders",
+            "root_row_count": 14,
+            "root_records_sample": [
+                {
+                    "id": 1794,
+                    "order_number": "AT-C1FIX-65BA51FD"
+                },
+                {
+                    "id": 1901,
+                    "order_number": "AT-C1FIX-5B029F37"
+                },
+                {
+                    "id": 2008,
+                    "order_number": "AT-C1FIX-BA1925FB"
+                },
+                {
+                    "id": 2009,
+                    "order_number": "AT-C1FIX-DFEB5FFD"
+                },
+                {
+                    "id": 2116,
+                    "order_number": "AT-C1FIX-889AB929"
+                },
+                {
+                    "id": 2225,
+                    "order_number": "AT-C1FIX-648BF9AA"
+                },
+                {
+                    "id": 2381,
+                    "order_number": "AT-C1FIX-0CB19E65"
+                },
+                {
+                    "id": 2473,
+                    "order_number": "AT-C1FIX-C20B94FA"
+                },
+                {
+                    "id": 2540,
+                    "order_number": "AT-C1FIX-125B160F"
+                },
+                {
+                    "id": 2656,
+                    "order_number": "AT-C1FIX-6B4BEC33"
+                },
+                {
+                    "id": 2748,
+                    "order_number": "AT-C1FIX-02B2E803"
+                },
+                {
+                    "id": 2856,
+                    "order_number": "AT-C1FIX-1052F7BD"
+                },
+                {
+                    "id": 2966,
+                    "order_number": "AT-C1FIX-CA3C9FCD"
+                },
+                {
+                    "id": 2977,
+                    "order_number": "AT-C1FIX-F3AD9B78"
+                }
+            ],
+            "dependent_row_counts": {
+                "order_items": 14,
+                "order_status_history": 0,
+                "payments": 14,
+                "payment_refunds_via_payment": 0,
+                "deliveries": 0,
+                "delivery_status_history": 0,
+                "refund_requests": 14,
+                "invoices": 0,
+                "delivery_slot_reservations": 0
+            },
+            "cleanup_order_hint": [
+                "payment_refunds (via payments\/refund_requests)",
+                "refund_request_* children",
+                "payments",
+                "delivery_status_history → deliveries",
+                "order_items, order_status_history",
+                "invoices (if any — manual if linked)",
+                "orders"
+            ],
+            "notes": null
+        },
+        {
+            "scope_id": "stage12_c1_refunds",
+            "label": "Stage 12 C1 — RF-C1* refund requests",
+            "classification": "confirmed_qa_test",
+            "evidence": {
+                "fixture": "scripts\/includes\/stage12_phase_c1_fixture.php",
+                "fixture_teardown": null,
+                "marker": "refund_requests.request_number LIKE 'RF-C1%'"
+            },
+            "proposed_operation": "DELETE scoped by marker (future phase — not executed here)",
+            "approval": "automatic_candidate",
+            "backup_requirement": "table_level_export_before_delete",
+            "rollback": "restore from mysqldump table extract or full DB backup",
+            "root_table": "refund_requests",
+            "root_row_count": 14,
+            "root_records_sample": [
+                {
+                    "id": 1,
+                    "request_number": "RF-C1T-65ba51fd",
+                    "order_id": 1794
+                },
+                {
+                    "id": 2,
+                    "request_number": "RF-C1T-5b029f37",
+                    "order_id": 1901
+                },
+                {
+                    "id": 3,
+                    "request_number": "RF-C1T-ba1925fb",
+                    "order_id": 2008
+                },
+                {
+                    "id": 4,
+                    "request_number": "RF-C1T-dfeb5ffd",
+                    "order_id": 2009
+                },
+                {
+                    "id": 5,
+                    "request_number": "RF-C1T-889ab929",
+                    "order_id": 2116
+                },
+                {
+                    "id": 6,
+                    "request_number": "RF-C1T-648bf9aa",
+                    "order_id": 2225
+                },
+                {
+                    "id": 7,
+                    "request_number": "RF-C1T-0cb19e65",
+                    "order_id": 2381
+                },
+                {
+                    "id": 8,
+                    "request_number": "RF-C1T-c20b94fa",
+                    "order_id": 2473
+                },
+                {
+                    "id": 9,
+                    "request_number": "RF-C1T-125b160f",
+                    "order_id": 2540
+                },
+                {
+                    "id": 10,
+                    "request_number": "RF-C1T-6b4bec33",
+                    "order_id": 2656
+                },
+                {
+                    "id": 11,
+                    "request_number": "RF-C1T-02b2e803",
+                    "order_id": 2748
+                },
+                {
+                    "id": 12,
+                    "request_number": "RF-C1T-1052f7bd",
+                    "order_id": 2856
+                },
+                {
+                    "id": 13,
+                    "request_number": "RF-C1T-ca3c9fcd",
+                    "order_id": 2966
+                },
+                {
+                    "id": 14,
+                    "request_number": "RF-C1T-f3ad9b78",
+                    "order_id": 2977
+                }
+            ],
+            "dependent_row_counts": {
+                "refund_request_items": 14,
+                "refund_request_history": 42,
+                "refund_request_evidence": 0,
+                "payment_refunds": 0
+            },
+            "cleanup_order_hint": [
+                "payment_refunds",
+                "refund_request_evidence, refund_request_items, refund_request_history",
+                "refund_requests"
+            ],
+            "notes": null
+        },
+        {
+            "scope_id": "stage12_c1_customers",
+            "label": "Stage 12 C1 — 987C1* mobiles",
+            "classification": "confirmed_qa_test",
+            "evidence": {
+                "fixture": "scripts\/includes\/stage12_phase_c1_fixture.php",
+                "fixture_teardown": null,
+                "marker": "customers.mobile LIKE '987C1%'"
+            },
+            "proposed_operation": "DELETE scoped by marker (future phase — not executed here)",
+            "approval": "automatic_candidate_with_dependency_check",
+            "backup_requirement": "table_level_export_before_delete",
+            "rollback": "restore from mysqldump table extract or full DB backup",
+            "root_table": "customers",
+            "root_row_count": 28,
+            "root_records_sample": [
+                {
+                    "id": 3,
+                    "mobile": "987C1A65ba",
+                    "name": "Stage12 C1 Test Customer A"
+                },
+                {
+                    "id": 4,
+                    "mobile": "987C1B65ba",
+                    "name": "Stage12 C1 Test Customer B"
+                },
+                {
+                    "id": 5,
+                    "mobile": "987C1A5b02",
+                    "name": "Stage12 C1 Test Customer A"
+                },
+                {
+                    "id": 6,
+                    "mobile": "987C1B5b02",
+                    "name": "Stage12 C1 Test Customer B"
+                },
+                {
+                    "id": 7,
+                    "mobile": "987C1Aba19",
+                    "name": "Stage12 C1 Test Customer A"
+                },
+                {
+                    "id": 8,
+                    "mobile": "987C1Bba19",
+                    "name": "Stage12 C1 Test Customer B"
+                },
+                {
+                    "id": 9,
+                    "mobile": "987C1Adfeb",
+                    "name": "Stage12 C1 Test Customer A"
+                },
+                {
+                    "id": 10,
+                    "mobile": "987C1Bdfeb",
+                    "name": "Stage12 C1 Test Customer B"
+                },
+                {
+                    "id": 11,
+                    "mobile": "987C1A889a",
+                    "name": "Stage12 C1 Test Customer A"
+                },
+                {
+                    "id": 12,
+                    "mobile": "987C1B889a",
+                    "name": "Stage12 C1 Test Customer B"
+                },
+                {
+                    "id": 14,
+                    "mobile": "987C1A648b",
+                    "name": "Stage12 C1 Test Customer A"
+                },
+                {
+                    "id": 15,
+                    "mobile": "987C1B648b",
+                    "name": "Stage12 C1 Test Customer B"
+                },
+                {
+                    "id": 16,
+                    "mobile": "987C1A0cb1",
+                    "name": "Stage12 C1 Test Customer A"
+                },
+                {
+                    "id": 17,
+                    "mobile": "987C1B0cb1",
+                    "name": "Stage12 C1 Test Customer B"
+                },
+                {
+                    "id": 18,
+                    "mobile": "987C1Ac20b",
+                    "name": "Stage12 C1 Test Customer A"
+                },
+                {
+                    "id": 19,
+                    "mobile": "987C1Bc20b",
+                    "name": "Stage12 C1 Test Customer B"
+                },
+                {
+                    "id": 20,
+                    "mobile": "987C1A125b",
+                    "name": "Stage12 C1 Test Customer A"
+                },
+                {
+                    "id": 21,
+                    "mobile": "987C1B125b",
+                    "name": "Stage12 C1 Test Customer B"
+                },
+                {
+                    "id": 22,
+                    "mobile": "987C1A6b4b",
+                    "name": "Stage12 C1 Test Customer A"
+                },
+                {
+                    "id": 23,
+                    "mobile": "987C1B6b4b",
+                    "name": "Stage12 C1 Test Customer B"
+                },
+                {
+                    "id": 24,
+                    "mobile": "987C1A02b2",
+                    "name": "Stage12 C1 Test Customer A"
+                },
+                {
+                    "id": 25,
+                    "mobile": "987C1B02b2",
+                    "name": "Stage12 C1 Test Customer B"
+                },
+                {
+                    "id": 36,
+                    "mobile": "987C1A1052",
+                    "name": "Stage12 C1 Test Customer A"
+                },
+                {
+                    "id": 37,
+                    "mobile": "987C1B1052",
+                    "name": "Stage12 C1 Test Customer B"
+                },
+                {
+                    "id": 48,
+                    "mobile": "987C1Aca3c",
+                    "name": "Stage12 C1 Test Customer A"
+                }
+            ],
+            "dependent_row_counts": {
+                "orders": 14,
+                "customer_subscriptions": 14,
+                "non_c1_orders": 0
+            },
+            "cleanup_order_hint": [
+                "Complete C1 order\/refund\/sub teardown first",
+                "Verify non_c1_orders = 0 before customer DELETE",
+                "customers (ON DELETE CASCADE to subscriptions — dangerous)"
+            ],
+            "notes": "Only delete customers after C1 orders\/subs removed; customer delete CASCADE wipes subscriptions."
+        },
+        {
+            "scope_id": "stage12_c1_subscriptions",
+            "label": "Stage 12 C1 — SUB-C1FIX subscriptions",
+            "classification": "confirmed_qa_test",
+            "evidence": {
+                "fixture": "scripts\/includes\/stage12_phase_c1_fixture.php",
+                "fixture_teardown": null,
+                "marker": "customer_subscriptions.subscription_number LIKE 'SUB-C1FIX-%'"
+            },
+            "proposed_operation": "DELETE scoped by marker (future phase — not executed here)",
+            "approval": "automatic_candidate",
+            "backup_requirement": "table_level_export_before_delete",
+            "rollback": "restore from mysqldump table extract or full DB backup",
+            "root_table": "customer_subscriptions",
+            "root_row_count": 14,
+            "root_records_sample": [
+                {
+                    "id": 2616,
+                    "subscription_number": "SUB-C1FIX-65BA51FD",
+                    "customer_id": 3
+                },
+                {
+                    "id": 2743,
+                    "subscription_number": "SUB-C1FIX-5B029F37",
+                    "customer_id": 5
+                },
+                {
+                    "id": 2870,
+                    "subscription_number": "SUB-C1FIX-BA1925FB",
+                    "customer_id": 7
+                },
+                {
+                    "id": 2871,
+                    "subscription_number": "SUB-C1FIX-DFEB5FFD",
+                    "customer_id": 9
+                },
+                {
+                    "id": 2998,
+                    "subscription_number": "SUB-C1FIX-889AB929",
+                    "customer_id": 11
+                },
+                {
+                    "id": 3125,
+                    "subscription_number": "SUB-C1FIX-648BF9AA",
+                    "customer_id": 14
+                },
+                {
+                    "id": 3331,
+                    "subscription_number": "SUB-C1FIX-0CB19E65",
+                    "customer_id": 16
+                },
+                {
+                    "id": 3468,
+                    "subscription_number": "SUB-C1FIX-C20B94FA",
+                    "customer_id": 18
+                },
+                {
+                    "id": 3556,
+                    "subscription_number": "SUB-C1FIX-125B160F",
+                    "customer_id": 20
+                },
+                {
+                    "id": 3741,
+                    "subscription_number": "SUB-C1FIX-6B4BEC33",
+                    "customer_id": 22
+                },
+                {
+                    "id": 3878,
+                    "subscription_number": "SUB-C1FIX-02B2E803",
+                    "customer_id": 24
+                },
+                {
+                    "id": 4015,
+                    "subscription_number": "SUB-C1FIX-1052F7BD",
+                    "customer_id": 36
+                },
+                {
+                    "id": 4154,
+                    "subscription_number": "SUB-C1FIX-CA3C9FCD",
+                    "customer_id": 48
+                },
+                {
+                    "id": 4172,
+                    "subscription_number": "SUB-C1FIX-F3AD9B78",
+                    "customer_id": 50
+                }
+            ],
+            "dependent_row_counts": {
+                "subscription_payments": 14,
+                "subscription_delivery_days": 0,
+                "subscription_delivery_baskets": 0,
+                "subscription_delivery_basket_items": 0,
+                "subscription_stock_reservations": 0,
+                "subscription_fulfilment_events": 0,
+                "subscription_fulfilment_orders": 0,
+                "subscription_fulfilment_deliveries": 0,
+                "subscription_skips": 0,
+                "subscription_pauses": 0
+            },
+            "cleanup_order_hint": [
+                "deliveries \/ delivery_status_history for fulfilment orders",
+                "orders (subscription_delivery_day_id)",
+                "subscription_stock_reservations, fulfilment_events, baskets (often CASCADE from days\/subs)",
+                "subscription_payments",
+                "customer_subscriptions"
+            ],
+            "notes": null
+        },
+        {
+            "scope_id": "stage12_c3_orders",
+            "label": "Stage 12 C3 — AT-C3-* orders",
+            "classification": "confirmed_qa_test",
+            "evidence": {
+                "fixture": "scripts\/includes\/stage12_phase_c3_fixture.php",
+                "fixture_teardown": "stage12_c3_cleanup",
+                "marker": "orders.order_number LIKE 'AT-C3-%'"
+            },
+            "proposed_operation": "none — zero rows match",
+            "approval": "none",
+            "backup_requirement": "none",
+            "rollback": "restore from mysqldump table extract or full DB backup",
+            "root_table": "orders",
+            "root_row_count": 0,
+            "root_records_sample": [],
+            "dependent_row_counts": [],
+            "cleanup_order_hint": [],
+            "notes": null
+        },
+        {
+            "scope_id": "d2h_orders",
+            "label": "Delivery D2 hardening — D2H-* orders",
+            "classification": "confirmed_qa_test",
+            "evidence": {
+                "fixture": "scripts\/includes\/d2h_test_fixture.php",
+                "fixture_teardown": "d2h_test_cleanup",
+                "marker": "orders.order_number LIKE 'D2H-%'"
+            },
+            "proposed_operation": "none — zero rows match",
+            "approval": "none",
+            "backup_requirement": "none",
+            "rollback": "restore from mysqldump table extract or full DB backup",
+            "root_table": "orders",
+            "root_row_count": 0,
+            "root_records_sample": [],
+            "dependent_row_counts": [],
+            "cleanup_order_hint": [],
+            "notes": null
+        },
+        {
+            "scope_id": "payment_init_at_pay",
+            "label": "Payment initiation tests — AT-PAY-*",
+            "classification": "confirmed_qa_test",
+            "evidence": {
+                "fixture": "scripts\/test-payment-initiation.php",
+                "fixture_teardown": null,
+                "marker": "orders.order_number LIKE 'AT-PAY-%'"
+            },
+            "proposed_operation": "none — zero rows match",
+            "approval": "none",
+            "backup_requirement": "none",
+            "rollback": "restore from mysqldump table extract or full DB backup",
+            "root_table": "orders",
+            "root_row_count": 0,
+            "root_records_sample": [],
+            "dependent_row_counts": [],
+            "cleanup_order_hint": [],
+            "notes": null
+        },
+        {
+            "scope_id": "address_map_at_map",
+            "label": "Address map pin tests — AT-MAP-*",
+            "classification": "confirmed_qa_test",
+            "evidence": {
+                "fixture": "scripts\/test-address-map-pin.php",
+                "fixture_teardown": null,
+                "marker": "orders.order_number LIKE 'AT-MAP-%'"
+            },
+            "proposed_operation": "none — zero rows match",
+            "approval": "none",
+            "backup_requirement": "none",
+            "rollback": "restore from mysqldump table extract or full DB backup",
+            "root_table": "orders",
+            "root_row_count": 0,
+            "root_records_sample": [],
+            "dependent_row_counts": [],
+            "cleanup_order_hint": [],
+            "notes": null
+        },
+        {
+            "scope_id": "account_pagination_sub_pg",
+            "label": "Account list pagination — SUB-PG-* subs",
+            "classification": "confirmed_qa_test",
+            "evidence": {
+                "fixture": "scripts\/test-account-list-pagination.php",
+                "fixture_teardown": null,
+                "marker": "customer_subscriptions.subscription_number LIKE 'SUB-PG-%'"
+            },
+            "proposed_operation": "DELETE scoped by marker (future phase — not executed here)",
+            "approval": "automatic_candidate",
+            "backup_requirement": "table_level_export_before_delete",
+            "rollback": "restore from mysqldump table extract or full DB backup",
+            "root_table": "customer_subscriptions",
+            "root_row_count": 75,
+            "root_records_sample": [
+                {
+                    "id": 5362,
+                    "subscription_number": "SUB-PG-pg7ee3e-00"
+                },
+                {
+                    "id": 5363,
+                    "subscription_number": "SUB-PG-pg7ee3e-01"
+                },
+                {
+                    "id": 5364,
+                    "subscription_number": "SUB-PG-pg7ee3e-02"
+                },
+                {
+                    "id": 5365,
+                    "subscription_number": "SUB-PG-pg7ee3e-03"
+                },
+                {
+                    "id": 5366,
+                    "subscription_number": "SUB-PG-pg7ee3e-04"
+                },
+                {
+                    "id": 5367,
+                    "subscription_number": "SUB-PG-pg7ee3e-05"
+                },
+                {
+                    "id": 5368,
+                    "subscription_number": "SUB-PG-pg7ee3e-06"
+                },
+                {
+                    "id": 5369,
+                    "subscription_number": "SUB-PG-pg7ee3e-07"
+                },
+                {
+                    "id": 5370,
+                    "subscription_number": "SUB-PG-pg7ee3e-08"
+                },
+                {
+                    "id": 5371,
+                    "subscription_number": "SUB-PG-pg7ee3e-09"
+                },
+                {
+                    "id": 5372,
+                    "subscription_number": "SUB-PG-pg7ee3e-10"
+                },
+                {
+                    "id": 5373,
+                    "subscription_number": "SUB-PG-pg7ee3e-11"
+                },
+                {
+                    "id": 5374,
+                    "subscription_number": "SUB-PG-pg7ee3e-12"
+                },
+                {
+                    "id": 5375,
+                    "subscription_number": "SUB-PG-pg7ee3e-13"
+                },
+                {
+                    "id": 5376,
+                    "subscription_number": "SUB-PG-pg7ee3e-14"
+                },
+                {
+                    "id": 5377,
+                    "subscription_number": "SUB-PG-pg7ee3e-15"
+                },
+                {
+                    "id": 5378,
+                    "subscription_number": "SUB-PG-pg7ee3e-16"
+                },
+                {
+                    "id": 5379,
+                    "subscription_number": "SUB-PG-pg7ee3e-17"
+                },
+                {
+                    "id": 5380,
+                    "subscription_number": "SUB-PG-pg7ee3e-18"
+                },
+                {
+                    "id": 5381,
+                    "subscription_number": "SUB-PG-pg7ee3e-19"
+                },
+                {
+                    "id": 5382,
+                    "subscription_number": "SUB-PG-pg7ee3e-20"
+                },
+                {
+                    "id": 5383,
+                    "subscription_number": "SUB-PG-pg7ee3e-21"
+                },
+                {
+                    "id": 5384,
+                    "subscription_number": "SUB-PG-pg7ee3e-22"
+                },
+                {
+                    "id": 5385,
+                    "subscription_number": "SUB-PG-pg7ee3e-23"
+                },
+                {
+                    "id": 5386,
+                    "subscription_number": "SUB-PG-pg7ee3e-24"
+                }
+            ],
+            "dependent_row_counts": {
+                "subscription_payments": 0,
+                "subscription_delivery_days": 0,
+                "subscription_delivery_baskets": 0,
+                "subscription_delivery_basket_items": 0,
+                "subscription_stock_reservations": 0,
+                "subscription_fulfilment_events": 0,
+                "subscription_fulfilment_orders": 0,
+                "subscription_fulfilment_deliveries": 0,
+                "subscription_skips": 0,
+                "subscription_pauses": 0
+            },
+            "cleanup_order_hint": [
+                "deliveries \/ delivery_status_history for fulfilment orders",
+                "orders (subscription_delivery_day_id)",
+                "subscription_stock_reservations, fulfilment_events, baskets (often CASCADE from days\/subs)",
+                "subscription_payments",
+                "customer_subscriptions"
+            ],
+            "notes": null
+        },
+        {
+            "scope_id": "sub_fulfil_sub_h",
+            "label": "Subscription fulfilment fixture — SUB-H-*",
+            "classification": "confirmed_qa_test",
+            "evidence": {
+                "fixture": "scripts\/includes\/subscription_test_fulfilment_fixture.php",
+                "fixture_teardown": "SubscriptionTestFulfilmentFixture::purgeTestSubscriptionsByNumberPrefix",
+                "marker": "customer_subscriptions.subscription_number LIKE 'SUB-H-%'"
+            },
+            "proposed_operation": "DELETE scoped by marker (future phase — not executed here)",
+            "approval": "automatic_candidate",
+            "backup_requirement": "table_level_export_before_delete",
+            "rollback": "restore from mysqldump table extract or full DB backup",
+            "root_table": "customer_subscriptions",
+            "root_row_count": 1,
+            "root_records_sample": [
+                {
+                    "id": 6791,
+                    "subscription_number": "SUB-H-70C420"
+                }
+            ],
+            "dependent_row_counts": {
+                "subscription_payments": 0,
+                "subscription_delivery_days": 4,
+                "subscription_delivery_baskets": 2,
+                "subscription_delivery_basket_items": 2,
+                "subscription_stock_reservations": 2,
+                "subscription_fulfilment_events": 1,
+                "subscription_fulfilment_orders": 1,
+                "subscription_fulfilment_deliveries": 1,
+                "subscription_basket_substitutions": 3,
+                "subscription_skips": 0,
+                "subscription_pauses": 0
+            },
+            "cleanup_order_hint": [
+                "deliveries \/ delivery_status_history for fulfilment orders",
+                "orders (subscription_delivery_day_id)",
+                "subscription_stock_reservations, fulfilment_events, baskets (often CASCADE from days\/subs)",
+                "subscription_payments",
+                "customer_subscriptions"
+            ],
+            "notes": null
+        },
+        {
+            "scope_id": "admin_delete_zt_sub",
+            "label": "Admin delete test — ZT-SUB-*",
+            "classification": "confirmed_qa_test",
+            "evidence": {
+                "fixture": "scripts\/test-subscription-admin-delete.php",
+                "fixture_teardown": null,
+                "marker": "customer_subscriptions.subscription_number LIKE 'ZT-SUB-%'"
+            },
+            "proposed_operation": "DELETE scoped by marker (future phase — not executed here)",
+            "approval": "automatic_candidate",
+            "backup_requirement": "table_level_export_before_delete",
+            "rollback": "restore from mysqldump table extract or full DB backup",
+            "root_table": "customer_subscriptions",
+            "root_row_count": 1,
+            "root_records_sample": [
+                {
+                    "id": 6682,
+                    "subscription_number": "ZT-SUB-755294"
+                }
+            ],
+            "dependent_row_counts": {
+                "subscription_payments": 0,
+                "subscription_delivery_days": 0,
+                "subscription_delivery_baskets": 0,
+                "subscription_delivery_basket_items": 0,
+                "subscription_stock_reservations": 0,
+                "subscription_fulfilment_events": 0,
+                "subscription_fulfilment_orders": 0,
+                "subscription_fulfilment_deliveries": 0,
+                "subscription_skips": 0,
+                "subscription_pauses": 0
+            },
+            "cleanup_order_hint": [
+                "deliveries \/ delivery_status_history for fulfilment orders",
+                "orders (subscription_delivery_day_id)",
+                "subscription_stock_reservations, fulfilment_events, baskets (often CASCADE from days\/subs)",
+                "subscription_payments",
+                "customer_subscriptions"
+            ],
+            "notes": null
+        },
+        {
+            "scope_id": "reports_at_r145",
+            "label": "Reports phase 5 — AT-R145-* orders",
+            "classification": "confirmed_qa_test",
+            "evidence": {
+                "fixture": "scripts\/test-reports-stage14-phase5.php",
+                "fixture_teardown": null,
+                "marker": "orders.order_number LIKE 'AT-R145-%'"
+            },
+            "proposed_operation": "none — zero rows match",
+            "approval": "none",
+            "backup_requirement": "none",
+            "rollback": "restore from mysqldump table extract or full DB backup",
+            "root_table": "orders",
+            "root_row_count": 0,
+            "root_records_sample": [],
+            "dependent_row_counts": [],
+            "cleanup_order_hint": [],
+            "notes": null
+        },
+        {
+            "scope_id": "customer_account_at_acct",
+            "label": "Customer account tests — AT-ACCT*",
+            "classification": "confirmed_qa_test",
+            "evidence": {
+                "fixture": "scripts\/test-customer-account.php",
+                "fixture_teardown": null,
+                "marker": "orders.order_number LIKE 'AT-ACCT%'"
+            },
+            "proposed_operation": "DELETE scoped by marker (future phase — not executed here)",
+            "approval": "automatic_candidate",
+            "backup_requirement": "table_level_export_before_delete",
+            "rollback": "restore from mysqldump table extract or full DB backup",
+            "root_table": "orders",
+            "root_row_count": 2,
+            "root_records_sample": [
+                {
+                    "id": 3313,
+                    "order_number": "AT-ACCT-6f6a72"
+                },
+                {
+                    "id": 3314,
+                    "order_number": "AT-ACCT2-6f6a72"
+                }
+            ],
+            "dependent_row_counts": {
+                "order_items": 0,
+                "order_status_history": 0,
+                "payments": 0,
+                "payment_refunds_via_payment": 0,
+                "deliveries": 0,
+                "delivery_status_history": 0,
+                "refund_requests": 0,
+                "invoices": 0,
+                "delivery_slot_reservations": 0
+            },
+            "cleanup_order_hint": [
+                "payment_refunds (via payments\/refund_requests)",
+                "refund_request_* children",
+                "payments",
+                "delivery_status_history → deliveries",
+                "order_items, order_status_history",
+                "invoices (if any — manual if linked)",
+                "orders"
+            ],
+            "notes": null
+        },
+        {
+            "scope_id": "stage13_cms_slugs",
+            "label": "Stage 13 CMS fixture slugs at-cms13-%",
+            "classification": "confirmed_qa_test",
+            "evidence": {
+                "fixture": "scripts\/includes\/stage13_phase1_fixture.php",
+                "fixture_teardown": null,
+                "marker": "cms_pages.slug LIKE 'at-cms13-%' OR products.slug LIKE 'at-cms13-%'"
+            },
+            "proposed_operation": "none — zero rows match",
+            "approval": "none",
+            "backup_requirement": "none",
+            "rollback": "restore from mysqldump table extract or full DB backup",
+            "root_table": "cms_pages",
+            "root_row_count": 0,
+            "root_records_sample": [],
+            "dependent_row_counts": [],
+            "cleanup_order_hint": [],
+            "notes": null
+        },
+        {
+            "scope_id": "stage13_product_at_prefix",
+            "label": "Stage 13\/14 CLI product slugs at-%",
+            "classification": "likely_qa_verify",
+            "evidence": {
+                "fixture": "scripts\/includes\/stage13_phase*_fixture.php",
+                "fixture_teardown": null,
+                "marker": "products.slug LIKE 'at-%'"
+            },
+            "proposed_operation": "DELETE scoped by marker (future phase — not executed here)",
+            "approval": "manual_review_before_delete",
+            "backup_requirement": "table_level_export_before_delete",
+            "rollback": "restore from mysqldump table extract or full DB backup",
+            "root_table": "products",
+            "root_row_count": 1,
+            "root_records_sample": [
+                {
+                    "id": 51,
+                    "slug": "at-seo13-prod-b15fd0ec",
+                    "name": "AT-SEO13 Product b15fd0ec"
+                }
+            ],
+            "dependent_row_counts": [],
+            "cleanup_order_hint": [],
+            "notes": "May reference order_items; check FK before product delete."
+        },
+        {
+            "scope_id": "rbac14_test_roles",
+            "label": "RBAC stage 14 test roles at-rbac14-%",
+            "classification": "confirmed_qa_test",
+            "evidence": {
+                "fixture": "scripts\/includes\/stage14_phase1_fixture.php",
+                "fixture_teardown": null,
+                "marker": "admin_roles.slug LIKE 'at-rbac14-%'"
+            },
+            "proposed_operation": "none — zero rows match",
+            "approval": "none",
+            "backup_requirement": "none",
+            "rollback": "restore from mysqldump table extract or full DB backup",
+            "root_table": "admin_roles",
+            "root_row_count": 0,
+            "root_records_sample": [],
+            "dependent_row_counts": [],
+            "cleanup_order_hint": [],
+            "notes": null
+        }
+    ],
+    "tier_b_bulk_scopes": [
+        {
+            "scope_id": "bulk_subscription_qa_graph",
+            "label": "Subscription QA bulk (simulate-only payments)",
+            "classification": "qa_debug_generated",
+            "approval": "engineering_and_finance_signoff",
+            "proposed_operation": "Scoped purge: subscriptions with only simulate subscription_payments + fulfilment subgraph (staging clone first)",
+            "root_row_count": 5671,
+            "evidence": {
+                "subscription_payments_simulate": 2128,
+                "customer_subscriptions_total": 5671,
+                "subs_with_only_simulate_payments": 2128,
+                "subs_with_no_subscription_payment_row": 3543,
+                "subscription_sourced_orders": 1452,
+                "subscription_delivery_days": 12460,
+                "subscription_stock_reservations": 684
+            },
+            "excluded_until_approved": [
+                "Any subscription linked to non-simulate subscription_payment",
+                "Any subscription with invoice on fulfilment order"
+            ],
+            "cleanup_order_hint": [
+                "See docs\/PHASE3_CLEANUP_PLAN.md § FK-ordered subscription teardown",
+                "Never delete subscription_stock_reservations without fulfilment order context"
+            ]
+        },
+        {
+            "scope_id": "bulk_testimonials_pending",
+            "label": "Pending testimonials (stage tests)",
+            "classification": "qa_debug_generated",
+            "approval": "manual_review",
+            "proposed_operation": "DELETE testimonials WHERE status = pending AND no production display policy",
+            "root_row_count": 487,
+            "evidence": {
+                "all_pending": 487,
+                "source": "test-trust-stage12, stage13 fixtures"
+            }
+        },
+        {
+            "scope_id": "bulk_support_tickets",
+            "label": "Support tickets from QA scripts",
+            "classification": "qa_debug_generated",
+            "approval": "manual_review",
+            "proposed_operation": "DELETE support_messages then support_tickets for confirmed QA subjects\/customers only",
+            "root_row_count": 544,
+            "evidence": {
+                "open_tickets": 520,
+                "source": "test-support-access.php, test-admin-support-notifications.php"
+            },
+            "dependent_row_counts": {
+                "support_messages": 592
+            }
+        },
+        {
+            "scope_id": "bulk_payment_webhook_events",
+            "label": "Payment webhook event log (replay tests)",
+            "classification": "qa_debug_generated",
+            "approval": "manual_review",
+            "proposed_operation": "Archive or TRUNCATE on staging only after confirming no audit requirement",
+            "root_row_count": 2977
+        },
+        {
+            "scope_id": "bulk_subscription_menu_templates",
+            "label": "Subscription menu planner templates (test runs)",
+            "classification": "qa_debug_generated",
+            "approval": "manual_review",
+            "proposed_operation": "DELETE templates not tied to plans 1–3 if confirmed test-only",
+            "root_row_count": 1581,
+            "evidence": {
+                "subscription_menu_template_items": 1580
+            }
+        },
+        {
+            "scope_id": "bulk_storefront_simulate_orders",
+            "label": "Storefront orders with captured simulate payment",
+            "classification": "likely_qa_verify",
+            "approval": "manual_review_each_order",
+            "proposed_operation": "Delete per-order after confirming no invoice \/ no real gateway payment",
+            "root_row_count": 21,
+            "evidence": {
+                "storefront_orders_total": 70,
+                "with_simulate_captured": 21,
+                "note": "AT-{ymd}-{token} is production format — do not bulk-delete all storefront orders"
+            }
+        }
+    ],
+    "protected_and_manual": [
+        {
+            "scope_id": "protect_real_gateway_payments",
+            "classification": "genuine_business_or_unknown",
+            "approval": "do_not_delete",
+            "root_row_count": 15,
+            "evidence": {
+                "payments_razorpay_cashfree": 15,
+                "captured_or_refunded": 3
+            }
+        },
+        {
+            "scope_id": "protect_invoices",
+            "classification": "unknown_manual_review",
+            "approval": "do_not_delete_without_finance",
+            "root_row_count": 4,
+            "records": [
+                {
+                    "id": 143,
+                    "public_ref": "1c7ae165c3fb967f1b56c866",
+                    "invoice_number": "AT\/2026-27\/00001",
+                    "order_id": 3034,
+                    "order_number": "UI146-a7af02-ORD"
+                },
+                {
+                    "id": 144,
+                    "public_ref": "fd6a92731fdf9801f92c950e",
+                    "invoice_number": "ATCN\/2026-27\/00001",
+                    "order_id": 3034,
+                    "order_number": "UI146-a7af02-ORD"
+                },
+                {
+                    "id": 163,
+                    "public_ref": "b7ec00912971b945295977f9",
+                    "invoice_number": "AT\/2026-27\/00003",
+                    "order_id": 3033,
+                    "order_number": "UI-T-f808c9"
+                },
+                {
+                    "id": 183,
+                    "public_ref": "1219f0704a6aee7728b5f6cf",
+                    "invoice_number": "AT\/2026-27\/00006",
+                    "order_id": 3969,
+                    "order_number": "AT-261103-4F2FA3"
+                }
+            ],
+            "evidence": {
+                "source": "scripts\/test-invoices.php likely"
+            }
+        },
+        {
+            "scope_id": "protect_settings_and_admin",
+            "classification": "genuine_business",
+            "approval": "never_bulk_delete",
+            "evidence": {
+                "settings_rows": 95,
+                "admin_users": 1,
+                "invoice_sequences": 2
+            }
+        },
+        {
+            "scope_id": "protect_demo_catalogue_with_order_refs",
+            "classification": "confirmed_demo_seed",
+            "approval": "content_migration_not_row_delete",
+            "evidence": {
+                "demo_product_slugs": [
+                    "fresh-red-tomatoes",
+                    "green-capsicum",
+                    "onion-red",
+                    "banana-robusta",
+                    "apple-shimla",
+                    "cut-mixed-salad",
+                    "cut-french-beans",
+                    "mango-pickle-homestyle",
+                    "papad-moong"
+                ],
+                "demo_products_count": 9,
+                "demo_products_with_order_items": 8,
+                "source": "scripts\/seed-catalogue.php"
+            },
+            "proposed_operation": "Replace catalogue via admin\/import; do not DELETE products referenced by order_items"
+        },
+        {
+            "scope_id": "integration_fixture_cart_post_payment",
+            "classification": "unknown_manual_review",
+            "approval": "manual_review",
+            "evidence": {
+                "script": "scripts\/test-cart-order-post-payment.php",
+                "order_number": "AT-261102-5DB0C9",
+                "customer_id_in_script": 80
+            },
+            "records": [
+                {
+                    "id": 3179,
+                    "order_number": "AT-261102-5DB0C9",
+                    "customer_id": 80,
+                    "gateway": "cashfree",
+                    "status": "captured"
+                }
+            ]
+        },
+        {
+            "scope_id": "subscription_plans_zt_test",
+            "classification": "confirmed_qa_test",
+            "approval": "manual_review",
+            "evidence": [
+                "test-subscription-admin-delete.php"
+            ],
+            "records": [
+                {
+                    "id": 6,
+                    "name": "ZT Ref Plan 755294",
+                    "template_key": null,
+                    "is_default_template": 0
+                },
+                {
+                    "id": 7,
+                    "name": "ZT Menu Sub Plan 755294",
+                    "template_key": null,
+                    "is_default_template": 0
+                },
+                {
+                    "id": 8,
+                    "name": "ZT PgA 755294",
+                    "template_key": null,
+                    "is_default_template": 0
+                }
+            ]
+        }
+    ],
+    "foreign_key_graph": [
+        {
+            "child_table": "admin_notification_reads",
+            "child_column": "notification_id",
+            "parent_table": "admin_notifications",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_anr_notification"
+        },
+        {
+            "child_table": "admin_role_permissions",
+            "child_column": "permission_id",
+            "parent_table": "admin_permissions",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_arp_permission"
+        },
+        {
+            "child_table": "admin_role_permissions",
+            "child_column": "role_id",
+            "parent_table": "admin_roles",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_arp_role"
+        },
+        {
+            "child_table": "admin_user_roles",
+            "child_column": "role_id",
+            "parent_table": "admin_roles",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_aur_role"
+        },
+        {
+            "child_table": "admin_audit_logs",
+            "child_column": "admin_user_id",
+            "parent_table": "admin_users",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_audit_admin_user"
+        },
+        {
+            "child_table": "admin_notification_reads",
+            "child_column": "admin_user_id",
+            "parent_table": "admin_users",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_anr_admin"
+        },
+        {
+            "child_table": "admin_user_roles",
+            "child_column": "user_id",
+            "parent_table": "admin_users",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_aur_user"
+        },
+        {
+            "child_table": "cms_page_versions",
+            "child_column": "created_by",
+            "parent_table": "admin_users",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_cms_page_versions_admin"
+        },
+        {
+            "child_table": "inventory_movements",
+            "child_column": "admin_user_id",
+            "parent_table": "admin_users",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_inv_admin"
+        },
+        {
+            "child_table": "review_moderation_history",
+            "child_column": "admin_user_id",
+            "parent_table": "admin_users",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_review_mod_history_admin"
+        },
+        {
+            "child_table": "cart_items",
+            "child_column": "cart_id",
+            "parent_table": "carts",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_cart_items_cart"
+        },
+        {
+            "child_table": "categories",
+            "child_column": "parent_id",
+            "parent_table": "categories",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_categories_parent"
+        },
+        {
+            "child_table": "coupon_categories",
+            "child_column": "category_id",
+            "parent_table": "categories",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_coupon_cat_category"
+        },
+        {
+            "child_table": "products",
+            "child_column": "category_id",
+            "parent_table": "categories",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_products_category"
+        },
+        {
+            "child_table": "cms_page_versions",
+            "child_column": "cms_page_id",
+            "parent_table": "cms_pages",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_cms_page_versions_page"
+        },
+        {
+            "child_table": "coupon_categories",
+            "child_column": "coupon_id",
+            "parent_table": "coupons",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_coupon_cat_coupon"
+        },
+        {
+            "child_table": "coupon_excluded_products",
+            "child_column": "coupon_id",
+            "parent_table": "coupons",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_coupon_excl_coupon"
+        },
+        {
+            "child_table": "coupon_products",
+            "child_column": "coupon_id",
+            "parent_table": "coupons",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_coupon_prod_coupon"
+        },
+        {
+            "child_table": "coupon_usages",
+            "child_column": "coupon_id",
+            "parent_table": "coupons",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_cu_coupon"
+        },
+        {
+            "child_table": "customer_coupon_assignments",
+            "child_column": "coupon_id",
+            "parent_table": "coupons",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_cca_coupon"
+        },
+        {
+            "child_table": "orders",
+            "child_column": "customer_address_id",
+            "parent_table": "customer_addresses",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_orders_customer_address"
+        },
+        {
+            "child_table": "subscription_day_credits",
+            "child_column": "customer_subscription_id",
+            "parent_table": "customer_subscriptions",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_sdc_sub"
+        },
+        {
+            "child_table": "subscription_delivery_days",
+            "child_column": "customer_subscription_id",
+            "parent_table": "customer_subscriptions",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_sdd_sub"
+        },
+        {
+            "child_table": "subscription_pauses",
+            "child_column": "customer_subscription_id",
+            "parent_table": "customer_subscriptions",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_pause_sub"
+        },
+        {
+            "child_table": "subscription_payments",
+            "child_column": "customer_subscription_id",
+            "parent_table": "customer_subscriptions",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_spay_sub"
+        },
+        {
+            "child_table": "subscription_selection_audit",
+            "child_column": "customer_subscription_id",
+            "parent_table": "customer_subscriptions",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_ssa_sub"
+        },
+        {
+            "child_table": "subscription_skips",
+            "child_column": "customer_subscription_id",
+            "parent_table": "customer_subscriptions",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_skip_sub"
+        },
+        {
+            "child_table": "subscription_substitution_payments",
+            "child_column": "customer_subscription_id",
+            "parent_table": "customer_subscriptions",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_sspay_sub"
+        },
+        {
+            "child_table": "customer_addresses",
+            "child_column": "customer_id",
+            "parent_table": "customers",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_addresses_customer"
+        },
+        {
+            "child_table": "customer_coupon_assignments",
+            "child_column": "customer_id",
+            "parent_table": "customers",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_cca_customer"
+        },
+        {
+            "child_table": "customer_notifications",
+            "child_column": "customer_id",
+            "parent_table": "customers",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_cn_customer"
+        },
+        {
+            "child_table": "customer_subscriptions",
+            "child_column": "customer_id",
+            "parent_table": "customers",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_cs_customer"
+        },
+        {
+            "child_table": "offer_customer_assignments",
+            "child_column": "customer_id",
+            "parent_table": "customers",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_oca_customer"
+        },
+        {
+            "child_table": "orders",
+            "child_column": "customer_id",
+            "parent_table": "customers",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_orders_customer"
+        },
+        {
+            "child_table": "product_reviews",
+            "child_column": "customer_id",
+            "parent_table": "customers",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_reviews_customer"
+        },
+        {
+            "child_table": "refund_requests",
+            "child_column": "customer_id",
+            "parent_table": "customers",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_refund_req_customer"
+        },
+        {
+            "child_table": "subscription_customer_preferences",
+            "child_column": "customer_id",
+            "parent_table": "customers",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_scp_customer"
+        },
+        {
+            "child_table": "subscription_notification_log",
+            "child_column": "customer_id",
+            "parent_table": "customers",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_snl_customer"
+        },
+        {
+            "child_table": "delivery_sms_logs",
+            "child_column": "delivery_id",
+            "parent_table": "deliveries",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_dsl_delivery"
+        },
+        {
+            "child_table": "delivery_status_history",
+            "child_column": "delivery_id",
+            "parent_table": "deliveries",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_delivery_hist_delivery"
+        },
+        {
+            "child_table": "delivery_slot_reservations",
+            "child_column": "delivery_slot_id",
+            "parent_table": "delivery_slots",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_dsr_slot"
+        },
+        {
+            "child_table": "payment_completion_exceptions",
+            "child_column": "delivery_slot_id",
+            "parent_table": "delivery_slots",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_pce_slot"
+        },
+        {
+            "child_table": "faqs",
+            "child_column": "category_id",
+            "parent_table": "faq_categories",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_faqs_category"
+        },
+        {
+            "child_table": "offer_customer_assignments",
+            "child_column": "offer_id",
+            "parent_table": "offers",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_oca_offer"
+        },
+        {
+            "child_table": "refund_request_items",
+            "child_column": "order_item_id",
+            "parent_table": "order_items",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_refund_items_order_item"
+        },
+        {
+            "child_table": "deliveries",
+            "child_column": "order_id",
+            "parent_table": "orders",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_deliveries_order"
+        },
+        {
+            "child_table": "delivery_slot_reservations",
+            "child_column": "order_id",
+            "parent_table": "orders",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_dsr_order"
+        },
+        {
+            "child_table": "delivery_sms_logs",
+            "child_column": "order_id",
+            "parent_table": "orders",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_dsl_order"
+        },
+        {
+            "child_table": "order_items",
+            "child_column": "order_id",
+            "parent_table": "orders",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_order_items_order"
+        },
+        {
+            "child_table": "order_status_history",
+            "child_column": "order_id",
+            "parent_table": "orders",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_osh_order"
+        },
+        {
+            "child_table": "payment_completion_exceptions",
+            "child_column": "order_id",
+            "parent_table": "orders",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_pce_order"
+        },
+        {
+            "child_table": "payments",
+            "child_column": "order_id",
+            "parent_table": "orders",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_payments_order"
+        },
+        {
+            "child_table": "refund_requests",
+            "child_column": "order_id",
+            "parent_table": "orders",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_refund_req_order"
+        },
+        {
+            "child_table": "payment_completion_exceptions",
+            "child_column": "payment_id",
+            "parent_table": "payments",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_pce_payment"
+        },
+        {
+            "child_table": "payment_refunds",
+            "child_column": "payment_id",
+            "parent_table": "payments",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_payment_refunds_payment"
+        },
+        {
+            "child_table": "product_review_photos",
+            "child_column": "review_id",
+            "parent_table": "product_reviews",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_review_photos_review"
+        },
+        {
+            "child_table": "review_moderation_history",
+            "child_column": "review_id",
+            "parent_table": "product_reviews",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_review_mod_history_review"
+        },
+        {
+            "child_table": "cart_items",
+            "child_column": "variant_id",
+            "parent_table": "product_variants",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_cart_items_variant"
+        },
+        {
+            "child_table": "inventory_movements",
+            "child_column": "variant_id",
+            "parent_table": "product_variants",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_inv_variant"
+        },
+        {
+            "child_table": "subscription_customer_preferences",
+            "child_column": "variant_id",
+            "parent_table": "product_variants",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_scp_variant"
+        },
+        {
+            "child_table": "subscription_menu_template_items",
+            "child_column": "variant_id",
+            "parent_table": "product_variants",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_smti_variant"
+        },
+        {
+            "child_table": "subscription_stock_reservations",
+            "child_column": "variant_id",
+            "parent_table": "product_variants",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_ssr_variant"
+        },
+        {
+            "child_table": "coupon_excluded_products",
+            "child_column": "product_id",
+            "parent_table": "products",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_coupon_excl_product"
+        },
+        {
+            "child_table": "coupon_products",
+            "child_column": "product_id",
+            "parent_table": "products",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_coupon_prod_product"
+        },
+        {
+            "child_table": "product_attributes",
+            "child_column": "product_id",
+            "parent_table": "products",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_product_attributes_product"
+        },
+        {
+            "child_table": "product_images",
+            "child_column": "product_id",
+            "parent_table": "products",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_images_product"
+        },
+        {
+            "child_table": "product_related",
+            "child_column": "product_id",
+            "parent_table": "products",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_product_related_product"
+        },
+        {
+            "child_table": "product_related",
+            "child_column": "related_product_id",
+            "parent_table": "products",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_product_related_related"
+        },
+        {
+            "child_table": "product_reviews",
+            "child_column": "product_id",
+            "parent_table": "products",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_reviews_product"
+        },
+        {
+            "child_table": "product_variants",
+            "child_column": "product_id",
+            "parent_table": "products",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_variants_product"
+        },
+        {
+            "child_table": "payment_refunds",
+            "child_column": "refund_request_id",
+            "parent_table": "refund_requests",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_payment_refunds_request"
+        },
+        {
+            "child_table": "refund_request_evidence",
+            "child_column": "refund_request_id",
+            "parent_table": "refund_requests",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_refund_evidence_request"
+        },
+        {
+            "child_table": "refund_request_history",
+            "child_column": "refund_request_id",
+            "parent_table": "refund_requests",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_refund_history_request"
+        },
+        {
+            "child_table": "refund_request_items",
+            "child_column": "refund_request_id",
+            "parent_table": "refund_requests",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_refund_items_request"
+        },
+        {
+            "child_table": "subscription_substitution_payments",
+            "child_column": "substitution_id",
+            "parent_table": "subscription_basket_substitutions",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_sspay_substitution"
+        },
+        {
+            "child_table": "subscription_delivery_basket_items",
+            "child_column": "basket_id",
+            "parent_table": "subscription_delivery_baskets",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_sdbi_basket"
+        },
+        {
+            "child_table": "subscription_auto_confirm_events",
+            "child_column": "subscription_delivery_day_id",
+            "parent_table": "subscription_delivery_days",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_sace_day"
+        },
+        {
+            "child_table": "subscription_basket_substitutions",
+            "child_column": "subscription_delivery_day_id",
+            "parent_table": "subscription_delivery_days",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_sbs_day"
+        },
+        {
+            "child_table": "subscription_day_credits",
+            "child_column": "subscription_delivery_day_id",
+            "parent_table": "subscription_delivery_days",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_sdc_day"
+        },
+        {
+            "child_table": "subscription_delivery_baskets",
+            "child_column": "subscription_delivery_day_id",
+            "parent_table": "subscription_delivery_days",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_sdb_day"
+        },
+        {
+            "child_table": "subscription_delivery_entitlement_events",
+            "child_column": "subscription_delivery_day_id",
+            "parent_table": "subscription_delivery_days",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_sdee_day"
+        },
+        {
+            "child_table": "subscription_fulfilment_events",
+            "child_column": "subscription_delivery_day_id",
+            "parent_table": "subscription_delivery_days",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_sfe_day"
+        },
+        {
+            "child_table": "subscription_skips",
+            "child_column": "carry_forward_day_id",
+            "parent_table": "subscription_delivery_days",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_skip_cf_day"
+        },
+        {
+            "child_table": "subscription_skips",
+            "child_column": "subscription_delivery_day_id",
+            "parent_table": "subscription_delivery_days",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_skip_day"
+        },
+        {
+            "child_table": "subscription_stock_reservations",
+            "child_column": "subscription_delivery_day_id",
+            "parent_table": "subscription_delivery_days",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_ssr_day"
+        },
+        {
+            "child_table": "subscription_menu_template_items",
+            "child_column": "menu_template_id",
+            "parent_table": "subscription_menu_templates",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_smti_template"
+        },
+        {
+            "child_table": "customer_subscriptions",
+            "child_column": "subscription_plan_id",
+            "parent_table": "subscription_plans",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_cs_plan"
+        },
+        {
+            "child_table": "subscription_plan_audit",
+            "child_column": "subscription_plan_id",
+            "parent_table": "subscription_plans",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_spa_plan"
+        },
+        {
+            "child_table": "support_message_attachments",
+            "child_column": "message_id",
+            "parent_table": "support_messages",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_support_attach_message"
+        },
+        {
+            "child_table": "support_messages",
+            "child_column": "ticket_id",
+            "parent_table": "support_tickets",
+            "parent_column": "id",
+            "CONSTRAINT_NAME": "fk_sm_ticket"
+        }
+    ],
+    "recommended_cleanup_order": {
+        "1_tier_a": [
+            "refund_request children → refund_requests (RF-C1*)",
+            "payment_refunds → payments (pay_c1fix_*, simulate C3)",
+            "delivery_status_history → deliveries → order_items → orders (prefix-scoped)",
+            "subscription fulfilment orders\/deliveries → subscription days → subscription_payments → customer_subscriptions (prefix-scoped)",
+            "customers (987C1* only after scoped orders\/subs gone)",
+            "stage13 slug-scoped CMS\/products (after order_items check)",
+            "admin_roles at-rbac14-*"
+        ],
+        "2_tier_b": "Only after backup + signoff on staging clone",
+        "3_never_without_policy": [
+            "settings",
+            "admin_users",
+            "invoice_sequences",
+            "invoices",
+            "razorpay\/cashfree payments"
+        ]
+    },
+    "backup_plan": {
+        "full_logical": "mysqldump --single-transaction --routines --triggers DB_NAME > apni_tokri_pre_cleanup_YYYYMMDD.sql",
+        "verify": "mysql -e \"CREATE DATABASE restore_test\" && mysql restore_test < dump && php scripts\/audit-demo-test-data-readonly.php",
+        "table_level_finance": [
+            "orders",
+            "order_items",
+            "payments",
+            "payment_refunds",
+            "refund_requests",
+            "invoices",
+            "invoice_sequences",
+            "subscription_payments",
+            "customer_subscriptions"
+        ],
+        "rollback": "DROP DATABASE \/ recreate from full dump; document pre\/post audit JSON",
+        "pit": "Enable binary log PITR on production before any cleanup"
+    }
+}

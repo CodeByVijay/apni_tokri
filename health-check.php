@@ -4,6 +4,12 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/includes/bootstrap.php';
 
+if (Install::isApplicationInstalled()) {
+    if (!AdminAuth::check()) {
+        Install::denyPublicInstallSurface();
+    }
+}
+
 Security::sendSecurityHeaders(Security::isHttps());
 
 $config = App::config();

@@ -20,7 +20,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = (string) ($_POST['action'] ?? 'save');
 
     if (!$useDb) {
-        admin_flash_set('Product saved (demo UI only).');
+        admin_flash_persistence_blocked('Product saved (demo UI only).');
         header('Location: ' . ($_SERVER['REQUEST_URI'] ?? ''), true, 302);
         exit;
     }
@@ -54,6 +54,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $result = ProductRepository::saveGeneral($postId, [
             'name' => $_POST['name'] ?? '',
             'slug' => $_POST['slug'] ?? '',
+            'slug_manual' => !empty($_POST['slug_manual']),
             'sku' => $_POST['sku'] ?? '',
             'category_id' => $catId,
             'short_description' => $_POST['short_description'] ?? '',
@@ -117,8 +118,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $defaults = [
-    'name' => 'Fresh Red Tomatoes',
-    'slug' => 'fresh-red-tomatoes',
+    'name' => '',
+    'slug' => '',
     'sku' => 'VEG-TOM-001',
     'category_id' => '',
     'short_description' => '',
@@ -134,6 +135,9 @@ $defaults = [
 ];
 if ($product) {
     $defaults = array_merge($defaults, $product);
+} elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && ($errors !== [])) {
+    $defaults['name'] = trim((string) ($_POST['name'] ?? ''));
+    $defaults['slug'] = trim((string) ($_POST['slug'] ?? ''));
 }
 if (!$useDb) {
     $variants = [
@@ -143,7 +147,6 @@ if (!$useDb) {
 }
 
 admin_layout_start(['pageTitle' => $product ? 'Edit product' : 'Add product', 'activeAdminNav' => 'products']);
-admin_flash_render();
 $breadcrumbs = [
     ['label' => 'Products', 'href' => url_base() . '/admin/products/index.php'],
     ['label' => $product ? 'Edit' : 'Add'],
@@ -164,7 +167,7 @@ if ($errors !== []) {
     <button type="button" class="at-focusable" data-admin-tab="seo">SEO</button>
 </div>
 
-<form method="post" class="mt-4">
+<form method="post" class="mt-4" data-at-admin-slug data-slug-api="<?= Security::escape(url_base()) ?>/admin/ajax/slug-from-name.php">
     <?= Csrf::field() ?>
     <input type="hidden" name="action" value="save">
     <?php if ($product): ?><input type="hidden" name="id" value="<?= (int) $product['id'] ?>"><?php endif; ?>
@@ -172,14 +175,21 @@ if ($errors !== []) {
     <div data-admin-panel="general">
         <div class="at-admin-card at-admin-form-grid at-admin-form-grid--2">
             <div class="at-admin-card__body space-y-3 lg:col-span-2">
-                <div>
-                    <label class="at-label" for="name">Product name</label>
-                    <input id="name" name="name" class="at-input at-focusable" value="<?= Security::escape((string) $defaults['name']) ?>" required>
-                </div>
-                <div>
-                    <label class="at-label" for="slug">Slug</label>
-                    <input id="slug" name="slug" class="at-input at-focusable" value="<?= Security::escape((string) $defaults['slug']) ?>" pattern="[a-z0-9-]+">
-                </div>
+                <?php
+                $slugSourceId = 'name';
+                $slugSourceName = 'name';
+                $slugSourceLabel = 'Product name';
+                $slugSourceValue = (string) $defaults['name'];
+                $slugTargetId = 'slug';
+                $slugTargetValue = (string) $defaults['slug'];
+                $slugManualId = 'product-slug-manual';
+                $slugError = $errors['slug'] ?? null;
+                if (!$product) {
+                    $slugSourcePlaceholder = 'e.g. Fresh Red Tomatoes';
+                    $slugTargetPlaceholder = 'Auto-generated from name';
+                }
+                require APNI_TOKRI_ROOT . '/includes/partials/admin/slug-field.php';
+                ?>
                 <div class="grid md:grid-cols-3 gap-3">
                     <div>
                         <label class="at-label" for="sku">SKU</label>

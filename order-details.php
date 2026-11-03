@@ -17,7 +17,7 @@ $order = null;
 if ($id !== '' && CommerceGateway::useDatabase() && CustomerAuth::id() !== null) {
     $order = OrderRepository::forCustomerDetail($id, CustomerAuth::id());
 }
-if ($order === null && $id !== '') {
+if ($order === null && $id !== '' && AppEnvironment::allowsSessionDemoCommerce()) {
     $order = DemoCustomer::order($id);
 }
 

@@ -173,7 +173,10 @@ html, body { margin: 0; padding: 0; }
 .auth-field-error { margin: 0.35rem 0 0; font-size: 0.8rem; color: var(--au-danger); }
 .auth-field-error[hidden] { display: none; }
 
-.auth-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: 0.25rem 0 1.4rem; }
+.auth-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: 0.25rem 0 1.4rem; flex-wrap: wrap; }
+.auth-link { font-size: 0.875rem; color: var(--auth-green, #2d7048); text-decoration: underline; text-underline-offset: 2px; }
+.auth-shell--compact { min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+.auth-main--solo { width: 100%; max-width: 28rem; margin: 0 auto; padding: 1.5rem; }
 .auth-check { display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; cursor: pointer; }
 .auth-check input { width: 1rem; height: 1rem; accent-color: var(--au-green); }
 

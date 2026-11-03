@@ -2,11 +2,15 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/_init.php';
+require_once dirname(__DIR__) . '/includes/bootstrap.php';
+require_once APNI_TOKRI_ROOT . '/includes/admin/guard.php';
 require_once APNI_TOKRI_ROOT . '/includes/layout/auth.php';
 
 if (AdminAuth::check()) {
-    header('Location: ' . url_to('/admin/dashboard.php'), true, 302);
+    $dest = AdminAuth::requiresMandatoryPasswordChange()
+        ? url_to('/admin/change-password.php')
+        : url_to('/admin/dashboard.php');
+    header('Location: ' . $dest, true, 302);
     exit;
 }
 
@@ -29,12 +33,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($email === '' || $password === '') {
             $error = 'Enter your email and password.';
         } elseif (!AdminAuth::attempt($email, $password)) {
-            $error = 'Invalid email or password.';
+            $error = AdminAuth::loginErrorMessage($email, $password);
         } else {
-            $dest = url_to('/admin/dashboard.php');
-            $postNext = isset($_POST['next']) && is_string($_POST['next']) ? url_app_relative(trim($_POST['next'])) : '';
-            if ($postNext !== '' && str_starts_with($postNext, '/') && !str_contains($postNext, '//')) {
-                $dest = url_to($postNext);
+            if (AdminAuth::requiresMandatoryPasswordChange()) {
+                $dest = url_to('/admin/change-password.php');
+            } else {
+                $dest = url_to('/admin/dashboard.php');
+                $postNext = isset($_POST['next']) && is_string($_POST['next']) ? url_app_relative(trim($_POST['next'])) : '';
+                if ($postNext !== '' && str_starts_with($postNext, '/') && !str_contains($postNext, '//')
+                    && !str_contains($postNext, 'change-password.php')) {
+                    $dest = url_to($postNext);
+                }
             }
             header('Location: ' . $dest, true, 302);
             exit;
@@ -122,6 +131,7 @@ $logo = Security::escape(asset_url('assets/images/logo.svg'));
 
                 <div class="auth-row">
                     <label class="auth-check" for="remember"><input type="checkbox" id="remember" name="remember_email" value="1"> Remember my email</label>
+                    <a class="auth-link" href="<?= Security::escape(url_to('/admin/forgot-password.php')) ?>">Forgot password?</a>
                 </div>
 
                 <button type="submit" class="auth-btn" id="auth-submit">

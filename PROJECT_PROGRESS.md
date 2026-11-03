@@ -2,7 +2,7 @@
 
 Authoritative stage status for implementation. Requirements detail: [Apni_Tokri_Requirements.md](./Apni_Tokri_Requirements.md). Database upgrades: [database/README.md](./database/README.md).
 
-**Last updated:** Nov 2026 (Stage 13 Phase 9 acceptance)
+**Last updated:** Nov 2026 (Phase 2.2 production blocker resolution)
 
 ## Delivery enhancements (D1–D5)
 
@@ -149,6 +149,30 @@ php scripts/test-stage13-integration-phase9.php
 - [ ] Stage 11/12 gateway and webhook checks (outside Stage 13 automated scope).
 
 **Do not** treat passing PHP CLI tests alone as full production sign-off.
+
+### Phase 2.2 — production blockers (code)
+
+**Automated:** `php scripts/test-phase22-production-blockers.php` (with `test-phase21-demo-fallback-audit.php`, `test-production-readiness.php`).
+
+| Area | Status |
+|------|--------|
+| SEO admin — DB redirects (CRUD, CSRF, audit) | Done |
+| Marketing admin — `MarketingSettings` persistence | Done |
+| Subscription checkout — payment gate before INSERT + transaction rollback | Done |
+| `StorefrontReadiness::productionBlockers()` — required tables | Done |
+| Production fail-closed — FAQs page, `DbCatalogue::faqs()`, login (existing) | Done |
+| Admin `!$useDb` — production error vs local demo preview | Done (core lists + edit POSTs) |
+
+**Updated production-readiness checklist (not full sign-off):**
+
+- [ ] `app.env=production`, `payment.test_mode=0`, live Razorpay or Cashfree credentials (no `simulate` gateway).
+- [ ] All tables in `Install::missingProductionRequiredTables()` present (run install/migrations through **1.20.0**).
+- [ ] `StorefrontReadiness::productionBlockers()` empty on staging (published products, payments ready).
+- [ ] SEO redirects and marketing settings verified in admin after save/reload.
+- [ ] Subscription purchase smoke test on staging with real gateway (no `gateway=simulate` rows).
+- [ ] Manual legal/CMS, webhooks, SMS/SMTP, and infra checks from Stage 11–14 lists still apply.
+
+**Remaining non-code blockers:** live payment credentials, content/legal review, hosting/SSL/cron, webhook URLs, and operational monitoring. **Do not** go live while `productionBlockers()` reports issues or payments are in test/simulate mode.
 
 ## Stage 14 — Phase 14.1 (RBAC)
 

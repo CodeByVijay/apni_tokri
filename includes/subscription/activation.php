@@ -39,6 +39,36 @@ final class CustomerSubscriptionRepository
         return $row ?: null;
     }
 
+    public static function countActiveForCustomer(int $customerId): int
+    {
+        if ($customerId <= 0 || !Install::isSchemaReady()) {
+            return 0;
+        }
+        Install::ensureConnection();
+        $stmt = Database::pdo()->prepare(
+            "SELECT COUNT(*) FROM customer_subscriptions WHERE customer_id = ? AND status = 'active'"
+        );
+        $stmt->execute([$customerId]);
+
+        return (int) $stmt->fetchColumn();
+    }
+
+    /** Latest subscription row for account overview (any status). */
+    public static function findLatestForCustomer(int $customerId): ?array
+    {
+        if ($customerId <= 0 || !Install::isSchemaReady()) {
+            return null;
+        }
+        Install::ensureConnection();
+        $stmt = Database::pdo()->prepare(
+            'SELECT * FROM customer_subscriptions WHERE customer_id = ? ORDER BY created_at DESC, id DESC LIMIT 1'
+        );
+        $stmt->execute([$customerId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        return $row ?: null;
+    }
+
     /**
      * Paginated subscriptions for a customer (newest first).
      *
@@ -136,6 +166,10 @@ final class SubscriptionActivationService
     ): array {
         if ($amountInr < 0) {
             return ['ok' => false, 'message' => 'Invalid amount.'];
+        }
+        $exec = PaymentGatewayConfig::assertPaymentExecutionAllowed($gateway);
+        if (!$exec['ok']) {
+            return ['ok' => false, 'message' => (string) ($exec['message'] ?? 'Payments are not available.')];
         }
 
         try {

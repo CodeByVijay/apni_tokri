@@ -4,6 +4,14 @@ declare(strict_types=1);
 
 final class DeliverySlotRepository
 {
+    /** @var list<int> */
+    public const LIST_PER_PAGE_OPTIONS = [10, 25, 50, 100];
+
+    public static function normalizeListPerPage(int $perPage): int
+    {
+        return in_array($perPage, self::LIST_PER_PAGE_OPTIONS, true) ? $perPage : 25;
+    }
+
     /** @return list<array<string, mixed>> */
     public static function all(): array
     {
@@ -14,6 +22,46 @@ final class DeliverySlotRepository
         $stmt = Database::pdo()->query('SELECT * FROM delivery_slots ORDER BY sort_order, id');
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    /**
+     * @return array{rows: list<array<string, mixed>>, total: int, page: int, per_page: int}
+     */
+    public static function listForAdmin(?string $search, int $page, int $perPage): array
+    {
+        if (!Install::isSchemaReady()) {
+            return ['rows' => [], 'total' => 0, 'page' => 1, 'per_page' => self::normalizeListPerPage($perPage)];
+        }
+        Install::ensureConnection();
+        $pdo = Database::pdo();
+        $perPage = self::normalizeListPerPage($perPage);
+        $page = max(1, $page);
+        $where = '';
+        $params = [];
+        $q = trim($search ?? '');
+        if ($q !== '') {
+            $where = ' WHERE (label LIKE ? OR slug LIKE ?)';
+            $like = '%' . $q . '%';
+            $params = [$like, $like];
+        }
+        $countStmt = $pdo->prepare('SELECT COUNT(*) FROM delivery_slots' . $where);
+        $countStmt->execute($params);
+        $total = (int) $countStmt->fetchColumn();
+        $totalPages = max(1, (int) ceil($total / $perPage));
+        if ($page > $totalPages) {
+            $page = $totalPages;
+        }
+        $offset = ($page - 1) * $perPage;
+        $sql = 'SELECT * FROM delivery_slots' . $where . ' ORDER BY sort_order, id LIMIT ' . (int) $perPage . ' OFFSET ' . (int) $offset;
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+
+        return [
+            'rows' => $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [],
+            'total' => $total,
+            'page' => $page,
+            'per_page' => $perPage,
+        ];
     }
 
     public static function find(int $id): ?array
@@ -45,6 +93,82 @@ final class DeliverySlotRepository
         return (int) $stmt->fetchColumn();
     }
 
+    /**
+     * Reference counts used to decide whether a slot may be hard-deleted.
+     *
+     * @return array{orders: int, reservations: int, subscription_days: int, subscriptions_by_slug: int, completion_exceptions: int}
+     */
+    public static function referenceCounts(int $slotId): array
+    {
+        $slot = self::find($slotId);
+        if ($slot === null) {
+            return [
+                'orders' => 0,
+                'reservations' => 0,
+                'subscription_days' => 0,
+                'subscriptions_by_slug' => 0,
+                'completion_exceptions' => 0,
+            ];
+        }
+        Install::ensureConnection();
+        $pdo = Database::pdo();
+        $slug = (string) ($slot['slug'] ?? '');
+
+        $orders = self::orderReferenceCount($slotId);
+
+        $reservations = 0;
+        if (DeliverySlotReservationService::tableReady()) {
+            $stmt = $pdo->prepare('SELECT COUNT(*) FROM delivery_slot_reservations WHERE delivery_slot_id = ?');
+            $stmt->execute([$slotId]);
+            $reservations = (int) $stmt->fetchColumn();
+        }
+
+        $subDays = 0;
+        try {
+            $stmt = $pdo->prepare('SELECT COUNT(*) FROM subscription_delivery_days WHERE preferred_delivery_slot_id = ?');
+            $stmt->execute([$slotId]);
+            $subDays = (int) $stmt->fetchColumn();
+        } catch (Throwable $e) {
+            $subDays = 0;
+        }
+
+        $subsBySlug = 0;
+        if ($slug !== '') {
+            try {
+                $stmt = $pdo->prepare('SELECT COUNT(*) FROM customer_subscriptions WHERE preferred_delivery_slot_slug = ?');
+                $stmt->execute([$slug]);
+                $subsBySlug = (int) $stmt->fetchColumn();
+            } catch (Throwable $e) {
+                $subsBySlug = 0;
+            }
+        }
+
+        $exceptions = 0;
+        if (PaymentCompletionExceptionService::tableReady()) {
+            $stmt = $pdo->prepare('SELECT COUNT(*) FROM payment_completion_exceptions WHERE delivery_slot_id = ?');
+            $stmt->execute([$slotId]);
+            $exceptions = (int) $stmt->fetchColumn();
+        }
+
+        return [
+            'orders' => $orders,
+            'reservations' => $reservations,
+            'subscription_days' => $subDays,
+            'subscriptions_by_slug' => $subsBySlug,
+            'completion_exceptions' => $exceptions,
+        ];
+    }
+
+    public static function hasBlockingReferences(int $slotId): bool
+    {
+        $c = self::referenceCounts($slotId);
+
+        return $c['orders'] > 0
+            || $c['reservations'] > 0
+            || $c['subscription_days'] > 0
+            || $c['subscriptions_by_slug'] > 0;
+    }
+
     public static function slugInUse(string $slug, ?int $excludeId = null): bool
     {
         Install::ensureConnection();
@@ -64,19 +188,46 @@ final class DeliverySlotRepository
 
 final class DeliverySlotAdminService
 {
-    /** @return list<string> */
+    /**
+     * @return array{ok: bool, errors: list<string>, slug?: string}
+     */
     public static function validatePayload(array $post, ?int $excludeId = null): array
     {
         $errors = [];
         $name = trim((string) ($post['label'] ?? ''));
-        $slug = self::normalizeSlug((string) ($post['slug'] ?? ''));
         if ($name === '') {
             $errors[] = 'Slot name is required.';
         }
-        if ($slug === '' || !preg_match('/^[a-z0-9][a-z0-9_-]{0,31}$/', $slug)) {
-            $errors[] = 'Slug must be 2–32 chars: lowercase letters, numbers, underscore, hyphen.';
-        } elseif (DeliverySlotRepository::slugInUse($slug, $excludeId)) {
-            $errors[] = 'Slug is already in use.';
+        $existing = $excludeId !== null ? DeliverySlotRepository::find($excludeId) : null;
+        if ($excludeId !== null && $existing !== null && DeliverySlotRepository::orderReferenceCount($excludeId) > 0) {
+            $resolvedSlug = (string) ($existing['slug'] ?? '');
+        } else {
+            $slugResult = CatalogueSlug::resolveForAdminSave(
+                'delivery_slot',
+                $name,
+                $post,
+                $existing,
+                $excludeId
+            );
+            if (!$slugResult['ok']) {
+                foreach ($slugResult['errors'] as $msg) {
+                    $errors[] = (string) $msg;
+                }
+                $resolvedSlug = '';
+            } else {
+                $resolvedSlug = (string) $slugResult['slug'];
+            }
+        }
+        if ($resolvedSlug !== '' && strlen($resolvedSlug) > 32) {
+            $errors[] = 'Slug must be 32 characters or fewer.';
+        }
+        if ($resolvedSlug !== '' && !preg_match('/^[a-z0-9]+(?:-[a-z0-9]+)*$/', $resolvedSlug)) {
+            $errors[] = 'Use lowercase letters, numbers and hyphens only.';
+        }
+        if ($excludeId !== null && $existing !== null && $resolvedSlug !== ''
+            && (string) $existing['slug'] !== $resolvedSlug
+            && DeliverySlotRepository::orderReferenceCount($excludeId) > 0) {
+            $errors[] = 'Cannot change slug — orders reference this slot. Deactivate and add a new slot instead.';
         }
         $cap = (int) ($post['capacity'] ?? 0);
         if ($cap < 1) {
@@ -87,18 +238,21 @@ final class DeliverySlotAdminService
         if ($start === '' || $end === '') {
             $errors[] = 'Start and end times are required.';
         }
+        if ($errors !== []) {
+            return ['ok' => false, 'errors' => $errors];
+        }
 
-        return $errors;
+        return ['ok' => true, 'errors' => [], 'slug' => $resolvedSlug];
     }
 
     /** @return array{ok: bool, errors: list<string>} */
     public static function saveFromPost(array $post, ?int $id = null): array
     {
-        $errors = self::validatePayload($post, $id);
-        if ($errors !== []) {
-            return ['ok' => false, 'errors' => $errors];
+        $validation = self::validatePayload($post, $id);
+        if (!$validation['ok']) {
+            return ['ok' => false, 'errors' => $validation['errors']];
         }
-        $payload = self::normalize($post);
+        $payload = self::normalize($post, (string) ($validation['slug'] ?? ''));
         if ($id === null) {
             self::insert($payload);
         } else {
@@ -106,6 +260,44 @@ final class DeliverySlotAdminService
         }
 
         return ['ok' => true, 'errors' => []];
+    }
+
+    /** @return array{ok: bool, message: string} */
+    public static function deleteForAdmin(int $id): array
+    {
+        if ($id <= 0) {
+            return ['ok' => false, 'message' => 'Invalid slot.'];
+        }
+        $slot = DeliverySlotRepository::find($id);
+        if ($slot === null) {
+            return ['ok' => false, 'message' => 'Slot not found.'];
+        }
+        if (DeliverySlotRepository::hasBlockingReferences($id)) {
+            $c = DeliverySlotRepository::referenceCounts($id);
+            $parts = [];
+            if ($c['orders'] > 0) {
+                $parts[] = $c['orders'] . ' order(s)';
+            }
+            if ($c['reservations'] > 0) {
+                $parts[] = $c['reservations'] . ' reservation(s)';
+            }
+            if ($c['subscription_days'] > 0) {
+                $parts[] = $c['subscription_days'] . ' subscription delivery day(s)';
+            }
+            if ($c['subscriptions_by_slug'] > 0) {
+                $parts[] = $c['subscriptions_by_slug'] . ' subscription(s) prefer this slot';
+            }
+
+            return [
+                'ok' => false,
+                'message' => 'This slot is referenced by ' . implode(', ', $parts)
+                    . '. It cannot be deleted. Deactivate it instead to stop new bookings while keeping history intact.',
+            ];
+        }
+        Install::ensureConnection();
+        Database::pdo()->prepare('DELETE FROM delivery_slots WHERE id = ? LIMIT 1')->execute([$id]);
+
+        return ['ok' => true, 'message' => 'Delivery slot deleted.'];
     }
 
     public static function setActive(int $id, bool $active): void
@@ -142,7 +334,7 @@ final class DeliverySlotAdminService
     }
 
     /** @param array<string, mixed> $post */
-    private static function normalize(array $post): array
+    private static function normalize(array $post, string $resolvedSlug): array
     {
         $mask = 0;
         for ($d = 1; $d <= 7; $d++) {
@@ -167,7 +359,7 @@ final class DeliverySlotAdminService
         }
 
         return [
-            'slug' => self::normalizeSlug((string) $post['slug']),
+            'slug' => $resolvedSlug !== '' ? $resolvedSlug : self::normalizeSlug((string) ($post['slug'] ?? '')),
             'label' => trim((string) ($post['label'] ?? '')),
             'window_label' => trim((string) ($post['window_label'] ?? '')),
             'delivery_day' => (string) ($post['delivery_day'] ?? 'same_day') === 'next_day' ? 'next_day' : 'same_day',

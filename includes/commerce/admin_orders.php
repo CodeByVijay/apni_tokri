@@ -24,27 +24,63 @@ final class AdminOrderService
     }
 
     /**
-     * @return array{rows: list<array<string, mixed>>, total: int}
+     * @return array{rows: list<array<string, mixed>>, total: int, page: int, per_page: int, total_pages: int}
      */
-    public static function listForAdmin(int $page = 1): array
-    {
+    public static function searchForAdmin(
+        string $query,
+        int $page = 1,
+        int $perPage = 25,
+        string $sortColumn = 'placed_at',
+        string $sortDirection = 'desc'
+    ): array {
         if (!Install::isSchemaReady()) {
-            return ['rows' => [], 'total' => 0];
+            return ['rows' => [], 'total' => 0, 'page' => 1, 'per_page' => $perPage, 'total_pages' => 1];
         }
         Install::ensureConnection();
         $pdo = Database::pdo();
         $page = max(1, $page);
-        $total = (int) $pdo->query('SELECT COUNT(*) FROM orders')->fetchColumn();
-        $offset = ($page - 1) * self::PER_PAGE;
+        $perPage = max(1, min(100, $perPage));
+        $where = ['1=1'];
+        $params = [];
+        $q = trim($query);
+        if ($q !== '') {
+            $like = '%' . AdminServerList::escapeLike($q) . '%';
+            $where[] = '(o.order_number LIKE ? OR c.name LIKE ? OR c.mobile LIKE ? OR o.status LIKE ?)';
+            $params[] = $like;
+            $params[] = $like;
+            $params[] = $like;
+            $params[] = $like;
+        }
+        $whereSql = implode(' AND ', $where);
+        $sortMap = [
+            'placed_at' => 'COALESCE(o.placed_at, o.created_at)',
+            'order_number' => 'o.order_number',
+            'grand_total' => 'o.grand_total',
+            'status' => 'o.status',
+            'id' => 'o.id',
+        ];
+        $orderSql = AdminServerList::orderBySql($sortColumn, $sortDirection, $sortMap, 'placed_at');
+        $from = ' FROM orders o LEFT JOIN customers c ON c.id = o.customer_id WHERE ' . $whereSql;
+        $countStmt = $pdo->prepare('SELECT COUNT(*)' . $from);
+        $countStmt->execute($params);
+        $total = (int) $countStmt->fetchColumn();
+        $totalPages = max(1, (int) ceil($total / $perPage));
+        if ($page > $totalPages) {
+            $page = $totalPages;
+        }
+        $offset = ($page - 1) * $perPage;
         $stmt = $pdo->prepare(
             'SELECT o.id, o.order_number, o.status, o.payment_status, o.grand_total,
                     o.placed_at, o.created_at,
-                    c.name AS customer_name, c.mobile AS customer_mobile
-             FROM orders o
-             LEFT JOIN customers c ON c.id = o.customer_id
-             ORDER BY COALESCE(o.placed_at, o.created_at) DESC, o.id DESC
-             LIMIT ' . (int) self::PER_PAGE . ' OFFSET ' . (int) $offset
+                    c.name AS customer_name, c.mobile AS customer_mobile' . $from
+            . ' ORDER BY ' . $orderSql . ', o.id DESC LIMIT ? OFFSET ?'
         );
+        $i = 1;
+        foreach ($params as $p) {
+            $stmt->bindValue($i++, $p);
+        }
+        $stmt->bindValue($i++, $perPage, PDO::PARAM_INT);
+        $stmt->bindValue($i, $offset, PDO::PARAM_INT);
         $stmt->execute();
         $rows = [];
         $base = url_base() . '/admin/orders/view.php?id=';
@@ -59,17 +95,33 @@ final class AdminOrderService
                 $customerLabel = $customer !== '' ? $customer : $mobile;
             }
             $statusLabel = self::statusLabel((string) ($row['status'] ?? ''));
+            $oid = (int) ($row['id'] ?? 0);
             $rows[] = [
                 'id' => (string) ($row['order_number'] ?? ''),
                 'customer' => $customerLabel,
                 'status' => $statusLabel,
                 'total' => catalogue_format_price((float) ($row['grand_total'] ?? 0)),
-                'link' => 'View',
-                'action_href' => $base . (int) ($row['id'] ?? 0),
+                'actions' => admin_action_edit_link($base . $oid, 'View order'),
             ];
         }
 
-        return ['rows' => $rows, 'total' => $total];
+        return [
+            'rows' => $rows,
+            'total' => $total,
+            'page' => $page,
+            'per_page' => $perPage,
+            'total_pages' => $totalPages,
+        ];
+    }
+
+    /**
+     * @return array{rows: list<array<string, mixed>>, total: int}
+     */
+    public static function listForAdmin(int $page = 1): array
+    {
+        $result = self::searchForAdmin('', $page, self::PER_PAGE);
+
+        return ['rows' => $result['rows'], 'total' => $result['total']];
     }
 
     /** @return array<string, mixed>|null */

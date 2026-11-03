@@ -19,7 +19,7 @@ if (CommerceGateway::useDatabase() && CustomerAuth::id() !== null) {
     $orderList = OrderRepository::listForCustomer(CustomerAuth::id(), $pager['page'], $pager['per_page']);
 }
 $orders = $orderList['rows'];
-if ($orders === [] && $orderList['total'] === 0) {
+if ($orders === [] && $orderList['total'] === 0 && AppEnvironment::allowsSessionDemoCommerce()) {
     $orders = DemoCustomer::orders();
     $usingDemoOrders = $orders !== [];
 }

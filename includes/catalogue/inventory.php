@@ -160,24 +160,75 @@ final class InventoryService
     /** @return list<array<string, mixed>> */
     public static function recentMovements(int $limit = 50): array
     {
+        $result = self::searchMovementsForAdmin('', 1, min(100, max(1, $limit)), 'created_at', 'desc');
+
+        return $result['rows'];
+    }
+
+    /**
+     * @return array{rows: list<array<string, mixed>>, total: int, page: int, per_page: int, total_pages: int}
+     */
+    public static function searchMovementsForAdmin(
+        string $query,
+        int $page,
+        int $perPage,
+        string $sortColumn = 'created_at',
+        string $sortDirection = 'desc'
+    ): array {
+        if (!Install::isSchemaReady()) {
+            return ['rows' => [], 'total' => 0, 'page' => 1, 'per_page' => $perPage, 'total_pages' => 1];
+        }
         Install::ensureConnection();
-        $stmt = Database::pdo()->prepare(
-            'SELECT m.created_at, m.change_qty, m.qty_after, m.reason, v.sku, v.name AS variant_name,
-                    p.name AS product_name, u.name AS admin_name
-             FROM inventory_movements m
+        $pdo = Database::pdo();
+        $page = max(1, $page);
+        $perPage = max(1, min(100, $perPage));
+        $where = ['1=1'];
+        $params = [];
+        $q = trim($query);
+        if ($q !== '') {
+            $like = '%' . AdminServerList::escapeLike($q) . '%';
+            $where[] = '(v.sku LIKE ? OR v.name LIKE ? OR p.name LIKE ? OR m.reason LIKE ? OR u.name LIKE ?)';
+            array_push($params, $like, $like, $like, $like, $like);
+        }
+        $whereSql = implode(' AND ', $where);
+        $sortMap = [
+            'created_at' => 'm.created_at',
+            'sku' => 'v.sku',
+            'change_qty' => 'm.change_qty',
+        ];
+        $orderSql = AdminServerList::orderBySql($sortColumn, $sortDirection, $sortMap, 'created_at');
+        $from = ' FROM inventory_movements m
              INNER JOIN product_variants v ON v.id = m.variant_id
              INNER JOIN products p ON p.id = v.product_id
              LEFT JOIN admin_users u ON u.id = m.admin_user_id
-             ORDER BY m.created_at DESC
-             LIMIT ' . (int) $limit
-        );
-        $stmt->execute();
-        $rows = [];
-        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $r) {
-            $rows[] = $r;
+             WHERE ' . $whereSql;
+        $countStmt = $pdo->prepare('SELECT COUNT(*)' . $from);
+        $countStmt->execute($params);
+        $total = (int) $countStmt->fetchColumn();
+        $totalPages = max(1, (int) ceil($total / $perPage));
+        if ($page > $totalPages) {
+            $page = $totalPages;
         }
+        $offset = ($page - 1) * $perPage;
+        $sql = 'SELECT m.created_at, m.change_qty, m.qty_after, m.reason, v.sku, v.name AS variant_name,
+                    p.name AS product_name, u.name AS admin_name' . $from
+            . ' ORDER BY ' . $orderSql . ' LIMIT ? OFFSET ?';
+        $stmt = $pdo->prepare($sql);
+        $i = 1;
+        foreach ($params as $p) {
+            $stmt->bindValue($i++, $p);
+        }
+        $stmt->bindValue($i++, $perPage, PDO::PARAM_INT);
+        $stmt->bindValue($i, $offset, PDO::PARAM_INT);
+        $stmt->execute();
 
-        return $rows;
+        return [
+            'rows' => $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [],
+            'total' => $total,
+            'page' => $page,
+            'per_page' => $perPage,
+            'total_pages' => $totalPages,
+        ];
     }
 
     /** @return list<array<string, mixed>> */

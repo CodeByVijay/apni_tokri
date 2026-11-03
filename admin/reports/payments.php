@@ -31,7 +31,6 @@ if (Install::isSchemaReady()) {
 }
 
 admin_layout_start(['pageTitle' => 'Payment report', 'activeAdminNav' => 'reports']);
-admin_flash_render();
 $pageHeading = 'Payment report';
 $pageDescription = 'Storefront payment attempts and confirmed collections (Asia/Kolkata). Subscription fulfilment orders excluded.';
 require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';

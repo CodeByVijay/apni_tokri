@@ -69,7 +69,6 @@ if ($subNumber !== '' && Install::isSchemaReady()) {
 }
 
 admin_layout_start(['pageTitle' => 'Basket override', 'activeAdminNav' => 'subscriptions']);
-admin_flash_render();
 $pageHeading = 'Admin basket override';
 $pageDescription = 'Explicit override with reason, audit trail and customer notification. Never silent.';
 require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';

@@ -56,7 +56,6 @@ foreach ($zones as $z) {
 }
 
 admin_layout_start(['pageTitle' => 'Delivery zones', 'activeAdminNav' => 'settings']);
-admin_flash_render();
 $pageHeading = 'Delivery zones';
 $pageDescription = 'Pincode, distance bands [min, max) km, and hybrid rules. Overlapping active bands are rejected on save.';
 require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
@@ -153,8 +152,10 @@ if ($hasWeightCap && $missingWeights > 0): ?>
                     <td>₹<?= Security::escape((string) $z['flat_fee']) ?> / free ₹<?= Security::escape((string) $z['free_above']) ?></td>
                     <td><?= admin_status_badge(!empty($z['is_active']) ? 'active' : 'inactive', !empty($z['is_active']) ? 'Active' : 'Inactive') ?></td>
                     <td class="is-actions">
-                        <a class="at-btn at-btn--sm at-btn--secondary at-focusable" href="?edit=<?= (int) $z['id'] ?>">Edit</a>
-                        <form method="post" class="inline">
+                        <span class="at-admin-actions">
+                            <?= admin_action_edit_link('?edit=' . (int) $z['id'], 'Edit') ?>
+                        </span>
+                        <form method="post" class="inline mt-1 sm:mt-0 sm:ml-2">
                             <?= Csrf::field() ?>
                             <input type="hidden" name="zone_id" value="<?= (int) $z['id'] ?>">
                             <input type="hidden" name="action" value="<?= !empty($z['is_active']) ? 'deactivate' : 'activate' ?>">

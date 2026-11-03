@@ -23,7 +23,7 @@ final class SubscriptionPlanRepository
         Install::ensureConnection();
         $stmt = Database::pdo()->query(
             'SELECT id, name, description, calendar_duration_days, delivery_count, frequency_type,
-                    price, compare_at_price, basket_rules_json, sort_order
+                    price, compare_at_price, basket_rules_json, sort_order, is_active
              FROM subscription_plans WHERE is_active = 1 ORDER BY sort_order, id'
         );
 
@@ -110,6 +110,170 @@ final class SubscriptionPlanRepository
         }
 
         return ['ok' => true, 'id' => $planId];
+    }
+
+    /**
+     * Subscriptions, payments, and delivery history linked to this plan id.
+     *
+     * @return array{subscriptions: int, active_subscriptions: int, payments: int, delivery_days: int, audit_rows: int}
+     */
+    public static function referenceCounts(int $planId): array
+    {
+        $out = [
+            'subscriptions' => 0,
+            'active_subscriptions' => 0,
+            'payments' => 0,
+            'delivery_days' => 0,
+            'audit_rows' => 0,
+        ];
+        if ($planId <= 0 || !Install::isSchemaReady()) {
+            return $out;
+        }
+        Install::ensureConnection();
+        $pdo = Database::pdo();
+        $stmt = $pdo->prepare('SELECT COUNT(*) FROM customer_subscriptions WHERE subscription_plan_id = ?');
+        $stmt->execute([$planId]);
+        $out['subscriptions'] = (int) $stmt->fetchColumn();
+
+        $stmt = $pdo->prepare(
+            "SELECT COUNT(*) FROM customer_subscriptions WHERE subscription_plan_id = ? AND status IN ('active','paused','pending_payment')"
+        );
+        $stmt->execute([$planId]);
+        $out['active_subscriptions'] = (int) $stmt->fetchColumn();
+
+        $stmt = $pdo->prepare(
+            'SELECT COUNT(*) FROM subscription_payments sp
+             INNER JOIN customer_subscriptions cs ON cs.id = sp.customer_subscription_id
+             WHERE cs.subscription_plan_id = ?'
+        );
+        $stmt->execute([$planId]);
+        $out['payments'] = (int) $stmt->fetchColumn();
+
+        $stmt = $pdo->prepare(
+            'SELECT COUNT(*) FROM subscription_delivery_days sdd
+             INNER JOIN customer_subscriptions cs ON cs.id = sdd.customer_subscription_id
+             WHERE cs.subscription_plan_id = ?'
+        );
+        $stmt->execute([$planId]);
+        $out['delivery_days'] = (int) $stmt->fetchColumn();
+
+        $stmt = $pdo->prepare('SELECT COUNT(*) FROM subscription_plan_audit WHERE subscription_plan_id = ?');
+        $stmt->execute([$planId]);
+        $out['audit_rows'] = (int) $stmt->fetchColumn();
+
+        return $out;
+    }
+
+    public static function hasBlockingReferences(int $planId): bool
+    {
+        return self::referenceCounts($planId)['subscriptions'] > 0;
+    }
+
+    /** @return array{ok: bool, message: string} */
+    public static function deleteForAdmin(int $id): array
+    {
+        if ($id <= 0) {
+            return ['ok' => false, 'message' => 'Invalid subscription plan.'];
+        }
+        $plan = self::find($id);
+        if ($plan === null) {
+            return ['ok' => false, 'message' => 'Subscription plan not found.'];
+        }
+        if (self::hasBlockingReferences($id)) {
+            $c = self::referenceCounts($id);
+            $parts = [];
+            if ($c['active_subscriptions'] > 0) {
+                $parts[] = $c['active_subscriptions'] . ' active subscription(s)';
+            }
+            if ($c['subscriptions'] > $c['active_subscriptions']) {
+                $parts[] = ($c['subscriptions'] - $c['active_subscriptions']) . ' historical subscription record(s)';
+            }
+            if ($c['payments'] > 0) {
+                $parts[] = $c['payments'] . ' subscription payment(s)';
+            }
+            if ($c['delivery_days'] > 0) {
+                $parts[] = $c['delivery_days'] . ' delivery day record(s)';
+            }
+
+            return [
+                'ok' => false,
+                'message' => 'This plan is referenced by ' . implode(', ', $parts)
+                    . '. It cannot be deleted. Deactivate the plan instead to hide it from new sign-ups while keeping history intact.',
+            ];
+        }
+        Install::ensureConnection();
+        $pdo = Database::pdo();
+        try {
+            $pdo->beginTransaction();
+            $pdo->prepare('DELETE FROM subscription_plans WHERE id = ? LIMIT 1')->execute([$id]);
+            $pdo->commit();
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            error_log('SubscriptionPlanRepository::deleteForAdmin: ' . $e->getMessage());
+
+            return ['ok' => false, 'message' => 'Could not delete subscription plan.'];
+        }
+
+        return ['ok' => true, 'message' => 'Subscription plan deleted.'];
+    }
+
+    public static function setActive(int $id, bool $active): void
+    {
+        Install::ensureConnection();
+        Database::pdo()->prepare('UPDATE subscription_plans SET is_active = ?, updated_at = NOW() WHERE id = ?')
+            ->execute([$active ? 1 : 0, $id]);
+        self::audit($id, $active ? 'activate' : 'deactivate', null);
+    }
+
+    /** @return array{rows: list<array<string, mixed>>, total: int, page: int, per_page: int, total_pages: int} */
+    public static function listForAdminPaginated(int $page, int $perPage, string $search = ''): array
+    {
+        Install::ensureConnection();
+        $pdo = Database::pdo();
+        $perPage = max(1, min(100, $perPage));
+        $page = max(1, $page);
+        $where = '';
+        $params = [];
+        if ($search !== '') {
+            $where = ' WHERE name LIKE ?';
+            $params[] = '%' . $search . '%';
+        }
+        $countStmt = $pdo->prepare('SELECT COUNT(*) FROM subscription_plans' . $where);
+        $countStmt->execute($params);
+        $total = (int) $countStmt->fetchColumn();
+        $totalPages = max(1, (int) ceil($total / $perPage));
+        if ($page > $totalPages) {
+            $page = $totalPages;
+        }
+        $offset = ($page - 1) * $perPage;
+        $sql = 'SELECT * FROM subscription_plans' . $where
+            . ' ORDER BY sort_order, id LIMIT ' . (int) $perPage . ' OFFSET ' . (int) $offset;
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        return [
+            'rows' => $rows,
+            'total' => $total,
+            'page' => $page,
+            'per_page' => $perPage,
+            'total_pages' => $totalPages,
+        ];
+    }
+
+    public static function countForAdmin(string $search = ''): int
+    {
+        Install::ensureConnection();
+        $pdo = Database::pdo();
+        if ($search === '') {
+            return (int) $pdo->query('SELECT COUNT(*) FROM subscription_plans')->fetchColumn();
+        }
+        $stmt = $pdo->prepare('SELECT COUNT(*) FROM subscription_plans WHERE name LIKE ?');
+        $stmt->execute(['%' . $search . '%']);
+
+        return (int) $stmt->fetchColumn();
     }
 
     public static function clonePlan(int $sourceId): ?int

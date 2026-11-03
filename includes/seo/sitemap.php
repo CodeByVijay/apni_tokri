@@ -57,6 +57,9 @@ final class SeoSitemap
             );
             if ($prodStmt !== false) {
                 foreach ($prodStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                    if (!ProductRepository::isPubliclyVisibleRow($row)) {
+                        continue;
+                    }
                     $meta = SeoResolver::forProductRow($row);
                     if (!$meta->isIndexableForSitemap() || $meta->canonicalUrl === null || $meta->canonicalUrl === '') {
                         continue;
@@ -68,11 +71,12 @@ final class SeoSitemap
                 }
             }
 
-            $catStmt = $pdo->query(
-                "SELECT * FROM categories WHERE status = 'published' ORDER BY id"
-            );
-            if ($catStmt !== false) {
-                foreach ($catStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $catRows = CategoryRepository::published();
+            usort($catRows, static function (array $a, array $b): int {
+                return (int) $a['id'] <=> (int) $b['id'];
+            });
+            {
+                foreach ($catRows as $row) {
                     $meta = SeoResolver::forCategoryRow($row, false);
                     if (!$meta->isIndexableForSitemap() || $meta->canonicalUrl === null || $meta->canonicalUrl === '') {
                         continue;

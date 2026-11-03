@@ -38,7 +38,7 @@ $form = [
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     Csrf::requireValid();
     if (!$useDb) {
-        admin_flash_set('Role saved (demo UI).');
+        admin_flash_persistence_blocked('Role saved (demo UI).');
         header('Location: ' . url_base() . '/admin/roles/index.php', true, 302);
         exit;
     }
@@ -74,7 +74,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 admin_layout_start(['pageTitle' => $id ? 'Edit role' : 'New role', 'activeAdminNav' => 'roles']);
-admin_flash_render();
 $pageHeading = $id ? 'Edit role' : 'New role';
 require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
 ?>

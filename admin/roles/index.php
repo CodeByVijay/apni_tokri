@@ -7,7 +7,6 @@ require_once dirname(__DIR__) . '/_init.php';
 AdminDemoPerms::denyIfCannot('roles');
 
 admin_layout_start(['pageTitle' => 'Roles & permissions', 'activeAdminNav' => 'roles']);
-admin_flash_render();
 $pageHeading = 'Roles & permissions';
 $pageDescription = 'Permission mappings below reflect the database. System roles cannot be deleted.';
 $pageActionsHtml = '<a href="' . Security::escape(url_base()) . '/admin/roles/edit.php" class="at-btn at-btn--primary at-btn--sm at-focusable">Create role</a>';
@@ -48,7 +47,7 @@ foreach ($allPerms as $p) {
                     </td>
                     <td><?= (int) ($role['is_system'] ?? 0) === 1 ? '<span class="at-status at-status--info">System</span>' : '<span class="at-status at-status--neutral">Custom</span>' ?></td>
                     <td class="text-xs max-w-xl break-words"><?= Security::escape($permLabel) ?></td>
-                    <td class="is-actions"><a class="at-btn at-btn--sm at-btn--secondary at-focusable" href="<?= Security::escape(url_base()) ?>/admin/roles/edit.php?id=<?= $rid ?>">Edit</a></td>
+                    <td class="is-actions"><span class="at-admin-actions"><?= admin_action_edit_link(url_base() . '/admin/roles/edit.php?id=' . $rid, 'Edit') ?></span></td>
                 </tr>
             <?php endforeach; ?>
         </tbody>

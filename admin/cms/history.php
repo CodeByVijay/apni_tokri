@@ -25,7 +25,6 @@ if ($versionId > 0 && $versionDetail === null) {
 }
 
 admin_layout_start(['pageTitle' => 'Version history', 'activeAdminNav' => 'cms']);
-admin_flash_render();
 $pageHeading = 'Version history';
 $pageDescription = (string) ($page['title'] ?? '') . ' — append-only audit trail.';
 $pageActionsHtml = '<a href="' . Security::escape(url_base()) . '/admin/cms/edit.php?id=' . (int) $id . '" class="at-btn at-btn--secondary at-btn--sm at-focusable">Edit page</a>';

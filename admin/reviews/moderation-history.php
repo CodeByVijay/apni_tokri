@@ -11,7 +11,6 @@ $page = isset($_GET['page']) ? max(1, (int) $_GET['page']) : 1;
 $perPage = 25;
 
 admin_layout_start(['pageTitle' => 'Review moderation history', 'activeAdminNav' => 'reviews']);
-admin_flash_render();
 
 $pageHeading = 'Review moderation history';
 $pageDescription = 'Read-only audit trail of approve, reject, and admin reply actions.';

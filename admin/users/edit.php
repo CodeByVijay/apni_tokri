@@ -30,7 +30,7 @@ $errors = [];
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     Csrf::requireValid();
     if (!$useDb) {
-        admin_flash_set('User saved (demo UI).');
+        admin_flash_persistence_blocked('User saved (demo UI).');
         header('Location: ' . url_base() . '/admin/users/index.php', true, 302);
         exit;
     }
@@ -65,7 +65,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 admin_layout_start(['pageTitle' => $id ? 'Edit admin user' : 'New admin user', 'activeAdminNav' => 'users']);
-admin_flash_render();
 $pageHeading = $id ? 'Edit admin user' : 'New admin user';
 require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
 ?>

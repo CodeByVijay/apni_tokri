@@ -265,4 +265,10 @@ final class CmsPageRepository
 
         return $row ?: null;
     }
+
+    public static function deleteById(int $id): void
+    {
+        Install::ensureConnection();
+        Database::pdo()->prepare('DELETE FROM cms_pages WHERE id = ?')->execute([$id]);
+    }
 }

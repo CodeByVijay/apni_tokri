@@ -23,7 +23,6 @@ $out = Install::isSchemaReady() ? InventoryReportService::outOfStock() : [];
 $movements = Install::isSchemaReady() ? InventoryReportService::movementSummary($range, $page) : ['totals' => [], 'rows' => [], 'total' => 0];
 
 admin_layout_start(['pageTitle' => 'Inventory report', 'activeAdminNav' => 'reports']);
-admin_flash_render();
 $pageHeading = 'Inventory & stock report';
 $pageDescription = 'Live stock_qty from product_variants. No stock valuation (no cost data).';
 require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';

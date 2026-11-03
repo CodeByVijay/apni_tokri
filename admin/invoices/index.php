@@ -20,7 +20,6 @@ $filters = [
 ];
 
 admin_layout_start(['pageTitle' => 'Invoices', 'activeAdminNav' => 'invoices']);
-admin_flash_render();
 $pageHeading = 'Invoices';
 $pageDescription = 'Retail invoices and credit notes. Documents are immutable once issued.';
 require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';

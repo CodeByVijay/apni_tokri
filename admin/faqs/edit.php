@@ -30,7 +30,7 @@ $errors = [];
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     Csrf::requireValid();
     if (!$useDb) {
-        admin_flash_set('FAQ saved (demo UI).');
+        admin_flash_persistence_blocked('FAQ saved (demo UI).');
         header('Location: ' . url_base() . '/admin/faqs/index.php', true, 302);
         exit;
     }
@@ -60,7 +60,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 admin_layout_start(['pageTitle' => $id ? 'Edit FAQ' : 'New FAQ', 'activeAdminNav' => 'faqs']);
-admin_flash_render();
 $pageHeading = $id ? 'Edit FAQ' : 'New FAQ';
 require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
 ?>

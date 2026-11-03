@@ -37,14 +37,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         DeliveryConfig::resetCache();
         admin_flash_set('Delivery settings saved.');
     } else {
-        admin_flash_set('Delivery settings saved (demo UI).');
+        admin_flash_persistence_blocked('Delivery settings saved (demo UI).');
     }
     header('Location: ' . url_base() . '/admin/settings/delivery.php', true, 302);
     exit;
 }
 
 admin_layout_start(['pageTitle' => 'Delivery settings', 'activeAdminNav' => 'settings']);
-admin_flash_render();
 $pageHeading = 'Zones, fees & slots';
 $pageDescription = 'Store location, Indore zones, fees and slot capacity (Asia/Kolkata).';
 require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';

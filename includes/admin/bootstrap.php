@@ -80,37 +80,105 @@ function admin_layout_end(): void
     layout_admin_end();
 }
 
+function admin_flash_normalize_type(string $type): string
+{
+    $type = strtolower(trim($type));
+    if (in_array($type, ['success', 'error', 'warning', 'info'], true)) {
+        return $type;
+    }
+
+    return 'info';
+}
+
 function admin_flash_set(string $message, string $type = 'success'): void
 {
-    $_SESSION['admin_flash'] = ['message' => $message, 'type' => $type];
+    if (!isset($_SESSION['admin_flashes']) || !is_array($_SESSION['admin_flashes'])) {
+        $_SESSION['admin_flashes'] = [];
+    }
+    $_SESSION['admin_flashes'][] = [
+        'message' => $message,
+        'type' => admin_flash_normalize_type($type),
+    ];
+}
+
+/** @return list<array{message: string, type: string}> */
+function admin_flash_consume(): array
+{
+    $flashes = [];
+    if (!empty($_SESSION['admin_flashes']) && is_array($_SESSION['admin_flashes'])) {
+        foreach ($_SESSION['admin_flashes'] as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $msg = trim((string) ($row['message'] ?? ''));
+            if ($msg === '') {
+                continue;
+            }
+            $flashes[] = [
+                'message' => $msg,
+                'type' => admin_flash_normalize_type((string) ($row['type'] ?? 'success')),
+            ];
+        }
+        unset($_SESSION['admin_flashes']);
+    }
+    if (!empty($_SESSION['admin_flash']) && is_array($_SESSION['admin_flash'])) {
+        $legacy = $_SESSION['admin_flash'];
+        unset($_SESSION['admin_flash']);
+        $msg = trim((string) ($legacy['message'] ?? ''));
+        if ($msg !== '') {
+            $flashes[] = [
+                'message' => $msg,
+                'type' => admin_flash_normalize_type((string) ($legacy['type'] ?? 'success')),
+            ];
+        }
+    }
+
+    return $flashes;
 }
 
 function admin_flash_render(): void
 {
-    if (empty($_SESSION['admin_flash']) || !is_array($_SESSION['admin_flash'])) {
+    static $rendered = false;
+    if ($rendered) {
         return;
     }
-    $flash = $_SESSION['admin_flash'];
-    unset($_SESSION['admin_flash']);
-    $type = ($flash['type'] ?? 'success') === 'error' ? 'error' : 'info';
-    if ($type === 'success') {
-        $type = 'success';
+    $rendered = true;
+    require_once APNI_TOKRI_ROOT . '/includes/partials/admin/flash-messages.php';
+    $html = admin_flash_render_html(admin_flash_consume());
+    if ($html !== '') {
+        echo $html;
     }
-    $class = 'at-alert--' . ($type === 'error' ? 'error' : ($type === 'success' ? 'success' : 'info'));
-    echo '<div class="at-alert ' . Security::escape($class) . ' mb-4">' . Security::escape((string) ($flash['message'] ?? '')) . '</div>';
 }
 
 function admin_handle_demo_post(string $successMessage): void
 {
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         Csrf::requireValid();
-        if (Install::isSchemaReady() && AdminAuth::check()) {
-            AuditLog::write('admin.form_save', null, null, ['message' => $successMessage]);
-        }
-        admin_flash_set($successMessage);
-        $path = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
-        header('Location: ' . ($path ?: ''), true, 302);
-        exit;
+        admin_redirect_after_persistence_post($successMessage);
+    }
+}
+
+/** POST without DB: demo flash locally, operational error in production. */
+function admin_redirect_after_persistence_post(string $localDemoSuccessMessage): void
+{
+    if (AdminPersistence::isAvailable()) {
+        admin_flash_set($localDemoSuccessMessage);
+    } elseif (AppEnvironment::isProduction()) {
+        admin_flash_set(AdminPersistence::unavailableMessage(), 'error');
+    } else {
+        admin_flash_set($localDemoSuccessMessage);
+    }
+    $path = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
+    header('Location: ' . ($path ?: ''), true, 302);
+    exit;
+}
+
+function admin_flash_persistence_blocked(string $localDemoSuccessMessage): void
+{
+    if (AppEnvironment::isProduction()) {
+        admin_flash_set(AdminPersistence::unavailableMessage(), 'error');
+    } else {
+        admin_flash_set($localDemoSuccessMessage);
     }
 }
 

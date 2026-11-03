@@ -45,6 +45,57 @@ final class SeoRedirectRepository
             ->execute([$prefix . '%']);
     }
 
+    /**
+     * @return array{rows: list<array<string, mixed>>, total: int}
+     */
+    public static function searchForAdmin(int $page, int $perPage, string $q = ''): array
+    {
+        if (!Install::isSchemaReady()) {
+            return ['rows' => [], 'total' => 0];
+        }
+        Install::ensureConnection();
+        $page = max(1, $page);
+        $perPage = max(1, min(100, $perPage));
+        $offset = ($page - 1) * $perPage;
+        $pdo = Database::pdo();
+        $params = [];
+        $where = '';
+        $q = trim($q);
+        if ($q !== '') {
+            $where = ' WHERE from_path LIKE ? OR to_path LIKE ?';
+            $like = '%' . str_replace(['%', '_'], ['\\%', '\\_'], $q) . '%';
+            $params = [$like, $like];
+        }
+        $countStmt = $pdo->prepare('SELECT COUNT(*) FROM seo_redirects' . $where);
+        $countStmt->execute($params);
+        $total = (int) $countStmt->fetchColumn();
+        $sql = 'SELECT id, from_path, to_path, http_code, created_at FROM seo_redirects'
+            . $where . ' ORDER BY id DESC LIMIT ' . (int) $perPage . ' OFFSET ' . (int) $offset;
+        $stmt = $params === [] ? $pdo->query($sql) : $pdo->prepare($sql);
+        if ($stmt instanceof PDOStatement) {
+            if ($params !== []) {
+                $stmt->execute($params);
+            }
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } else {
+            $rows = [];
+        }
+
+        return ['rows' => is_array($rows) ? $rows : [], 'total' => $total];
+    }
+
+    public static function deleteById(int $id): bool
+    {
+        if ($id <= 0) {
+            return false;
+        }
+        Install::ensureConnection();
+        $stmt = Database::pdo()->prepare('DELETE FROM seo_redirects WHERE id = ? LIMIT 1');
+        $stmt->execute([$id]);
+
+        return $stmt->rowCount() > 0;
+    }
+
     /** @return list<string> */
     public static function listAllFromPaths(): array
     {

@@ -12,6 +12,13 @@ final class AdminGuard
         'login.php',
     ];
 
+    /** Allowed while factory seed password is still in use. */
+    /** @var list<string> */
+    private const PASSWORD_CHANGE_SCRIPTS = [
+        'change-password.php',
+        'logout.php',
+    ];
+
     public static function isPublicScript(string $scriptBasename): bool
     {
         return in_array($scriptBasename, self::PUBLIC_SCRIPTS, true);
@@ -49,6 +56,12 @@ final class AdminGuard
 
         if (!AdminAuth::check()) {
             self::denyUnauthenticated(null);
+
+            return;
+        }
+
+        if (AdminAuth::requiresMandatoryPasswordChange() && !in_array($script, self::PASSWORD_CHANGE_SCRIPTS, true)) {
+            self::denyPasswordChangeRequired();
         }
     }
 
@@ -79,6 +92,19 @@ final class AdminGuard
             $_SESSION['admin_login_notice'] = $message;
         }
         header('Location: ' . $login, true, 302);
+        exit;
+    }
+
+    private static function denyPasswordChangeRequired(): void
+    {
+        if (self::isAjaxRequest()) {
+            http_response_code(403);
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['ok' => false, 'error' => 'password_change_required'], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+
+        header('Location: ' . url_to('/admin/change-password.php'), true, 302);
         exit;
     }
 

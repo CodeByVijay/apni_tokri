@@ -12,7 +12,6 @@ $page = isset($_GET['page']) ? max(1, (int) $_GET['page']) : 1;
 $perPage = 20;
 
 admin_layout_start(['pageTitle' => 'Admin users', 'activeAdminNav' => 'users']);
-admin_flash_render();
 $pageHeading = 'Admin users';
 $pageDescription = 'Roles control module access server-side. Passwords are never shown.';
 $pageActionsHtml = '<a href="' . Security::escape(url_base()) . '/admin/users/edit.php" class="at-btn at-btn--primary at-btn--sm at-focusable">Add user</a>';

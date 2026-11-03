@@ -98,7 +98,7 @@ $activeNav = $activeNav ?? '';
         <a href="<?= Security::escape($base) ?>/cart.php" class="at-focusable <?= $activeNav === 'cart' ? 'is-active' : '' ?>">
             <?= at_icon('cart') ?><?= Security::escape(__('nav_cart')) ?>
         </a>
-        <a href="<?= Security::escape($base) ?><?= (class_exists('DemoCustomer') && DemoCustomer::isLoggedIn()) ? '/my-account.php' : '/login.php' ?>" class="at-focusable <?= $activeNav === 'account' ? 'is-active' : '' ?>">
+        <a href="<?= Security::escape($base) ?><?= CustomerService::isLoggedIn() ? '/my-account.php' : '/login.php' ?>" class="at-focusable <?= $activeNav === 'account' ? 'is-active' : '' ?>">
             <?= at_icon('user') ?><?= Security::escape(__('nav_account')) ?>
         </a>
     </div>

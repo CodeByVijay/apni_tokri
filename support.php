@@ -60,7 +60,12 @@ require APNI_TOKRI_ROOT . '/includes/partials/account-shell-start.php';
             <div>
                 <label class="at-label" for="category">Issue type</label>
                 <select id="category" name="category" class="at-select at-focusable" required>
-                    <?php foreach (SupportTicketService::categoryLabels() as $code => $label): ?>
+                    <?php
+                    $ticketCategories = SupportTicketService::categoryLabelsForCustomer(
+                        CustomerAuth::check() ? CustomerAuth::id() : null
+                    );
+                    foreach ($ticketCategories as $code => $label):
+                    ?>
                         <option value="<?= Security::escape($code) ?>"><?= Security::escape($label) ?></option>
                     <?php endforeach; ?>
                 </select>

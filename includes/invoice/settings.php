@@ -3,27 +3,16 @@
 declare(strict_types=1);
 
 /**
- * Invoice configuration (AppSettings `invoice.*`). Seller identity falls back to existing
- * business / branding settings so nothing is duplicated unless the admin overrides it.
+ * Invoice configuration (AppSettings `invoice.*`). Seller identity is read from
+ * {@see BusinessSettings} and {@see BrandingSettings}; only invoice-specific keys are stored here.
  */
 final class InvoiceSettings
 {
     public const DOC_RETAIL = 'retail_invoice';
     public const DOC_CREDIT_NOTE = 'credit_note';
 
-    /** @var array<string, string> field => AppSettings key */
+    /** @var array<string, string> field => AppSettings key (invoice-specific only) */
     private const KEYS = [
-        'brand_name' => 'invoice.brand_name',
-        'legal_name' => 'invoice.legal_name',
-        'tagline' => 'invoice.tagline',
-        'address' => 'invoice.address',
-        'city' => 'invoice.city',
-        'state' => 'invoice.state',
-        'pincode' => 'invoice.pincode',
-        'phone' => 'invoice.phone',
-        'email' => 'invoice.email',
-        'website' => 'invoice.website',
-        'fssai' => 'invoice.fssai',
         'logo_file' => 'invoice.logo_file',
         'prefix' => 'invoice.prefix',
         'fy_numbering' => 'invoice.fy_numbering',
@@ -82,33 +71,24 @@ final class InvoiceSettings
     }
 
     /**
-     * Effective seller identity as printed on a NEW invoice (falls back to business/branding settings).
+     * Effective seller identity as printed on a NEW invoice (canonical business + branding settings).
      *
      * @return array<string, string|null>
      */
     public static function seller(): array
     {
-        $f = self::formState();
-        $brand = $f['brand_name'] !== '' ? $f['brand_name'] : BrandingSettings::siteName();
-        $legal = $f['legal_name'] !== '' ? $f['legal_name'] : BusinessSettings::legalName();
-        $phone = $f['phone'] !== '' ? $f['phone'] : (string) (BusinessSettings::supportPhoneDisplay() ?? '');
-        $email = $f['email'] !== '' ? $f['email'] : (string) (BusinessSettings::supportEmail() ?? '');
-        $fssai = $f['fssai'] !== '' ? $f['fssai'] : (string) (BusinessSettings::fssaiLicence() ?? '');
-        $website = $f['website'] !== '' ? $f['website'] : App::baseUrl();
-        $tagline = $f['tagline'] !== '' ? $f['tagline'] : 'Har Ghar Ki Taazgi';
-
         $s = [
-            'brand_name' => $brand,
-            'legal_name' => $legal,
-            'tagline' => $tagline,
-            'address' => $f['address'],
-            'city' => $f['city'],
-            'state' => $f['state'],
-            'pincode' => $f['pincode'],
-            'phone' => $phone,
-            'email' => $email,
-            'website' => $website,
-            'fssai' => $fssai,
+            'brand_name' => BrandingSettings::siteName(),
+            'legal_name' => BusinessSettings::legalName(),
+            'tagline' => BrandingSettings::tagline(),
+            'address' => BusinessSettings::addressLine(),
+            'city' => BusinessSettings::city(),
+            'state' => BusinessSettings::state(),
+            'pincode' => BusinessSettings::pincode(),
+            'phone' => BusinessSettings::supportPhoneDisplay(),
+            'email' => BusinessSettings::supportEmail(),
+            'website' => App::baseUrl(),
+            'fssai' => BusinessSettings::fssaiLicence(),
             'gstin' => null,
         ];
         foreach ($s as $k => $v) {
@@ -205,38 +185,17 @@ final class InvoiceSettings
         }
         $errors = [];
         $v = [];
-        foreach (['brand_name' => 120, 'legal_name' => 160, 'tagline' => 160, 'address' => 300, 'city' => 80, 'state' => 80, 'footer' => 300] as $f => $max) {
+        foreach (['footer' => 300] as $f => $max) {
             $v[$f] = trim(preg_replace('/\s+/', ' ', (string) ($post[$f] ?? '')) ?? '');
             if (mb_strlen($v[$f]) > $max) {
                 $errors[$f] = 'Maximum ' . $max . ' characters.';
             }
         }
-        $v['pincode'] = trim((string) ($post['pincode'] ?? ''));
-        if ($v['pincode'] !== '' && preg_match('/^[1-9][0-9]{5}$/', $v['pincode']) !== 1) {
-            $errors['pincode'] = 'Enter a valid 6-digit PIN code.';
-        }
-        $v['phone'] = trim((string) ($post['phone'] ?? ''));
-        if ($v['phone'] !== '') {
-            $digits = Validation::normalizeMobileIndia($v['phone']);
-            if ($digits === null) {
-                $errors['phone'] = 'Enter a valid 10-digit Indian mobile number.';
-            } else {
-                $v['phone'] = '+91 ' . substr($digits, 0, 5) . ' ' . substr($digits, 5);
-            }
-        }
-        $v['email'] = trim((string) ($post['email'] ?? ''));
-        if ($v['email'] !== '' && !Validation::email($v['email'])) {
-            $errors['email'] = 'Enter a valid email address.';
-        }
-        foreach (['website', 'return_url', 'terms_url'] as $f) {
+        foreach (['return_url', 'terms_url'] as $f) {
             $v[$f] = trim((string) ($post[$f] ?? ''));
             if ($v[$f] !== '' && (filter_var($v[$f], FILTER_VALIDATE_URL) === false || !preg_match('#^https?://#i', $v[$f]))) {
                 $errors[$f] = 'Enter a full http(s) URL.';
             }
-        }
-        $v['fssai'] = trim((string) ($post['fssai'] ?? ''));
-        if ($v['fssai'] !== '' && preg_match('/^[A-Za-z0-9\-\/]{1,64}$/', $v['fssai']) !== 1) {
-            $errors['fssai'] = 'FSSAI may only contain letters, numbers, hyphens and slashes.';
         }
         $v['prefix'] = strtoupper(trim((string) ($post['prefix'] ?? '')));
         if ($v['prefix'] === '') {

@@ -9,6 +9,7 @@
     RewriteRule ^includes/ - [F,L]
     RewriteRule ^storage/ - [F,L]
     RewriteRule ^database/ - [F,L]
+    RewriteRule ^scripts(/|$) - [F,L,NC]
 </IfModule>
 
 # Upload PHP deny rules: configure in Apache vhost when needed (DirectoryMatch is not valid in .htaccess on all hosts).

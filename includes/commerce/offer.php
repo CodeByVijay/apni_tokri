@@ -160,9 +160,75 @@ final class CouponRepository
     /** @return list<array<string, mixed>> */
     public static function all(): array
     {
-        Install::ensureConnection();
+        $result = self::searchForAdmin('', null, 1, 500, 'created_at', 'desc');
 
-        return Database::pdo()->query('SELECT * FROM coupons ORDER BY created_at DESC')->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        return $result['rows'];
+    }
+
+    /**
+     * @return array{rows: list<array<string, mixed>>, total: int, page: int, per_page: int, total_pages: int}
+     */
+    public static function searchForAdmin(
+        string $query,
+        ?int $isActive,
+        int $page,
+        int $perPage,
+        string $sortColumn = 'created_at',
+        string $sortDirection = 'desc'
+    ): array {
+        if (!Install::isSchemaReady()) {
+            return ['rows' => [], 'total' => 0, 'page' => 1, 'per_page' => $perPage, 'total_pages' => 1];
+        }
+        Install::ensureConnection();
+        $pdo = Database::pdo();
+        $page = max(1, $page);
+        $perPage = max(1, min(100, $perPage));
+        $where = ['1=1'];
+        $params = [];
+        $q = trim($query);
+        if ($q !== '') {
+            $like = '%' . AdminServerList::escapeLike($q) . '%';
+            $where[] = '(code LIKE ? OR internal_name LIKE ?)';
+            $params[] = $like;
+            $params[] = $like;
+        }
+        if ($isActive !== null && ($isActive === 0 || $isActive === 1)) {
+            $where[] = 'is_active = ?';
+            $params[] = $isActive;
+        }
+        $whereSql = implode(' AND ', $where);
+        $sortMap = [
+            'code' => 'code',
+            'created_at' => 'created_at',
+            'id' => 'id',
+            'used_count' => 'used_count',
+        ];
+        $orderSql = AdminServerList::orderBySql($sortColumn, $sortDirection, $sortMap, 'created_at');
+        $countStmt = $pdo->prepare('SELECT COUNT(*) FROM coupons WHERE ' . $whereSql);
+        $countStmt->execute($params);
+        $total = (int) $countStmt->fetchColumn();
+        $totalPages = max(1, (int) ceil($total / $perPage));
+        if ($page > $totalPages) {
+            $page = $totalPages;
+        }
+        $offset = ($page - 1) * $perPage;
+        $sql = 'SELECT * FROM coupons WHERE ' . $whereSql . ' ORDER BY ' . $orderSql . ' LIMIT ? OFFSET ?';
+        $stmt = $pdo->prepare($sql);
+        $i = 1;
+        foreach ($params as $p) {
+            $stmt->bindValue($i++, $p);
+        }
+        $stmt->bindValue($i++, $perPage, PDO::PARAM_INT);
+        $stmt->bindValue($i, $offset, PDO::PARAM_INT);
+        $stmt->execute();
+
+        return [
+            'rows' => $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [],
+            'total' => $total,
+            'page' => $page,
+            'per_page' => $perPage,
+            'total_pages' => $totalPages,
+        ];
     }
 
     /** @return array<string, mixed>|null */
@@ -320,6 +386,34 @@ final class CouponRepository
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
+
+    /** @return array{ok: bool, message: string, archived?: bool} */
+    public static function deleteForAdmin(int $id): array
+    {
+        $row = self::find($id);
+        if ($row === null) {
+            return ['ok' => false, 'message' => 'Coupon not found.'];
+        }
+        $pdo = Database::pdo();
+        $st = $pdo->prepare('SELECT COUNT(*) FROM coupon_usages WHERE coupon_id = ?');
+        $st->execute([$id]);
+        if ((int) $st->fetchColumn() > 0 || (int) ($row['used_count'] ?? 0) > 0) {
+            $pdo->prepare('UPDATE coupons SET is_active = 0 WHERE id = ?')->execute([$id]);
+            AuditLog::write('coupon.archive', 'coupon', (string) $id, ['code' => (string) $row['code']]);
+
+            return ['ok' => true, 'message' => 'Coupon was used on orders and was deactivated instead of deleted.', 'archived' => true];
+        }
+        try {
+            $pdo->prepare('DELETE FROM coupons WHERE id = ?')->execute([$id]);
+            AuditLog::write('coupon.delete', 'coupon', (string) $id, ['code' => (string) $row['code']]);
+
+            return ['ok' => true, 'message' => 'Coupon deleted.'];
+        } catch (Throwable $e) {
+            error_log('CouponRepository::deleteForAdmin: ' . $e->getMessage());
+
+            return ['ok' => false, 'message' => 'Could not delete coupon.'];
+        }
+    }
 }
 
 final class OfferRepository
@@ -327,9 +421,75 @@ final class OfferRepository
     /** @return list<array<string, mixed>> */
     public static function all(): array
     {
-        Install::ensureConnection();
+        $result = self::searchForAdmin('', null, 1, 500, 'priority', 'desc');
 
-        return Database::pdo()->query('SELECT * FROM offers ORDER BY priority DESC, id DESC')->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        return $result['rows'];
+    }
+
+    /**
+     * @return array{rows: list<array<string, mixed>>, total: int, page: int, per_page: int, total_pages: int}
+     */
+    public static function searchForAdmin(
+        string $query,
+        ?int $isActive,
+        int $page,
+        int $perPage,
+        string $sortColumn = 'priority',
+        string $sortDirection = 'desc'
+    ): array {
+        if (!Install::isSchemaReady()) {
+            return ['rows' => [], 'total' => 0, 'page' => 1, 'per_page' => $perPage, 'total_pages' => 1];
+        }
+        Install::ensureConnection();
+        $pdo = Database::pdo();
+        $page = max(1, $page);
+        $perPage = max(1, min(100, $perPage));
+        $where = ['1=1'];
+        $params = [];
+        $q = trim($query);
+        if ($q !== '') {
+            $like = '%' . AdminServerList::escapeLike($q) . '%';
+            $where[] = '(name LIKE ? OR scope LIKE ?)';
+            $params[] = $like;
+            $params[] = $like;
+        }
+        if ($isActive !== null && ($isActive === 0 || $isActive === 1)) {
+            $where[] = 'is_active = ?';
+            $params[] = $isActive;
+        }
+        $whereSql = implode(' AND ', $where);
+        $sortMap = [
+            'name' => 'name',
+            'priority' => 'priority',
+            'created_at' => 'created_at',
+            'id' => 'id',
+        ];
+        $orderSql = AdminServerList::orderBySql($sortColumn, $sortDirection, $sortMap, 'priority');
+        $countStmt = $pdo->prepare('SELECT COUNT(*) FROM offers WHERE ' . $whereSql);
+        $countStmt->execute($params);
+        $total = (int) $countStmt->fetchColumn();
+        $totalPages = max(1, (int) ceil($total / $perPage));
+        if ($page > $totalPages) {
+            $page = $totalPages;
+        }
+        $offset = ($page - 1) * $perPage;
+        $sql = 'SELECT * FROM offers WHERE ' . $whereSql . ' ORDER BY ' . $orderSql . ' LIMIT ? OFFSET ?';
+        $stmt = $pdo->prepare($sql);
+        $i = 1;
+        foreach ($params as $p) {
+            $stmt->bindValue($i++, $p);
+        }
+        $stmt->bindValue($i++, $perPage, PDO::PARAM_INT);
+        $stmt->bindValue($i, $offset, PDO::PARAM_INT);
+        $stmt->execute();
+
+        return [
+            'rows' => $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [],
+            'total' => $total,
+            'page' => $page,
+            'per_page' => $perPage,
+            'total_pages' => $totalPages,
+        ];
     }
 
     /** @return array<string, mixed>|null */
@@ -399,5 +559,26 @@ final class OfferRepository
         }
 
         return $offerId;
+    }
+
+    /** @return array{ok: bool, message: string} */
+    public static function deleteForAdmin(int $id): array
+    {
+        $row = self::find($id);
+        if ($row === null) {
+            return ['ok' => false, 'message' => 'Offer not found.'];
+        }
+        try {
+            $pdo = Database::pdo();
+            $pdo->prepare('DELETE FROM offer_customer_assignments WHERE offer_id = ?')->execute([$id]);
+            $pdo->prepare('DELETE FROM offers WHERE id = ?')->execute([$id]);
+            AuditLog::write('offer.delete', 'offer', (string) $id, ['name' => (string) $row['name']]);
+
+            return ['ok' => true, 'message' => 'Offer deleted.'];
+        } catch (Throwable $e) {
+            error_log('OfferRepository::deleteForAdmin: ' . $e->getMessage());
+
+            return ['ok' => false, 'message' => 'Could not delete offer.'];
+        }
     }
 }

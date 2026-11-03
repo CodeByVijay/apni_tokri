@@ -149,10 +149,23 @@ if ($parsed['csrf'] === null) {
         $jar,
         $body
     );
-    ok($loginPost['code'] === 302 && str_contains((string) $loginPost['location'], 'dashboard.php'), 'Valid admin login redirects to dashboard');
+    $loginDest = (string) ($loginPost['location'] ?? '');
+    $expectChangePw = str_contains($loginDest, 'change-password.php');
+    ok($loginPost['code'] === 302 && ($expectChangePw || str_contains($loginDest, 'dashboard.php')), 'Valid admin login redirects to dashboard or mandatory password change');
 
-    $authed = httpRequest('GET', $base . '/admin/dashboard.php', [], $jar);
-    ok($authed['code'] === 200 && str_contains($authed['body'], 'Apni Tokri'), 'Authenticated admin reaches dashboard');
+    $authed = httpRequest('GET', $base . ($expectChangePw ? '/admin/change-password.php' : '/admin/dashboard.php'), [], $jar);
+    ok($authed['code'] === 200 && str_contains($authed['body'], 'Apni Tokri'), 'Authenticated admin reaches post-login destination');
+
+    if ($expectChangePw) {
+        $dashBypass = httpRequest('GET', $base . '/admin/dashboard.php', [], $jar);
+        ok($dashBypass['code'] === 302 && str_contains((string) $dashBypass['location'], 'change-password.php'), 'Dashboard blocked until password changed');
+
+        $ajaxBypass = httpRequest('GET', $base . '/admin/dashboard.php', ['X-Requested-With: XMLHttpRequest', 'Accept: application/json'], $jar);
+        ok($ajaxBypass['code'] === 403 && str_contains($ajaxBypass['body'], 'password_change_required'), 'AJAX blocked until password changed (dashboard)');
+
+        $slugAjax = httpRequest('GET', $base . '/admin/ajax/slug-from-name.php?name=test', ['X-Requested-With: XMLHttpRequest', 'Accept: application/json'], $jar);
+        ok($slugAjax['code'] === 403 && str_contains($slugAjax['body'], 'password_change_required'), 'AJAX slug helper blocked until password changed');
+    }
 
     $logout = httpRequest('GET', $base . '/admin/logout.php', [], $jar);
     ok($logout['code'] === 302 && str_contains((string) $logout['location'], 'login.php'), 'Logout redirects to login');

@@ -76,7 +76,6 @@ if (!empty($_SESSION['smtp_test_errors']) && is_array($_SESSION['smtp_test_error
 }
 
 admin_layout_start(['pageTitle' => 'SMTP settings', 'activeAdminNav' => 'settings']);
-admin_flash_render();
 $pageHeading = 'SMTP settings';
 $pageDescription = 'Outbound email transport for admin test messages (Stage 14.2). Passwords are encrypted and never shown after save.';
 require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';

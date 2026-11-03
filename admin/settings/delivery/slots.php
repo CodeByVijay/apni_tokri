@@ -3,14 +3,25 @@
 declare(strict_types=1);
 
 require_once dirname(__DIR__, 2) . '/_init.php';
+require_once APNI_TOKRI_ROOT . '/includes/admin/list_actions.php';
+require_once APNI_TOKRI_ROOT . '/includes/partials/admin/list-pagination.php';
 
 AdminDemoPerms::denyIfCannot('settings');
 
 $useDb = Install::isSchemaReady() && AdminAuth::check();
+$self = url_base() . '/admin/settings/delivery/slots.php';
 $errors = [];
 $editId = isset($_GET['edit']) ? (int) $_GET['edit'] : null;
 $editRow = $editId ? DeliverySlotRepository::find($editId) : null;
+$slugLocked = $editRow !== null && DeliverySlotRepository::orderReferenceCount((int) $editRow['id']) > 0;
+
+$listQ = isset($_GET['q']) ? trim((string) $_GET['q']) : '';
+$listPage = isset($_GET['page']) ? max(1, (int) $_GET['page']) : 1;
+$listPerPage = DeliverySlotRepository::normalizeListPerPage(isset($_GET['per_page']) ? (int) $_GET['per_page'] : 25);
+$listQueryBase = array_filter(['q' => $listQ !== '' ? $listQ : null]);
+
 $capacityGrid = $useDb ? DeliverySlotAdminService::nextSevenDayCapacity() : [];
+$allSlots = $useDb ? DeliverySlotRepository::all() : [];
 $dates = [];
 if ($useDb) {
     $start = DeliveryConfig::now();
@@ -24,16 +35,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = (string) ($_POST['action'] ?? 'save');
     if ($useDb) {
         try {
+            if ($action === 'delete') {
+                $delId = (int) ($_POST['slot_id'] ?? 0);
+                $result = DeliverySlotAdminService::deleteForAdmin($delId);
+                admin_flash_set(
+                    (string) ($result['message'] ?? ($result['ok'] ? 'Deleted.' : 'Could not delete.')),
+                    !empty($result['ok']) ? 'success' : 'error'
+                );
+                $redirectQs = array_filter([
+                    'q' => trim((string) ($_POST['list_q'] ?? '')),
+                    'page' => max(1, (int) ($_POST['list_page'] ?? 1)),
+                    'per_page' => DeliverySlotRepository::normalizeListPerPage((int) ($_POST['list_per_page'] ?? 25)),
+                ]);
+                header('Location: ' . $self . ($redirectQs !== [] ? '?' . http_build_query($redirectQs) : ''), true, 302);
+                exit;
+            }
             if ($action === 'deactivate') {
                 DeliverySlotAdminService::setActive((int) ($_POST['slot_id'] ?? 0), false);
                 admin_flash_set('Slot deactivated.');
-                header('Location: ' . url_base() . '/admin/settings/delivery/slots.php', true, 302);
+                header('Location: ' . $self . ($listQueryBase !== [] ? '?' . http_build_query(array_merge($listQueryBase, ['page' => $listPage, 'per_page' => $listPerPage])) : ''), true, 302);
                 exit;
             }
             if ($action === 'activate') {
                 DeliverySlotAdminService::setActive((int) ($_POST['slot_id'] ?? 0), true);
                 admin_flash_set('Slot activated.');
-                header('Location: ' . url_base() . '/admin/settings/delivery/slots.php', true, 302);
+                header('Location: ' . $self . ($listQueryBase !== [] ? '?' . http_build_query(array_merge($listQueryBase, ['page' => $listPage, 'per_page' => $listPerPage])) : ''), true, 302);
                 exit;
             }
             $id = isset($_POST['slot_id']) && $_POST['slot_id'] !== '' ? (int) $_POST['slot_id'] : null;
@@ -42,7 +68,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $errors = $result['errors'];
             } else {
                 admin_flash_set($id ? 'Slot updated.' : 'Slot created.');
-                header('Location: ' . url_base() . '/admin/settings/delivery/slots.php', true, 302);
+                header('Location: ' . $self, true, 302);
                 exit;
             }
         } catch (InvalidArgumentException $e) {
@@ -51,14 +77,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$slots = $useDb ? DeliverySlotRepository::all() : [];
+$slotList = $useDb
+    ? DeliverySlotRepository::listForAdmin($listQ !== '' ? $listQ : null, $listPage, $listPerPage)
+    : ['rows' => [], 'total' => 0, 'page' => 1, 'per_page' => $listPerPage];
 $providers = DeliverySlotService::knownProviderSlugs();
 $selectedProviders = $editRow
     ? DeliverySlotAdminService::decodeProviders((string) ($editRow['allowed_provider_slugs_json'] ?? ''))
     : ['manual'];
 
 admin_layout_start(['pageTitle' => 'Delivery slots', 'activeAdminNav' => 'settings']);
-admin_flash_render();
 $pageHeading = 'Delivery slots';
 $pageDescription = 'Windows, capacity, weekdays, cutoffs, and provider eligibility (Asia/Kolkata). Deactivate instead of delete when orders reference a slot.';
 require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
@@ -74,14 +101,28 @@ if ($errors !== []): ?>
 <div class="grid lg:grid-cols-2 gap-4">
     <div class="at-admin-card"><div class="at-admin-card__body space-y-3">
         <h3 class="font-bold"><?= $editRow ? 'Edit slot' : 'Add slot' ?></h3>
-        <form method="post" class="space-y-3">
+        <form method="post" class="space-y-3"<?= !$slugLocked ? ' data-at-admin-slug data-slug-api="' . Security::escape(url_base()) . '/admin/ajax/slug-from-name.php"' : '' ?>>
             <?= Csrf::field() ?>
             <input type="hidden" name="action" value="save">
             <?php if ($editRow): ?><input type="hidden" name="slot_id" value="<?= (int) $editRow['id'] ?>"><?php endif; ?>
-            <div class="grid grid-cols-2 gap-2">
-                <div><label class="at-label">Name</label><input name="label" class="at-input at-focusable w-full" required value="<?= Security::escape((string) ($editRow['label'] ?? '')) ?>"></div>
-                <div><label class="at-label">Slug</label><input name="slug" class="at-input at-focusable w-full" required value="<?= Security::escape((string) ($editRow['slug'] ?? '')) ?>"<?= $editRow && DeliverySlotRepository::orderReferenceCount((int) $editRow['id']) > 0 ? ' readonly' : '' ?>></div>
-            </div>
+            <?php if ($slugLocked): ?>
+                <div class="grid grid-cols-2 gap-2">
+                    <div><label class="at-label" for="slot-label">Name</label><input id="slot-label" name="label" class="at-input at-focusable w-full" required value="<?= Security::escape((string) ($editRow['label'] ?? '')) ?>"></div>
+                    <div><label class="at-label" for="slot-slug">Slug</label><input id="slot-slug" name="slug" class="at-input at-focusable w-full" required readonly value="<?= Security::escape((string) ($editRow['slug'] ?? '')) ?>"><p class="text-xs at-muted mt-1">Slug is locked because orders reference this slot.</p></div>
+                </div>
+            <?php else:
+                $slugSourceId = 'slot-label';
+                $slugSourceName = 'label';
+                $slugSourceLabel = 'Name';
+                $slugSourceValue = (string) ($editRow['label'] ?? '');
+                $slugTargetId = 'slot-slug';
+                $slugTargetValue = (string) ($editRow['slug'] ?? '');
+                $slugManualId = 'slot-slug-manual';
+                $slugHint = 'Generated from the name as you type. Edit the slug to customize; clear it to resume auto-generation.';
+                $slugError = null;
+                $slugTargetMaxLength = 32;
+                require APNI_TOKRI_ROOT . '/includes/partials/admin/slug-field.php';
+            endif; ?>
             <div><label class="at-label">Window label</label><input name="window_label" class="at-input at-focusable w-full" value="<?= Security::escape((string) ($editRow['window_label'] ?? '')) ?>"></div>
             <div><label class="at-label">Delivery day rule</label>
                 <select name="delivery_day" class="at-input at-focusable w-full">
@@ -127,21 +168,21 @@ if ($errors !== []): ?>
             </fieldset>
             <label class="flex gap-2 text-sm"><input type="checkbox" name="is_active" value="1"<?= !isset($editRow) || !empty($editRow['is_active']) ? ' checked' : '' ?>> Active</label>
             <button type="submit" class="at-btn at-btn--primary at-focusable"><?= $editRow ? 'Update slot' : 'Create slot' ?></button>
-            <?php if ($editRow): ?><a class="at-btn at-focusable ml-2" href="<?= Security::escape(url_base()) ?>/admin/settings/delivery/slots.php">Cancel</a><?php endif; ?>
+            <?php if ($editRow): ?><a class="at-btn at-focusable ml-2" href="<?= Security::escape($self) ?>">Cancel</a><?php endif; ?>
         </form>
     </div></div>
 
     <div class="at-admin-card"><div class="at-admin-card__body">
         <h3 class="font-bold mb-2">Capacity — next 7 days</h3>
         <p class="text-xs at-muted mb-2">Capacity used = paid orders + active unexpired holds. Consumed reservations are counted only via paid orders. Orphan pending orders (no active hold) are shown separately and do not consume capacity.</p>
-        <?php if ($slots === []): ?>
+        <?php if ($allSlots === []): ?>
             <p class="text-sm at-muted">No slots configured.</p>
         <?php else: ?>
             <div class="at-admin-table-wrap overflow-x-auto">
                 <table class="at-admin-table at-admin-table--fixed text-xs">
                     <thead><tr><th>Slot</th><?php foreach ($dates as $d): ?><th><?= Security::escape(substr($d, 5)) ?></th><?php endforeach; ?></tr></thead>
                     <tbody>
-                    <?php foreach ($slots as $s): ?>
+                    <?php foreach ($allSlots as $s): ?>
                         <tr>
                             <td><?= Security::escape((string) $s['slug']) ?></td>
                             <?php foreach ($dates as $d):
@@ -163,23 +204,55 @@ if ($errors !== []): ?>
 </div>
 
 <div class="at-admin-card mt-4"><div class="at-admin-card__body">
-    <h3 class="font-bold mb-3">All slots</h3>
+    <div class="flex flex-wrap items-end justify-between gap-3 mb-3">
+        <h3 class="font-bold">All slots</h3>
+        <form method="get" class="flex flex-wrap gap-2 items-end">
+            <div>
+                <label class="at-label" for="slot-search-q">Search</label>
+                <input id="slot-search-q" name="q" class="at-input at-focusable" value="<?= Security::escape($listQ) ?>" placeholder="Name or slug">
+            </div>
+            <input type="hidden" name="per_page" value="<?= (int) $slotList['per_page'] ?>">
+            <button type="submit" class="at-btn at-btn--secondary at-focusable">Search</button>
+            <?php if ($listQ !== ''): ?>
+                <a class="at-btn at-btn--ghost at-focusable" href="<?= Security::escape($self) ?>">Clear</a>
+            <?php endif; ?>
+        </form>
+    </div>
     <div class="at-admin-table-wrap">
         <table class="at-admin-table">
-            <thead><tr><th>Slug</th><th>Window</th><th class="is-num">Cap</th><th class="is-num">Orders</th><th>Active</th><th class="is-actions"></th></tr></thead>
+            <thead><tr><th>Name</th><th>Slug</th><th>Window</th><th class="is-num">Cap</th><th class="is-num">Orders</th><th>Active</th><th class="is-actions">Actions</th></tr></thead>
             <tbody>
-            <?php foreach ($slots as $s): ?>
+            <?php if ($slotList['rows'] === []): ?>
+                <tr><td colspan="7" class="text-sm at-muted">No slots match your search.</td></tr>
+            <?php endif; ?>
+            <?php foreach ($slotList['rows'] as $s):
+                $sid = (int) $s['id'];
+                $label = (string) ($s['label'] ?? $s['slug']);
+                $deleteConfirm = 'Delete delivery slot “' . str_replace(['"', "\r", "\n"], '', $label) . '”? This cannot be undone.';
+                ?>
                 <tr>
+                    <td><?= Security::escape($label) ?></td>
                     <td><?= Security::escape((string) $s['slug']) ?></td>
                     <td><?= Security::escape((string) $s['window_label']) ?> · <?= Security::escape(substr((string) $s['start_time'], 0, 5)) ?>–<?= Security::escape(substr((string) $s['end_time'], 0, 5)) ?></td>
                     <td class="is-num"><?= (int) $s['capacity'] ?></td>
-                    <td class="is-num"><?= DeliverySlotRepository::orderReferenceCount((int) $s['id']) ?></td>
+                    <td class="is-num"><?= DeliverySlotRepository::orderReferenceCount($sid) ?></td>
                     <td><?= admin_status_badge(!empty($s['is_active']) ? 'active' : 'inactive', !empty($s['is_active']) ? 'Active' : 'Inactive') ?></td>
                     <td class="is-actions">
-                        <a class="at-btn at-btn--sm at-btn--secondary at-focusable" href="?edit=<?= (int) $s['id'] ?>">Edit</a>
-                        <form method="post" class="inline">
+                        <span class="at-admin-actions">
+                            <?= admin_action_edit_link('?edit=' . $sid . ($listQ !== '' ? '&q=' . rawurlencode($listQ) : '') . '&page=' . (int) $slotList['page'] . '&per_page=' . (int) $slotList['per_page'], 'Edit slot') ?>
+                            <form method="post" class="at-admin-actions__form" onsubmit="return confirm(<?= json_encode($deleteConfirm, JSON_UNESCAPED_UNICODE) ?>);">
+                                <?= Csrf::field() ?>
+                                <input type="hidden" name="action" value="delete">
+                                <input type="hidden" name="slot_id" value="<?= $sid ?>">
+                                <input type="hidden" name="list_q" value="<?= Security::escape($listQ) ?>">
+                                <input type="hidden" name="list_page" value="<?= (int) $slotList['page'] ?>">
+                                <input type="hidden" name="list_per_page" value="<?= (int) $slotList['per_page'] ?>">
+                                <?= admin_icon_delete_button('Delete slot') ?>
+                            </form>
+                        </span>
+                        <form method="post" class="mt-2 sm:mt-1">
                             <?= Csrf::field() ?>
-                            <input type="hidden" name="slot_id" value="<?= (int) $s['id'] ?>">
+                            <input type="hidden" name="slot_id" value="<?= $sid ?>">
                             <input type="hidden" name="action" value="<?= !empty($s['is_active']) ? 'deactivate' : 'activate' ?>">
                             <button type="submit" class="at-btn at-btn--sm <?= !empty($s['is_active']) ? 'at-btn--danger' : 'at-btn--ghost' ?> at-focusable"><?= !empty($s['is_active']) ? 'Deactivate' : 'Activate' ?></button>
                         </form>
@@ -189,5 +262,14 @@ if ($errors !== []): ?>
             </tbody>
         </table>
     </div>
+    <?php
+    admin_list_pagination(
+        (int) $slotList['page'],
+        (int) $slotList['total'],
+        (int) $slotList['per_page'],
+        $listQueryBase,
+        $self
+    );
+    ?>
 </div></div>
 <?php admin_layout_end(); ?>

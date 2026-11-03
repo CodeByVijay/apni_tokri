@@ -3,8 +3,18 @@
 declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/_init.php';
+require_once APNI_TOKRI_ROOT . '/includes/partials/admin/list-pagination.php';
 
 AdminDemoPerms::denyIfCannot('inventory');
+
+$listQ = AdminServerList::searchFromRequest(isset($_GET['q']) ? (string) $_GET['q'] : '');
+$listPage = AdminServerList::pageFromRequest(isset($_GET['page']) ? (int) $_GET['page'] : null);
+$listPerPage = AdminServerList::perPageFromRequest(isset($_GET['per_page']) ? (int) $_GET['per_page'] : null);
+$sort = AdminServerList::resolveSort((string) ($_GET['sort'] ?? 'created_at'), [
+    'created_at' => 'created_at', 'sku' => 'sku', 'change_qty' => 'change_qty',
+], 'created_at');
+$dir = (string) ($_GET['dir'] ?? 'desc');
+$queryBase = array_filter(['q' => $listQ !== '' ? $listQ : null]);
 
 $useDb = Install::isSchemaReady() && AdminAuth::check();
 
@@ -24,19 +34,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         header('Location: ' . url_base() . '/admin/inventory/index.php', true, 302);
         exit;
     }
-    admin_flash_set('Stock adjusted (demo UI only).');
+    admin_flash_persistence_blocked('Stock adjusted (demo UI only).');
     header('Location: ' . url_base() . '/admin/inventory/index.php', true, 302);
     exit;
 }
 
 admin_layout_start(['pageTitle' => 'Inventory', 'activeAdminNav' => 'inventory']);
-admin_flash_render();
 $pageHeading = 'Inventory & stock movements';
 $pageDescription = 'Adjustments are logged with quantity before/after. Row locks prevent negative stock.';
 require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
 
 $variants = $useDb ? InventoryService::variantsForSelect() : [];
-$movements = $useDb ? InventoryService::recentMovements(30) : [];
+$movementList = $useDb
+    ? InventoryService::searchMovementsForAdmin($listQ, $listPage, $listPerPage, $sort, $dir)
+    : ['rows' => [], 'total' => 0, 'page' => 1, 'total_pages' => 1];
 ?>
 <div class="grid lg:grid-cols-3 gap-4">
     <form method="post" class="at-admin-card lg:col-span-1">
@@ -68,17 +79,27 @@ $movements = $useDb ? InventoryService::recentMovements(30) : [];
         </div>
     </form>
     <div class="lg:col-span-2">
-        <?php
+        <?php if ($useDb): ?>
+        <form method="get" class="mb-3 flex flex-wrap gap-2 items-end">
+            <div class="flex-1 min-w-[10rem]">
+                <label class="at-label" for="mov-q">Search movements</label>
+                <input id="mov-q" name="q" class="at-input at-focusable" value="<?= Security::escape($listQ) ?>" placeholder="SKU, product, reason">
+            </div>
+            <input type="hidden" name="per_page" value="<?= (int) $listPerPage ?>">
+            <button type="submit" class="at-btn at-btn--secondary at-btn--sm at-focusable">Search</button>
+        </form>
+        <?php endif;
+        $baseMov = url_base() . '/admin/inventory/index.php';
         $columns = [
-            ['label' => 'When', 'key' => 'when'],
-            ['label' => 'SKU', 'key' => 'sku'],
-            ['label' => 'Change', 'key' => 'change', 'align' => 'num'],
+            ['label' => 'When', 'label_html' => AdminServerList::sortHeaderLink('created_at', 'When', $sort, $dir, $baseMov, $queryBase), 'key' => 'when'],
+            ['label' => 'SKU', 'label_html' => AdminServerList::sortHeaderLink('sku', 'SKU', $sort, $dir, $baseMov, $queryBase), 'key' => 'sku'],
+            ['label' => 'Change', 'label_html' => AdminServerList::sortHeaderLink('change_qty', 'Change', $sort, $dir, $baseMov, $queryBase), 'key' => 'change', 'align' => 'num'],
             ['label' => 'After', 'key' => 'after', 'align' => 'num'],
             ['label' => 'Reason', 'key' => 'reason'],
         ];
         $rows = [];
         if ($useDb) {
-            foreach ($movements as $m) {
+            foreach ($movementList['rows'] as $m) {
                 $chg = (int) $m['change_qty'];
                 $rows[] = [
                     'when' => date('d M H:i', strtotime((string) $m['created_at'])),
@@ -88,12 +109,15 @@ $movements = $useDb ? InventoryService::recentMovements(30) : [];
                     'reason' => (string) $m['reason'],
                 ];
             }
-        } else {
-            $rows = [
-                ['when' => 'Today 10:02', 'sku' => 'CUT-SAL-250', 'change' => '−2', 'after' => '4', 'reason' => 'Demo'],
-            ];
         }
+        if ($rows === [] && !$useDb): ?>
+            <p class="px-5 py-4 text-sm at-muted">Connect the database to view stock movements.</p>
+        <?php else:
         require APNI_TOKRI_ROOT . '/includes/partials/admin/data-table.php';
+        if ($useDb && (int) ($movementList['total_pages'] ?? 1) > 1) {
+            admin_list_pagination((int) $movementList['page'], (int) $movementList['total'], $listPerPage, $queryBase, $baseMov);
+        }
+        endif;
         ?>
     </div>
 </div>

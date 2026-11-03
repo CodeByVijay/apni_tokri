@@ -151,7 +151,7 @@ final class FaqService
         try {
             FaqRepository::deleteFaq($id);
 
-            return ['ok' => true, 'id' => $id];
+            return ['ok' => true, 'message' => 'FAQ deleted.'];
         } catch (Throwable $e) {
             error_log('FaqService::deleteFaq: ' . $e->getMessage());
 

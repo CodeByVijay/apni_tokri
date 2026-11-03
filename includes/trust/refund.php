@@ -211,25 +211,75 @@ final class RefundRequestService
     /** @return list<array<string, mixed>> */
     public static function listForAdmin(?string $status = null, int $limit = 100): array
     {
+        $result = self::searchForAdmin('', $status, 1, min(100, max(1, $limit)), 'created_at', 'desc');
+
+        return $result['rows'];
+    }
+
+    /**
+     * @return array{rows: list<array<string, mixed>>, total: int, page: int, per_page: int, total_pages: int}
+     */
+    public static function searchForAdmin(
+        string $query,
+        ?string $status,
+        int $page,
+        int $perPage,
+        string $sortColumn = 'created_at',
+        string $sortDirection = 'desc'
+    ): array {
+        if (!Install::isSchemaReady()) {
+            return ['rows' => [], 'total' => 0, 'page' => 1, 'per_page' => $perPage, 'total_pages' => 1];
+        }
         Install::ensureConnection();
-        $sql = 'SELECT rr.*, o.order_number, c.mobile AS customer_mobile
-                FROM refund_requests rr
-                INNER JOIN orders o ON o.id = rr.order_id
-                INNER JOIN customers c ON c.id = rr.customer_id';
+        $pdo = Database::pdo();
+        $page = max(1, $page);
+        $perPage = max(1, min(100, $perPage));
+        $where = ['1=1'];
         $params = [];
         if ($status !== null && $status !== '') {
-            $sql .= ' WHERE rr.status = ?';
+            $where[] = 'rr.status = ?';
             $params[] = $status;
         }
-        $sql .= ' ORDER BY rr.created_at DESC LIMIT ?';
-        $stmt = Database::pdo()->prepare($sql);
-        foreach ($params as $i => $p) {
-            $stmt->bindValue($i + 1, $p);
+        $q = trim($query);
+        if ($q !== '') {
+            $like = '%' . AdminServerList::escapeLike($q) . '%';
+            $where[] = '(rr.request_number LIKE ? OR o.order_number LIKE ? OR c.mobile LIKE ? OR rr.status LIKE ?)';
+            array_push($params, $like, $like, $like, $like);
         }
-        $stmt->bindValue(count($params) + 1, $limit, PDO::PARAM_INT);
+        $whereSql = implode(' AND ', $where);
+        $sortMap = [
+            'created_at' => 'rr.created_at',
+            'status' => 'rr.status',
+            'request_number' => 'rr.request_number',
+            'approved_amount' => 'rr.approved_amount_inr',
+        ];
+        $orderSql = AdminServerList::orderBySql($sortColumn, $sortDirection, $sortMap, 'created_at');
+        $from = ' FROM refund_requests rr INNER JOIN orders o ON o.id = rr.order_id INNER JOIN customers c ON c.id = rr.customer_id WHERE ' . $whereSql;
+        $countStmt = $pdo->prepare('SELECT COUNT(*)' . $from);
+        $countStmt->execute($params);
+        $total = (int) $countStmt->fetchColumn();
+        $totalPages = max(1, (int) ceil($total / $perPage));
+        if ($page > $totalPages) {
+            $page = $totalPages;
+        }
+        $offset = ($page - 1) * $perPage;
+        $sql = 'SELECT rr.*, o.order_number, c.mobile AS customer_mobile' . $from . ' ORDER BY ' . $orderSql . ' LIMIT ? OFFSET ?';
+        $stmt = $pdo->prepare($sql);
+        $i = 1;
+        foreach ($params as $p) {
+            $stmt->bindValue($i++, $p);
+        }
+        $stmt->bindValue($i++, $perPage, PDO::PARAM_INT);
+        $stmt->bindValue($i, $offset, PDO::PARAM_INT);
         $stmt->execute();
 
-        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        return [
+            'rows' => $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [],
+            'total' => $total,
+            'page' => $page,
+            'per_page' => $perPage,
+            'total_pages' => $totalPages,
+        ];
     }
 
     /** @return array<string, mixed>|null */

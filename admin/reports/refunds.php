@@ -35,7 +35,6 @@ if (Install::isSchemaReady()) {
 }
 
 admin_layout_start(['pageTitle' => 'Refund report', 'activeAdminNav' => 'reports']);
-admin_flash_render();
 $pageHeading = 'Refund report';
 $pageDescription = 'Workflow requests vs completed gateway refunds. Approved/requested amounts are not completed cash.';
 require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';

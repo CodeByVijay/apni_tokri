@@ -130,6 +130,11 @@ final class SubscriptionSubstitutionPaymentService
         string $idempotencyKey,
         ?string $gatewayEventId = null
     ): array {
+        $exec = PaymentGatewayConfig::assertPaymentExecutionAllowed($gateway);
+        if (!$exec['ok']) {
+            return ['ok' => false, 'message' => (string) ($exec['message'] ?? 'Payments are not available.')];
+        }
+
         try {
             return Database::transaction(static function () use (
                 $substitutionId,

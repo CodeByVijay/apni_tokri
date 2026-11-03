@@ -83,7 +83,7 @@ $categoryHints = [
             </div>
         </div>
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-5">
-            <?php foreach ($catalogue->categories() as $cat):
+            <?php foreach (catalogue_homepage_categories() as $cat):
                 $name = Lang::locale() === 'hi' ? ($cat['name_hi'] ?? $cat['name']) : $cat['name'];
                 $count = count($catalogue->productsInCategory((string) $cat['slug']));
                 ?>

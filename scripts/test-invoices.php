@@ -34,7 +34,7 @@ $tok = strtoupper(substr(bin2hex(random_bytes(4)), 0, 6));
 $createdOrders = [];
 $createdCustomers = [];
 $settingsBackup = [];
-foreach (['invoice.brand_name', 'invoice.footer', 'invoice.enable_email', 'invoice.auto_email', 'invoice.admin_resend', 'invoice.enable_thermal', 'invoice.prefix'] as $k) {
+foreach ([BrandingSettings::KEY_SITE_NAME, 'invoice.footer', 'invoice.enable_email', 'invoice.auto_email', 'invoice.admin_resend', 'invoice.enable_thermal', 'invoice.prefix'] as $k) {
     $settingsBackup[$k] = AppSettings::get($k, null);
 }
 
@@ -205,7 +205,8 @@ t(($snap1['delivery_address']['receiver_name'] ?? '') === 'Test Receiver', 'Deli
 t(count($snap1['items']) === 2 && $snap1['items'][1]['name'] === $items[1][0], 'Items captured verbatim (special characters kept)');
 
 // 4. Immutability
-AppSettings::set('invoice.brand_name', 'Changed Brand ' . $tok);
+AppSettings::set(BrandingSettings::KEY_SITE_NAME, 'Changed Brand ' . $tok);
+AppSettings::resetCache();
 $pdo->prepare('UPDATE order_items SET product_name = ? WHERE order_id = ?')->execute(['Renamed product', $o1]);
 $pdo->prepare('UPDATE orders SET grand_total = grand_total + 5 WHERE id = ?')->execute([$o1]);
 $again = InvoiceService::ensureForOrder($o1, ['prefix' => $prefix]);
@@ -479,8 +480,8 @@ $html = InvoiceEmailService::compose(array_merge($inv1, ['invoice_number' => '<b
 t(strpos($html['html'], '<script>') === false && strpos($html['html'], '&lt;script&gt;') !== false, 'Email HTML escapes customer-supplied values');
 
 // 17. Settings validation
-$bad = InvoiceSettings::saveFromPost(array_merge(InvoiceSettings::formState(), ['prefix' => 'bad prefix!', 'website' => 'javascript:alert(1)', 'pincode' => '12']));
-t(!$bad['ok'] && isset($bad['errors']['prefix'], $bad['errors']['website'], $bad['errors']['pincode']), 'Invoice settings validation rejects bad prefix/URL/PIN');
+$bad = InvoiceSettings::saveFromPost(array_merge(InvoiceSettings::formState(), ['prefix' => 'bad prefix!', 'return_url' => 'javascript:alert(1)']));
+t(!$bad['ok'] && isset($bad['errors']['prefix'], $bad['errors']['return_url']), 'Invoice settings validation rejects bad prefix/URL');
 t(InvoiceSettings::gstMode() === 'unregistered', 'GST mode is unregistered (no tax lines)');
 
 // 18. Production storage configuration (fail closed)

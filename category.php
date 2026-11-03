@@ -73,6 +73,9 @@ $baseCatUrl = url_base() . '/category.php?slug=' . rawurlencode($slug);
     <div class="at-container pb-6">
         <nav class="at-breadcrumb" aria-label="Breadcrumb">
             <a href="<?= Security::escape(url_base()) ?>/index.php">Home</a><span class="sep">/</span>
+            <?php foreach (catalogue_category_trail($category) as $anc): ?>
+                <a href="<?= Security::escape(catalogue_category_url($anc)) ?>"><?= Security::escape((string) $anc['name']) ?></a><span class="sep">/</span>
+            <?php endforeach; ?>
             <span aria-current="page"><?= Security::escape($catName) ?></span>
         </nav>
         <div class="flex flex-wrap items-end justify-between gap-4">
@@ -81,7 +84,7 @@ $baseCatUrl = url_base() . '/category.php?slug=' . rawurlencode($slug);
                 <p class="mt-1 at-muted text-sm"><?= count($products) ?> product<?= count($products) === 1 ? '' : 's' ?> · sample catalogue</p>
             </div>
             <nav class="at-catnav -mx-1 max-w-full md:hidden" aria-label="Switch category">
-                <?php foreach ($catalogue->categories() as $c): ?>
+                <?php foreach (catalogue_nav_tree() as $c): ?>
                     <a href="<?= Security::escape(catalogue_category_url($c)) ?>" class="at-focusable <?= $c['slug'] === $slug ? 'is-active' : '' ?>"><?= Security::escape(Lang::locale() === 'hi' ? ($c['name_hi'] ?? $c['name']) : $c['name']) ?></a>
                 <?php endforeach; ?>
             </nav>
@@ -90,6 +93,14 @@ $baseCatUrl = url_base() . '/category.php?slug=' . rawurlencode($slug);
 </div>
 
 <div class="at-container py-6 md:py-8">
+    <?php $childCats = catalogue_child_categories($category); ?>
+    <?php if ($childCats !== []): ?>
+        <nav class="at-catnav mb-4" aria-label="Sub-categories">
+            <?php foreach ($childCats as $cc): ?>
+                <a href="<?= Security::escape(catalogue_category_url($cc)) ?>" class="at-focusable"><?= Security::escape((string) $cc['name']) ?></a>
+            <?php endforeach; ?>
+        </nav>
+    <?php endif; ?>
     <form method="get" class="at-toolbar" aria-label="Filter products">
         <input type="hidden" name="slug" value="<?= Security::escape($slug) ?>">
         <div class="at-filter-bar">
@@ -117,6 +128,8 @@ $baseCatUrl = url_base() . '/category.php?slug=' . rawurlencode($slug);
         <?php if ($demoLoading): ?>
             <?php $skeletonCount = 8;
             require APNI_TOKRI_ROOT . '/includes/partials/loading-skeleton.php'; ?>
+        <?php elseif ($products === [] && $childCats !== [] && $availability === 'all'): ?>
+            <p class="at-muted text-sm">Browse the sub-categories above.</p>
         <?php elseif ($products === []): ?>
             <?php
             $emptyTitle = 'No products match these filters';

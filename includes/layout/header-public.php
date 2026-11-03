@@ -30,12 +30,9 @@ foreach (demo_catalogue()->products() as $sp) {
     ];
 }
 
-$cats = [
-    'vegetables' => ['en' => 'Vegetables', 'hi' => 'सब्ज़ियाँ'],
-    'fruits' => ['en' => 'Fruits', 'hi' => 'फल'],
-    'cut' => ['en' => 'Cut & Ready', 'hi' => 'कटा हुआ'],
-    'pickles' => ['en' => 'Pickles & Papad', 'hi' => 'अचार और पापड़'],
-];
+// Navigation comes from the catalogue: only publicly visible top-level categories; children nest under parents.
+$navTree = catalogue_nav_tree();
+$navIsCategoryPage = $activeNav === 'categories';
 ?>
 <a class="at-skip-link at-focusable" href="#main-content"><?= Security::escape(__('skip_to_content')) ?></a>
 
@@ -78,7 +75,7 @@ $cats = [
                     <?= Lang::locale() === 'en' ? 'हिंदी' : 'EN' ?>
                 </a>
                 <?php
-                $atLoggedIn = class_exists('DemoCustomer') && DemoCustomer::isLoggedIn();
+                $atLoggedIn = CustomerService::isLoggedIn();
                 $atAuthLabel = $atLoggedIn ? 'My account' : __('nav_login');
                 $atAuthHref = $atLoggedIn ? '/my-account.php' : '/login.php';
                 ?>
@@ -104,16 +101,10 @@ $cats = [
 
         <!-- Category nav -->
         <nav class="hidden md:flex items-center justify-between mt-2 -mb-1 border-t border-[var(--at-line)] pt-1" aria-label="Categories">
-            <div class="at-catnav -ml-3">
-                <a href="<?= Security::escape($base) ?>/index.php" class="at-focusable <?= $activeNav === 'home' ? 'is-active' : '' ?>"><?= Security::escape(__('nav_home')) ?></a>
-                <?php foreach ($cats as $slug => $labels):
-                    $label = $labels[Lang::locale()] ?? $labels['en'];
-                    $isActive = $activeNav === 'categories' && $currentSlug === $slug;
-                    ?>
-                    <a href="<?= Security::escape($base) ?>/category.php?slug=<?= Security::escape($slug) ?>"
-                       class="at-focusable <?= $isActive ? 'is-active' : '' ?>"><?= Security::escape($label) ?></a>
-                <?php endforeach; ?>
-            </div>
+            <ul class="at-dnav -ml-3" role="list" data-at-dnav>
+                <li class="at-dnav__item"><a href="<?= Security::escape($base) ?>/index.php" class="at-dnav__link at-focusable <?= $activeNav === 'home' ? 'is-active' : '' ?>"><span><?= Security::escape(__('nav_home')) ?></span></a></li>
+                <?= catalogue_render_desktop_nav($navTree, $currentSlug, $navIsCategoryPage) ?>
+            </ul>
             <div class="at-catnav -mr-3">
                 <a href="<?= Security::escape($base) ?>/faqs.php" class="at-focusable"><?= Security::escape(__('nav_faqs')) ?></a>
                 <a href="<?= Security::escape($base) ?>/contact.php" class="at-focusable"><?= Security::escape(__('nav_contact')) ?></a>
@@ -141,9 +132,9 @@ $cats = [
             </button>
             <p class="at-eyebrow px-3 mt-2 mb-1"><?= Security::escape(__('nav_categories')) ?></p>
             <a href="<?= Security::escape($base) ?>/index.php" class="at-drawer-link at-focusable"><?= at_icon('home') ?><?= Security::escape(__('nav_home')) ?></a>
-            <?php foreach ($cats as $slug => $labels): ?>
-                <a href="<?= Security::escape($base) ?>/category.php?slug=<?= Security::escape($slug) ?>" class="at-drawer-link at-focusable"><?= at_icon('leaf') ?><?= Security::escape($labels[Lang::locale()] ?? $labels['en']) ?></a>
-            <?php endforeach; ?>
+            <nav class="at-macc-list" aria-label="<?= Security::escape(__('nav_categories')) ?>">
+                <?= catalogue_render_mobile_nav($navTree, $currentSlug, $navIsCategoryPage) ?>
+            </nav>
             <hr class="at-divider">
             <a href="<?= Security::escape($base) ?>/my-orders.php" class="at-drawer-link at-focusable"><?= at_icon('receipt') ?>My orders</a>
             <a href="<?= Security::escape($base) ?>/my-subscriptions.php" class="at-drawer-link at-focusable"><?= at_icon('repeat') ?>My subscriptions</a>

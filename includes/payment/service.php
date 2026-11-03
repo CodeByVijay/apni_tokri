@@ -55,16 +55,74 @@ final class PaymentRepository
     /** @return list<array<string, mixed>> */
     public static function listRecent(int $limit = 100): array
     {
+        $result = self::searchForAdmin('', 1, min(100, $limit), 'created_at', 'desc');
+
+        return $result['rows'];
+    }
+
+    /**
+     * @return array{rows: list<array<string, mixed>>, total: int, page: int, per_page: int, total_pages: int}
+     */
+    public static function searchForAdmin(
+        string $query,
+        int $page,
+        int $perPage,
+        string $sortColumn = 'created_at',
+        string $sortDirection = 'desc'
+    ): array {
+        if (!Install::isSchemaReady()) {
+            return ['rows' => [], 'total' => 0, 'page' => 1, 'per_page' => $perPage, 'total_pages' => 1];
+        }
         Install::ensureConnection();
-        $stmt = Database::pdo()->prepare(
-            'SELECT p.*, o.order_number FROM payments p
-             INNER JOIN orders o ON o.id = p.order_id
-             ORDER BY p.created_at DESC LIMIT ?'
-        );
-        $stmt->bindValue(1, $limit, PDO::PARAM_INT);
+        $pdo = Database::pdo();
+        $page = max(1, $page);
+        $perPage = max(1, min(100, $perPage));
+        $where = ['1=1'];
+        $params = [];
+        $q = trim($query);
+        if ($q !== '') {
+            $like = '%' . AdminServerList::escapeLike($q) . '%';
+            $where[] = '(o.order_number LIKE ? OR p.gateway_payment_id LIKE ? OR p.idempotency_key LIKE ? OR p.gateway LIKE ? OR p.status LIKE ?)';
+            $params[] = $like;
+            $params[] = $like;
+            $params[] = $like;
+            $params[] = $like;
+            $params[] = $like;
+        }
+        $whereSql = implode(' AND ', $where);
+        $sortMap = [
+            'created_at' => 'p.created_at',
+            'amount' => 'p.amount',
+            'status' => 'p.status',
+            'id' => 'p.id',
+        ];
+        $orderSql = AdminServerList::orderBySql($sortColumn, $sortDirection, $sortMap, 'created_at');
+        $from = ' FROM payments p INNER JOIN orders o ON o.id = p.order_id WHERE ' . $whereSql;
+        $countStmt = $pdo->prepare('SELECT COUNT(*)' . $from);
+        $countStmt->execute($params);
+        $total = (int) $countStmt->fetchColumn();
+        $totalPages = max(1, (int) ceil($total / $perPage));
+        if ($page > $totalPages) {
+            $page = $totalPages;
+        }
+        $offset = ($page - 1) * $perPage;
+        $sql = 'SELECT p.*, o.order_number' . $from . ' ORDER BY ' . $orderSql . ' LIMIT ? OFFSET ?';
+        $stmt = $pdo->prepare($sql);
+        $i = 1;
+        foreach ($params as $p) {
+            $stmt->bindValue($i++, $p);
+        }
+        $stmt->bindValue($i++, $perPage, PDO::PARAM_INT);
+        $stmt->bindValue($i, $offset, PDO::PARAM_INT);
         $stmt->execute();
 
-        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        return [
+            'rows' => $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [],
+            'total' => $total,
+            'page' => $page,
+            'per_page' => $perPage,
+            'total_pages' => $totalPages,
+        ];
     }
 }
 
@@ -99,7 +157,16 @@ final class PaymentService
         $gateway = PaymentGatewayConfig::activeGateway();
         if (PaymentGatewayConfig::useSimulatedCheckout()) {
             $gateway = 'simulate';
-        } else {
+        }
+        $exec = PaymentGatewayConfig::assertPaymentExecutionAllowed($gateway);
+        if (!$exec['ok']) {
+            return [
+                'ok' => false,
+                'error' => (string) ($exec['message'] ?? 'Payments are not available.'),
+                'reference_id' => $referenceId,
+            ];
+        }
+        if (!PaymentGatewayConfig::useSimulatedCheckout()) {
             $ready = PaymentGatewayConfig::readinessFor($gateway);
             if (!$ready['ok']) {
                 PaymentInitDiagnostics::logInitFailure(
@@ -409,6 +476,10 @@ final class PaymentService
     ): array {
         if (strtoupper($currency) !== 'INR') {
             return ['ok' => false, 'message' => 'Invalid currency.'];
+        }
+        $exec = PaymentGatewayConfig::assertPaymentExecutionAllowed($gateway);
+        if (!$exec['ok']) {
+            return ['ok' => false, 'message' => (string) ($exec['message'] ?? 'Payments are not available.')];
         }
 
         try {

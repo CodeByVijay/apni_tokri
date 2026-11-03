@@ -11,23 +11,37 @@ final class AdminAuth
         if (!Install::isSchemaReady()) {
             return false;
         }
+        $email = trim($email);
+        $throttled = AdminLoginSecurity::blockReason($email) === 'throttled';
+        AdminLoginSecurity::applyThrottleDelay($email);
         Install::ensureConnection();
-        $stmt = Database::pdo()->prepare(
-            'SELECT id, email, password_hash, name, is_active FROM admin_users WHERE email = ? LIMIT 1'
-        );
-        $stmt->execute([trim($email)]);
+        $userSql = AdminLoginSecurity::authEpochColumnReady()
+            ? 'SELECT id, email, password_hash, name, is_active, auth_epoch FROM admin_users WHERE email = ? LIMIT 1'
+            : 'SELECT id, email, password_hash, name, is_active FROM admin_users WHERE email = ? LIMIT 1';
+        $stmt = Database::pdo()->prepare($userSql);
+        $stmt->execute([AdminLoginSecurity::normalizeEmail($email)]);
         $user = $stmt->fetch();
         if (!$user || !(int) $user['is_active']) {
+            if (!$throttled) {
+                AdminLoginSecurity::recordAttempt($email, false);
+            }
+
             return false;
         }
         if (!password_verify($password, (string) $user['password_hash'])) {
+            if (!$throttled) {
+                AdminLoginSecurity::recordAttempt($email, false);
+            }
+
             return false;
         }
 
+        AdminLoginSecurity::recordAttempt($email, true);
         AppSession::regenerate();
         $_SESSION[self::SESSION_USER_ID] = (int) $user['id'];
         $_SESSION['admin_user_email'] = (string) $user['email'];
         $_SESSION['admin_user_name'] = (string) $user['name'];
+        $_SESSION['admin_auth_epoch'] = (int) ($user['auth_epoch'] ?? 1);
 
         $upd = Database::pdo()->prepare('UPDATE admin_users SET last_login_at = NOW() WHERE id = ?');
         $upd->execute([(int) $user['id']]);
@@ -47,26 +61,121 @@ final class AdminAuth
         }
         try {
             Install::ensureConnection();
-            $stmt = Database::pdo()->prepare(
-                'SELECT is_active FROM admin_users WHERE id = ? LIMIT 1'
-            );
+            $checkSql = AdminLoginSecurity::authEpochColumnReady()
+                ? 'SELECT is_active, auth_epoch FROM admin_users WHERE id = ? LIMIT 1'
+                : 'SELECT is_active FROM admin_users WHERE id = ? LIMIT 1';
+            $stmt = Database::pdo()->prepare($checkSql);
             $stmt->execute([(int) $_SESSION[self::SESSION_USER_ID]]);
-            $active = $stmt->fetchColumn();
-            if ($active === false || !(int) $active) {
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$row || !(int) $row['is_active']) {
                 unset(
                     $_SESSION[self::SESSION_USER_ID],
                     $_SESSION['admin_user_email'],
                     $_SESSION['admin_user_name'],
-                    $_SESSION['admin_demo_role']
+                    $_SESSION['admin_demo_role'],
+                    $_SESSION['admin_auth_epoch']
                 );
 
                 return false;
+            }
+            if (AdminLoginSecurity::authEpochColumnReady()) {
+                $epoch = (int) ($row['auth_epoch'] ?? 1);
+                $sessionEpoch = (int) ($_SESSION['admin_auth_epoch'] ?? 1);
+                if ($epoch !== $sessionEpoch) {
+                    unset(
+                        $_SESSION[self::SESSION_USER_ID],
+                        $_SESSION['admin_user_email'],
+                        $_SESSION['admin_user_name'],
+                        $_SESSION['admin_demo_role'],
+                        $_SESSION['admin_auth_epoch']
+                    );
+
+                    return false;
+                }
             }
         } catch (Throwable $e) {
             return false;
         }
 
         return true;
+    }
+
+    /** True when the signed-in admin still uses the factory seed password hash. */
+    public static function requiresMandatoryPasswordChange(): bool
+    {
+        if (!self::check()) {
+            return false;
+        }
+        $userId = (int) $_SESSION[self::SESSION_USER_ID];
+        try {
+            Install::ensureConnection();
+            $stmt = Database::pdo()->prepare('SELECT password_hash FROM admin_users WHERE id = ? AND is_active = 1 LIMIT 1');
+            $stmt->execute([$userId]);
+            $hash = $stmt->fetchColumn();
+            if ($hash === false || !is_string($hash)) {
+                return false;
+            }
+
+            return hash_equals(Install::SEED_ADMIN_PASSWORD_HASH, $hash);
+        } catch (Throwable $e) {
+            return false;
+        }
+    }
+
+    /**
+     * @return array{ok: bool, message?: string, errors?: array<string, string>}
+     */
+    public static function changePasswordMandatory(string $currentPassword, string $newPassword, string $confirmPassword): array
+    {
+        if (!self::check()) {
+            return ['ok' => false, 'message' => 'Session expired. Sign in again.'];
+        }
+        $userId = (int) $_SESSION[self::SESSION_USER_ID];
+        if ($newPassword !== $confirmPassword) {
+            return ['ok' => false, 'message' => 'New password and confirmation do not match.', 'errors' => ['confirm' => 'Must match new password.']];
+        }
+        $policy = Validation::adminPasswordPolicy($newPassword);
+        if ($policy !== null) {
+            return ['ok' => false, 'message' => $policy, 'errors' => ['new_password' => $policy]];
+        }
+        if (password_verify($newPassword, Install::SEED_ADMIN_PASSWORD_HASH)) {
+            return ['ok' => false, 'message' => 'Choose a different password than the factory default.', 'errors' => ['new_password' => 'Not allowed.']];
+        }
+        try {
+            Install::ensureConnection();
+            $stmt = Database::pdo()->prepare('SELECT password_hash FROM admin_users WHERE id = ? LIMIT 1');
+            $stmt->execute([$userId]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$row || !password_verify($currentPassword, (string) $row['password_hash'])) {
+                return ['ok' => false, 'message' => 'Current password is incorrect.', 'errors' => ['current_password' => 'Incorrect.']];
+            }
+            if (password_verify($newPassword, (string) $row['password_hash'])) {
+                return ['ok' => false, 'message' => 'New password must be different from your current password.', 'errors' => ['new_password' => 'Must differ.']];
+            }
+            $hash = password_hash($newPassword, PASSWORD_DEFAULT);
+            if (AdminLoginSecurity::authEpochColumnReady()) {
+                Database::pdo()->prepare(
+                    'UPDATE admin_users SET password_hash = ?, auth_epoch = auth_epoch + 1, updated_at = NOW() WHERE id = ?'
+                )->execute([$hash, $userId]);
+            } else {
+                Database::pdo()->prepare('UPDATE admin_users SET password_hash = ?, updated_at = NOW() WHERE id = ?')
+                    ->execute([$hash, $userId]);
+            }
+            AuditLog::write('admin.password_change_mandatory', 'admin_user', (string) $userId);
+            AppSession::regenerate();
+            $_SESSION[self::SESSION_USER_ID] = $userId;
+            if (AdminLoginSecurity::authEpochColumnReady()) {
+                $epochStmt = Database::pdo()->prepare('SELECT auth_epoch FROM admin_users WHERE id = ?');
+                $epochStmt->execute([$userId]);
+                $_SESSION['admin_auth_epoch'] = (int) ($epochStmt->fetchColumn() ?: 1);
+            }
+
+            return ['ok' => true];
+        } catch (Throwable $e) {
+            error_log('AdminAuth::changePasswordMandatory: ' . $e->getMessage());
+
+            return ['ok' => false, 'message' => 'Could not update password. Try again.'];
+        }
     }
 
     public static function id(): ?int
@@ -102,9 +211,20 @@ final class AdminAuth
             $_SESSION[self::SESSION_USER_ID],
             $_SESSION['admin_user_email'],
             $_SESSION['admin_user_name'],
-            $_SESSION['admin_demo_role']
+            $_SESSION['admin_demo_role'],
+            $_SESSION['admin_auth_epoch']
         );
         AppSession::regenerate();
+    }
+
+    /** Generic failed-login copy (does not reveal throttle vs bad password). */
+    public static function loginErrorMessage(string $email, string $password): string
+    {
+        if ($email === '' || $password === '') {
+            return 'Enter your email and password.';
+        }
+
+        return 'Invalid email or password.';
     }
 }
 

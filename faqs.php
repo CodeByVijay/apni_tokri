@@ -20,6 +20,8 @@ $faqRows = [];
 $totalFaqs = 0;
 $totalPages = 1;
 
+$productionSchemaMissing = AppEnvironment::isProduction() && !$useDb;
+
 if ($useDb) {
     $categories = FaqRepository::activeCategories();
     $result = FaqRepository::listActivePublic(
@@ -31,7 +33,7 @@ if ($useDb) {
     $faqRows = $result['rows'];
     $totalFaqs = (int) ($result['total'] ?? 0);
     $totalPages = max(1, (int) ceil($totalFaqs / $perPage));
-} else {
+} elseif (!$productionSchemaMissing) {
     require_once APNI_TOKRI_ROOT . '/includes/catalogue/helpers.php';
     $demoFaqs = demo_catalogue()->faqs();
     if ($filterSlug !== '') {
@@ -79,10 +81,15 @@ layout_public_start([
     'jsonLd' => SeoStructuredData::forFaqPage($faqRows, $seoFaq, $faqFiltered),
     'activeNav' => '',
 ]);
-if (!$useDb) {
+if (!$useDb && !$productionSchemaMissing) {
     require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
 }
 ?>
+<?php if ($productionSchemaMissing): ?>
+<div class="at-container py-8">
+    <div class="at-alert at-alert--error" role="alert">FAQs are unavailable until the database is installed and configured.</div>
+</div>
+<?php layout_public_end(); exit; endif; ?>
 <div class="at-pagehead">
     <div class="at-container pb-6">
         <nav class="at-breadcrumb" aria-label="Breadcrumb"><a href="<?= Security::escape(url_base()) ?>/index.php">Home</a><span class="sep">/</span><span aria-current="page"><?= Security::escape(__('nav_faqs')) ?></span></nav>

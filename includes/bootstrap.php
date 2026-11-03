@@ -12,11 +12,30 @@ if (!defined('APNI_TOKRI_ROOT')) {
 
 require_once APNI_TOKRI_ROOT . '/includes/constants.php';
 require_once APNI_TOKRI_ROOT . '/includes/compat/php73.php';
+
+// AT-SEC-001: block HTTP execution of /scripts/*.php when .htaccess is not applied.
+if (PHP_SAPI !== 'cli') {
+    $scriptFile = isset($_SERVER['SCRIPT_FILENAME'])
+        ? str_replace('\\', '/', (string) $_SERVER['SCRIPT_FILENAME'])
+        : '';
+    $scriptsRoot = str_replace('\\', '/', APNI_TOKRI_ROOT . '/scripts/');
+    if ($scriptFile !== '' && str_starts_with($scriptFile, $scriptsRoot)) {
+        http_response_code(403);
+        header('Content-Type: text/plain; charset=UTF-8');
+        echo 'Forbidden';
+        exit;
+    }
+}
 require_once APNI_TOKRI_ROOT . '/includes/helpers.php';
+require_once APNI_TOKRI_ROOT . '/includes/app_environment.php';
+require_once APNI_TOKRI_ROOT . '/includes/storefront/readiness.php';
 require_once APNI_TOKRI_ROOT . '/includes/account/list_pagination.php';
 require_once APNI_TOKRI_ROOT . '/includes/lang.php';
 require_once APNI_TOKRI_ROOT . '/includes/layout/public.php';
 require_once APNI_TOKRI_ROOT . '/includes/admin/bootstrap.php';
+require_once APNI_TOKRI_ROOT . '/includes/admin/dashboard_service.php';
+require_once APNI_TOKRI_ROOT . '/includes/admin/list_actions.php';
+require_once APNI_TOKRI_ROOT . '/includes/admin/server_list.php';
 require_once APNI_TOKRI_ROOT . '/includes/layout/admin.php';
 require_once APNI_TOKRI_ROOT . '/includes/security.php';
 require_once APNI_TOKRI_ROOT . '/includes/validation.php';
@@ -24,7 +43,10 @@ require_once APNI_TOKRI_ROOT . '/includes/csrf.php';
 require_once APNI_TOKRI_ROOT . '/includes/ajax.php';
 require_once APNI_TOKRI_ROOT . '/includes/database.php';
 require_once APNI_TOKRI_ROOT . '/includes/install.php';
+require_once APNI_TOKRI_ROOT . '/includes/admin/login_security.php';
+require_once APNI_TOKRI_ROOT . '/includes/admin/password_recovery.php';
 require_once APNI_TOKRI_ROOT . '/includes/auth.php';
+require_once APNI_TOKRI_ROOT . '/includes/admin/persistence.php';
 require_once APNI_TOKRI_ROOT . '/includes/permissions.php';
 require_once APNI_TOKRI_ROOT . '/includes/audit.php';
 require_once APNI_TOKRI_ROOT . '/includes/admin/rbac.php';
@@ -85,6 +107,7 @@ require_once APNI_TOKRI_ROOT . '/includes/encryption.php';
 require_once APNI_TOKRI_ROOT . '/includes/settings/store.php';
 require_once APNI_TOKRI_ROOT . '/includes/settings/branding.php';
 require_once APNI_TOKRI_ROOT . '/includes/settings/business.php';
+require_once APNI_TOKRI_ROOT . '/includes/settings/marketing.php';
 require_once APNI_TOKRI_ROOT . '/includes/payment/diagnostics.php';
 require_once APNI_TOKRI_ROOT . '/includes/payment/http.php';
 require_once APNI_TOKRI_ROOT . '/includes/payment/razorpay.php';
@@ -104,6 +127,7 @@ require_once APNI_TOKRI_ROOT . '/includes/trust/support.php';
 require_once APNI_TOKRI_ROOT . '/includes/trust/testimonial.php';
 require_once APNI_TOKRI_ROOT . '/includes/cms/sanitize.php';
 require_once APNI_TOKRI_ROOT . '/includes/cms/page_repository.php';
+require_once APNI_TOKRI_ROOT . '/includes/cms/install_safety.php';
 require_once APNI_TOKRI_ROOT . '/includes/cms/page_service.php';
 require_once APNI_TOKRI_ROOT . '/includes/faq/repository.php';
 require_once APNI_TOKRI_ROOT . '/includes/faq/service.php';
@@ -139,6 +163,7 @@ require_once APNI_TOKRI_ROOT . '/includes/subscription/refund.php';
 require_once APNI_TOKRI_ROOT . '/includes/subscription/slot.php';
 require_once APNI_TOKRI_ROOT . '/includes/subscription/substitution_payment.php';
 require_once APNI_TOKRI_ROOT . '/includes/subscription/activation.php';
+require_once APNI_TOKRI_ROOT . '/includes/subscription/admin_lists.php';
 require_once APNI_TOKRI_ROOT . '/includes/subscription/checkout.php';
 require_once APNI_TOKRI_ROOT . '/includes/commerce/checkout.php';
 require_once APNI_TOKRI_ROOT . '/includes/commerce/customer_order_detail.php';
@@ -166,6 +191,9 @@ AppErrorHandler::register($config);
 if (Install::hasLocalConfig()) {
     try {
         Database::connect($config['database']);
+        if (Install::isSchemaReady()) {
+            BusinessSettings::migrateLegacyInvoiceIdentity();
+        }
     } catch (Throwable $e) {
         if (App::isDebug()) {
             error_log('DB connect: ' . $e->getMessage());
@@ -173,7 +201,12 @@ if (Install::hasLocalConfig()) {
     }
 }
 
-if (PHP_SAPI !== 'cli') {
+if (PHP_SAPI === 'cli') {
+    AppEnvironment::guardCliScript((string) ($_SERVER['SCRIPT_FILENAME'] ?? ($_SERVER['argv'][0] ?? '')));
+    if (str_contains(str_replace('\\', '/', (string) ($_SERVER['SCRIPT_FILENAME'] ?? '')), '/cron/')) {
+        AppEnvironment::assertCronEnvironment();
+    }
+} else {
     AppSession::start($config['session'] ?? []);
     Lang::bootstrapFromRequest();
     require_once APNI_TOKRI_ROOT . '/includes/seo/redirect_request.php';

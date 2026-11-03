@@ -31,7 +31,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && Install::isSchemaReady()) {
 }
 
 admin_layout_start(['pageTitle' => 'Payment completion exceptions', 'activeAdminNav' => 'payments']);
-admin_flash_render();
 $pageHeading = 'Payment completion exceptions';
 $pageDescription = 'Gateway captured funds but order fulfilment could not complete (delivery, inventory, or address drift). Dismissal requires Refunds permission and a written reason. Refund path: use Admin → Refunds with the order after marking resolved.';
 require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';

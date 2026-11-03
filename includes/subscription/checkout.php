@@ -36,29 +36,45 @@ final class SubscriptionCheckoutService
             }
         }
 
+        $payReady = SubscriptionPaymentService::assertCheckoutPaymentsAllowed();
+        if (!$payReady['ok']) {
+            return ['ok' => false, 'message' => (string) ($payReady['message'] ?? 'Payments are not available.')];
+        }
+
         $number = 'SUB-' . date('ymd') . '-' . strtoupper(substr(Security::randomToken(4), 0, 6));
         $pdo = Database::pdo();
-        $pdo->prepare(
-            'INSERT INTO customer_subscriptions (subscription_number, customer_id, subscription_plan_id,
-             plan_snapshot_json, price_paid, status, deliveries_remaining, preferred_delivery_slot_slug)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-        )->execute([
-            $number,
-            $customerId,
-            $planId,
-            json_encode($snapshot, JSON_UNESCAPED_UNICODE),
-            $price,
-            'pending_payment',
-            (int) $plan['delivery_count'],
-            $preferredSlotSlug !== '' ? $preferredSlotSlug : null,
-        ]);
-        $subId = (int) $pdo->lastInsertId();
-
         $mobile = (string) (CustomerService::profile()['mobile'] ?? '');
-        $init = SubscriptionPaymentService::initiateForSubscription($subId, $number, $price, $mobile);
-        if (!$init['ok']) {
-            return ['ok' => false, 'message' => $init['error'] ?? 'Could not start payment.'];
+        try {
+            $pdo->beginTransaction();
+            $pdo->prepare(
+                'INSERT INTO customer_subscriptions (subscription_number, customer_id, subscription_plan_id,
+                 plan_snapshot_json, price_paid, status, deliveries_remaining, preferred_delivery_slot_slug)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+            )->execute([
+                $number,
+                $customerId,
+                $planId,
+                json_encode($snapshot, JSON_UNESCAPED_UNICODE),
+                $price,
+                'pending_payment',
+                (int) $plan['delivery_count'],
+                $preferredSlotSlug !== '' ? $preferredSlotSlug : null,
+            ]);
+            $subId = (int) $pdo->lastInsertId();
+
+            $init = SubscriptionPaymentService::initiateForSubscription($subId, $number, $price, $mobile);
+            if (!$init['ok']) {
+                throw new RuntimeException((string) ($init['error'] ?? 'Could not start payment.'));
+            }
+            $pdo->commit();
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+
+            return ['ok' => false, 'message' => $e instanceof RuntimeException ? $e->getMessage() : 'Could not start payment.'];
         }
+
         $_SESSION['checkout_payment'][$number] = array_merge($init['checkout'] ?? [], [
             'payment_context' => 'subscription',
         ]);
@@ -111,6 +127,42 @@ final class SubscriptionCheckoutService
 
 final class SubscriptionPaymentService
 {
+    /** @return array{ok: bool, message?: string} */
+    public static function assertCheckoutPaymentsAllowed(): array
+    {
+        if (AppEnvironment::isProduction()) {
+            return AppEnvironment::assertProductionPaymentsReady();
+        }
+        if (PaymentGatewayConfig::useSimulatedCheckout()) {
+            return ['ok' => true];
+        }
+
+        $live = PaymentGatewayConfig::assertLivePaymentsReady();
+        if (!$live['ok']) {
+            return ['ok' => false, 'message' => (string) ($live['message'] ?? 'Payment gateway is not configured.')];
+        }
+
+        return ['ok' => true];
+    }
+
+    /** @return array{ok: bool, message?: string, gateway?: string} */
+    private static function resolveCheckoutGateway(): array
+    {
+        $ready = self::assertCheckoutPaymentsAllowed();
+        if (!$ready['ok']) {
+            return ['ok' => false, 'message' => $ready['message'] ?? 'Payments are not available.'];
+        }
+        $gateway = PaymentGatewayConfig::activeGateway();
+        if (PaymentGatewayConfig::useSimulatedCheckout()) {
+            $gateway = 'simulate';
+        }
+        if (AppEnvironment::isProduction() && $gateway === 'simulate') {
+            return ['ok' => false, 'message' => 'Simulated payments are disabled in production.'];
+        }
+
+        return ['ok' => true, 'gateway' => $gateway];
+    }
+
     public static function nextIdempotencyKey(string $subscriptionNumber): string
     {
         Install::ensureConnection();
@@ -152,6 +204,10 @@ final class SubscriptionPaymentService
         }
 
         if ($gateway === 'simulate') {
+            if (AppEnvironment::isProduction()) {
+                return ['ok' => false, 'error' => 'Simulated payments are disabled in production.'];
+            }
+
             return [
                 'ok' => true,
                 'checkout' => [
@@ -225,9 +281,14 @@ final class SubscriptionPaymentService
             }
         }
 
-        $gateway = PaymentGatewayConfig::activeGateway();
-        if (PaymentGatewayConfig::useSimulatedCheckout()) {
-            $gateway = 'simulate';
+        $resolved = self::resolveCheckoutGateway();
+        if (!$resolved['ok']) {
+            return ['ok' => false, 'error' => $resolved['message'] ?? 'Payments are not available.'];
+        }
+        $gateway = (string) ($resolved['gateway'] ?? 'simulate');
+        $exec = PaymentGatewayConfig::assertPaymentExecutionAllowed($gateway);
+        if (!$exec['ok']) {
+            return ['ok' => false, 'error' => (string) ($exec['message'] ?? 'Payments are not available.')];
         }
         $idempotency = self::nextIdempotencyKey($subNumber);
         $pdo = Database::pdo();

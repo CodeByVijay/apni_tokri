@@ -8,7 +8,13 @@ require_once APNI_TOKRI_ROOT . '/includes/catalogue/helpers.php';
 Security::sendSecurityHeaders(Security::isHttps());
 
 $id = isset($_GET['id']) && is_string($_GET['id']) ? trim($_GET['id']) : '';
-$order = $id !== '' ? DemoCustomer::order($id) : null;
+$order = null;
+if ($id !== '' && CustomerService::isLoggedIn()) {
+    $order = CustomerService::order($id);
+}
+if ($order === null && $id !== '' && AppEnvironment::allowsSessionDemoCommerce()) {
+    $order = DemoCustomer::order($id);
+}
 
 layout_public_start([
     'pageTitle' => 'Order confirmed — Apni Tokri',

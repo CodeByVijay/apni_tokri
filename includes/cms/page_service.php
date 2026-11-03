@@ -7,6 +7,18 @@ final class CmsPageService
     public const VISIBILITY_PUBLIC = 'public';
     public const VISIBILITY_PRIVATE = 'private';
 
+    /** Seeded legal/system pages that must not be removed from admin. */
+    private const PROTECTED_SLUGS = [
+        'about-us',
+        'contact-us',
+        'privacy-policy',
+        'terms',
+        'refund-policy',
+        'shipping-policy',
+        'subscription-terms',
+        'disclaimer',
+    ];
+
     /** @var bool */
     private static $testThrowOnVersionInsert = false;
 
@@ -230,6 +242,10 @@ final class CmsPageService
             return $validated;
         }
         $data = $validated['data'];
+        $blocked = CmsInstallSafety::publishBlockedReason($data);
+        if ($blocked !== null) {
+            return ['ok' => false, 'message' => $blocked, 'errors' => ['body_html' => $blocked]];
+        }
         $data['status'] = PublishStatus::PUBLISHED;
         $data['published_at'] = date('Y-m-d H:i:s');
 
@@ -313,27 +329,13 @@ final class CmsPageService
         if ($title === '' || mb_strlen($title) > 255) {
             $errors['title'] = 'Title is required (max 255 characters).';
         }
-        $slugManual = !empty($input['slug_manual']);
-        $preserveSlug = !empty($input['preserve_slug']);
         $existing = $excludeId !== null ? CmsPageRepository::findById($excludeId) : null;
-        $slugRaw = trim((string) ($input['slug'] ?? ''));
-        if ($excludeId !== null && !$slugManual && $preserveSlug && $existing !== null) {
-            $slug = (string) ($existing['slug'] ?? '');
-        } elseif ($slugRaw === '') {
-            $slug = CmsPageRepository::uniqueSlug($title, $excludeId);
+        $slugRes = CatalogueSlug::resolveForAdminSave('cms_page', $title, $input, $existing, $excludeId);
+        if (!$slugRes['ok']) {
+            $errors = array_merge($errors, $slugRes['errors']);
+            $slug = '';
         } else {
-            $canonical = strtolower(trim($slugRaw));
-            if (!Validation::slug($canonical)) {
-                $errors['slug'] = 'Invalid slug format.';
-                $slug = '';
-            } else {
-                $slug = $canonical;
-            }
-        }
-        if ($slug !== '' && !Validation::slug($slug)) {
-            $errors['slug'] = 'Invalid slug format.';
-        } elseif ($slug !== '' && CmsPageRepository::slugTaken($slug, $excludeId)) {
-            $errors['slug'] = 'This URL slug is already in use. Choose another slug.';
+            $slug = $slugRes['slug'];
         }
         $bodyRaw = (string) ($input['body_html'] ?? '');
         $san = CmsHtmlSanitizer::sanitize($bodyRaw);
@@ -448,5 +450,31 @@ final class CmsPageService
         }
 
         return $row;
+    }
+
+    /** @return array{ok: bool, message: string} */
+    public static function deleteForAdmin(int $id): array
+    {
+        if ($id <= 0 || !self::schemaReady() || !AdminAuth::check() || !Permission::canModule('cms')) {
+            return ['ok' => false, 'message' => 'Not allowed.'];
+        }
+        $row = CmsPageRepository::findById($id);
+        if ($row === null) {
+            return ['ok' => false, 'message' => 'Page not found.'];
+        }
+        $slug = (string) ($row['slug'] ?? '');
+        if (in_array($slug, self::PROTECTED_SLUGS, true)) {
+            return ['ok' => false, 'message' => 'This system page cannot be deleted. You can unpublish or edit it instead.'];
+        }
+        try {
+            CmsPageRepository::deleteById($id);
+            AuditLog::write('cms_page.delete', 'cms_page', (string) $id, ['slug' => $slug]);
+
+            return ['ok' => true, 'message' => 'CMS page deleted.'];
+        } catch (Throwable $e) {
+            error_log('CmsPageService::deleteForAdmin: ' . $e->getMessage());
+
+            return ['ok' => false, 'message' => 'Could not delete page.'];
+        }
     }
 }

@@ -116,4 +116,29 @@ final class TestimonialService
 
         return ['ok' => true];
     }
+
+    /** @return array{ok: bool, message: string} */
+    public static function deleteForAdmin(int $id): array
+    {
+        if ($id <= 0) {
+            return ['ok' => false, 'message' => 'Testimonial not found.'];
+        }
+        Install::ensureConnection();
+        $pdo = Database::pdo();
+        $st = $pdo->prepare('SELECT id FROM testimonials WHERE id = ? LIMIT 1');
+        $st->execute([$id]);
+        if (!$st->fetch(PDO::FETCH_ASSOC)) {
+            return ['ok' => false, 'message' => 'Testimonial not found.'];
+        }
+        try {
+            $pdo->prepare('DELETE FROM testimonials WHERE id = ?')->execute([$id]);
+            AuditLog::write('testimonial.delete', 'testimonial', (string) $id);
+
+            return ['ok' => true, 'message' => 'Testimonial deleted.'];
+        } catch (Throwable $e) {
+            error_log('TestimonialService::deleteForAdmin: ' . $e->getMessage());
+
+            return ['ok' => false, 'message' => 'Could not delete testimonial.'];
+        }
+    }
 }

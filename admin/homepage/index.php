@@ -33,7 +33,6 @@ foreach ($config['sections'] ?? [] as $section) {
 }
 
 admin_layout_start(['pageTitle' => 'Homepage trust sections', 'activeAdminNav' => 'homepage']);
-admin_flash_render();
 $pageHeading = 'Homepage trust sections';
 $pageDescription = 'Edit trust messaging shown on the public homepage. Testimonials still come from approved, consented records only.';
 require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';

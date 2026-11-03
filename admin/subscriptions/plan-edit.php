@@ -15,7 +15,7 @@ $previewDates = [];
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     Csrf::requireValid();
     if (!$useDb) {
-        admin_flash_set('Plan saved (demo UI).');
+        admin_flash_persistence_blocked('Plan saved (demo UI).');
         header('Location: ' . url_base() . '/admin/subscriptions/index.php', true, 302);
         exit;
     }
@@ -55,7 +55,6 @@ $basket = is_array($plan) ? (json_decode((string) ($plan['basket_rules_json'] ??
 $skip = is_array($plan) ? (json_decode((string) ($plan['skip_pause_policy_json'] ?? '{}'), true) ?: []) : [];
 
 admin_layout_start(['pageTitle' => $id ? 'Edit plan' : 'New plan', 'activeAdminNav' => 'subscriptions']);
-admin_flash_render();
 $pageHeading = $id ? 'Edit subscription plan' : 'New subscription plan';
 require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
 

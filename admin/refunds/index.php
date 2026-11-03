@@ -3,8 +3,22 @@
 declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/_init.php';
+require_once APNI_TOKRI_ROOT . '/includes/partials/admin/list-pagination.php';
 
 AdminDemoPerms::denyIfCannot('refunds');
+
+$listQ = AdminServerList::searchFromRequest(isset($_GET['q']) ? (string) $_GET['q'] : '');
+$listPage = AdminServerList::pageFromRequest(isset($_GET['page']) ? (int) $_GET['page'] : null);
+$listPerPage = AdminServerList::perPageFromRequest(isset($_GET['per_page']) ? (int) $_GET['per_page'] : null);
+$filterStatus = isset($_GET['status']) && is_string($_GET['status']) ? trim($_GET['status']) : '';
+$sort = AdminServerList::resolveSort((string) ($_GET['sort'] ?? 'created_at'), [
+    'created_at' => 'created_at', 'status' => 'status', 'request_number' => 'request_number',
+], 'created_at');
+$dir = (string) ($_GET['dir'] ?? 'desc');
+$queryBase = array_filter([
+    'q' => $listQ !== '' ? $listQ : null,
+    'status' => $filterStatus !== '' ? $filterStatus : null,
+]);
 
 $requestId = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 
@@ -29,7 +43,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && Install::isSchemaReady()) {
 }
 
 admin_layout_start(['pageTitle' => 'Refunds', 'activeAdminNav' => 'refunds']);
-admin_flash_render();
 
 if ($requestId > 0 && Install::isSchemaReady()) {
     Install::ensureConnection();
@@ -98,10 +111,40 @@ $pageHeading = 'Refund requests';
 require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
 ?>
 <p class="mb-4"><a class="underline font-semibold" href="<?= Security::escape(url_base()) ?>/admin/refunds/reconcile.php">Refund reconciliation dashboard →</a></p>
-<?php
+<?php if (Install::isSchemaReady()): ?>
+<form method="get" class="at-admin-card mb-4">
+    <div class="at-admin-card__body flex flex-wrap gap-3 items-end">
+        <div class="flex-1 min-w-[10rem]">
+            <label class="at-label" for="q">Search</label>
+            <input id="q" name="q" class="at-input at-focusable" value="<?= Security::escape($listQ) ?>" placeholder="Request #, order #, mobile">
+        </div>
+        <div>
+            <label class="at-label" for="status">Status</label>
+            <select id="status" name="status" class="at-select at-focusable">
+                <option value="">All</option>
+                <?php foreach ([RefundStatus::REQUESTED, RefundStatus::UNDER_REVIEW, RefundStatus::APPROVED, RefundStatus::REJECTED, RefundStatus::REFUNDED, RefundStatus::REFUND_FAILED] as $st): ?>
+                    <option value="<?= Security::escape($st) ?>"<?= $filterStatus === $st ? ' selected' : '' ?>><?= Security::escape(ucwords(str_replace('_', ' ', $st))) ?></option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        <input type="hidden" name="per_page" value="<?= (int) $listPerPage ?>">
+        <button type="submit" class="at-btn at-btn--secondary at-focusable">Filter</button>
+    </div>
+</form>
+<?php endif;
 $rows = [];
+$list = ['total' => 0, 'page' => 1, 'total_pages' => 1];
 if (Install::isSchemaReady()) {
-    foreach (RefundRequestService::listForAdmin(null, 100) as $r) {
+    $list = RefundRequestService::searchForAdmin(
+        $listQ,
+        $filterStatus !== '' ? $filterStatus : null,
+        $listPage,
+        $listPerPage,
+        $sort,
+        $dir
+    );
+    foreach ($list['rows'] as $r) {
+        $rid = (int) $r['id'];
         $rows[] = [
             'id' => (string) $r['request_number'],
             'order' => (string) ($r['order_number'] ?? ''),
@@ -109,17 +152,20 @@ if (Install::isSchemaReady()) {
                 ? '₹' . number_format((float) $r['approved_amount_inr'], 2)
                 : '—',
             'status' => (string) $r['status'],
-            'link' => 'Open',
-            'action_href' => url_base() . '/admin/refunds/index.php?id=' . (int) $r['id'],
+            'actions' => admin_action_edit_link(url_base() . '/admin/refunds/index.php?id=' . $rid, 'Open'),
         ];
     }
 }
+$baseList = url_base() . '/admin/refunds/index.php';
 $columns = [
-    ['label' => 'Request', 'key' => 'id'],
+    ['label' => 'Request', 'label_html' => AdminServerList::sortHeaderLink('request_number', 'Request', $sort, $dir, $baseList, $queryBase), 'key' => 'id'],
     ['label' => 'Order', 'key' => 'order'],
     ['label' => 'Amount', 'key' => 'amount', 'align' => 'num'],
-    ['label' => 'Status', 'key' => 'status'],
-    ['label' => '', 'key' => 'link', 'align' => 'actions'],
+    ['label' => 'Status', 'label_html' => AdminServerList::sortHeaderLink('status', 'Status', $sort, $dir, $baseList, $queryBase), 'key' => 'status'],
+    ['label' => 'Actions', 'key' => 'actions', 'align' => 'actions', 'raw' => true],
 ];
 require APNI_TOKRI_ROOT . '/includes/partials/admin/data-table.php';
+if (Install::isSchemaReady() && (int) ($list['total_pages'] ?? 1) > 1) {
+    admin_list_pagination((int) $list['page'], (int) $list['total'], $listPerPage, $queryBase, $baseList);
+}
 admin_layout_end();

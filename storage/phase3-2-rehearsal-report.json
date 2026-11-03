@@ -1,0 +1,233 @@
+{
+    "generated_at": "2026-11-03T15:08:45+05:30",
+    "source_database": "apni_tokri",
+    "clone_database": "apni_tokri_tier_a_rehearsal_20261103150845",
+    "app_config_database_unchanged": "apni_tokri",
+    "steps": [
+        {
+            "0": "backup_mysqldump",
+            "1": "ok",
+            "file": "\/var\/www\/html\/Apni_Tokri\/storage\/backups\/phase3_2_source_20261103150845.sql",
+            "bytes": 16082030
+        },
+        [
+            "create_clone_db",
+            "ok"
+        ],
+        [
+            "restore_clone",
+            "ok"
+        ],
+        {
+            "0": "clone_table_count_match",
+            "1": "ok",
+            "source": 89,
+            "clone": 89
+        },
+        [
+            "tier_a_transaction",
+            "committed"
+        ],
+        [
+            "protected_unchanged",
+            "ok"
+        ],
+        [
+            "tier_a_auto_scopes_zero",
+            "ok"
+        ],
+        [
+            "source_db_markers_unchanged",
+            "ok"
+        ]
+    ],
+    "delete_log": [
+        {
+            "label": "payment_refunds via RF-C1",
+            "deleted": 0
+        },
+        {
+            "label": "payment_refunds via C1 orders",
+            "deleted": 0
+        },
+        {
+            "label": "refund_request_history RF-C1",
+            "deleted": 42
+        },
+        {
+            "label": "refund_request_items RF-C1",
+            "deleted": 14
+        },
+        {
+            "label": "refund_request_evidence RF-C1",
+            "deleted": 0
+        },
+        {
+            "label": "refund_requests RF-C1",
+            "deleted": 14
+        },
+        {
+            "label": "payments pay_c1fix",
+            "deleted": 14
+        },
+        {
+            "label": "payments C1 orders",
+            "deleted": 0
+        },
+        {
+            "label": "delivery_status_history C1+ACCT",
+            "deleted": 0
+        },
+        {
+            "label": "deliveries C1+ACCT",
+            "deleted": 0
+        },
+        {
+            "label": "delivery_slot_reservations tier A orders",
+            "deleted": 0
+        },
+        {
+            "label": "order_items C1+ACCT",
+            "deleted": 14
+        },
+        {
+            "label": "order_status_history C1+ACCT",
+            "deleted": 0
+        },
+        {
+            "label": "orders AT-C1FIX",
+            "deleted": 14
+        },
+        {
+            "label": "orders AT-ACCT",
+            "deleted": 2
+        },
+        {
+            "label": "deliveries SUB-H fulfilment",
+            "deleted": 1
+        },
+        {
+            "label": "orders SUB-H fulfilment",
+            "deleted": 1
+        },
+        {
+            "label": "substitution_payments SUB-H",
+            "deleted": 1
+        },
+        {
+            "label": "subscription_basket_substitutions SUB-H",
+            "deleted": 3
+        },
+        {
+            "label": "subscription_stock_reservations SUB-H",
+            "deleted": 2
+        },
+        {
+            "label": "subscription_fulfilment_events SUB-H",
+            "deleted": 1
+        },
+        {
+            "label": "subscription_payments C1",
+            "deleted": 14
+        },
+        {
+            "label": "customer_subscriptions SUB-C1FIX",
+            "deleted": 14
+        },
+        {
+            "label": "customer_subscriptions SUB-PG",
+            "deleted": 75
+        },
+        {
+            "label": "customer_subscriptions SUB-H",
+            "deleted": 1
+        },
+        {
+            "label": "customer_subscriptions ZT-SUB",
+            "deleted": 1
+        },
+        {
+            "label": "customers 987C1",
+            "deleted": 28
+        }
+    ],
+    "before": {
+        "table_count": 89,
+        "markers": {
+            "c1_orders": 14,
+            "c1_refunds": 14,
+            "c1_subs": 14,
+            "c1_customers": 28,
+            "sub_pg": 75,
+            "sub_h": 1,
+            "zt_sub": 1,
+            "at_acct": 2,
+            "at_product": 1
+        }
+    },
+    "after": {
+        "markers": {
+            "c1_orders": 0,
+            "c1_refunds": 0,
+            "c1_subs": 0,
+            "c1_customers": 0,
+            "sub_pg": 0,
+            "sub_h": 0,
+            "zt_sub": 0,
+            "at_acct": 0,
+            "at_product": 1
+        }
+    },
+    "protected_before": {
+        "payments_razorpay_cashfree": 15,
+        "invoices": 4,
+        "invoice_sequences": 2,
+        "settings": 95,
+        "admin_users": 1,
+        "admin_audit_logs": 2996,
+        "plan_1": 1,
+        "plan_2": 1,
+        "plan_3": 1,
+        "storefront_at_ymd": 19,
+        "products_total": 10
+    },
+    "protected_after": {
+        "payments_razorpay_cashfree": 15,
+        "invoices": 4,
+        "invoice_sequences": 2,
+        "settings": 95,
+        "admin_users": 1,
+        "admin_audit_logs": 2996,
+        "plan_1": 1,
+        "plan_2": 1,
+        "plan_3": 1,
+        "storefront_at_ymd": 19,
+        "products_total": 10
+    },
+    "integrity": {
+        "orphan_order_items": 0
+    },
+    "tier_a_remaining": {
+        "c1_orders": 0,
+        "c1_refunds": 0,
+        "c1_subs": 0,
+        "c1_customers": 0,
+        "sub_pg": 0,
+        "sub_h": 0,
+        "zt_sub": 0,
+        "at_acct": 0,
+        "at_product": 1
+    },
+    "status": "REHEARSAL PASSED — READY FOR EXPLICIT CLEANUP APPROVAL",
+    "source_unchanged_markers": {
+        "c1_orders": 14,
+        "c1_refunds": 14,
+        "c1_subs": 14,
+        "c1_customers": 28,
+        "sub_pg": 75,
+        "sub_h": 1,
+        "zt_sub": 1,
+        "at_acct": 2,
+        "at_product": 1
+    }
+}

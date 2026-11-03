@@ -14,20 +14,33 @@ return [
     'app' => [
         'name' => 'Apni Tokri',
         'tagline' => 'Har Ghar Ki Taazgi',
-        'env' => 'local', // local | staging | production
+        /**
+         * Environment separation (use a different config.local.php per deploy):
+         *   local | development | dev     — demo catalogue/cart when DB is empty; test scripts allowed
+         *   staging                       — real DSN; same guards as local unless you set database.role
+         *   production | prod               — no session demo commerce, no demo catalogue fallback,
+         *                                   simulated payments blocked, OTP debug hidden
+         */
+        'env' => 'local',
         'debug' => true,
         'timezone' => 'Asia/Kolkata',
         'base_url' => 'http://localhost/Apni%20Tokri',
         'url_path' => '/Apni Tokri',
     ],
 
+    /**
+     * Use a separate database per environment (never point staging/dev at production data).
+     * Optional database.role = production | prod — blocks scripts/test-*.php and seed-catalogue.php
+     * even when app.env is not production (belt-and-braces for shared config mistakes).
+     */
     'database' => [
         'host' => '127.0.0.1',
         'port' => 3306,
-        'name' => 'apni_tokri',
+        'name' => 'apni_tokri_dev',
         'user' => 'apni_tokri_user',
         'password' => 'CHANGE_ME',
         'charset' => 'utf8mb4',
+        // 'role' => 'development',
     ],
 
     /**
@@ -70,5 +83,28 @@ return [
 
     'install' => [
         'expected_schema_version' => '1.10.0-stage14-rbac-1',
+    ],
+
+    /**
+     * Security remediation (Phase 1). Apply database/migrations/1.21.0_security_remediation_phase1.sql
+     * before relying on admin login throttling, password reset, or guest support rate limits.
+     */
+    'security' => [
+        'admin_login' => [
+            'max_failures_email' => 5,
+            'max_failures_ip' => 20,
+            'window_minutes' => 15,
+            'lock_minutes' => 15,
+        ],
+        'admin_password_reset' => [
+            'token_ttl_seconds' => 3600,
+            'max_requests_email' => 3,
+            'max_requests_ip' => 10,
+            'window_minutes' => 60,
+        ],
+        'support_guest' => [
+            'max_per_ip' => 5,
+            'window_minutes' => 60,
+        ],
     ],
 ];

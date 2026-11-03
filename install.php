@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/includes/bootstrap.php';
 
+Install::denyPublicInstallSurface();
+
 Security::sendSecurityHeaders(Security::isHttps());
 
 $report = Install::statusReport();

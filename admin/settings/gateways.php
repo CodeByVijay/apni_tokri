@@ -17,7 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             admin_flash_set($save['message'] ?? 'Could not save gateway settings.', 'error');
         }
     } else {
-        admin_flash_set('Payment gateway settings saved (demo UI).');
+        admin_flash_persistence_blocked('Payment gateway settings saved (demo UI).');
     }
     header('Location: ' . url_base() . '/admin/settings/gateways.php', true, 302);
     exit;
@@ -49,7 +49,6 @@ $renderGwDiag = static function (array $diag): string {
 };
 
 admin_layout_start(['pageTitle' => 'Payment gateways', 'activeAdminNav' => 'settings']);
-admin_flash_render();
 $pageHeading = 'Payment gateways';
 $pageDescription = 'Razorpay & Cashfree — test/live mode, encrypted secrets, webhook URLs below.';
 require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';

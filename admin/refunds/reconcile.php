@@ -24,7 +24,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && Install::isSchemaReady()) {
 }
 
 admin_layout_start(['pageTitle' => 'Refund reconciliation', 'activeAdminNav' => 'refunds']);
-admin_flash_render();
 $pageHeading = 'Refund reconciliation';
 $pageDescription = 'Gateway completion requires webhook confirmation (except simulate mode).';
 require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';

@@ -72,6 +72,54 @@
 
     $('#at-mobile-nav [data-at-nav-close]').on('click', closeMobileNav);
 
+    // Mobile category accordion (touch-friendly; no hover dependency).
+    $(document).on('click', '[data-at-macc-toggle]', function () {
+      var $btn = $(this);
+      var open = $btn.attr('aria-expanded') === 'true';
+      $btn.attr('aria-expanded', open ? 'false' : 'true');
+      $('#' + $btn.attr('aria-controls')).prop('hidden', open);
+    });
+
+    // Desktop category menu: keep dropdowns inside the viewport (flip left when they would overflow right).
+    function positionDnavMenu($item) {
+      var $menu = $item.children('.at-dnav__menu');
+      if (!$menu.length) {
+        return;
+      }
+      $item.removeClass('is-flip');
+      var rect = $menu[0].getBoundingClientRect();
+      if (rect.right > window.innerWidth - 8) {
+        $item.addClass('is-flip');
+      }
+    }
+    $('[data-at-dnav]').on('mouseenter focusin', '.at-dnav__item.has-children', function () {
+      positionDnavMenu($(this));
+    });
+    // Keyboard / touch: Enter on a focused parent keeps it open via :focus-within; Escape closes.
+    $('[data-at-dnav]').on('keydown', function (e) {
+      if (e.key === 'Escape') {
+        var a = document.activeElement;
+        if (a && a.blur) {
+          a.blur();
+        }
+      }
+    });
+    // Touch laptops/tablets at desktop width: first tap on a parent opens its menu, second follows the link.
+    $('[data-at-dnav]').on('touchstart', '.at-dnav__item.has-children > .at-dnav__link', function (e) {
+      var $item = $(this).parent();
+      if (!$item.hasClass('is-open')) {
+        e.preventDefault();
+        $item.siblings('.is-open').removeClass('is-open');
+        $item.addClass('is-open');
+        positionDnavMenu($item);
+      }
+    });
+    $(document).on('touchstart', function (e) {
+      if (!$(e.target).closest('[data-at-dnav]').length) {
+        $('[data-at-dnav] .is-open').removeClass('is-open');
+      }
+    });
+
     $(document).on('keydown', function (e) {
       if (e.key === 'Escape') {
         if ($('#at-mobile-nav').hasClass('is-open')) {

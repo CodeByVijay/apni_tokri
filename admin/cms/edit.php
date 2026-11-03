@@ -30,7 +30,7 @@ $form = [
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     Csrf::requireValid();
     if (!$useDb) {
-        admin_flash_set('Page saved (demo UI only — database required).');
+        admin_flash_persistence_blocked('Page saved (demo UI only — database required).');
         header('Location: ' . url_base() . '/admin/cms/index.php', true, 302);
         exit;
     }
@@ -94,10 +94,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $isPublished = $page && (string) ($page['status'] ?? '') === PublishStatus::PUBLISHED;
-$slugPreview = url_base() . '/page.php?slug=' . rawurlencode($form['slug'] !== '' ? CatalogueSlug::fromName($form['slug']) : '…');
+$slugPreviewPrefix = url_base() . '/page.php?slug=';
 
 admin_layout_start(['pageTitle' => $id ? 'Edit CMS page' : 'New CMS page', 'activeAdminNav' => 'cms']);
-admin_flash_render();
 $pageHeading = $id ? 'Edit page' : 'New page';
 $pageDescription = 'Content is sanitized on save. Use Preview to see drafts before publishing.';
 $pageActionsHtml = '';
@@ -107,31 +106,27 @@ if ($id) {
 }
 require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
 ?>
-<form method="post" class="at-card max-w-3xl">
+<form method="post" class="at-card max-w-3xl" data-at-admin-slug data-slug-api="<?= Security::escape(url_base()) ?>/admin/ajax/slug-from-name.php">
     <div class="at-card__body space-y-4">
         <?= Csrf::field() ?>
         <?php if ($id): ?><input type="hidden" name="id" value="<?= (int) $id ?>"><?php endif; ?>
-        <input type="hidden" name="preserve_slug" value="1" id="cms-preserve-slug">
-        <input type="hidden" name="slug_manual" value="0" id="cms-slug-manual">
 
         <?php if (!empty($errors['title'])): ?>
             <p class="text-sm text-red-600"><?= Security::escape($errors['title']) ?></p>
         <?php endif; ?>
-        <div>
-            <label class="at-label" for="cms-title">Title</label>
-            <input id="cms-title" name="title" class="at-input at-focusable w-full" required maxlength="255"
-                   value="<?= Security::escape($form['title']) ?>">
-        </div>
-
-        <?php if (!empty($errors['slug'])): ?>
-            <p class="text-sm text-red-600"><?= Security::escape($errors['slug']) ?></p>
-        <?php endif; ?>
-        <div>
-            <label class="at-label" for="cms-slug">URL slug</label>
-            <input id="cms-slug" name="slug" class="at-input at-focusable w-full" maxlength="191"
-                   value="<?= Security::escape($form['slug']) ?>" autocomplete="off">
-            <p class="text-xs at-muted mt-1">Public URL: <span id="cms-slug-preview"><?= Security::escape($slugPreview) ?></span></p>
-        </div>
+        <?php
+        $slugSourceId = 'cms-title';
+        $slugSourceName = 'title';
+        $slugSourceLabel = 'Title';
+        $slugSourceValue = $form['title'];
+        $slugSourceMaxLength = 255;
+        $slugTargetId = 'cms-slug';
+        $slugTargetValue = $form['slug'];
+        $slugManualId = 'cms-slug-manual';
+        $slugError = $errors['slug'] ?? null;
+        $slugPreviewId = 'cms-slug-preview';
+        require APNI_TOKRI_ROOT . '/includes/partials/admin/slug-field.php';
+        ?>
 
         <?php
         $bodyHtml = $form['body_html'];
@@ -185,37 +180,4 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
         </div>
     </div>
 </form>
-<script>
-(function () {
-    var base = <?= json_encode(url_base() . '/page.php?slug=', JSON_UNESCAPED_SLASHES) ?>;
-    var title = document.getElementById('cms-title');
-    var slug = document.getElementById('cms-slug');
-    var preview = document.getElementById('cms-slug-preview');
-    var slugManual = document.getElementById('cms-slug-manual');
-    var preserve = document.getElementById('cms-preserve-slug');
-    var origSlug = slug.value;
-
-    function slugify(t) {
-        return t.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').substring(0, 191);
-    }
-    function updatePreview() {
-        var s = slug.value.trim() ? slugify(slug.value) : '…';
-        preview.textContent = base + s;
-    }
-    slug.addEventListener('input', function () {
-        slugManual.value = '1';
-        preserve.value = '0';
-        updatePreview();
-    });
-    title.addEventListener('input', function () {
-        if (slugManual.value !== '1' && !slug.value.trim()) {
-            slug.value = slugify(title.value);
-            updatePreview();
-        } else if (slugManual.value !== '1' && slug.value === origSlug) {
-            /* title changed but slug preserved via server flag */
-        }
-    });
-    updatePreview();
-})();
-</script>
 <?php admin_layout_end();

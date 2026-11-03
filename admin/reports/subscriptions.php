@@ -42,7 +42,6 @@ if (Install::isSchemaReady()) {
 }
 
 admin_layout_start(['pageTitle' => 'Subscription report', 'activeAdminNav' => 'reports']);
-admin_flash_render();
 $pageHeading = 'Subscription report';
 $pageDescription = 'Activations, subscription payment collection, delivery schedule, and fulfilment orders (not storefront revenue).';
 require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';

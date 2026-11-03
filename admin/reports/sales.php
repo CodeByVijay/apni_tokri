@@ -19,7 +19,6 @@ $range = $parsed['range'];
 $summary = Install::isSchemaReady() ? SalesReportService::summary($range) : [];
 
 admin_layout_start(['pageTitle' => 'Sales summary', 'activeAdminNav' => 'reports']);
-admin_flash_render();
 $pageHeading = 'Sales summary';
 require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
 

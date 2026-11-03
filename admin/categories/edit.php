@@ -18,6 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $result = CategoryRepository::save($postId, [
             'name' => $_POST['name'] ?? '',
             'slug' => $_POST['slug'] ?? '',
+            'slug_manual' => !empty($_POST['slug_manual']),
             'parent_id' => $_POST['parent_id'] ?? '',
             'description' => $_POST['description'] ?? '',
             'sort_order' => $_POST['sort_order'] ?? 0,
@@ -34,15 +35,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         $errors = $result['errors'] ?? ['form' => $result['message'] ?? 'Save failed.'];
     } else {
-        admin_flash_set('Category saved (demo UI only).');
+        admin_flash_persistence_blocked('Category saved (demo UI only).');
         header('Location: ' . ($_SERVER['REQUEST_URI'] ?? ''), true, 302);
         exit;
     }
 }
 
 $defaults = [
-    'name' => 'Fresh Vegetables',
-    'slug' => 'vegetables',
+    'name' => '',
+    'slug' => '',
     'parent_id' => '',
     'description' => '',
     'sort_order' => 0,
@@ -53,10 +54,12 @@ $defaults = [
 ];
 if ($category) {
     $defaults = array_merge($defaults, $category);
+} elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $defaults['name'] = trim((string) ($_POST['name'] ?? ''));
+    $defaults['slug'] = trim((string) ($_POST['slug'] ?? ''));
 }
 
 admin_layout_start(['pageTitle' => $category ? 'Edit category' : 'Add category', 'activeAdminNav' => 'categories']);
-admin_flash_render();
 $pageHeading = $category ? 'Edit category' : 'Add category';
 require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
 
@@ -64,26 +67,33 @@ if ($errors !== []) {
     echo '<div class="at-alert at-alert--error mb-4">' . Security::escape(implode(' ', $errors)) . '</div>';
 }
 ?>
-<form method="post" class="at-admin-card max-w-2xl">
+<form method="post" class="at-admin-card max-w-2xl" data-at-admin-slug data-slug-api="<?= Security::escape(url_base()) ?>/admin/ajax/slug-from-name.php">
     <div class="at-admin-card__body space-y-3">
         <?= Csrf::field() ?>
         <?php if ($category): ?><input type="hidden" name="id" value="<?= (int) $category['id'] ?>"><?php endif; ?>
-        <div>
-            <label class="at-label" for="name">Name</label>
-            <input id="name" name="name" class="at-input at-focusable" value="<?= Security::escape((string) $defaults['name']) ?>" required>
-        </div>
-        <div>
-            <label class="at-label" for="slug">Slug</label>
-            <input id="slug" name="slug" class="at-input at-focusable" value="<?= Security::escape((string) $defaults['slug']) ?>" pattern="[a-z0-9-]+">
-            <p class="at-field-hint">Leave blank to auto-generate from name. Must be unique.</p>
-        </div>
+        <?php
+        $slugSourceId = 'name';
+        $slugSourceName = 'name';
+        $slugSourceLabel = 'Name';
+        $slugSourceValue = (string) $defaults['name'];
+        $slugTargetId = 'slug';
+        $slugTargetValue = (string) $defaults['slug'];
+        $slugManualId = 'category-slug-manual';
+        $slugError = $errors['slug'] ?? null;
+        if (!$category) {
+            $slugSourcePlaceholder = 'e.g. Fresh Vegetables';
+            $slugTargetPlaceholder = 'Auto-generated from name';
+        }
+        require APNI_TOKRI_ROOT . '/includes/partials/admin/slug-field.php';
+        ?>
         <div>
             <label class="at-label" for="parent_id">Parent category</label>
             <select id="parent_id" name="parent_id" class="at-select at-focusable">
                 <option value="">None (top level)</option>
                 <?php if ($useDb):
+                    $excludeParents = $id ? array_merge([$id], CategoryRepository::descendantIds($id)) : [];
                     foreach (CategoryRepository::allForAdmin() as $c):
-                        if ($id && (int) $c['id'] === $id) {
+                        if (in_array((int) $c['id'], $excludeParents, true)) {
                             continue;
                         }
                         $sel = (string) ($defaults['parent_id'] ?? '') === (string) $c['id'] ? ' selected' : '';

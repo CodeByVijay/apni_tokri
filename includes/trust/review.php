@@ -258,17 +258,69 @@ final class ReviewService
     /** @return list<array<string, mixed>> */
     public static function listPending(int $limit = 50): array
     {
+        $result = self::searchPendingForAdmin('', 1, min(100, max(1, $limit)), 'created_at', 'asc');
+
+        return $result['rows'];
+    }
+
+    /**
+     * @return array{rows: list<array<string, mixed>>, total: int, page: int, per_page: int, total_pages: int}
+     */
+    public static function searchPendingForAdmin(
+        string $query,
+        int $page,
+        int $perPage,
+        string $sortColumn = 'created_at',
+        string $sortDirection = 'asc'
+    ): array {
+        if (!Install::isSchemaReady()) {
+            return ['rows' => [], 'total' => 0, 'page' => 1, 'per_page' => $perPage, 'total_pages' => 1];
+        }
         Install::ensureConnection();
-        $stmt = Database::pdo()->prepare(
-            'SELECT r.*, p.name AS product_name FROM product_reviews r
-             INNER JOIN products p ON p.id = r.product_id
-             WHERE r.status = ? ORDER BY r.created_at ASC LIMIT ?'
-        );
-        $stmt->bindValue(1, ReviewStatus::PENDING, PDO::PARAM_STR);
-        $stmt->bindValue(2, $limit, PDO::PARAM_INT);
+        $pdo = Database::pdo();
+        $page = max(1, $page);
+        $perPage = max(1, min(100, $perPage));
+        $where = ['r.status = ?'];
+        $params = [ReviewStatus::PENDING];
+        $q = trim($query);
+        if ($q !== '') {
+            $like = '%' . AdminServerList::escapeLike($q) . '%';
+            $where[] = '(p.name LIKE ? OR r.body LIKE ? OR CAST(r.rating AS CHAR) LIKE ?)';
+            array_push($params, $like, $like, $like);
+        }
+        $whereSql = implode(' AND ', $where);
+        $sortMap = [
+            'created_at' => 'r.created_at',
+            'rating' => 'r.rating',
+            'product_name' => 'p.name',
+        ];
+        $orderSql = AdminServerList::orderBySql($sortColumn, $sortDirection, $sortMap, 'created_at');
+        $from = ' FROM product_reviews r INNER JOIN products p ON p.id = r.product_id WHERE ' . $whereSql;
+        $countStmt = $pdo->prepare('SELECT COUNT(*)' . $from);
+        $countStmt->execute($params);
+        $total = (int) $countStmt->fetchColumn();
+        $totalPages = max(1, (int) ceil($total / $perPage));
+        if ($page > $totalPages) {
+            $page = $totalPages;
+        }
+        $offset = ($page - 1) * $perPage;
+        $sql = 'SELECT r.*, p.name AS product_name' . $from . ' ORDER BY ' . $orderSql . ' LIMIT ? OFFSET ?';
+        $stmt = $pdo->prepare($sql);
+        $i = 1;
+        foreach ($params as $p) {
+            $stmt->bindValue($i++, $p);
+        }
+        $stmt->bindValue($i++, $perPage, PDO::PARAM_INT);
+        $stmt->bindValue($i, $offset, PDO::PARAM_INT);
         $stmt->execute();
 
-        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        return [
+            'rows' => $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [],
+            'total' => $total,
+            'page' => $page,
+            'per_page' => $perPage,
+            'total_pages' => $totalPages,
+        ];
     }
 
     /** @return array{ok: bool, message?: string} */
@@ -660,5 +712,33 @@ final class ReviewService
     public static function featuredTestimonialsFromReviews(int $limit = 6): array
     {
         return [];
+    }
+
+    /** @return array{ok: bool, message: string} */
+    public static function deleteForAdmin(int $id): array
+    {
+        if ($id <= 0) {
+            return ['ok' => false, 'message' => 'Review not found.'];
+        }
+        Install::ensureConnection();
+        $pdo = Database::pdo();
+        $st = $pdo->prepare('SELECT id FROM product_reviews WHERE id = ? LIMIT 1');
+        $st->execute([$id]);
+        if (!$st->fetch(PDO::FETCH_ASSOC)) {
+            return ['ok' => false, 'message' => 'Review not found.'];
+        }
+        try {
+            if (self::moderationHistoryTableReady()) {
+                $pdo->prepare('DELETE FROM review_moderation_history WHERE review_id = ?')->execute([$id]);
+            }
+            $pdo->prepare('DELETE FROM product_reviews WHERE id = ?')->execute([$id]);
+            AuditLog::write('review.delete', 'review', (string) $id);
+
+            return ['ok' => true, 'message' => 'Review deleted.'];
+        } catch (Throwable $e) {
+            error_log('ReviewService::deleteForAdmin: ' . $e->getMessage());
+
+            return ['ok' => false, 'message' => 'Could not delete review.'];
+        }
     }
 }

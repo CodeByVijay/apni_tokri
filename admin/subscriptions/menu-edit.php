@@ -55,7 +55,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && Install::isSchemaReady()) {
 $variants = InventoryService::variantsForSelect();
 
 admin_layout_start(['pageTitle' => 'Menu template', 'activeAdminNav' => 'subscriptions']);
-admin_flash_render();
 $pageHeading = $id ? 'Edit menu template' : 'New menu template';
 require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
 ?>

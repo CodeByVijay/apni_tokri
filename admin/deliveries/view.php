@@ -47,7 +47,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $delivery !== null) {
 }
 
 admin_layout_start(['pageTitle' => 'Delivery detail', 'activeAdminNav' => 'deliveries']);
-admin_flash_render();
 
 if ($delivery === null) {
     echo '<p class="at-alert at-alert--error">Delivery not found.</p>';

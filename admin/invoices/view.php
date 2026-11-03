@@ -22,7 +22,6 @@ if ($inv !== null && $_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 admin_layout_start(['pageTitle' => 'Invoice', 'activeAdminNav' => 'invoices']);
-admin_flash_render();
 
 if ($inv === null) {
     echo '<div class="at-alert at-alert--error">Invoice not found.</div>';

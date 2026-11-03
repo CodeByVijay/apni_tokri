@@ -7,6 +7,9 @@ require_once dirname(__DIR__) . '/_init.php';
 AdminDemoPerms::denyIfCannot('faqs');
 
 $useDb = Install::isSchemaReady() && AdminAuth::check();
+if ($useDb) {
+    admin_process_list_delete('faqs', url_base() . '/admin/faqs/index.php');
+}
 $filterQ = isset($_GET['q']) ? trim((string) $_GET['q']) : '';
 $filterCat = isset($_GET['category']) ? (int) $_GET['category'] : 0;
 $filterActive = isset($_GET['active']) && $_GET['active'] !== '' ? (int) $_GET['active'] : null;
@@ -21,7 +24,6 @@ $perPage = 20;
 );
 
 admin_layout_start(['pageTitle' => 'FAQs', 'activeAdminNav' => 'faqs']);
-admin_flash_render();
 $pageHeading = 'FAQ categories & questions';
 $pageDescription = 'Manage public help content. Inactive FAQs and categories are hidden on the storefront.';
 $pageActionsHtml = '<a href="' . Security::escape(url_base()) . '/admin/faqs/categories.php" class="at-btn at-btn--secondary at-btn--sm at-focusable">Categories</a>'
@@ -66,7 +68,7 @@ $columns = [
     ['label' => 'Category', 'key' => 'category_name'],
     ['label' => 'Order', 'key' => 'sort_order', 'align' => 'num'],
     ['label' => 'Status', 'key' => 'status'],
-    ['label' => '', 'key' => 'link', 'align' => 'actions'],
+    ['label' => 'Actions', 'key' => 'actions', 'align' => 'actions', 'raw' => true],
 ];
 $rows = [];
 $total = 0;
@@ -91,8 +93,13 @@ if ($useDb) {
             'category_name' => (string) ($f['category_name'] ?? '—'),
             'sort_order' => (string) ($f['sort_order'] ?? '0'),
             'status' => !empty($f['is_active']) ? 'active' : 'inactive',
-            'link' => 'Edit',
-            'action_href' => url_base() . '/admin/faqs/edit.php?id=' . $fid,
+            'actions' => admin_table_actions(
+                url_base() . '/admin/faqs/edit.php?id=' . $fid,
+                'Edit',
+                'faq',
+                $fid,
+                (string) ($f['question'] ?? 'FAQ')
+            ),
         ];
     }
 }

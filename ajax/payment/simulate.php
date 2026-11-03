@@ -12,6 +12,14 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 Csrf::requireValid();
 
+if (!AppEnvironment::allowsSimulatedPaymentEndpoint()) {
+    Ajax::error('Simulated payments are disabled in production.', 403);
+}
+$simulateGate = PaymentGatewayConfig::assertPaymentExecutionAllowed('simulate');
+if (!$simulateGate['ok']) {
+    Ajax::error((string) ($simulateGate['message'] ?? 'Simulated payments are disabled.'), 403);
+}
+
 if (!CustomerService::isLoggedIn()) {
     Ajax::error('Please log in.', 401);
 }

@@ -13,7 +13,7 @@ if (!is_string($mobile) || $mobile === '') {
 }
 
 $error = '';
-if (Install::isSchemaReady() && App::isDebug() && !empty($_SESSION['otp_debug_plain'])) {
+if (AppEnvironment::allowsDebugOtpDisplay() && !empty($_SESSION['otp_debug_plain'])) {
     unset($_SESSION['otp_debug_plain']);
 }
 
@@ -32,7 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
         $error = 'Incorrect or expired OTP.';
-    } elseif (Security::hashEquals((string) ($_SESSION['otp_demo_code'] ?? '123456'), $otp)) {
+    } elseif (!AppEnvironment::isProduction() && Security::hashEquals((string) ($_SESSION['otp_demo_code'] ?? '123456'), $otp)) {
         CustomerService::loginDemoSession($mobile, $name);
         unset($_SESSION['otp_pending_mobile'], $_SESSION['otp_demo_code']);
         $return = $_SESSION['checkout_return'] ?? url_base() . '/my-account.php';
@@ -40,7 +40,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         header('Location: ' . $return, true, 302);
         exit;
     } else {
-        $error = 'Incorrect OTP. Demo code: 123456';
+        $error = AppEnvironment::isProduction()
+            ? 'Incorrect or expired OTP.'
+            : 'Incorrect OTP. Demo code: 123456';
     }
 }
 
@@ -62,7 +64,7 @@ layout_public_start([
         <div>
             <h1 class="at-h1">Verify your number</h1>
             <p class="mt-2 at-muted">Code sent to <strong class="text-[var(--at-ink)]">+91 <?= Security::escape($mobile) ?></strong>
-                <?php if (!Install::isSchemaReady()): ?>
+                <?php if (!Install::isSchemaReady() && !AppEnvironment::isProduction()): ?>
                     <span class="at-badge at-badge--neutral">Demo code 123456</span>
                 <?php elseif (OtpSmsService::operationMode() === OtpSmsService::MODE_TEST): ?>
                     <span class="at-badge at-badge--neutral">Test mode — no real SMS sent</span>

@@ -2,13 +2,7 @@
 
 declare(strict_types=1);
 
-require_once dirname(__DIR__, 2) . '/includes/bootstrap.php';
-
-Security::sendSecurityHeaders(Security::isHttps());
-
-if (!AdminAuth::check()) {
-    Ajax::error('Unauthorized.', 401);
-}
+require_once dirname(__DIR__) . '/_init.php';
 
 if (!AdminNotificationService::viewerCanAccess()) {
     Ajax::error('Forbidden.', 403);

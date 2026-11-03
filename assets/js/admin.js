@@ -175,6 +175,127 @@
     });
   }
 
+  function initSecretCredentialToggles() {
+    $(document).on('click', '[data-secret-toggle]', function () {
+      var $btn = $(this);
+      var id = $btn.attr('aria-controls');
+      var $input = id ? $('#' + id) : $btn.closest('.at-secret-input-wrap').find('.at-secret-input');
+      if (!$input.length) return;
+      var show = $input.attr('type') === 'password';
+      $input.attr('type', show ? 'text' : 'password');
+      $btn.attr('aria-pressed', show ? 'true' : 'false');
+      $btn.attr('aria-label', show ? 'Hide value' : 'Show value');
+    });
+  }
+
+  function slugifyAscii(text) {
+    var s = (text || '').toString().trim();
+    if (!s) return '';
+    if (s.normalize) {
+      s = s.normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
+    }
+    s = s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').replace(/-+/g, '-');
+    return s.substring(0, 191);
+  }
+
+  function needsServerSlug(text) {
+    return /[^\u0000-\u007f]/.test(text || '');
+  }
+
+  function initAdminSlugSync() {
+    $('[data-at-admin-slug]').each(function () {
+      var $form = $(this);
+      var apiUrl = $form.attr('data-slug-api') || '';
+      $form.find('[data-at-slug-group]').each(function () {
+        var $group = $(this);
+        var $source = $($group.data('source'));
+        var $target = $($group.data('target'));
+        var $manual = $($group.data('manual'));
+        var $preview = $group.data('preview') ? $($group.data('preview')) : null;
+        var previewPrefix = $group.data('previewPrefix') || $group.data('preview-prefix') || '';
+        if (!$source.length || !$target.length || !$manual.length) return;
+
+        var debounceTimer = null;
+        var slugManual = $manual.val() === '1';
+
+        function setManual(isManual) {
+          slugManual = isManual;
+          $manual.val(isManual ? '1' : '0');
+        }
+
+        function updatePreview() {
+          if (!$preview || !$preview.length) return;
+          var s = ($target.val() || '').trim();
+          $preview.text(previewPrefix + (s ? slugifyAscii(s) : '…'));
+        }
+
+        function applySlug(val) {
+          if (slugManual) return;
+          $target.val(val || '');
+          updatePreview();
+        }
+
+        function syncFromSource() {
+          if (slugManual) return;
+          var t = $source.val() || '';
+          if (needsServerSlug(t) && apiUrl) {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(function () {
+              $.getJSON(apiUrl, { name: t }).done(function (res) {
+                if (res && res.success && res.data && !slugManual) {
+                  applySlug(res.data.slug || '');
+                }
+              });
+            }, 200);
+          } else {
+            applySlug(slugifyAscii(t));
+          }
+        }
+
+        $source.on('input paste', function () {
+          setTimeout(syncFromSource, 0);
+        });
+
+        $target.on('input', function () {
+          var v = ($target.val() || '').trim();
+          if (v === '') {
+            setManual(false);
+            syncFromSource();
+          } else {
+            setManual(true);
+          }
+          updatePreview();
+        });
+
+        if ($manual.val() === '1') {
+          slugManual = true;
+        }
+        if (!$target.val().trim() && ($source.val() || '').trim()) {
+          syncFromSource();
+        } else {
+          updatePreview();
+        }
+      });
+    });
+  }
+
+  function initAdminFlashDismiss() {
+    $(document).on('click', '.at-admin-flash__close', function () {
+      var $flash = $(this).closest('.at-admin-flash');
+      if (!$flash.length || $flash.hasClass('is-dismissed')) {
+        return;
+      }
+      $flash.addClass('is-dismissed');
+      $flash.one('animationend', function () {
+        $flash.remove();
+        var $wrap = $('[data-at-admin-flashes]');
+        if ($wrap.length && $wrap.children('.at-admin-flash').length === 0) {
+          $wrap.remove();
+        }
+      });
+    });
+  }
+
   $(function () {
     $('#at-admin-menu-toggle').on('click', function () {
       var $n = $('#at-admin-mobile-nav').toggleClass('hidden');
@@ -194,18 +315,7 @@
     initAdminNotifications();
     initNotificationCenter();
     initSecretCredentialToggles();
+    initAdminSlugSync();
+    initAdminFlashDismiss();
   });
-
-  function initSecretCredentialToggles() {
-    $(document).on('click', '[data-secret-toggle]', function () {
-      var $btn = $(this);
-      var id = $btn.attr('aria-controls');
-      var $input = id ? $('#' + id) : $btn.closest('.at-secret-input-wrap').find('.at-secret-input');
-      if (!$input.length) return;
-      var show = $input.attr('type') === 'password';
-      $input.attr('type', show ? 'text' : 'password');
-      $btn.attr('aria-pressed', show ? 'true' : 'false');
-      $btn.attr('aria-label', show ? 'Hide value' : 'Show value');
-    });
-  }
 })(jQuery);

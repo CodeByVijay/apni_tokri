@@ -7,7 +7,7 @@ final class CartService
     /** @return array{ok: bool, message?: string, count?: int, totals?: array<string, mixed>} */
     public static function add(string $productSlug, string $variantId, int $qty): array
     {
-        if (CommerceGateway::useDatabase()) {
+        if (AppEnvironment::usePersistedStorefront()) {
             return self::dbAdd($productSlug, $variantId, $qty);
         }
 
@@ -17,7 +17,7 @@ final class CartService
     /** @return array{ok: bool, message?: string, totals?: array<string, mixed>, count?: int} */
     public static function updateQty(string $lineKey, int $qty): array
     {
-        if (CommerceGateway::useDatabase()) {
+        if (AppEnvironment::usePersistedStorefront()) {
             return self::dbUpdateQty($lineKey, $qty);
         }
 
@@ -27,7 +27,7 @@ final class CartService
     /** @return array{ok: bool, message?: string, totals?: array<string, mixed>, count?: int} */
     public static function remove(string $lineKey): array
     {
-        if (CommerceGateway::useDatabase()) {
+        if (AppEnvironment::usePersistedStorefront()) {
             return self::dbRemove($lineKey);
         }
 
@@ -37,7 +37,7 @@ final class CartService
     /** @return array{ok: bool, message?: string, totals?: array<string, mixed>} */
     public static function applyCoupon(?string $code): array
     {
-        if (CommerceGateway::useDatabase()) {
+        if (AppEnvironment::usePersistedStorefront()) {
             $cartId = self::resolveCartId(true);
             $normalized = $code !== null && trim($code) !== '' ? strtoupper(trim($code)) : null;
             $lines = self::pricingLines($cartId);
@@ -70,7 +70,7 @@ final class CartService
     /** @return list<array<string, mixed>> */
     public static function items(): array
     {
-        if (CommerceGateway::useDatabase()) {
+        if (AppEnvironment::usePersistedStorefront()) {
             return self::dbLines(self::resolveCartId(false));
         }
 
@@ -90,7 +90,7 @@ final class CartService
     /** @return array<string, mixed> */
     public static function totals(?int $checkoutAddressId = null, ?string $deliverySlotSlug = null): array
     {
-        if (CommerceGateway::useDatabase()) {
+        if (AppEnvironment::usePersistedStorefront()) {
             $cartId = self::resolveCartId(false);
             if ($cartId === 0) {
                 return PricingService::totalsFromLines([], null);
@@ -140,7 +140,7 @@ final class CartService
 
     public static function clear(): void
     {
-        if (CommerceGateway::useDatabase()) {
+        if (AppEnvironment::usePersistedStorefront()) {
             $cartId = self::resolveCartId(false);
             if ($cartId > 0) {
                 Install::ensureConnection();
@@ -180,7 +180,7 @@ final class CartService
             return;
         }
 
-        if (CommerceGateway::useDatabase()) {
+        if (AppEnvironment::usePersistedStorefront()) {
             self::removeOrderLinesFromCustomerCart($pdo, $customerId, $lines);
 
             return;
@@ -225,7 +225,7 @@ final class CartService
 
     public static function mergeGuestIntoCustomer(int $customerId): void
     {
-        if (!CommerceGateway::useDatabase()) {
+        if (!AppEnvironment::usePersistedStorefront()) {
             return;
         }
         Install::ensureConnection();

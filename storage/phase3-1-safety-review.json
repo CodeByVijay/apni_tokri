@@ -1,0 +1,1015 @@
+{
+    "generated_at": "2026-11-03T15:06:29+05:30",
+    "database": "apni_tokri",
+    "read_only": true,
+    "tier_a_roots": {
+        "c1_orders": {
+            "fixture": "stage12_phase_c1_fixture.php",
+            "roots": [
+                {
+                    "id": 1794,
+                    "order_number": "AT-C1FIX-65BA51FD",
+                    "customer_id": 3,
+                    "payment_status": "paid"
+                },
+                {
+                    "id": 1901,
+                    "order_number": "AT-C1FIX-5B029F37",
+                    "customer_id": 5,
+                    "payment_status": "paid"
+                },
+                {
+                    "id": 2008,
+                    "order_number": "AT-C1FIX-BA1925FB",
+                    "customer_id": 7,
+                    "payment_status": "paid"
+                },
+                {
+                    "id": 2009,
+                    "order_number": "AT-C1FIX-DFEB5FFD",
+                    "customer_id": 9,
+                    "payment_status": "paid"
+                },
+                {
+                    "id": 2116,
+                    "order_number": "AT-C1FIX-889AB929",
+                    "customer_id": 11,
+                    "payment_status": "paid"
+                },
+                {
+                    "id": 2225,
+                    "order_number": "AT-C1FIX-648BF9AA",
+                    "customer_id": 14,
+                    "payment_status": "paid"
+                },
+                {
+                    "id": 2381,
+                    "order_number": "AT-C1FIX-0CB19E65",
+                    "customer_id": 16,
+                    "payment_status": "paid"
+                },
+                {
+                    "id": 2473,
+                    "order_number": "AT-C1FIX-C20B94FA",
+                    "customer_id": 18,
+                    "payment_status": "paid"
+                },
+                {
+                    "id": 2540,
+                    "order_number": "AT-C1FIX-125B160F",
+                    "customer_id": 20,
+                    "payment_status": "paid"
+                },
+                {
+                    "id": 2656,
+                    "order_number": "AT-C1FIX-6B4BEC33",
+                    "customer_id": 22,
+                    "payment_status": "paid"
+                },
+                {
+                    "id": 2748,
+                    "order_number": "AT-C1FIX-02B2E803",
+                    "customer_id": 24,
+                    "payment_status": "paid"
+                },
+                {
+                    "id": 2856,
+                    "order_number": "AT-C1FIX-1052F7BD",
+                    "customer_id": 36,
+                    "payment_status": "paid"
+                },
+                {
+                    "id": 2966,
+                    "order_number": "AT-C1FIX-CA3C9FCD",
+                    "customer_id": 48,
+                    "payment_status": "paid"
+                },
+                {
+                    "id": 2977,
+                    "order_number": "AT-C1FIX-F3AD9B78",
+                    "customer_id": 50,
+                    "payment_status": "paid"
+                }
+            ],
+            "root_count": 14
+        },
+        "c1_refunds": {
+            "fixture": "stage12_phase_c1_fixture.php",
+            "roots": [
+                {
+                    "id": 1,
+                    "request_number": "RF-C1T-65ba51fd",
+                    "order_id": 1794
+                },
+                {
+                    "id": 2,
+                    "request_number": "RF-C1T-5b029f37",
+                    "order_id": 1901
+                },
+                {
+                    "id": 3,
+                    "request_number": "RF-C1T-ba1925fb",
+                    "order_id": 2008
+                },
+                {
+                    "id": 4,
+                    "request_number": "RF-C1T-dfeb5ffd",
+                    "order_id": 2009
+                },
+                {
+                    "id": 5,
+                    "request_number": "RF-C1T-889ab929",
+                    "order_id": 2116
+                },
+                {
+                    "id": 6,
+                    "request_number": "RF-C1T-648bf9aa",
+                    "order_id": 2225
+                },
+                {
+                    "id": 7,
+                    "request_number": "RF-C1T-0cb19e65",
+                    "order_id": 2381
+                },
+                {
+                    "id": 8,
+                    "request_number": "RF-C1T-c20b94fa",
+                    "order_id": 2473
+                },
+                {
+                    "id": 9,
+                    "request_number": "RF-C1T-125b160f",
+                    "order_id": 2540
+                },
+                {
+                    "id": 10,
+                    "request_number": "RF-C1T-6b4bec33",
+                    "order_id": 2656
+                },
+                {
+                    "id": 11,
+                    "request_number": "RF-C1T-02b2e803",
+                    "order_id": 2748
+                },
+                {
+                    "id": 12,
+                    "request_number": "RF-C1T-1052f7bd",
+                    "order_id": 2856
+                },
+                {
+                    "id": 13,
+                    "request_number": "RF-C1T-ca3c9fcd",
+                    "order_id": 2966
+                },
+                {
+                    "id": 14,
+                    "request_number": "RF-C1T-f3ad9b78",
+                    "order_id": 2977
+                }
+            ],
+            "root_count": 14
+        },
+        "c1_subs": {
+            "fixture": "stage12_phase_c1_fixture.php",
+            "roots": [
+                {
+                    "id": 2616,
+                    "subscription_number": "SUB-C1FIX-65BA51FD",
+                    "customer_id": 3,
+                    "status": "active"
+                },
+                {
+                    "id": 2743,
+                    "subscription_number": "SUB-C1FIX-5B029F37",
+                    "customer_id": 5,
+                    "status": "active"
+                },
+                {
+                    "id": 2870,
+                    "subscription_number": "SUB-C1FIX-BA1925FB",
+                    "customer_id": 7,
+                    "status": "active"
+                },
+                {
+                    "id": 2871,
+                    "subscription_number": "SUB-C1FIX-DFEB5FFD",
+                    "customer_id": 9,
+                    "status": "active"
+                },
+                {
+                    "id": 2998,
+                    "subscription_number": "SUB-C1FIX-889AB929",
+                    "customer_id": 11,
+                    "status": "active"
+                },
+                {
+                    "id": 3125,
+                    "subscription_number": "SUB-C1FIX-648BF9AA",
+                    "customer_id": 14,
+                    "status": "active"
+                },
+                {
+                    "id": 3331,
+                    "subscription_number": "SUB-C1FIX-0CB19E65",
+                    "customer_id": 16,
+                    "status": "active"
+                },
+                {
+                    "id": 3468,
+                    "subscription_number": "SUB-C1FIX-C20B94FA",
+                    "customer_id": 18,
+                    "status": "active"
+                },
+                {
+                    "id": 3556,
+                    "subscription_number": "SUB-C1FIX-125B160F",
+                    "customer_id": 20,
+                    "status": "active"
+                },
+                {
+                    "id": 3741,
+                    "subscription_number": "SUB-C1FIX-6B4BEC33",
+                    "customer_id": 22,
+                    "status": "active"
+                },
+                {
+                    "id": 3878,
+                    "subscription_number": "SUB-C1FIX-02B2E803",
+                    "customer_id": 24,
+                    "status": "active"
+                },
+                {
+                    "id": 4015,
+                    "subscription_number": "SUB-C1FIX-1052F7BD",
+                    "customer_id": 36,
+                    "status": "active"
+                },
+                {
+                    "id": 4154,
+                    "subscription_number": "SUB-C1FIX-CA3C9FCD",
+                    "customer_id": 48,
+                    "status": "active"
+                },
+                {
+                    "id": 4172,
+                    "subscription_number": "SUB-C1FIX-F3AD9B78",
+                    "customer_id": 50,
+                    "status": "active"
+                }
+            ],
+            "root_count": 14
+        },
+        "c1_customers": {
+            "fixture": "stage12_phase_c1_fixture.php",
+            "roots": [
+                {
+                    "id": 3,
+                    "mobile": "987C1A65ba",
+                    "name": "Stage12 C1 Test Customer A"
+                },
+                {
+                    "id": 4,
+                    "mobile": "987C1B65ba",
+                    "name": "Stage12 C1 Test Customer B"
+                },
+                {
+                    "id": 5,
+                    "mobile": "987C1A5b02",
+                    "name": "Stage12 C1 Test Customer A"
+                },
+                {
+                    "id": 6,
+                    "mobile": "987C1B5b02",
+                    "name": "Stage12 C1 Test Customer B"
+                },
+                {
+                    "id": 7,
+                    "mobile": "987C1Aba19",
+                    "name": "Stage12 C1 Test Customer A"
+                },
+                {
+                    "id": 8,
+                    "mobile": "987C1Bba19",
+                    "name": "Stage12 C1 Test Customer B"
+                },
+                {
+                    "id": 9,
+                    "mobile": "987C1Adfeb",
+                    "name": "Stage12 C1 Test Customer A"
+                },
+                {
+                    "id": 10,
+                    "mobile": "987C1Bdfeb",
+                    "name": "Stage12 C1 Test Customer B"
+                },
+                {
+                    "id": 11,
+                    "mobile": "987C1A889a",
+                    "name": "Stage12 C1 Test Customer A"
+                },
+                {
+                    "id": 12,
+                    "mobile": "987C1B889a",
+                    "name": "Stage12 C1 Test Customer B"
+                },
+                {
+                    "id": 14,
+                    "mobile": "987C1A648b",
+                    "name": "Stage12 C1 Test Customer A"
+                },
+                {
+                    "id": 15,
+                    "mobile": "987C1B648b",
+                    "name": "Stage12 C1 Test Customer B"
+                },
+                {
+                    "id": 16,
+                    "mobile": "987C1A0cb1",
+                    "name": "Stage12 C1 Test Customer A"
+                },
+                {
+                    "id": 17,
+                    "mobile": "987C1B0cb1",
+                    "name": "Stage12 C1 Test Customer B"
+                },
+                {
+                    "id": 18,
+                    "mobile": "987C1Ac20b",
+                    "name": "Stage12 C1 Test Customer A"
+                },
+                {
+                    "id": 19,
+                    "mobile": "987C1Bc20b",
+                    "name": "Stage12 C1 Test Customer B"
+                },
+                {
+                    "id": 20,
+                    "mobile": "987C1A125b",
+                    "name": "Stage12 C1 Test Customer A"
+                },
+                {
+                    "id": 21,
+                    "mobile": "987C1B125b",
+                    "name": "Stage12 C1 Test Customer B"
+                },
+                {
+                    "id": 22,
+                    "mobile": "987C1A6b4b",
+                    "name": "Stage12 C1 Test Customer A"
+                },
+                {
+                    "id": 23,
+                    "mobile": "987C1B6b4b",
+                    "name": "Stage12 C1 Test Customer B"
+                },
+                {
+                    "id": 24,
+                    "mobile": "987C1A02b2",
+                    "name": "Stage12 C1 Test Customer A"
+                },
+                {
+                    "id": 25,
+                    "mobile": "987C1B02b2",
+                    "name": "Stage12 C1 Test Customer B"
+                },
+                {
+                    "id": 36,
+                    "mobile": "987C1A1052",
+                    "name": "Stage12 C1 Test Customer A"
+                },
+                {
+                    "id": 37,
+                    "mobile": "987C1B1052",
+                    "name": "Stage12 C1 Test Customer B"
+                },
+                {
+                    "id": 48,
+                    "mobile": "987C1Aca3c",
+                    "name": "Stage12 C1 Test Customer A"
+                },
+                {
+                    "id": 49,
+                    "mobile": "987C1Bca3c",
+                    "name": "Stage12 C1 Test Customer B"
+                },
+                {
+                    "id": 50,
+                    "mobile": "987C1Af3ad",
+                    "name": "Stage12 C1 Test Customer A"
+                },
+                {
+                    "id": 51,
+                    "mobile": "987C1Bf3ad",
+                    "name": "Stage12 C1 Test Customer B"
+                }
+            ],
+            "root_count": 28
+        },
+        "sub_pg": {
+            "fixture": "test-account-list-pagination.php",
+            "roots": [
+                {
+                    "id": 5362,
+                    "subscription_number": "SUB-PG-pg7ee3e-00",
+                    "customer_id": 109,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5363,
+                    "subscription_number": "SUB-PG-pg7ee3e-01",
+                    "customer_id": 109,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5364,
+                    "subscription_number": "SUB-PG-pg7ee3e-02",
+                    "customer_id": 109,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5365,
+                    "subscription_number": "SUB-PG-pg7ee3e-03",
+                    "customer_id": 109,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5366,
+                    "subscription_number": "SUB-PG-pg7ee3e-04",
+                    "customer_id": 109,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5367,
+                    "subscription_number": "SUB-PG-pg7ee3e-05",
+                    "customer_id": 109,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5368,
+                    "subscription_number": "SUB-PG-pg7ee3e-06",
+                    "customer_id": 109,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5369,
+                    "subscription_number": "SUB-PG-pg7ee3e-07",
+                    "customer_id": 109,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5370,
+                    "subscription_number": "SUB-PG-pg7ee3e-08",
+                    "customer_id": 109,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5371,
+                    "subscription_number": "SUB-PG-pg7ee3e-09",
+                    "customer_id": 109,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5372,
+                    "subscription_number": "SUB-PG-pg7ee3e-10",
+                    "customer_id": 109,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5373,
+                    "subscription_number": "SUB-PG-pg7ee3e-11",
+                    "customer_id": 109,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5374,
+                    "subscription_number": "SUB-PG-pg7ee3e-12",
+                    "customer_id": 109,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5375,
+                    "subscription_number": "SUB-PG-pg7ee3e-13",
+                    "customer_id": 109,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5376,
+                    "subscription_number": "SUB-PG-pg7ee3e-14",
+                    "customer_id": 109,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5377,
+                    "subscription_number": "SUB-PG-pg7ee3e-15",
+                    "customer_id": 109,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5378,
+                    "subscription_number": "SUB-PG-pg7ee3e-16",
+                    "customer_id": 109,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5379,
+                    "subscription_number": "SUB-PG-pg7ee3e-17",
+                    "customer_id": 109,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5380,
+                    "subscription_number": "SUB-PG-pg7ee3e-18",
+                    "customer_id": 109,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5381,
+                    "subscription_number": "SUB-PG-pg7ee3e-19",
+                    "customer_id": 109,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5382,
+                    "subscription_number": "SUB-PG-pg7ee3e-20",
+                    "customer_id": 109,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5383,
+                    "subscription_number": "SUB-PG-pg7ee3e-21",
+                    "customer_id": 109,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5384,
+                    "subscription_number": "SUB-PG-pg7ee3e-22",
+                    "customer_id": 109,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5385,
+                    "subscription_number": "SUB-PG-pg7ee3e-23",
+                    "customer_id": 109,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5386,
+                    "subscription_number": "SUB-PG-pg7ee3e-24",
+                    "customer_id": 109,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5387,
+                    "subscription_number": "SUB-PG-pg478ee-00",
+                    "customer_id": 111,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5388,
+                    "subscription_number": "SUB-PG-pg478ee-01",
+                    "customer_id": 111,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5389,
+                    "subscription_number": "SUB-PG-pg478ee-02",
+                    "customer_id": 111,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5390,
+                    "subscription_number": "SUB-PG-pg478ee-03",
+                    "customer_id": 111,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5391,
+                    "subscription_number": "SUB-PG-pg478ee-04",
+                    "customer_id": 111,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5392,
+                    "subscription_number": "SUB-PG-pg478ee-05",
+                    "customer_id": 111,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5393,
+                    "subscription_number": "SUB-PG-pg478ee-06",
+                    "customer_id": 111,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5394,
+                    "subscription_number": "SUB-PG-pg478ee-07",
+                    "customer_id": 111,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5395,
+                    "subscription_number": "SUB-PG-pg478ee-08",
+                    "customer_id": 111,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5396,
+                    "subscription_number": "SUB-PG-pg478ee-09",
+                    "customer_id": 111,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5397,
+                    "subscription_number": "SUB-PG-pg478ee-10",
+                    "customer_id": 111,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5398,
+                    "subscription_number": "SUB-PG-pg478ee-11",
+                    "customer_id": 111,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5399,
+                    "subscription_number": "SUB-PG-pg478ee-12",
+                    "customer_id": 111,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5400,
+                    "subscription_number": "SUB-PG-pg478ee-13",
+                    "customer_id": 111,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5401,
+                    "subscription_number": "SUB-PG-pg478ee-14",
+                    "customer_id": 111,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5402,
+                    "subscription_number": "SUB-PG-pg478ee-15",
+                    "customer_id": 111,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5403,
+                    "subscription_number": "SUB-PG-pg478ee-16",
+                    "customer_id": 111,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5404,
+                    "subscription_number": "SUB-PG-pg478ee-17",
+                    "customer_id": 111,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5405,
+                    "subscription_number": "SUB-PG-pg478ee-18",
+                    "customer_id": 111,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5406,
+                    "subscription_number": "SUB-PG-pg478ee-19",
+                    "customer_id": 111,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5407,
+                    "subscription_number": "SUB-PG-pg478ee-20",
+                    "customer_id": 111,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5408,
+                    "subscription_number": "SUB-PG-pg478ee-21",
+                    "customer_id": 111,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5409,
+                    "subscription_number": "SUB-PG-pg478ee-22",
+                    "customer_id": 111,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5410,
+                    "subscription_number": "SUB-PG-pg478ee-23",
+                    "customer_id": 111,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5411,
+                    "subscription_number": "SUB-PG-pg478ee-24",
+                    "customer_id": 111,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5412,
+                    "subscription_number": "SUB-PG-pgab899-00",
+                    "customer_id": 114,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5413,
+                    "subscription_number": "SUB-PG-pgab899-01",
+                    "customer_id": 114,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5414,
+                    "subscription_number": "SUB-PG-pgab899-02",
+                    "customer_id": 114,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5415,
+                    "subscription_number": "SUB-PG-pgab899-03",
+                    "customer_id": 114,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5416,
+                    "subscription_number": "SUB-PG-pgab899-04",
+                    "customer_id": 114,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5417,
+                    "subscription_number": "SUB-PG-pgab899-05",
+                    "customer_id": 114,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5418,
+                    "subscription_number": "SUB-PG-pgab899-06",
+                    "customer_id": 114,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5419,
+                    "subscription_number": "SUB-PG-pgab899-07",
+                    "customer_id": 114,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5420,
+                    "subscription_number": "SUB-PG-pgab899-08",
+                    "customer_id": 114,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5421,
+                    "subscription_number": "SUB-PG-pgab899-09",
+                    "customer_id": 114,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5422,
+                    "subscription_number": "SUB-PG-pgab899-10",
+                    "customer_id": 114,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5423,
+                    "subscription_number": "SUB-PG-pgab899-11",
+                    "customer_id": 114,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5424,
+                    "subscription_number": "SUB-PG-pgab899-12",
+                    "customer_id": 114,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5425,
+                    "subscription_number": "SUB-PG-pgab899-13",
+                    "customer_id": 114,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5426,
+                    "subscription_number": "SUB-PG-pgab899-14",
+                    "customer_id": 114,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5427,
+                    "subscription_number": "SUB-PG-pgab899-15",
+                    "customer_id": 114,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5428,
+                    "subscription_number": "SUB-PG-pgab899-16",
+                    "customer_id": 114,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5429,
+                    "subscription_number": "SUB-PG-pgab899-17",
+                    "customer_id": 114,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5430,
+                    "subscription_number": "SUB-PG-pgab899-18",
+                    "customer_id": 114,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5431,
+                    "subscription_number": "SUB-PG-pgab899-19",
+                    "customer_id": 114,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5432,
+                    "subscription_number": "SUB-PG-pgab899-20",
+                    "customer_id": 114,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5433,
+                    "subscription_number": "SUB-PG-pgab899-21",
+                    "customer_id": 114,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5434,
+                    "subscription_number": "SUB-PG-pgab899-22",
+                    "customer_id": 114,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5435,
+                    "subscription_number": "SUB-PG-pgab899-23",
+                    "customer_id": 114,
+                    "subscription_plan_id": null
+                },
+                {
+                    "id": 5436,
+                    "subscription_number": "SUB-PG-pgab899-24",
+                    "customer_id": 114,
+                    "subscription_plan_id": null
+                }
+            ],
+            "root_count": 75
+        },
+        "sub_h": {
+            "fixture": "SubscriptionTestFulfilmentFixture",
+            "roots": [
+                {
+                    "id": 6791,
+                    "subscription_number": "SUB-H-70C420",
+                    "customer_id": 1
+                }
+            ],
+            "root_count": 1
+        },
+        "zt_sub": {
+            "fixture": "test-subscription-admin-delete.php",
+            "roots": [
+                {
+                    "id": 6682,
+                    "subscription_number": "ZT-SUB-755294",
+                    "customer_id": 256,
+                    "subscription_plan_id": 6
+                }
+            ],
+            "root_count": 1
+        },
+        "at_acct_orders": {
+            "fixture": "test-customer-account.php",
+            "roots": [
+                {
+                    "id": 3313,
+                    "order_number": "AT-ACCT-6f6a72",
+                    "customer_id": null
+                },
+                {
+                    "id": 3314,
+                    "order_number": "AT-ACCT2-6f6a72",
+                    "customer_id": null
+                }
+            ],
+            "root_count": 2
+        },
+        "at_product": {
+            "fixture": "stage13 fixtures",
+            "roots": [
+                {
+                    "id": 51,
+                    "slug": "at-seo13-prod-b15fd0ec",
+                    "name": "AT-SEO13 Product b15fd0ec"
+                }
+            ],
+            "root_count": 1
+        },
+        "sub_h_graph": {
+            "subscription_delivery_days": 4,
+            "subscription_stock_reservations": 2,
+            "subscription_fulfilment_events": 1,
+            "orders": 1,
+            "deliveries": 1,
+            "invoices": 0,
+            "non_simulate_payments": 0
+        },
+        "zt_sub_graph": {
+            "subscription_delivery_days": 0,
+            "subscription_stock_reservations": 0,
+            "subscription_fulfilment_events": 0,
+            "orders": 0,
+            "deliveries": 0,
+            "invoices": 0,
+            "non_simulate_payments": 0
+        }
+    },
+    "c1_deduplicated_graph": {
+        "orders": 14,
+        "order_items": 14,
+        "payments": 14,
+        "payments_simulate_only": 14,
+        "payments_non_simulate": 0,
+        "refund_requests": 14,
+        "refund_request_items": 14,
+        "refund_request_history": 42,
+        "payment_refunds_on_c1": 0,
+        "invoices_on_c1_orders": 0,
+        "deliveries_on_c1": 0,
+        "subscription_payments": 14,
+        "customer_subscriptions": 14,
+        "customers_987c1": 28,
+        "customers_non_c1_orders": 0,
+        "customers_linked_invoices": 0
+    },
+    "sub_pg_graph": {
+        "customer_subscriptions": 75,
+        "subscription_payments": 0,
+        "subscription_delivery_days": 0,
+        "orders_fulfilment": 0,
+        "plan_ids": [
+            {
+                "subscription_plan_id": null
+            }
+        ],
+        "touches_plan_1_3": 0
+    },
+    "at_acct_graph": {
+        "orders": 2,
+        "order_items": 0,
+        "payments": 0,
+        "invoices": 0,
+        "non_simulate_payments": 0
+    },
+    "at_product_refs": [
+        {
+            "product_id": 51,
+            "slug": "at-seo13-prod-b15fd0ec",
+            "order_items": 0,
+            "inventory_movements": 0
+        }
+    ],
+    "protected_counts": {
+        "razorpay_cashfree_payments_total": 15,
+        "invoices_total": 4,
+        "invoice_sequences": 2,
+        "settings": 95,
+        "admin_users": 1,
+        "admin_audit_logs": 2996,
+        "plans_1_3": 3,
+        "storefront_at_ymd_orders": 19,
+        "tier_a_touch_storefront_at_ymd": 0
+    },
+    "zero_markers": {
+        "AT-C3-%": 0,
+        "D2H-%": 0,
+        "AT-PAY-%": 0,
+        "AT-MAP-%": 0
+    },
+    "blockers": [],
+    "warnings": [],
+    "recommended_tier_a_order": [
+        "1_payment_refunds_c1_and_acct",
+        "2_refund_request_children_then_rf_c1",
+        "3_payments_c1_acct_subgraph",
+        "4_delivery_status_history_deliveries",
+        "5_order_items_order_status_history",
+        "6_orders_at_c1fix_and_at_acct",
+        "7_subscription_fulfilment_deliveries_orders_subh_zt",
+        "8_subscription_stock_reservations_fulfilment_events_baskets",
+        "9_subscription_delivery_days",
+        "10_subscription_payments",
+        "11_customer_subscriptions_c1fix_subpg_subh_zt",
+        "12_customers_987c1_after_fk_clear",
+        "13_product_at_prefix_manual_if_no_order_items"
+    ],
+    "transaction_note": "Use single transaction per scope batch; stage12_phase_c1_teardown uses scoped DELETE without explicit transaction — recommend BEGIN…COMMIT with ROLLBACK on staging clone first.",
+    "idempotency": "Re-running scoped DELETE after success yields 0 affected rows; zero-marker scopes already idempotent.",
+    "status": "READY FOR MANUAL APPROVAL"
+}

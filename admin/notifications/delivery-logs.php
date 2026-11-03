@@ -44,7 +44,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && Install::isSchemaReady()) {
 }
 
 admin_layout_start(['pageTitle' => 'Notification delivery logs', 'activeAdminNav' => 'notifications']);
-admin_flash_render();
 
 $pageHeading = 'Notification delivery logs';
 $pageDescription = 'Email, SMS, and customer in-app delivery queue. Recipients such as customer:1 are storefront customers — not admin bell alerts.';

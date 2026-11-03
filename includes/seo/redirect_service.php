@@ -4,6 +4,22 @@ declare(strict_types=1);
 
 final class SeoRedirectService
 {
+    /** @return array{ok: true}|array{ok: false, message: string} */
+    public static function deleteById(int $id): array
+    {
+        if (!Install::isSchemaReady()) {
+            return ['ok' => false, 'message' => AdminPersistence::unavailableMessage()];
+        }
+        if ($id <= 0) {
+            return ['ok' => false, 'message' => 'Invalid redirect.'];
+        }
+        if (!SeoRedirectRepository::deleteById($id)) {
+            return ['ok' => false, 'message' => 'Redirect not found or already removed.'];
+        }
+
+        return ['ok' => true];
+    }
+
     /**
      * Register a permanent internal redirect and collapse chains.
      *

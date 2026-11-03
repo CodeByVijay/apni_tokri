@@ -28,7 +28,13 @@ $cellClass = static function (array $col): string {
         <thead>
             <tr>
                 <?php foreach ($columns as $col): ?>
-                    <th<?= $cellClass($col) ?>><?= Security::escape($col['label']) ?></th>
+                    <th<?= $cellClass($col) ?>><?php
+                        if (!empty($col['label_html'])) {
+                            echo (string) $col['label_html'];
+                        } else {
+                            echo Security::escape($col['label']);
+                        }
+                    ?></th>
                 <?php endforeach; ?>
             </tr>
         </thead>
@@ -45,10 +51,14 @@ $cellClass = static function (array $col): string {
                                 ?><span class="at-status <?= admin_status_class($cell) ?>"><?= Security::escape($cell) ?></span><?php
                             elseif ($col['key'] === 'link' && $cell !== ''):
                                 if (!empty($row['action_href'])):
-                                    ?><a class="font-bold hover:underline" href="<?= Security::escape((string) $row['action_href']) ?>"><?= Security::escape($cell) ?></a><?php
+                                    ?><span class="at-admin-actions"><?= admin_action_edit_link((string) $row['action_href'], $cell) ?></span><?php
                                 else:
                                     ?><span class="font-bold" style="color:var(--at-green)"><?= Security::escape($cell) ?></span><?php
                                 endif;
+                            elseif ($col['key'] === 'code' && $cell !== ''):
+                                ?><span class="font-mono font-bold" style="color:var(--at-green)"><?= Security::escape($cell) ?></span><?php
+                            elseif (!empty($col['raw'])):
+                                echo (string) ($row[$col['key']] ?? '');
                             else:
                                 echo Security::escape($cell);
                             endif;

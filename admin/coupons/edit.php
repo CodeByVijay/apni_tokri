@@ -12,7 +12,7 @@ $coupon = ($useDb && $id) ? CouponRepository::find($id) : null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     Csrf::requireValid();
     if (!$useDb) {
-        admin_flash_set('Coupon saved (demo UI).');
+        admin_flash_persistence_blocked('Coupon saved (demo UI).');
         header('Location: ' . url_base() . '/admin/coupons/index.php', true, 302);
         exit;
     }
@@ -60,7 +60,6 @@ $assigned = ($useDb && $id) ? implode(',', CouponRepository::assignedCustomerIds
 $selCats = ($useDb && $id) ? CouponRepository::categoryIds($id) : [];
 
 admin_layout_start(['pageTitle' => $id ? 'Edit coupon' : 'New coupon', 'activeAdminNav' => 'coupons']);
-admin_flash_render();
 $pageHeading = $id ? 'Edit coupon' : 'New coupon';
 require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
 

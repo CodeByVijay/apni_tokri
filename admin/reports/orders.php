@@ -31,7 +31,6 @@ if (Install::isSchemaReady()) {
 }
 
 admin_layout_start(['pageTitle' => 'Order report', 'activeAdminNav' => 'reports']);
-admin_flash_render();
 $pageHeading = 'Order report';
 require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
 

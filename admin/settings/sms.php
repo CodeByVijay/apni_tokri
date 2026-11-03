@@ -74,7 +74,6 @@ $isLive = $mode === OtpSmsService::MODE_LIVE;
 $isTest = $mode === OtpSmsService::MODE_TEST;
 
 admin_layout_start(['pageTitle' => 'SMS settings', 'activeAdminNav' => 'settings']);
-admin_flash_render();
 $pageHeading = 'SMS settings';
 $pageDescription = 'OTP login and delivery SMS. Operation mode is enforced server-side by app environment.';
 require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';

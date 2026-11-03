@@ -175,7 +175,25 @@ final class DbCatalogue
     /** @return list<array<string, mixed>> */
     public function faqs(int $limit = 0): array
     {
-        return demo_catalogue_raw()->faqs($limit);
+        if (!Install::isSchemaReady()) {
+            if (AppEnvironment::isProduction()) {
+                return [];
+            }
+
+            return demo_catalogue_raw()->faqs($limit);
+        }
+        $result = FaqRepository::listActivePublic(null, null, 1, $limit > 0 ? $limit : 500);
+        $rows = $result['rows'] ?? [];
+        $out = [];
+        foreach ($rows as $row) {
+            $out[] = [
+                'q' => (string) ($row['question'] ?? ''),
+                'a' => (string) ($row['answer'] ?? ''),
+                'cat' => (string) ($row['category_slug'] ?? 'general'),
+            ];
+        }
+
+        return $limit > 0 ? array_slice($out, 0, $limit) : $out;
     }
 }
 
@@ -208,10 +226,12 @@ final class CatalogueGateway
         if (self::$instance !== null) {
             return self::$instance;
         }
-        if (self::useDatabase()) {
+        if (self::useDatabase() || AppEnvironment::isProduction()) {
             self::$instance = new DbCatalogue();
-        } else {
+        } elseif (AppEnvironment::allowsDemoCatalogueFallback()) {
             self::$instance = DemoCatalogue::instance();
+        } else {
+            self::$instance = new DbCatalogue();
         }
 
         return self::$instance;

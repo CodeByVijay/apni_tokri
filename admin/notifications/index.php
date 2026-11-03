@@ -29,7 +29,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 admin_layout_start(['pageTitle' => 'Notifications', 'activeAdminNav' => 'admin_alerts']);
-admin_flash_render();
 
 $summary = AdminNotificationService::tableReady()
     ? AdminNotificationService::summaryForCurrentAdmin()

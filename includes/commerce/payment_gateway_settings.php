@@ -86,6 +86,14 @@ final class PaymentGatewaySettingsService
         if (!in_array($requested, ['simulate', 'razorpay', 'cashfree'], true)) {
             $requested = 'simulate';
         }
+        if (AppEnvironment::isProduction()) {
+            if ($requested === 'simulate') {
+                return ['ok' => false, 'message' => 'Simulated checkout cannot be enabled in production.'];
+            }
+            if (array_key_exists('test_mode', $post) && !empty($post['test_mode'])) {
+                return ['ok' => false, 'message' => 'Payment test mode must stay off in production.'];
+            }
+        }
 
         if (array_key_exists('test_mode', $post)) {
             AppSettings::set('payment.test_mode', !empty($post['test_mode']) ? '1' : '0');

@@ -1,0 +1,1683 @@
+{
+    "endpoint_inventory": {
+        "generated_at": "2026-11-03T15:22:20+05:30",
+        "endpoint_count": 129,
+        "notes": "Classification is static; verify auth\/csrf on each script before release.",
+        "endpoints": [
+            {
+                "path": "\/admin\/ajax\/notifications.php",
+                "area": "admin",
+                "script": "notifications.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/ajax\/slug-from-name.php",
+                "area": "admin",
+                "script": "slug-from-name.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/categories\/edit.php",
+                "area": "admin",
+                "script": "edit.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/categories\/index.php",
+                "area": "admin",
+                "script": "index.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/cms\/edit.php",
+                "area": "admin",
+                "script": "edit.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/cms\/history.php",
+                "area": "admin",
+                "script": "history.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/cms\/index.php",
+                "area": "admin",
+                "script": "index.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/cms\/preview.php",
+                "area": "admin",
+                "script": "preview.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/cms\/upload-image.php",
+                "area": "admin",
+                "script": "upload-image.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/coupons\/edit.php",
+                "area": "admin",
+                "script": "edit.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/coupons\/index.php",
+                "area": "admin",
+                "script": "index.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/customers\/index.php",
+                "area": "admin",
+                "script": "index.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/deliveries\/index.php",
+                "area": "admin",
+                "script": "index.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/deliveries\/view.php",
+                "area": "admin",
+                "script": "view.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/faqs\/categories.php",
+                "area": "admin",
+                "script": "categories.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/faqs\/edit.php",
+                "area": "admin",
+                "script": "edit.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/faqs\/index.php",
+                "area": "admin",
+                "script": "index.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/homepage\/index.php",
+                "area": "admin",
+                "script": "index.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/inventory\/index.php",
+                "area": "admin",
+                "script": "index.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/invoices\/download.php",
+                "area": "admin",
+                "script": "download.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/invoices\/index.php",
+                "area": "admin",
+                "script": "index.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/invoices\/view.php",
+                "area": "admin",
+                "script": "view.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/marketing\/index.php",
+                "area": "admin",
+                "script": "index.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/notifications\/delivery-logs.php",
+                "area": "admin",
+                "script": "delivery-logs.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/notifications\/inbox.php",
+                "area": "admin",
+                "script": "inbox.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/notifications\/index.php",
+                "area": "admin",
+                "script": "index.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/offers\/edit.php",
+                "area": "admin",
+                "script": "edit.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/offers\/index.php",
+                "area": "admin",
+                "script": "index.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/orders\/index.php",
+                "area": "admin",
+                "script": "index.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/orders\/view.php",
+                "area": "admin",
+                "script": "view.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/payments\/completion_exceptions.php",
+                "area": "admin",
+                "script": "completion_exceptions.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/payments\/index.php",
+                "area": "admin",
+                "script": "index.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/products\/edit.php",
+                "area": "admin",
+                "script": "edit.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/products\/index.php",
+                "area": "admin",
+                "script": "index.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/refunds\/index.php",
+                "area": "admin",
+                "script": "index.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/refunds\/reconcile.php",
+                "area": "admin",
+                "script": "reconcile.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/reports\/coupons.php",
+                "area": "admin",
+                "script": "coupons.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/reports\/export.php",
+                "area": "admin",
+                "script": "export.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/reports\/index.php",
+                "area": "admin",
+                "script": "index.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/reports\/inventory.php",
+                "area": "admin",
+                "script": "inventory.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/reports\/orders.php",
+                "area": "admin",
+                "script": "orders.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/reports\/payments.php",
+                "area": "admin",
+                "script": "payments.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/reports\/refunds.php",
+                "area": "admin",
+                "script": "refunds.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/reports\/sales.php",
+                "area": "admin",
+                "script": "sales.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/reports\/subscriptions.php",
+                "area": "admin",
+                "script": "subscriptions.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/reviews\/index.php",
+                "area": "admin",
+                "script": "index.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/reviews\/moderation-history.php",
+                "area": "admin",
+                "script": "moderation-history.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/roles\/edit.php",
+                "area": "admin",
+                "script": "edit.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/roles\/index.php",
+                "area": "admin",
+                "script": "index.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/seo\/index.php",
+                "area": "admin",
+                "script": "index.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/settings\/branding.php",
+                "area": "admin",
+                "script": "branding.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/settings\/delivery.php",
+                "area": "admin",
+                "script": "delivery.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/settings\/gateways.php",
+                "area": "admin",
+                "script": "gateways.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/settings\/index.php",
+                "area": "admin",
+                "script": "index.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/settings\/invoices.php",
+                "area": "admin",
+                "script": "invoices.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/settings\/sms.php",
+                "area": "admin",
+                "script": "sms.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/settings\/smtp.php",
+                "area": "admin",
+                "script": "smtp.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/subscriptions\/basket-override.php",
+                "area": "admin",
+                "script": "basket-override.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/subscriptions\/customer-baskets.php",
+                "area": "admin",
+                "script": "customer-baskets.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/subscriptions\/deliveries.php",
+                "area": "admin",
+                "script": "deliveries.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/subscriptions\/index.php",
+                "area": "admin",
+                "script": "index.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/subscriptions\/menu-edit.php",
+                "area": "admin",
+                "script": "menu-edit.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/subscriptions\/menu-planner.php",
+                "area": "admin",
+                "script": "menu-planner.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/subscriptions\/plan-edit.php",
+                "area": "admin",
+                "script": "plan-edit.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/subscriptions\/planned-quantities.php",
+                "area": "admin",
+                "script": "planned-quantities.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/subscriptions\/substitution-edit.php",
+                "area": "admin",
+                "script": "substitution-edit.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/support\/index.php",
+                "area": "admin",
+                "script": "index.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/testimonials\/index.php",
+                "area": "admin",
+                "script": "index.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/users\/edit.php",
+                "area": "admin",
+                "script": "edit.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/admin\/users\/index.php",
+                "area": "admin",
+                "script": "index.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "admin_session",
+                "authorization": "rbac_module",
+                "csrf": "post_mutations"
+            },
+            {
+                "path": "\/ajax\/cart\/add.php",
+                "area": "ajax",
+                "script": "add.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "session_optional",
+                "authorization": "cart_or_public",
+                "csrf": "required"
+            },
+            {
+                "path": "\/ajax\/cart\/coupon.php",
+                "area": "ajax",
+                "script": "coupon.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "session_optional",
+                "authorization": "cart_or_public",
+                "csrf": "required"
+            },
+            {
+                "path": "\/ajax\/cart\/remove.php",
+                "area": "ajax",
+                "script": "remove.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "session_optional",
+                "authorization": "cart_or_public",
+                "csrf": "required"
+            },
+            {
+                "path": "\/ajax\/cart\/update.php",
+                "area": "ajax",
+                "script": "update.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "session_optional",
+                "authorization": "cart_or_public",
+                "csrf": "required"
+            },
+            {
+                "path": "\/ajax\/delivery\/check-pin.php",
+                "area": "ajax",
+                "script": "check-pin.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "session_optional",
+                "authorization": "cart_or_public",
+                "csrf": "required"
+            },
+            {
+                "path": "\/ajax\/payment\/simulate.php",
+                "area": "ajax",
+                "script": "simulate.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "customer_session",
+                "authorization": "customer_self",
+                "csrf": "required"
+            },
+            {
+                "path": "\/ajax\/payment\/verify.php",
+                "area": "ajax",
+                "script": "verify.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "customer_session",
+                "authorization": "customer_self",
+                "csrf": "required"
+            },
+            {
+                "path": "\/ajax\/subscription\/basket.php",
+                "area": "ajax",
+                "script": "basket.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "customer_session",
+                "authorization": "customer_self",
+                "csrf": "required"
+            },
+            {
+                "path": "\/ajax\/subscription\/lifecycle.php",
+                "area": "ajax",
+                "script": "lifecycle.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "customer_session",
+                "authorization": "customer_self",
+                "csrf": "required"
+            },
+            {
+                "path": "\/ajax\/subscription\/slot.php",
+                "area": "ajax",
+                "script": "slot.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "customer_session",
+                "authorization": "customer_self",
+                "csrf": "required"
+            },
+            {
+                "path": "\/ajax\/subscription\/substitution.php",
+                "area": "ajax",
+                "script": "substitution.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "customer_session",
+                "authorization": "customer_self",
+                "csrf": "required"
+            },
+            {
+                "path": "\/ajax\/support\/attachment.php",
+                "area": "ajax",
+                "script": "attachment.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "customer_session",
+                "authorization": "customer_self",
+                "csrf": "required"
+            },
+            {
+                "path": "\/cart.php",
+                "area": "storefront",
+                "script": "cart.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "public",
+                "authorization": "public_or_guest",
+                "csrf": "POST_forms_and_ajax"
+            },
+            {
+                "path": "\/category.php",
+                "area": "storefront",
+                "script": "category.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "public",
+                "authorization": "public_or_guest",
+                "csrf": "POST_forms_and_ajax"
+            },
+            {
+                "path": "\/checkout.php",
+                "area": "storefront",
+                "script": "checkout.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "customer_session",
+                "authorization": "customer_self",
+                "csrf": "POST_forms_and_ajax"
+            },
+            {
+                "path": "\/contact.php",
+                "area": "storefront",
+                "script": "contact.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "public",
+                "authorization": "public_or_guest",
+                "csrf": "POST_forms_and_ajax"
+            },
+            {
+                "path": "\/cron\/delivery_slot_release_expired.php",
+                "area": "cron",
+                "script": "delivery_slot_release_expired.php",
+                "methods": [
+                    "CLI"
+                ],
+                "auth": "cli_only_expected",
+                "authorization": "AppEnvironment::assertCronEnvironment",
+                "csrf": "n\/a"
+            },
+            {
+                "path": "\/cron\/generate_invoices.php",
+                "area": "cron",
+                "script": "generate_invoices.php",
+                "methods": [
+                    "CLI"
+                ],
+                "auth": "cli_only_expected",
+                "authorization": "AppEnvironment::assertCronEnvironment",
+                "csrf": "n\/a"
+            },
+            {
+                "path": "\/cron\/process_notification_queue.php",
+                "area": "cron",
+                "script": "process_notification_queue.php",
+                "methods": [
+                    "CLI"
+                ],
+                "auth": "cli_only_expected",
+                "authorization": "AppEnvironment::assertCronEnvironment",
+                "csrf": "n\/a"
+            },
+            {
+                "path": "\/cron\/subscription_auto_confirm_baskets.php",
+                "area": "cron",
+                "script": "subscription_auto_confirm_baskets.php",
+                "methods": [
+                    "CLI"
+                ],
+                "auth": "cli_only_expected",
+                "authorization": "AppEnvironment::assertCronEnvironment",
+                "csrf": "n\/a"
+            },
+            {
+                "path": "\/cron\/subscription_generate_deliveries.php",
+                "area": "cron",
+                "script": "subscription_generate_deliveries.php",
+                "methods": [
+                    "CLI"
+                ],
+                "auth": "cli_only_expected",
+                "authorization": "AppEnvironment::assertCronEnvironment",
+                "csrf": "n\/a"
+            },
+            {
+                "path": "\/cron\/subscription_recover_reservations.php",
+                "area": "cron",
+                "script": "subscription_recover_reservations.php",
+                "methods": [
+                    "CLI"
+                ],
+                "auth": "cli_only_expected",
+                "authorization": "AppEnvironment::assertCronEnvironment",
+                "csrf": "n\/a"
+            },
+            {
+                "path": "\/faqs.php",
+                "area": "storefront",
+                "script": "faqs.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "public",
+                "authorization": "public_or_guest",
+                "csrf": "POST_forms_and_ajax"
+            },
+            {
+                "path": "\/health-check.php",
+                "area": "storefront",
+                "script": "health-check.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "public",
+                "authorization": "public_or_guest",
+                "csrf": "POST_forms_and_ajax"
+            },
+            {
+                "path": "\/index.php",
+                "area": "storefront",
+                "script": "index.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "public",
+                "authorization": "public_or_guest",
+                "csrf": "POST_forms_and_ajax"
+            },
+            {
+                "path": "\/install.php",
+                "area": "storefront",
+                "script": "install.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "public",
+                "authorization": "public_or_guest",
+                "csrf": "POST_forms_and_ajax"
+            },
+            {
+                "path": "\/invoice-download.php",
+                "area": "storefront",
+                "script": "invoice-download.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "customer_session",
+                "authorization": "customer_self",
+                "csrf": "POST_forms_and_ajax"
+            },
+            {
+                "path": "\/invoice-view.php",
+                "area": "storefront",
+                "script": "invoice-view.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "customer_session",
+                "authorization": "customer_self",
+                "csrf": "POST_forms_and_ajax"
+            },
+            {
+                "path": "\/login.php",
+                "area": "storefront",
+                "script": "login.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "public",
+                "authorization": "public_or_guest",
+                "csrf": "POST_forms_and_ajax"
+            },
+            {
+                "path": "\/logout.php",
+                "area": "storefront",
+                "script": "logout.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "public",
+                "authorization": "public_or_guest",
+                "csrf": "POST_forms_and_ajax"
+            },
+            {
+                "path": "\/my-account.php",
+                "area": "storefront",
+                "script": "my-account.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "customer_session",
+                "authorization": "customer_self",
+                "csrf": "POST_forms_and_ajax"
+            },
+            {
+                "path": "\/my-addresses.php",
+                "area": "storefront",
+                "script": "my-addresses.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "customer_session",
+                "authorization": "customer_self",
+                "csrf": "POST_forms_and_ajax"
+            },
+            {
+                "path": "\/my-invoices.php",
+                "area": "storefront",
+                "script": "my-invoices.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "customer_session",
+                "authorization": "customer_self",
+                "csrf": "POST_forms_and_ajax"
+            },
+            {
+                "path": "\/my-orders.php",
+                "area": "storefront",
+                "script": "my-orders.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "customer_session",
+                "authorization": "customer_self",
+                "csrf": "POST_forms_and_ajax"
+            },
+            {
+                "path": "\/my-profile.php",
+                "area": "storefront",
+                "script": "my-profile.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "customer_session",
+                "authorization": "customer_self",
+                "csrf": "POST_forms_and_ajax"
+            },
+            {
+                "path": "\/my-refunds.php",
+                "area": "storefront",
+                "script": "my-refunds.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "customer_session",
+                "authorization": "customer_self",
+                "csrf": "POST_forms_and_ajax"
+            },
+            {
+                "path": "\/my-subscriptions.php",
+                "area": "storefront",
+                "script": "my-subscriptions.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "customer_session",
+                "authorization": "customer_self",
+                "csrf": "POST_forms_and_ajax"
+            },
+            {
+                "path": "\/my-support.php",
+                "area": "storefront",
+                "script": "my-support.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "customer_session",
+                "authorization": "customer_self",
+                "csrf": "POST_forms_and_ajax"
+            },
+            {
+                "path": "\/order-details.php",
+                "area": "storefront",
+                "script": "order-details.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "customer_session",
+                "authorization": "customer_self",
+                "csrf": "POST_forms_and_ajax"
+            },
+            {
+                "path": "\/order.php",
+                "area": "storefront",
+                "script": "order.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "mixed",
+                "authorization": "public_or_guest",
+                "csrf": "POST_forms_and_ajax"
+            },
+            {
+                "path": "\/page.php",
+                "area": "storefront",
+                "script": "page.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "public",
+                "authorization": "public_or_guest",
+                "csrf": "POST_forms_and_ajax"
+            },
+            {
+                "path": "\/payment-failed.php",
+                "area": "storefront",
+                "script": "payment-failed.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "public",
+                "authorization": "public_or_guest",
+                "csrf": "POST_forms_and_ajax"
+            },
+            {
+                "path": "\/payment.php",
+                "area": "storefront",
+                "script": "payment.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "customer_session",
+                "authorization": "customer_self",
+                "csrf": "POST_forms_and_ajax"
+            },
+            {
+                "path": "\/product.php",
+                "area": "storefront",
+                "script": "product.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "public",
+                "authorization": "public_or_guest",
+                "csrf": "POST_forms_and_ajax"
+            },
+            {
+                "path": "\/refund-details.php",
+                "area": "storefront",
+                "script": "refund-details.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "customer_session",
+                "authorization": "customer_self",
+                "csrf": "POST_forms_and_ajax"
+            },
+            {
+                "path": "\/robots.php",
+                "area": "storefront",
+                "script": "robots.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "public",
+                "authorization": "public_or_guest",
+                "csrf": "POST_forms_and_ajax"
+            },
+            {
+                "path": "\/search.php",
+                "area": "storefront",
+                "script": "search.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "public",
+                "authorization": "public_or_guest",
+                "csrf": "POST_forms_and_ajax"
+            },
+            {
+                "path": "\/sitemap.php",
+                "area": "storefront",
+                "script": "sitemap.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "public",
+                "authorization": "public_or_guest",
+                "csrf": "POST_forms_and_ajax"
+            },
+            {
+                "path": "\/styleguide.php",
+                "area": "storefront",
+                "script": "styleguide.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "public",
+                "authorization": "public_or_guest",
+                "csrf": "POST_forms_and_ajax"
+            },
+            {
+                "path": "\/submit-review.php",
+                "area": "storefront",
+                "script": "submit-review.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "mixed",
+                "authorization": "public_or_guest",
+                "csrf": "POST_forms_and_ajax"
+            },
+            {
+                "path": "\/subscribe.php",
+                "area": "storefront",
+                "script": "subscribe.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "public",
+                "authorization": "public_or_guest",
+                "csrf": "POST_forms_and_ajax"
+            },
+            {
+                "path": "\/subscription-details.php",
+                "area": "storefront",
+                "script": "subscription-details.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "customer_session",
+                "authorization": "customer_self",
+                "csrf": "POST_forms_and_ajax"
+            },
+            {
+                "path": "\/subscription-payment.php",
+                "area": "storefront",
+                "script": "subscription-payment.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "customer_session",
+                "authorization": "customer_self",
+                "csrf": "POST_forms_and_ajax"
+            },
+            {
+                "path": "\/subscriptions.php",
+                "area": "storefront",
+                "script": "subscriptions.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "public",
+                "authorization": "public_or_guest",
+                "csrf": "POST_forms_and_ajax"
+            },
+            {
+                "path": "\/support-ticket.php",
+                "area": "storefront",
+                "script": "support-ticket.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "customer_session",
+                "authorization": "customer_self",
+                "csrf": "POST_forms_and_ajax"
+            },
+            {
+                "path": "\/support.php",
+                "area": "storefront",
+                "script": "support.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "mixed",
+                "authorization": "public_or_guest",
+                "csrf": "POST_forms_and_ajax"
+            },
+            {
+                "path": "\/verify-otp.php",
+                "area": "storefront",
+                "script": "verify-otp.php",
+                "methods": [
+                    "GET",
+                    "POST"
+                ],
+                "auth": "customer_session",
+                "authorization": "customer_self",
+                "csrf": "POST_forms_and_ajax"
+            },
+            {
+                "path": "\/webhooks\/cashfree.php",
+                "area": "webhook",
+                "script": "cashfree.php",
+                "methods": [
+                    "POST"
+                ],
+                "auth": "gateway_hmac",
+                "authorization": "signature_valid",
+                "csrf": "n\/a"
+            },
+            {
+                "path": "\/webhooks\/razorpay.php",
+                "area": "webhook",
+                "script": "razorpay.php",
+                "methods": [
+                    "POST"
+                ],
+                "auth": "gateway_hmac",
+                "authorization": "signature_valid",
+                "csrf": "n\/a"
+            }
+        ]
+    },
+    "audit": {
+        "date": "2026-11-03",
+        "frameworks": [
+            "OWASP ASVS 5.0.0",
+            "OWASP Top 10:2025"
+        ],
+        "final_status": "HIGH-RISK ISSUES FOUND",
+        "files_php_total": 452,
+        "endpoints_inventoried": 129,
+        "findings_summary": {
+            "critical": 1,
+            "high": 4,
+            "medium": 7,
+            "low": 4,
+            "informational": 8,
+            "confirmed": 14,
+            "suspected": 6
+        }
+    },
+    "dynamic_tests": [
+        {
+            "script": "scripts\/test-admin-auth-security.php",
+            "result": "partial",
+            "note": "2 FAIL when seed admin password already rotated; unauthenticated checks PASS"
+        },
+        {
+            "script": "scripts\/test-production-readiness.php",
+            "result": "PASS",
+            "via": "CLI"
+        },
+        {
+            "script": "curl scripts\/test-production-readiness.php",
+            "result": "CONFIRMED_HTTP_200",
+            "note": "AT-SEC-001 evidence"
+        },
+        {
+            "script": "curl ajax\/ping.php",
+            "result": "CONFIRMED_env_leak",
+            "note": "AT-SEC-005 evidence"
+        },
+        {
+            "script": "scripts\/test-support-ticket-auth-audit.php",
+            "result": "CONFIRMED_guest_refund_create",
+            "note": "AT-SEC-011; SUPPORT_AUDIT_ALLOW_INSERT=1 with row cleanup"
+        },
+        {
+            "script": "curl GET\/POST support.php",
+            "result": "CONFIRMED_no_auth_sensitive_categories",
+            "note": "AT-SEC-011; CSRF 403 without token"
+        }
+    ],
+    "findings": [
+        {
+            "id": "AT-SEC-001",
+            "severity": "Critical",
+            "status": "remediated_phase1",
+            "title": "Web-accessible \/scripts\/ PHP"
+        },
+        {
+            "id": "AT-SEC-002",
+            "severity": "High",
+            "status": "remediated_phase1",
+            "title": "No admin login rate limit"
+        },
+        {
+            "id": "AT-SEC-003",
+            "severity": "High",
+            "status": "remediated_phase1",
+            "title": "Admin forgot password NOT IMPLEMENTED"
+        },
+        {
+            "id": "AT-SEC-004",
+            "severity": "Medium",
+            "status": "remediated_phase1",
+            "title": "Public install\/health recon"
+        },
+        {
+            "id": "AT-SEC-005",
+            "severity": "Medium",
+            "status": "remediated_phase1",
+            "title": "ajax\/ping env disclosure"
+        },
+        {
+            "id": "AT-SEC-006",
+            "severity": "Medium",
+            "status": "confirmed",
+            "title": "CMS stored HTML XSS surface"
+        },
+        {
+            "id": "AT-SEC-007",
+            "severity": "Medium",
+            "status": "confirmed",
+            "title": "Uploads PHP execution not in htaccess"
+        },
+        {
+            "id": "AT-SEC-008",
+            "severity": "Medium",
+            "status": "confirmed",
+            "title": "No CSP header"
+        },
+        {
+            "id": "AT-SEC-009",
+            "severity": "Low",
+            "status": "confirmed",
+            "title": "No server-side session idle timeout"
+        },
+        {
+            "id": "AT-SEC-010",
+            "severity": "Low",
+            "status": "confirmed",
+            "title": "Login enumeration partially mitigated"
+        },
+        {
+            "id": "AT-SEC-011",
+            "severity": "High",
+            "status": "remediated_phase1",
+            "title": "Unauthenticated order-sensitive support ticket creation",
+            "endpoints": [
+                "POST \/support.php",
+                "SupportTicketService::create"
+            ],
+            "remediation": "required"
+        },
+        {
+            "id": "AT-SEC-012",
+            "severity": "Medium",
+            "status": "remediated",
+            "title": "Guest account sidebar on support.php",
+            "endpoints": [
+                "GET \/support.php",
+                "includes\/partials\/account-shell-start.php"
+            ]
+        }
+    ]
+}

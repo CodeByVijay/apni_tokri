@@ -140,6 +140,22 @@ final class SubscriptionMenuRepository
         $d = DateTimeImmutable::createFromFormat('Y-m-d', $deliveryDateYmd, $tz);
         $weekday = $d ? (int) $d->format('N') : 0;
 
+        $templateId = self::resolveTemplateIdForDay($deliveryDateYmd, $dayIndex);
+        if ($templateId === null) {
+            return [];
+        }
+
+        return self::itemsForTemplate($templateId);
+    }
+
+    /** Which menu template would apply for a delivery day (date → weekly → day index). */
+    public static function resolveTemplateIdForDay(string $deliveryDateYmd, int $dayIndex): ?int
+    {
+        Install::ensureConnection();
+        $tz = new DateTimeZone(SubscriptionScheduleGenerator::TZ);
+        $d = DateTimeImmutable::createFromFormat('Y-m-d', $deliveryDateYmd, $tz);
+        $weekday = $d ? (int) $d->format('N') : 0;
+
         $template = self::findTemplate('date', $deliveryDateYmd, null, null);
         if ($template === null && $weekday > 0) {
             $template = self::findTemplate('weekly', null, $weekday, null);
@@ -148,10 +164,161 @@ final class SubscriptionMenuRepository
             $template = self::findTemplate('day_index', null, null, $dayIndex);
         }
         if ($template === null || empty($template['is_active'])) {
-            return [];
+            return null;
         }
 
-        return self::itemsForTemplate((int) $template['id']);
+        return (int) $template['id'];
+    }
+
+    /**
+     * Delivery days / baskets that depend on this template (menu resolution match).
+     *
+     * @return array{baskets: int, active_schedules: int, historical_days: int}
+     */
+    public static function referenceCounts(int $templateId): array
+    {
+        $out = ['baskets' => 0, 'active_schedules' => 0, 'historical_days' => 0];
+        if ($templateId <= 0 || self::find($templateId) === null) {
+            return $out;
+        }
+        Install::ensureConnection();
+        $stmt = Database::pdo()->query(
+            'SELECT sdd.delivery_date, sdd.day_index, sdd.status AS day_status, sdb.id AS basket_id, cs.status AS sub_status
+             FROM subscription_delivery_days sdd
+             INNER JOIN customer_subscriptions cs ON cs.id = sdd.customer_subscription_id
+             LEFT JOIN subscription_delivery_baskets sdb ON sdb.subscription_delivery_day_id = sdd.id'
+        );
+        $today = DeliveryConfig::now()->format('Y-m-d');
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            if (self::resolveTemplateIdForDay((string) $row['delivery_date'], (int) $row['day_index']) !== $templateId) {
+                continue;
+            }
+            $out['historical_days']++;
+            if ($row['basket_id'] !== null) {
+                $out['baskets']++;
+            }
+            $subStatus = (string) ($row['sub_status'] ?? '');
+            $deliveryDate = (string) $row['delivery_date'];
+            if (in_array($subStatus, ['active', 'paused', 'pending_payment'], true) && $deliveryDate >= $today) {
+                $out['active_schedules']++;
+            }
+        }
+
+        return $out;
+    }
+
+    public static function hasBlockingReferences(int $templateId): bool
+    {
+        $c = self::referenceCounts($templateId);
+
+        return $c['baskets'] > 0 || $c['active_schedules'] > 0 || $c['historical_days'] > 0;
+    }
+
+    /** @return array{ok: bool, message: string} */
+    public static function deleteForAdmin(int $id): array
+    {
+        if ($id <= 0) {
+            return ['ok' => false, 'message' => 'Invalid menu template.'];
+        }
+        $row = self::find($id);
+        if ($row === null) {
+            return ['ok' => false, 'message' => 'Menu template not found.'];
+        }
+        if (self::hasBlockingReferences($id)) {
+            $c = self::referenceCounts($id);
+            $parts = [];
+            if ($c['active_schedules'] > 0) {
+                $parts[] = $c['active_schedules'] . ' upcoming delivery day(s) on active subscriptions';
+            }
+            if ($c['baskets'] > 0) {
+                $parts[] = $c['baskets'] . ' customer delivery basket(s)';
+            }
+            if ($c['historical_days'] > 0) {
+                $parts[] = $c['historical_days'] . ' subscription delivery day(s) in history';
+            }
+
+            return [
+                'ok' => false,
+                'message' => 'This menu template is referenced by ' . implode(', ', $parts)
+                    . '. It cannot be deleted. Deactivate it instead to stop using it for new suggested baskets.',
+            ];
+        }
+        Install::ensureConnection();
+        $pdo = Database::pdo();
+        try {
+            $pdo->beginTransaction();
+            $pdo->prepare('DELETE FROM subscription_menu_templates WHERE id = ? LIMIT 1')->execute([$id]);
+            $pdo->commit();
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            error_log('SubscriptionMenuRepository::deleteForAdmin: ' . $e->getMessage());
+
+            return ['ok' => false, 'message' => 'Could not delete menu template.'];
+        }
+        AuditLog::write('subscription.menu_template_deleted', 'menu_template', (string) $id, [
+            'name' => (string) ($row['name'] ?? ''),
+        ]);
+
+        return ['ok' => true, 'message' => 'Menu template deleted.'];
+    }
+
+    public static function setActive(int $id, bool $active): void
+    {
+        Install::ensureConnection();
+        Database::pdo()->prepare('UPDATE subscription_menu_templates SET is_active = ?, updated_at = NOW() WHERE id = ?')
+            ->execute([$active ? 1 : 0, $id]);
+    }
+
+    /** @return array{rows: list<array<string, mixed>>, total: int, page: int, per_page: int, total_pages: int} */
+    public static function listForAdminPaginated(int $page, int $perPage, string $search = ''): array
+    {
+        Install::ensureConnection();
+        $pdo = Database::pdo();
+        $perPage = max(1, min(100, $perPage));
+        $page = max(1, $page);
+        $where = '';
+        $params = [];
+        if ($search !== '') {
+            $where = ' WHERE name LIKE ?';
+            $params[] = '%' . $search . '%';
+        }
+        $countStmt = $pdo->prepare('SELECT COUNT(*) FROM subscription_menu_templates' . $where);
+        $countStmt->execute($params);
+        $total = (int) $countStmt->fetchColumn();
+        $totalPages = max(1, (int) ceil($total / $perPage));
+        if ($page > $totalPages) {
+            $page = $totalPages;
+        }
+        $offset = ($page - 1) * $perPage;
+        $sql = 'SELECT * FROM subscription_menu_templates' . $where
+            . ' ORDER BY planner_type, template_date, weekday, day_index, id LIMIT ' . (int) $perPage
+            . ' OFFSET ' . (int) $offset;
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        return [
+            'rows' => $rows,
+            'total' => $total,
+            'page' => $page,
+            'per_page' => $perPage,
+            'total_pages' => $totalPages,
+        ];
+    }
+
+    public static function countForAdmin(string $search = ''): int
+    {
+        Install::ensureConnection();
+        $pdo = Database::pdo();
+        if ($search === '') {
+            return (int) $pdo->query('SELECT COUNT(*) FROM subscription_menu_templates')->fetchColumn();
+        }
+        $stmt = $pdo->prepare('SELECT COUNT(*) FROM subscription_menu_templates WHERE name LIKE ?');
+        $stmt->execute(['%' . $search . '%']);
+
+        return (int) $stmt->fetchColumn();
     }
 
     /** @return array<string, mixed>|null */

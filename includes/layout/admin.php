@@ -171,6 +171,7 @@ function layout_admin_start(array $vars): void
     echo '</nav>';
 
     echo '<div class="at-admin-content">';
+    admin_flash_render();
 }
 
 function layout_admin_end(): void

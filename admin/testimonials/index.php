@@ -8,6 +8,12 @@ AdminDemoPerms::denyIfCannot('testimonials');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && Install::isSchemaReady()) {
     Csrf::requireValid();
+    if (($_POST['admin_delete'] ?? '') === '1') {
+        $result = TestimonialService::deleteForAdmin((int) ($_POST['record_id'] ?? 0));
+        admin_flash_set($result['message'] ?? ($result['ok'] ? 'Deleted.' : 'Failed.'), !empty($result['ok']) ? 'success' : 'error');
+        header('Location: ' . url_base() . '/admin/testimonials/index.php', true, 302);
+        exit;
+    }
     $action = (string) ($_POST['action'] ?? 'save');
     if ($action === 'moderate') {
         $result = TestimonialService::moderate(
@@ -32,7 +38,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && Install::isSchemaReady()) {
 }
 
 admin_layout_start(['pageTitle' => 'Testimonials', 'activeAdminNav' => 'testimonials']);
-admin_flash_render();
 $pageHeading = 'Testimonials';
 $pageDescription = 'Consent required before publication. No fake testimonials.';
 require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
@@ -65,6 +70,16 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
                     <input type="text" name="reject_reason" placeholder="Reject reason" class="at-input at-btn--sm">
                     <button type="submit" name="moderate_action" value="reject" class="at-btn at-btn--secondary at-btn--sm">Reject</button>
                 </form>
+                <div class="mt-2"><span class="at-admin-actions"><?= admin_delete_form('testimonial', (int) $t['id'], (string) $t['customer_display_name']) ?></span></div>
+            </li>
+        <?php endforeach; ?>
+    </ul>
+    <h3 class="at-h3 mt-6">All testimonials</h3>
+    <ul class="mt-3 space-y-2">
+        <?php foreach (TestimonialService::listForAdmin(null, 50) as $t): ?>
+            <li class="border border-[var(--at-line)] rounded-lg p-3 text-sm flex flex-wrap justify-between gap-2 items-center">
+                <span><strong><?= Security::escape((string) $t['customer_display_name']) ?></strong> · <?= Security::escape((string) ($t['status'] ?? '')) ?></span>
+                <span class="at-admin-actions"><?= admin_delete_form('testimonial', (int) $t['id'], (string) $t['customer_display_name']) ?></span>
             </li>
         <?php endforeach; ?>
     </ul>

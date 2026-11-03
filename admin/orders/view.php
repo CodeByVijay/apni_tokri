@@ -22,7 +22,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $order !== null) {
 }
 
 admin_layout_start(['pageTitle' => 'Order detail', 'activeAdminNav' => 'orders']);
-admin_flash_render();
 
 if ($order === null) {
     echo '<div class="at-alert at-alert--error">Order not found.</div>';

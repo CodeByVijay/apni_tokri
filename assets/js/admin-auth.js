@@ -1,5 +1,18 @@
 (function () {
   'use strict';
+
+  // Generic show/hide for any button with data-pw-toggle="<input id>" (e.g. change-password page).
+  document.querySelectorAll('[data-pw-toggle]').forEach(function (btn) {
+    var input = document.getElementById(btn.getAttribute('data-pw-toggle'));
+    if (!input) return;
+    btn.addEventListener('click', function () {
+      var show = input.type === 'password';
+      input.type = show ? 'text' : 'password';
+      btn.setAttribute('aria-pressed', show ? 'true' : 'false');
+      btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+    });
+  });
+
   var form = document.getElementById('auth-login-form');
   if (!form) return;
 

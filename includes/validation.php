@@ -80,4 +80,17 @@ final class Validation
 
         return $errors;
     }
+
+    /** @return string|null Error message when the password does not meet admin policy. */
+    public static function adminPasswordPolicy(string $password): ?string
+    {
+        if (strlen($password) < 10) {
+            return 'Password must be at least 10 characters.';
+        }
+        if (!preg_match('/[A-Za-z]/', $password) || !preg_match('/\d/', $password)) {
+            return 'Password must include at least one letter and one number.';
+        }
+
+        return null;
+    }
 }

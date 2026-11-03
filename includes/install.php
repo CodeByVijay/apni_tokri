@@ -4,10 +4,31 @@ declare(strict_types=1);
 
 final class Install
 {
-    public const SCHEMA_VERSION = '1.20.0-invoices';
+    public const SCHEMA_VERSION = '1.21.0-security-phase1';
+
+    /** Seeded bootstrap admin (fresh SQL import). Detection uses password hash only — never expose the plain password. */
+    public const SEED_ADMIN_EMAIL = 'admin@apnitokri.local';
+
+    public const SEED_ADMIN_PASSWORD_HASH = '$2y$12$ZWyGAkJzaocH1IQRf0yBjeURZhrA92ZSaJXLL8ds07DQL3tf22./2';
 
     /** @var list<string> */
     private static $markerTables = ['settings', 'admin_users', 'customers', 'products', 'orders'];
+
+    /** Tables required for production storefront + admin SEO/marketing/subscriptions. */
+    /** @var list<string> */
+    private static $productionRequiredTables = [
+        'settings',
+        'admin_users',
+        'customers',
+        'products',
+        'orders',
+        'seo_redirects',
+        'faq_categories',
+        'faqs',
+        'subscription_plans',
+        'customer_subscriptions',
+        'subscription_payments',
+    ];
 
     public static function hasLocalConfig(): bool
     {
@@ -65,6 +86,37 @@ final class Install
         return self::missingTables() === [];
     }
 
+    /** @return list<string> */
+    public static function missingProductionRequiredTables(): array
+    {
+        if (!self::canConnect()) {
+            return self::$productionRequiredTables;
+        }
+        try {
+            self::ensureConnection();
+            $pdo = Database::pdo();
+            $missing = [];
+            foreach (self::$productionRequiredTables as $table) {
+                $stmt = $pdo->prepare(
+                    'SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?'
+                );
+                $stmt->execute([$table]);
+                if ((int) $stmt->fetchColumn() === 0) {
+                    $missing[] = $table;
+                }
+            }
+
+            return $missing;
+        } catch (Throwable $e) {
+            return self::$productionRequiredTables;
+        }
+    }
+
+    public static function isProductionSchemaReady(): bool
+    {
+        return self::missingProductionRequiredTables() === [];
+    }
+
     public static function installedSchemaVersion(): ?string
     {
         if (!self::isSchemaReady()) {
@@ -98,5 +150,26 @@ final class Install
             'schema_current' => self::isVersionCurrent(),
             'missing_tables' => self::missingTables(),
         ];
+    }
+
+    /** Schema imported and version recorded — treat install wizard as complete. */
+    public static function isApplicationInstalled(): bool
+    {
+        return self::isSchemaReady() && self::installedSchemaVersion() !== null && self::installedSchemaVersion() !== '';
+    }
+
+    /**
+     * Block public install/health surfaces after installation (AT-SEC-004).
+     * Sends 404 and exits when installed.
+     */
+    public static function denyPublicInstallSurface(): void
+    {
+        if (!self::isApplicationInstalled()) {
+            return;
+        }
+        http_response_code(404);
+        header('Content-Type: text/plain; charset=UTF-8');
+        echo 'Not found';
+        exit;
     }
 }

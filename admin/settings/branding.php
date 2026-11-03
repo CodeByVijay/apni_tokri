@@ -47,9 +47,8 @@ if (!empty($_SESSION['branding_form_errors']) && is_array($_SESSION['branding_fo
 }
 
 admin_layout_start(['pageTitle' => 'Website branding', 'activeAdminNav' => 'settings']);
-admin_flash_render();
 $pageHeading = 'Website branding';
-$pageDescription = 'Manage storefront name, logos, favicon and default SEO fallbacks. Page-specific SEO in Products, CMS and SEO modules is unchanged.';
+$pageDescription = 'Website display name (default invoice brand), tagline, logos, favicon and default SEO fallbacks. Legal name, address and support contacts are under Business profile.';
 require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
 
 $settingsTab = 'branding';
@@ -62,6 +61,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/settings-nav.php';
     <div class="at-card lg:col-span-2">
         <div class="at-card__body space-y-4">
             <h3 class="font-bold">Website identity</h3>
+            <p class="text-sm at-muted">The website / brand name is used in the header and as the default <strong>invoice brand name</strong> on new invoices unless you set a separate legal name under <a class="underline font-semibold" href="<?= Security::escape(url_base()) ?>/admin/settings/index.php">Business profile</a>.</p>
             <div class="grid md:grid-cols-2 gap-4">
                 <div>
                     <label class="at-label" for="site_name">Website / brand name</label>

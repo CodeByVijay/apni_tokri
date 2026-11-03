@@ -3,30 +3,81 @@
 declare(strict_types=1);
 
 /**
- * Business / support contact settings (AppSettings `business.*` keys).
+ * Canonical business / store profile (AppSettings `business.*` keys).
  *
  * Name precedence (documented):
- * - Header logo text, SEO site name, and `__()` brand_name → {@see BrandingSettings::siteName()} (Website Branding).
- * - Footer copyright legal line, contact page heading, and structured “business identity” → {@see self::legalName()}.
- * - legalName() uses `business.store_name` when set, otherwise falls back to BrandingSettings::siteName().
+ * - Header logo text, SEO site name, default invoice brand → {@see BrandingSettings::siteName()} (Website branding).
+ * - Footer copyright, contact page, invoice legal line → {@see self::legalName()}.
+ * - legalName() uses `business.legal_name`, then `business.store_name`, then branding site name.
+ * - Invoices, emails and PDFs read seller identity via {@see InvoiceSettings::seller()} (no duplicate invoice.* identity keys).
  */
 final class BusinessSettings
 {
     public const KEY_STORE_NAME = 'business.store_name';
+    public const KEY_LEGAL_NAME = 'business.legal_name';
+    public const KEY_ADDRESS = 'business.address';
+    public const KEY_CITY = 'business.city';
+    public const KEY_STATE = 'business.state';
+    public const KEY_PINCODE = 'business.pincode';
     public const KEY_SUPPORT_PHONE = 'business.support_phone';
     public const KEY_SUPPORT_WHATSAPP = 'business.support_whatsapp';
     public const KEY_SUPPORT_EMAIL = 'business.support_email';
     public const KEY_FSSAI_LICENCE = 'business.fssai_licence';
 
-    /** Legal / registered business name for footer and contact (not header SEO brand). */
+    public const MIGRATION_INVOICE_IDENTITY = 'business.invoice_identity_migrated_v1';
+
+    /** Trading / store name when set (optional). */
+    public static function storeName(): ?string
+    {
+        $v = trim(AppSettings::get(self::KEY_STORE_NAME, '') ?? '');
+
+        return $v !== '' ? $v : null;
+    }
+
+    /** Legal / registered business name for footer, contact and invoices. */
     public static function legalName(): string
     {
+        $legal = trim(AppSettings::get(self::KEY_LEGAL_NAME, '') ?? '');
+        if ($legal !== '') {
+            return $legal;
+        }
         $business = trim(AppSettings::get(self::KEY_STORE_NAME, '') ?? '');
         if ($business !== '') {
             return $business;
         }
 
         return BrandingSettings::siteName();
+    }
+
+    public static function addressLine(): ?string
+    {
+        $v = trim(AppSettings::get(self::KEY_ADDRESS, '') ?? '');
+
+        return $v !== '' ? $v : null;
+    }
+
+    public static function city(): ?string
+    {
+        $v = trim(AppSettings::get(self::KEY_CITY, '') ?? '');
+
+        return $v !== '' ? $v : null;
+    }
+
+    public static function state(): ?string
+    {
+        $v = trim(AppSettings::get(self::KEY_STATE, '') ?? '');
+
+        return $v !== '' ? $v : null;
+    }
+
+    public static function pincode(): ?string
+    {
+        $v = trim(AppSettings::get(self::KEY_PINCODE, '') ?? '');
+        if ($v === '' || preg_match('/^[1-9][0-9]{5}$/', $v) !== 1) {
+            return $v !== '' ? $v : null;
+        }
+
+        return $v;
     }
 
     public static function supportPhoneDigits(): ?string
@@ -104,11 +155,79 @@ final class BusinessSettings
     {
         return [
             'store_name' => trim(AppSettings::get(self::KEY_STORE_NAME, '') ?? ''),
+            'legal_name' => trim(AppSettings::get(self::KEY_LEGAL_NAME, '') ?? ''),
+            'address' => trim(AppSettings::get(self::KEY_ADDRESS, '') ?? ''),
+            'city' => trim(AppSettings::get(self::KEY_CITY, '') ?? ''),
+            'state' => trim(AppSettings::get(self::KEY_STATE, '') ?? ''),
+            'pincode' => trim(AppSettings::get(self::KEY_PINCODE, '') ?? ''),
             'support_phone' => trim(AppSettings::get(self::KEY_SUPPORT_PHONE, '') ?? ''),
             'support_whatsapp' => trim(AppSettings::get(self::KEY_SUPPORT_WHATSAPP, '') ?? ''),
             'support_email' => trim(AppSettings::get(self::KEY_SUPPORT_EMAIL, '') ?? ''),
             'fssai_licence' => trim(AppSettings::get(self::KEY_FSSAI_LICENCE, '') ?? ''),
         ];
+    }
+
+    /**
+     * Copy legacy `invoice.*` identity overrides into business/branding when canonical keys are empty.
+     * Safe to run on every bootstrap; runs the data copy once per installation.
+     */
+    public static function migrateLegacyInvoiceIdentity(): void
+    {
+        if (!Install::isSchemaReady()) {
+            return;
+        }
+        if (AppSettings::get(self::MIGRATION_INVOICE_IDENTITY, '') === '1') {
+            return;
+        }
+
+        $copyIfEmpty = static function (string $canonicalKey, string $legacyKey): void {
+            $cur = trim(AppSettings::get($canonicalKey, '') ?? '');
+            if ($cur !== '') {
+                return;
+            }
+            $legacy = trim(AppSettings::get($legacyKey, '') ?? '');
+            if ($legacy === '') {
+                return;
+            }
+            AppSettings::set($canonicalKey, $legacy);
+        };
+
+        $copyIfEmpty(self::KEY_LEGAL_NAME, 'invoice.legal_name');
+        $copyIfEmpty(self::KEY_ADDRESS, 'invoice.address');
+        $copyIfEmpty(self::KEY_CITY, 'invoice.city');
+        $copyIfEmpty(self::KEY_STATE, 'invoice.state');
+        $copyIfEmpty(self::KEY_PINCODE, 'invoice.pincode');
+        $copyIfEmpty(self::KEY_FSSAI_LICENCE, 'invoice.fssai');
+        $copyIfEmpty(self::KEY_SUPPORT_EMAIL, 'invoice.email');
+
+        $legacyPhone = trim(AppSettings::get('invoice.phone', '') ?? '');
+        if ($legacyPhone !== '' && trim(AppSettings::get(self::KEY_SUPPORT_PHONE, '') ?? '') === '') {
+            $digits = Validation::normalizeMobileIndia($legacyPhone);
+            if ($digits !== null) {
+                AppSettings::set(self::KEY_SUPPORT_PHONE, $digits);
+            }
+        }
+
+        $legacyBrand = trim(AppSettings::get('invoice.brand_name', '') ?? '');
+        if ($legacyBrand !== '' && trim(AppSettings::get(BrandingSettings::KEY_SITE_NAME, '') ?? '') === '') {
+            AppSettings::set(BrandingSettings::KEY_SITE_NAME, $legacyBrand);
+        }
+
+        $legacyTag = trim(AppSettings::get('invoice.tagline', '') ?? '');
+        if ($legacyTag !== '' && trim(AppSettings::get(BrandingSettings::KEY_TAGLINE, '') ?? '') === '') {
+            AppSettings::set(BrandingSettings::KEY_TAGLINE, $legacyTag);
+        }
+
+        // Historical installs used invoice legal_name only; store_name may already hold the trading name.
+        $legacyLegal = trim(AppSettings::get('invoice.legal_name', '') ?? '');
+        if ($legacyLegal !== ''
+            && trim(AppSettings::get(self::KEY_LEGAL_NAME, '') ?? '') === ''
+            && trim(AppSettings::get(self::KEY_STORE_NAME, '') ?? '') === '') {
+            AppSettings::set(self::KEY_STORE_NAME, $legacyLegal);
+        }
+
+        AppSettings::set(self::MIGRATION_INVOICE_IDENTITY, '1');
+        AppSettings::resetCache();
     }
 
     /**
@@ -122,14 +241,40 @@ final class BusinessSettings
         }
 
         $errors = [];
-        $storeName = trim((string) ($post['store_name'] ?? ''));
-        $phone = trim((string) ($post['support_phone'] ?? ''));
-        $whatsapp = trim((string) ($post['support_whatsapp'] ?? ''));
-        $email = trim((string) ($post['support_email'] ?? ''));
-        $fssai = trim((string) ($post['fssai_licence'] ?? ''));
+        $state = self::adminFormState();
+        foreach (array_keys($state) as $key) {
+            if (array_key_exists($key, $post)) {
+                $state[$key] = trim((string) $post[$key]);
+            }
+        }
+        $state['address'] = trim(preg_replace('/\s+/', ' ', $state['address']) ?? '');
+        $storeName = $state['store_name'];
+        $legalName = $state['legal_name'];
+        $address = $state['address'];
+        $city = $state['city'];
+        $stateVal = $state['state'];
+        $pincode = $state['pincode'];
+        $phone = $state['support_phone'];
+        $whatsapp = $state['support_whatsapp'];
+        $email = $state['support_email'];
+        $fssai = $state['fssai_licence'];
 
-        if ($storeName !== '' && mb_strlen($storeName) > 160) {
-            $errors['store_name'] = 'Store name must be 160 characters or fewer.';
+        foreach (['store_name' => $storeName, 'legal_name' => $legalName] as $field => $val) {
+            if ($val !== '' && mb_strlen($val) > 160) {
+                $errors[$field] = 'Must be 160 characters or fewer.';
+            }
+        }
+        if ($address !== '' && mb_strlen($address) > 300) {
+            $errors['address'] = 'Address must be 300 characters or fewer.';
+        }
+        if ($city !== '' && mb_strlen($city) > 80) {
+            $errors['city'] = 'City must be 80 characters or fewer.';
+        }
+        if ($stateVal !== '' && mb_strlen($stateVal) > 80) {
+            $errors['state'] = 'State must be 80 characters or fewer.';
+        }
+        if ($pincode !== '' && preg_match('/^[1-9][0-9]{5}$/', $pincode) !== 1) {
+            $errors['pincode'] = 'Enter a valid 6-digit PIN code.';
         }
         if ($phone !== '' && Validation::normalizeMobileIndia($phone) === null) {
             $errors['support_phone'] = 'Enter a valid 10-digit Indian mobile number for support phone.';
@@ -152,12 +297,17 @@ final class BusinessSettings
         }
 
         self::persistField(self::KEY_STORE_NAME, $storeName);
+        self::persistField(self::KEY_LEGAL_NAME, $legalName);
+        self::persistField(self::KEY_ADDRESS, $address);
+        self::persistField(self::KEY_CITY, $city);
+        self::persistField(self::KEY_STATE, $stateVal);
+        self::persistField(self::KEY_PINCODE, $pincode);
         self::persistField(self::KEY_SUPPORT_PHONE, $phone !== '' ? (Validation::normalizeMobileIndia($phone) ?? $phone) : '');
         self::persistField(self::KEY_SUPPORT_WHATSAPP, $whatsapp !== '' ? (Validation::normalizeMobileIndia($whatsapp) ?? $whatsapp) : '');
         self::persistField(self::KEY_SUPPORT_EMAIL, $email);
         self::persistField(self::KEY_FSSAI_LICENCE, $fssai);
 
-        return ['ok' => true, 'message' => 'Business settings saved.'];
+        return ['ok' => true, 'message' => 'Business profile saved.'];
     }
 
     private static function persistField(string $key, string $value): void

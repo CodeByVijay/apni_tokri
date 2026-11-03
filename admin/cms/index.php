@@ -7,6 +7,9 @@ require_once dirname(__DIR__) . '/_init.php';
 AdminDemoPerms::denyIfCannot('cms');
 
 $useDb = Install::isSchemaReady() && AdminAuth::check() && CmsPageService::schemaReady();
+if ($useDb) {
+    admin_process_list_delete('cms', url_base() . '/admin/cms/index.php');
+}
 $filterQ = isset($_GET['q']) ? trim((string) $_GET['q']) : '';
 $filterStatus = isset($_GET['status']) ? trim((string) $_GET['status']) : '';
 $filterVisibility = isset($_GET['visibility']) ? trim((string) $_GET['visibility']) : '';
@@ -14,7 +17,6 @@ $pageNum = isset($_GET['page']) ? max(1, (int) $_GET['page']) : 1;
 $perPage = 20;
 
 admin_layout_start(['pageTitle' => 'CMS pages', 'activeAdminNav' => 'cms']);
-admin_flash_render();
 $pageHeading = 'CMS & legal pages';
 $pageDescription = 'Manage storefront legal and content pages. Draft pages are never visible on the public site.';
 $pageActionsHtml = '<a href="' . Security::escape(url_base()) . '/admin/cms/edit.php" class="at-btn at-btn--primary at-btn--sm at-focusable">New page</a>';
@@ -56,7 +58,7 @@ $columns = [
     ['label' => 'Footer', 'key' => 'footer'],
     ['label' => 'Published', 'key' => 'published_at'],
     ['label' => 'Updated', 'key' => 'updated_at'],
-    ['label' => '', 'key' => 'link', 'align' => 'actions'],
+    ['label' => 'Actions', 'key' => 'actions', 'align' => 'actions', 'raw' => true],
 ];
 $rows = [];
 $total = 0;
@@ -78,8 +80,13 @@ if ($useDb) {
             'footer' => !empty($p['show_in_footer']) ? 'Yes' : 'No',
             'published_at' => $p['published_at'] ? substr((string) $p['published_at'], 0, 16) : '—',
             'updated_at' => $p['updated_at'] ? substr((string) $p['updated_at'], 0, 16) : '—',
-            'link' => 'Edit',
-            'action_href' => url_base() . '/admin/cms/edit.php?id=' . $id,
+            'actions' => admin_table_actions(
+                url_base() . '/admin/cms/edit.php?id=' . $id,
+                'Edit',
+                'cms_page',
+                $id,
+                (string) ($p['title'] ?? 'page')
+            ),
         ];
     }
 }

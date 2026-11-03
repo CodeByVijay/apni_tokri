@@ -6,7 +6,7 @@ final class CustomerService
 {
     public static function isLoggedIn(): bool
     {
-        if (CommerceGateway::useDatabase()) {
+        if (AppEnvironment::usePersistedStorefront()) {
             return CustomerAuth::check();
         }
 
@@ -16,7 +16,7 @@ final class CustomerService
     /** @return array<string, string> */
     public static function profile(): array
     {
-        if (CommerceGateway::useDatabase() && CustomerAuth::check()) {
+        if (AppEnvironment::usePersistedStorefront() && CustomerAuth::check()) {
             Install::ensureConnection();
             $stmt = Database::pdo()->prepare('SELECT id, mobile, name FROM customers WHERE id = ? LIMIT 1');
             $stmt->execute([CustomerAuth::id()]);
@@ -37,7 +37,7 @@ final class CustomerService
 
     public static function updateName(string $name): void
     {
-        if (!CommerceGateway::useDatabase() || !CustomerAuth::check()) {
+        if (!AppEnvironment::usePersistedStorefront() || !CustomerAuth::check()) {
             SessionCustomerBackend::login(
                 SessionCustomerBackend::profile()['mobile'] ?? '',
                 $name
@@ -57,7 +57,7 @@ final class CustomerService
     /** @return list<array<string, string>> */
     public static function addresses(): array
     {
-        if (CommerceGateway::useDatabase() && CustomerAuth::check()) {
+        if (AppEnvironment::usePersistedStorefront() && CustomerAuth::check()) {
             Install::ensureConnection();
             $stmt = Database::pdo()->prepare(
                 'SELECT id, label, line1, line2, city, pincode, is_default FROM customer_addresses WHERE customer_id = ? AND archived_at IS NULL ORDER BY is_default DESC, id'
@@ -96,7 +96,7 @@ final class CustomerService
             return ['ok' => false, 'message' => 'We do not deliver to this pincode yet. Indore area only (demo rules).'];
         }
 
-        if (CommerceGateway::useDatabase() && CustomerAuth::check()) {
+        if (AppEnvironment::usePersistedStorefront() && CustomerAuth::check()) {
             Install::ensureConnection();
             $pdo = Database::pdo();
             $pdo->prepare(
@@ -140,7 +140,7 @@ final class CustomerService
     /** @return array<string, mixed>|null */
     public static function order(string $orderNumber): ?array
     {
-        if (CommerceGateway::useDatabase() && CustomerAuth::check()) {
+        if (AppEnvironment::usePersistedStorefront() && CustomerAuth::check()) {
             return OrderRepository::forCustomerByNumber($orderNumber, CustomerAuth::id());
         }
 
@@ -150,7 +150,7 @@ final class CustomerService
     /** @return list<array<string, mixed>> */
     public static function orders(): array
     {
-        if (CommerceGateway::useDatabase() && CustomerAuth::check()) {
+        if (AppEnvironment::usePersistedStorefront() && CustomerAuth::check()) {
             return OrderRepository::listAllRowsForCustomer(CustomerAuth::id());
         }
 
@@ -159,7 +159,7 @@ final class CustomerService
 
     public static function logout(): void
     {
-        if (CommerceGateway::useDatabase()) {
+        if (AppEnvironment::usePersistedStorefront()) {
             CustomerAuth::logout();
         }
         SessionCustomerBackend::logout();

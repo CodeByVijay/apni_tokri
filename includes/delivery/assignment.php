@@ -100,30 +100,81 @@ final class DeliveryAssignmentService
      */
     public static function listForAdmin(array $filters = [], int $limit = 150): array
     {
+        $result = self::searchForAdmin('', $filters, 1, min(100, max(1, $limit)), 'delivery_date', 'asc');
+
+        return $result['rows'];
+    }
+
+    /**
+     * @param array<string, mixed> $filters status, active_only
+     * @return array{rows: list<array<string, mixed>>, total: int, page: int, per_page: int, total_pages: int}
+     */
+    public static function searchForAdmin(
+        string $query,
+        array $filters,
+        int $page,
+        int $perPage,
+        string $sortColumn = 'delivery_date',
+        string $sortDirection = 'asc'
+    ): array {
         if (!Install::isSchemaReady()) {
-            return [];
+            return ['rows' => [], 'total' => 0, 'page' => 1, 'per_page' => $perPage, 'total_pages' => 1];
         }
         Install::ensureConnection();
         $pdo = Database::pdo();
-        $sql = "SELECT d.*, o.order_number, o.delivery_slot, o.delivery_date, o.payment_status,
-                       c.name AS customer_name, c.mobile AS customer_mobile
-                FROM deliveries d
-                INNER JOIN orders o ON o.id = d.order_id
-                LEFT JOIN customers c ON c.id = o.customer_id
-                WHERE 1=1";
+        $page = max(1, $page);
+        $perPage = max(1, min(100, $perPage));
+        $where = ['1=1'];
         $params = [];
         if (!empty($filters['status'])) {
-            $sql .= ' AND d.status = ?';
+            $where[] = 'd.status = ?';
             $params[] = DeliveryStatus::normalize((string) $filters['status']);
         }
         if (!empty($filters['active_only'])) {
-            $sql .= " AND d.status NOT IN ('delivered', 'cancelled')";
+            $where[] = "d.status NOT IN ('delivered', 'cancelled')";
         }
-        $sql .= ' ORDER BY COALESCE(o.delivery_date, DATE(d.created_at)) ASC, d.updated_at DESC LIMIT ' . (int) $limit;
+        $q = trim($query);
+        if ($q !== '') {
+            $like = '%' . AdminServerList::escapeLike($q) . '%';
+            $where[] = '(o.order_number LIKE ? OR c.mobile LIKE ? OR c.name LIKE ? OR d.courier_service_name LIKE ? OR d.tracking_reference LIKE ?)';
+            array_push($params, $like, $like, $like, $like, $like);
+        }
+        $whereSql = implode(' AND ', $where);
+        $sortMap = [
+            'delivery_date' => 'COALESCE(o.delivery_date, DATE(d.created_at))',
+            'updated_at' => 'd.updated_at',
+            'status' => 'd.status',
+            'order_number' => 'o.order_number',
+        ];
+        $orderSql = AdminServerList::orderBySql($sortColumn, $sortDirection, $sortMap, 'delivery_date');
+        $from = ' FROM deliveries d INNER JOIN orders o ON o.id = d.order_id LEFT JOIN customers c ON c.id = o.customer_id WHERE ' . $whereSql;
+        $countStmt = $pdo->prepare('SELECT COUNT(*)' . $from);
+        $countStmt->execute($params);
+        $total = (int) $countStmt->fetchColumn();
+        $totalPages = max(1, (int) ceil($total / $perPage));
+        if ($page > $totalPages) {
+            $page = $totalPages;
+        }
+        $offset = ($page - 1) * $perPage;
+        $sql = 'SELECT d.*, o.order_number, o.delivery_slot, o.delivery_date, o.payment_status,
+                       c.name AS customer_name, c.mobile AS customer_mobile' . $from
+            . ' ORDER BY ' . $orderSql . ' LIMIT ? OFFSET ?';
         $stmt = $pdo->prepare($sql);
-        $stmt->execute($params);
+        $i = 1;
+        foreach ($params as $p) {
+            $stmt->bindValue($i++, $p);
+        }
+        $stmt->bindValue($i++, $perPage, PDO::PARAM_INT);
+        $stmt->bindValue($i, $offset, PDO::PARAM_INT);
+        $stmt->execute();
 
-        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        return [
+            'rows' => $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [],
+            'total' => $total,
+            'page' => $page,
+            'per_page' => $perPage,
+            'total_pages' => $totalPages,
+        ];
     }
 
     /** @return list<array<string, mixed>> */

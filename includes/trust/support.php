@@ -17,6 +17,74 @@ final class SupportTicketService
         ];
     }
 
+    /** Categories allowed for guest (general enquiry only). */
+    public static function guestCategoryLabels(): array
+    {
+        return ['other' => self::categoryLabels()['other']];
+    }
+
+    public static function categoryRequiresCustomerAuth(string $category): bool
+    {
+        return $category !== 'other';
+    }
+
+    /** @return array<string, string> */
+    public static function categoryLabelsForCustomer(?int $customerId): array
+    {
+        return $customerId === null ? self::guestCategoryLabels() : self::categoryLabels();
+    }
+
+    private static function guestRateLimitMessage(): ?string
+    {
+        if (!Install::isSchemaReady()) {
+            return null;
+        }
+        try {
+            Install::ensureConnection();
+            $stmt = Database::pdo()->query(
+                "SELECT COUNT(*) FROM information_schema.tables
+                 WHERE table_schema = DATABASE() AND table_name = 'support_guest_ticket_attempts'"
+            );
+            if ((int) $stmt->fetchColumn() === 0) {
+                return null;
+            }
+        } catch (Throwable $e) {
+            return null;
+        }
+        $cfg = (array) (App::config()['security']['support_guest'] ?? []);
+        $max = max(1, (int) ($cfg['max_per_ip'] ?? 5));
+        $window = max(1, (int) ($cfg['window_minutes'] ?? 60));
+        $ip = isset($_SERVER['REMOTE_ADDR']) ? substr(trim((string) $_SERVER['REMOTE_ADDR']), 0, 45) : '';
+        if ($ip === '') {
+            return null;
+        }
+        $pdo = Database::pdo();
+        $countStmt = $pdo->prepare(
+            'SELECT COUNT(*) FROM support_guest_ticket_attempts
+             WHERE ip_address = ? AND created_at > DATE_SUB(NOW(), INTERVAL ? MINUTE)'
+        );
+        $countStmt->execute([$ip, $window]);
+        if ((int) $countStmt->fetchColumn() >= $max) {
+            return 'Too many support requests from your network. Please try again later or sign in to your account.';
+        }
+
+        return null;
+    }
+
+    private static function recordGuestSubmission(): void
+    {
+        try {
+            $ip = isset($_SERVER['REMOTE_ADDR']) ? substr(trim((string) $_SERVER['REMOTE_ADDR']), 0, 45) : '';
+            if ($ip === '') {
+                return;
+            }
+            Database::pdo()->prepare('INSERT INTO support_guest_ticket_attempts (ip_address) VALUES (?)')
+                ->execute([$ip]);
+        } catch (Throwable $e) {
+            // ignore
+        }
+    }
+
     public static function nextTicketNumber(): string
     {
         Install::ensureConnection();
@@ -38,6 +106,15 @@ final class SupportTicketService
         $cats = self::categoryLabels();
         if (!isset($cats[$category])) {
             return ['ok' => false, 'message' => 'Choose a valid category.'];
+        }
+        if ($customerId === null && self::categoryRequiresCustomerAuth($category)) {
+            return ['ok' => false, 'message' => 'Sign in to report refund, payment, delivery, or order-related issues.'];
+        }
+        if ($customerId === null) {
+            $limitMsg = self::guestRateLimitMessage();
+            if ($limitMsg !== null) {
+                return ['ok' => false, 'message' => $limitMsg];
+            }
         }
         $subject = trim($subject);
         $message = trim($message);
@@ -84,6 +161,9 @@ final class SupportTicketService
 
                 return ['ok' => true, 'ticket_number' => $ticketNumber, 'ticket_id' => $ticketId];
             });
+            if (!empty($result['ok']) && $customerId === null) {
+                self::recordGuestSubmission();
+            }
             if (!empty($result['ok']) && !empty($result['ticket_id'])) {
                 NotificationDispatcher::supportTicketCreated((int) $result['ticket_id']);
                 AdminNotificationService::notifySupportTicketCreated((int) $result['ticket_id']);
@@ -181,25 +261,74 @@ final class SupportTicketService
     /** @return list<array<string, mixed>> */
     public static function listForAdmin(?string $status = null, int $limit = 100): array
     {
+        $result = self::searchForAdmin('', $status, 1, min(100, max(1, $limit)), 'created_at', 'desc');
+
+        return $result['rows'];
+    }
+
+    /**
+     * @return array{rows: list<array<string, mixed>>, total: int, page: int, per_page: int, total_pages: int}
+     */
+    public static function searchForAdmin(
+        string $query,
+        ?string $status,
+        int $page,
+        int $perPage,
+        string $sortColumn = 'created_at',
+        string $sortDirection = 'desc'
+    ): array {
+        if (!Install::isSchemaReady()) {
+            return ['rows' => [], 'total' => 0, 'page' => 1, 'per_page' => $perPage, 'total_pages' => 1];
+        }
         Install::ensureConnection();
-        $sql = 'SELECT t.*, c.mobile AS customer_mobile, o.order_number
-                FROM support_tickets t
-                LEFT JOIN customers c ON c.id = t.customer_id
-                LEFT JOIN orders o ON o.id = t.order_id';
+        $pdo = Database::pdo();
+        $page = max(1, $page);
+        $perPage = max(1, min(100, $perPage));
+        $where = ['1=1'];
         $params = [];
         if ($status !== null && $status !== '') {
-            $sql .= ' WHERE t.status = ?';
+            $where[] = 't.status = ?';
             $params[] = $status;
         }
-        $sql .= ' ORDER BY t.created_at DESC LIMIT ?';
-        $stmt = Database::pdo()->prepare($sql);
-        foreach ($params as $i => $p) {
-            $stmt->bindValue($i + 1, $p);
+        $q = trim($query);
+        if ($q !== '') {
+            $like = '%' . AdminServerList::escapeLike($q) . '%';
+            $where[] = '(t.ticket_number LIKE ? OR t.subject LIKE ? OR c.mobile LIKE ? OR o.order_number LIKE ? OR t.status LIKE ?)';
+            array_push($params, $like, $like, $like, $like, $like);
         }
-        $stmt->bindValue(count($params) + 1, $limit, PDO::PARAM_INT);
+        $whereSql = implode(' AND ', $where);
+        $sortMap = [
+            'created_at' => 't.created_at',
+            'status' => 't.status',
+            'ticket_number' => 't.ticket_number',
+        ];
+        $orderSql = AdminServerList::orderBySql($sortColumn, $sortDirection, $sortMap, 'created_at');
+        $from = ' FROM support_tickets t LEFT JOIN customers c ON c.id = t.customer_id LEFT JOIN orders o ON o.id = t.order_id WHERE ' . $whereSql;
+        $countStmt = $pdo->prepare('SELECT COUNT(*)' . $from);
+        $countStmt->execute($params);
+        $total = (int) $countStmt->fetchColumn();
+        $totalPages = max(1, (int) ceil($total / $perPage));
+        if ($page > $totalPages) {
+            $page = $totalPages;
+        }
+        $offset = ($page - 1) * $perPage;
+        $sql = 'SELECT t.*, c.mobile AS customer_mobile, o.order_number' . $from . ' ORDER BY ' . $orderSql . ' LIMIT ? OFFSET ?';
+        $stmt = $pdo->prepare($sql);
+        $i = 1;
+        foreach ($params as $p) {
+            $stmt->bindValue($i++, $p);
+        }
+        $stmt->bindValue($i++, $perPage, PDO::PARAM_INT);
+        $stmt->bindValue($i, $offset, PDO::PARAM_INT);
         $stmt->execute();
 
-        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        return [
+            'rows' => $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [],
+            'total' => $total,
+            'page' => $page,
+            'per_page' => $perPage,
+            'total_pages' => $totalPages,
+        ];
     }
 
     /** @return array<string, mixed>|null */
