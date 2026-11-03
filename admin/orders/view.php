@@ -67,7 +67,12 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
                 <strong>Payment:</strong> <?= admin_status_badge((string) $order['payment_status']) ?>
                 <span class="at-muted">· <?= Security::escape((string) ($order['order_source'] ?? '')) ?></span>
             </p>
-            <?php $adminInv = InvoiceService::retailForOrder($orderId); ?>
+            <?php
+            $adminInv = null;
+            if (Install::isSchemaReady()) {
+                $adminInv = InvoiceService::syncForOrder($orderId)['invoice'];
+            }
+            ?>
             <p><strong>Invoice:</strong>
                 <?php if ($adminInv !== null): ?>
                     <a class="underline" href="<?= Security::escape(url_base()) ?>/admin/invoices/view.php?id=<?= (int) $adminInv['id'] ?>"><?= Security::escape((string) $adminInv['invoice_number']) ?></a>

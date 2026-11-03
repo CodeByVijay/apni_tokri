@@ -242,6 +242,14 @@ final class AdminOrderService
             ]);
         }
 
+        if (Install::isSchemaReady()) {
+            try {
+                InvoiceService::syncForOrder($orderId);
+            } catch (Throwable $e) {
+                error_log('AdminOrderService::updateStatus invoice sync: ' . get_class($e));
+            }
+        }
+
         return ['ok' => true, 'message' => 'Order status updated.'];
     }
 

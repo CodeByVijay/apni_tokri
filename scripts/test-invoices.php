@@ -142,6 +142,38 @@ t($rPartRef['ok'], 'Partially refunded order remains invoice-eligible with posit
 $snapPartRef = InvoiceService::snapshot($rPartRef['invoice']);
 t($snapPartRef['pricing']['amount_refunded'] >= 29.99, 'Partially refunded order snapshot includes refund total');
 
+$oFailCap = mkOrder($pdo, $cid, 'delivered', 'paid', $items, 'captured');
+$pdo->prepare(
+    'INSERT INTO payments (order_id, gateway, gateway_order_id, gateway_payment_id, amount, currency, status, captured_at, created_at)
+     VALUES (?,?,?,?,?,?,?,NULL,NOW())'
+)->execute([$oFailCap, 'razorpay', 'gw_fail_' . $oFailCap, null, 100.0, 'INR', 'failed']);
+t(InvoiceService::retailForOrder($oFailCap) === null, 'Retail lookup alone does not create invoice');
+t(InvoiceService::capturedPaymentTotal($oFailCap) > 0, 'Failed attempt does not reduce captured payment total');
+$syncFailCap = InvoiceService::syncForOrder($oFailCap);
+t($syncFailCap['invoice'] !== null && $syncFailCap['eligible'], 'syncForOrder creates invoice when one capture succeeds among failed attempts');
+t(InvoiceService::retailForOrder($oFailCap) !== null, 'Invoice exists after syncForOrder');
+
+// Admin order status update → invoice (after commit; idempotent via syncForOrder)
+$oStatusInv = mkOrder($pdo, $cid, OrderStatus::PREPARING, 'paid', $items, 'captured');
+t(InvoiceService::retailForOrder($oStatusInv) === null, 'No retail invoice before admin marks delivered');
+$statusUpd = AdminOrderService::updateStatus($oStatusInv, OrderStatus::DELIVERED, 'ZT invoice on delivered status');
+t(!empty($statusUpd['ok']), 'Admin status update to delivered succeeds');
+t(InvoiceService::retailForOrder($oStatusInv) !== null, 'Retail invoice created after delivered status update');
+$retailCount = (int) $pdo->query(
+    "SELECT COUNT(*) FROM invoices WHERE order_id = " . (int) $oStatusInv . " AND document_type = 'retail_invoice'"
+)->fetchColumn();
+t($retailCount === 1, 'Exactly one retail invoice after delivered status update');
+$statusUpd2 = AdminOrderService::updateStatus($oStatusInv, OrderStatus::DELIVERED, 'ZT repeat delivered status note');
+t(!empty($statusUpd2['ok']), 'Second delivered status update with new note succeeds');
+$retailCount2 = (int) $pdo->query(
+    "SELECT COUNT(*) FROM invoices WHERE order_id = " . (int) $oStatusInv . " AND document_type = 'retail_invoice'"
+)->fetchColumn();
+t($retailCount2 === 1, 'Repeated status updates do not duplicate retail invoice');
+$oStatusBad = mkOrder($pdo, $cid, OrderStatus::PREPARING, 'pending', $items, '');
+$statusUpd3 = AdminOrderService::updateStatus($oStatusBad, OrderStatus::DELIVERED, 'ZT delivered but not paid');
+t(!empty($statusUpd3['ok']), 'Status update succeeds even when invoice ineligible');
+t(InvoiceService::retailForOrder($oStatusBad) === null, 'No invoice when eligibility fails after status update');
+
 // 3. Generation, numbering, PDF
 $o1 = mkOrder($pdo, $cid, 'confirmed', 'paid', $items, 'captured', 'storefront', 10.0);
 $filesBefore = count(invFiles());
@@ -429,6 +461,11 @@ $root = APNI_TOKRI_ROOT;
 foreach (['admin/invoices/index.php', 'admin/invoices/view.php', 'admin/invoices/download.php'] as $f) {
     t(strpos((string) file_get_contents("$root/$f"), "denyIfCannot('invoices')") !== false, "$f enforces invoices RBAC");
 }
+$adminOrderView = (string) file_get_contents("$root/admin/orders/view.php");
+t(strpos($adminOrderView, 'syncForOrder') !== false, 'Admin order view triggers invoice syncForOrder (lazy generation)');
+t(strpos($adminOrderView, 'retailForOrder') === false, 'Admin order view does not rely on retailForOrder-only lookup');
+$adminOrdersSvc = (string) file_get_contents("$root/includes/commerce/admin_orders.php");
+t(strpos($adminOrdersSvc, 'InvoiceService::syncForOrder') !== false, 'Admin order status update syncs invoice after commit');
 t(strpos((string) file_get_contents("$root/admin/settings/invoices.php"), "denyIfCannot('settings')") !== false, 'Invoice settings page requires settings permission');
 t(strpos((string) file_get_contents("$root/admin/invoices/view.php"), 'Csrf::requireValid()') !== false, 'Admin email action is CSRF-protected');
 $dl = (string) file_get_contents("$root/invoice-download.php");
