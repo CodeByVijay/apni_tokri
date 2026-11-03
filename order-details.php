@@ -15,7 +15,7 @@ if (!CustomerService::isLoggedIn()) {
 $id = isset($_GET['id']) && is_string($_GET['id']) ? trim($_GET['id']) : '';
 $order = null;
 if ($id !== '' && CommerceGateway::useDatabase() && CustomerAuth::id() !== null) {
-    $order = OrderRepository::forCustomerByNumber($id, CustomerAuth::id());
+    $order = OrderRepository::forCustomerDetail($id, CustomerAuth::id());
 }
 if ($order === null && $id !== '') {
     $order = DemoCustomer::order($id);
@@ -88,20 +88,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['refund_request'])) {
     }
 }
 
-$totals = $order['totals'] ?? [];
+$invoiceSync = null;
+if (CommerceGateway::useDatabase() && CustomerAuth::id() !== null && isset($row) && is_array($row)) {
+    $invoiceSync = InvoiceService::syncForOrder((int) $row['id']);
+}
+
+$overview = $order['overview'] ?? null;
+$totals = $order['price'] ?? $order['totals'] ?? [];
 $timeline = $order['timeline'] ?? [
     ['status' => 'Confirmed', 'at' => $order['created_at'] ?? '', 'done' => true],
-    ['status' => 'Preparing', 'at' => '', 'done' => false],
-    ['status' => 'Out for delivery', 'at' => '', 'done' => false],
-    ['status' => 'Delivered', 'at' => '', 'done' => false],
 ];
+$payments = $order['payments'] ?? [];
+$paySummary = $order['payment_summary'] ?? null;
+$address = $order['address'] ?? null;
+$delivery = $order['delivery'] ?? null;
+$meta = $order['meta'] ?? [];
 
-layout_public_start(['pageTitle' => 'Order ' . $id . ' — Apni Tokri', 'activeNav' => 'account']);
+$displayId = (string) ($overview['order_number'] ?? $order['id'] ?? $id);
+$placedAt = (string) ($overview['placed_at'] ?? $order['created_at'] ?? '');
+$orderStatus = (string) ($overview['status_public'] ?? $order['status'] ?? '');
+$paymentStatusLabel = (string) ($overview['payment_status_label'] ?? '');
+
+layout_public_start(['pageTitle' => 'Order ' . $displayId . ' — Apni Tokri', 'activeNav' => 'account']);
 $accountActive = 'orders';
-$accountTitle = 'Order ' . $id;
-$accountSub = null;
+$accountTitle = 'Order ' . $displayId;
+$accountSub = $placedAt !== '' ? 'Placed ' . customer_format_datetime($placedAt) : null;
 require APNI_TOKRI_ROOT . '/includes/partials/account-shell-start.php';
-$st = (string) ($order['status'] ?? '');
+
 $firstNotDone = null;
 foreach ($timeline as $i => $step) {
     if (empty($step['done'])) {
@@ -109,44 +122,262 @@ foreach ($timeline as $i => $step) {
         break;
     }
 }
-?>
-<div class="flex flex-wrap items-center justify-between gap-3">
-    <?= customer_status_badge($st, ucwords(str_replace('_', ' ', $st)), 'order') ?>
-    <a href="<?= Security::escape(url_base()) ?>/support.php?order=<?= rawurlencode($id) ?>" class="at-btn at-btn--secondary at-btn--sm at-focusable"><?= at_icon('chat', 'w-4 h-4') ?><?= Security::escape(__('need_help')) ?></a>
-</div>
 
-<section class="at-card">
+$formatDeliveryDay = static function (?string $d): string {
+    if ($d === null || trim($d) === '') {
+        return '—';
+    }
+    $ts = strtotime($d);
+
+    return $ts !== false ? date('j M Y', $ts) : $d;
+};
+?>
+<header class="at-order-detail__header">
+    <div class="at-order-detail__head-main">
+        <p class="at-order-detail__id">Order <span><?= Security::escape($displayId) ?></span></p>
+        <?php if ($placedAt !== ''): ?>
+            <p class="at-order-detail__meta text-sm at-muted"><?= Security::escape(customer_format_datetime($placedAt)) ?></p>
+        <?php endif; ?>
+        <div class="at-order-detail__badges">
+            <?= customer_status_badge($orderStatus, ucwords(str_replace('_', ' ', $orderStatus)), 'order') ?>
+            <?php if ($paymentStatusLabel !== '' && $paymentStatusLabel !== '—'): ?>
+                <span class="at-order-detail__pay-badge"><?= Security::escape($paymentStatusLabel) ?></span>
+            <?php endif; ?>
+            <?php if (!empty($overview['order_type'])): ?>
+                <span class="at-order-detail__type"><?= Security::escape((string) $overview['order_type']) ?></span>
+            <?php endif; ?>
+        </div>
+        <?php if (!empty($overview['expected_delivery'])): ?>
+            <p class="text-sm mt-2"><strong>Expected delivery:</strong> <?= Security::escape($formatDeliveryDay((string) $overview['expected_delivery'])) ?></p>
+        <?php endif; ?>
+    </div>
+    <a href="<?= Security::escape(url_base()) ?>/support.php?order=<?= rawurlencode($displayId) ?>" class="at-btn at-btn--secondary at-btn--sm at-focusable"><?= at_icon('chat', 'w-4 h-4') ?><?= Security::escape(__('need_help')) ?></a>
+</header>
+
+<section class="at-card at-order-detail__timeline">
     <div class="at-card__body">
-        <h2 class="at-h3">Status</h2>
+        <h2 class="at-h3">Order tracking</h2>
         <ol class="at-timeline mt-4">
             <?php foreach ($timeline as $i => $step): ?>
                 <li class="<?= !empty($step['done']) ? 'is-done' : ($i === $firstNotDone ? 'is-current' : '') ?>">
                     <strong class="text-sm"><?= Security::escape((string) ($step['status'] ?? '')) ?></strong>
-                    <?php if (!empty($step['at'])): ?><span class="block text-xs at-muted"><?= Security::escape(date('j M Y, g:i A', strtotime((string) $step['at']) ?: time())) ?></span><?php endif; ?>
+                    <?php if (!empty($step['at'])): ?>
+                        <span class="block text-xs at-muted"><?= Security::escape(customer_format_datetime((string) $step['at'])) ?></span>
+                    <?php endif; ?>
                 </li>
             <?php endforeach; ?>
         </ol>
     </div>
 </section>
 
-<section class="at-card">
-    <div class="at-card__body">
-        <h2 class="at-h3">Items</h2>
-        <?php $orderItems = $order['items'] ?? []; require APNI_TOKRI_ROOT . '/includes/partials/order-items.php'; ?>
-        <dl class="at-order-totals">
-            <div><dt>Subtotal</dt><dd><?= Security::escape(catalogue_format_price((float) ($totals['subtotal'] ?? 0))) ?></dd></div>
-            <?php if ((float) ($totals['coupon_discount'] ?? 0) > 0): ?><div class="is-saving"><dt>Discount<?= !empty($totals['coupon_code']) ? ' (' . Security::escape((string) $totals['coupon_code']) . ')' : '' ?></dt><dd>−<?= Security::escape(catalogue_format_price((float) $totals['coupon_discount'])) ?></dd></div><?php endif; ?>
-            <div><dt>Delivery fee</dt><dd><?= (float) ($totals['delivery_fee'] ?? 0) === 0.0 ? 'Free' : Security::escape(catalogue_format_price((float) $totals['delivery_fee'])) ?></dd></div>
-            <div class="is-grand"><dt>Total</dt><dd><?= Security::escape(catalogue_format_price((float) ($totals['total'] ?? 0))) ?></dd></div>
-        </dl>
+<div class="at-order-detail__grid">
+    <div class="at-order-detail__col at-order-detail__col--main">
+        <section class="at-card">
+            <div class="at-card__body">
+                <h2 class="at-h3">Items</h2>
+                <?php $orderItems = $order['items'] ?? []; require APNI_TOKRI_ROOT . '/includes/partials/order-items.php'; ?>
+            </div>
+        </section>
+
+        <section class="at-card">
+            <div class="at-card__body">
+                <h2 class="at-h3">Delivery address</h2>
+                <?php if ($address === null): ?>
+                    <p class="text-sm at-muted mt-2">Delivery address is not available for this order.</p>
+                <?php else: ?>
+                    <div class="at-order-detail__addr mt-3">
+                        <?php if ($address['receiver_name'] !== '' || $address['receiver_phone'] !== ''): ?>
+                            <p class="font-semibold"><?= Security::escape((string) $address['receiver_name']) ?>
+                                <?php if ($address['receiver_phone'] !== ''): ?>
+                                    <span class="font-normal at-muted"> · <?= Security::escape((string) $address['receiver_phone']) ?></span>
+                                <?php endif; ?>
+                            </p>
+                        <?php endif; ?>
+                        <?php foreach ($address['lines'] ?? [] as $line): ?>
+                            <p class="text-sm"><?= Security::escape((string) $line) ?></p>
+                        <?php endforeach; ?>
+                        <?php if (!empty($address['state'])): ?>
+                            <p class="text-sm"><?= Security::escape((string) $address['state']) ?></p>
+                        <?php endif; ?>
+                        <?php if (!empty($address['landmark'])): ?>
+                            <p class="text-sm at-muted">Landmark: <?= Security::escape((string) $address['landmark']) ?></p>
+                        <?php endif; ?>
+                        <?php if (!empty($address['delivery_instructions'])): ?>
+                            <p class="text-sm mt-2"><strong>Instructions:</strong> <?= Security::escape((string) $address['delivery_instructions']) ?></p>
+                        <?php endif; ?>
+                        <?php if (!empty($address['map_link'])): ?>
+                            <p class="mt-2">
+                                <a class="at-btn at-btn--secondary at-btn--sm at-focusable" href="<?= Security::escape((string) $address['map_link']) ?>" target="_blank" rel="noopener noreferrer">View on map</a>
+                            </p>
+                        <?php endif; ?>
+                    </div>
+                <?php endif; ?>
+            </div>
+        </section>
+
+        <section class="at-card">
+            <div class="at-card__body">
+                <h2 class="at-h3">Delivery slot</h2>
+                <?php if ($delivery === null || (empty($delivery['has_slot']) && empty($delivery['delivery_status']))): ?>
+                    <p class="text-sm at-muted mt-2">No delivery slot was recorded for this order.</p>
+                <?php else: ?>
+                    <dl class="at-order-detail__dl mt-3">
+                        <?php if (!empty($delivery['delivery_date'])): ?>
+                            <div><dt>Delivery date</dt><dd><?= Security::escape($formatDeliveryDay((string) $delivery['delivery_date'])) ?></dd></div>
+                        <?php elseif (!empty($delivery['delivery_eta'])): ?>
+                            <div><dt>Estimated</dt><dd><?= Security::escape($formatDeliveryDay((string) $delivery['delivery_eta'])) ?></dd></div>
+                        <?php endif; ?>
+                        <?php if (!empty($delivery['slot_label'])): ?>
+                            <div><dt>Slot</dt><dd><?= Security::escape((string) $delivery['slot_label']) ?></dd></div>
+                        <?php endif; ?>
+                        <?php if (!empty($delivery['window_label'])): ?>
+                            <div><dt>Window</dt><dd><?= Security::escape((string) $delivery['window_label']) ?></dd></div>
+                        <?php endif; ?>
+                        <?php if (!empty($delivery['time_range'])): ?>
+                            <div><dt>Time</dt><dd><?= Security::escape((string) $delivery['time_range']) ?></dd></div>
+                        <?php endif; ?>
+                        <?php if (!empty($delivery['delivery_status'])): ?>
+                            <div><dt>Delivery status</dt><dd><?= Security::escape((string) $delivery['delivery_status']) ?></dd></div>
+                        <?php endif; ?>
+                        <?php if (!empty($delivery['delivery_contact_phone'])): ?>
+                            <div><dt>Delivery contact</dt><dd><a href="tel:<?= Security::escape(preg_replace('/\D+/', '', (string) $delivery['delivery_contact_phone']) ?? '') ?>"><?= Security::escape((string) $delivery['delivery_contact_phone']) ?></a></dd></div>
+                        <?php endif; ?>
+                    </dl>
+                <?php endif; ?>
+            </div>
+        </section>
+
+        <?php if (!empty($meta['cancellation_reason'])): ?>
+            <section class="at-card">
+                <div class="at-card__body">
+                    <h2 class="at-h3">Cancellation</h2>
+                    <p class="text-sm mt-2"><?= Security::escape((string) $meta['cancellation_reason']) ?></p>
+                </div>
+            </section>
+        <?php endif; ?>
     </div>
-</section>
+
+    <aside class="at-order-detail__col at-order-detail__col--side">
+        <section class="at-card">
+            <div class="at-card__body">
+                <h2 class="at-h3">Payment details</h2>
+                <?php if ($paySummary !== null && !empty($paySummary['has_record'])): ?>
+                    <dl class="at-order-detail__dl mt-3">
+                        <div><dt>Gateway</dt><dd><?= Security::escape((string) $paySummary['gateway_label']) ?></dd></div>
+                        <div><dt>Status</dt><dd><?= Security::escape((string) $paySummary['status_label']) ?></dd></div>
+                        <div><dt>Amount</dt><dd><?= Security::escape(catalogue_format_price((float) ($paySummary['amount'] ?? 0))) ?></dd></div>
+                        <?php if (!empty($paySummary['paid_at'])): ?>
+                            <div><dt>Paid on</dt><dd><?= Security::escape(customer_format_datetime((string) $paySummary['paid_at'])) ?></dd></div>
+                        <?php endif; ?>
+                        <?php if (!empty($paySummary['payment_method'])): ?>
+                            <div><dt>Method</dt><dd><?= Security::escape((string) $paySummary['payment_method']) ?></dd></div>
+                        <?php endif; ?>
+                        <?php if (!empty($paySummary['gateway_payment_id'])): ?>
+                            <div><dt>Payment ID</dt><dd class="at-order-detail__mono"><?= Security::escape((string) $paySummary['gateway_payment_id']) ?></dd></div>
+                        <?php endif; ?>
+                        <?php if (!empty($paySummary['gateway_order_id'])): ?>
+                            <div><dt>Gateway order</dt><dd class="at-order-detail__mono"><?= Security::escape((string) $paySummary['gateway_order_id']) ?></dd></div>
+                        <?php endif; ?>
+                        <?php if ((float) ($paySummary['amount_refunded'] ?? 0) > 0): ?>
+                            <div><dt>Refunded</dt><dd><?= Security::escape(catalogue_format_price((float) $paySummary['amount_refunded'])) ?></dd></div>
+                        <?php endif; ?>
+                    </dl>
+                    <?php if (count($payments) > 1): ?>
+                        <p class="text-xs at-muted mt-3"><?= (int) count($payments) ?> payment attempts on this order.</p>
+                    <?php endif; ?>
+                <?php elseif ($paySummary !== null): ?>
+                    <dl class="at-order-detail__dl mt-3">
+                        <?php if (!empty($paySummary['gateway_label'])): ?>
+                            <div><dt>Method</dt><dd><?= Security::escape((string) $paySummary['gateway_label']) ?></dd></div>
+                        <?php endif; ?>
+                        <div><dt>Status</dt><dd><?= Security::escape((string) ($paySummary['status_label'] ?? '—')) ?></dd></div>
+                    </dl>
+                    <?php if (!empty($paySummary['message'])): ?>
+                        <p class="text-sm at-muted mt-2"><?= Security::escape((string) $paySummary['message']) ?></p>
+                    <?php endif; ?>
+                <?php else: ?>
+                    <p class="text-sm at-muted mt-2">Payment information is not available.</p>
+                <?php endif; ?>
+            </div>
+        </section>
+
+        <section class="at-card">
+            <div class="at-card__body">
+                <h2 class="at-h3">Price summary</h2>
+                <dl class="at-order-totals mt-3">
+                    <div><dt>Subtotal</dt><dd><?= Security::escape(catalogue_format_price((float) ($totals['subtotal'] ?? 0))) ?></dd></div>
+                    <?php if ((float) ($totals['discount'] ?? $totals['coupon_discount'] ?? 0) > 0): ?>
+                        <div class="is-saving"><dt>Discount<?= !empty($totals['coupon_code']) ? ' (' . Security::escape((string) $totals['coupon_code']) . ')' : '' ?></dt><dd>−<?= Security::escape(catalogue_format_price((float) ($totals['discount'] ?? $totals['coupon_discount'] ?? 0))) ?></dd></div>
+                    <?php endif; ?>
+                    <div><dt>Delivery fee</dt><dd><?= (float) ($totals['delivery_fee'] ?? 0) === 0.0 ? 'Free' : Security::escape(catalogue_format_price((float) ($totals['delivery_fee'] ?? 0))) ?></dd></div>
+                    <div class="is-grand"><dt>Total</dt><dd><?= Security::escape(catalogue_format_price((float) ($totals['grand_total'] ?? $totals['total'] ?? 0))) ?></dd></div>
+                    <?php if (isset($totals['amount_paid']) && (float) $totals['amount_paid'] > 0): ?>
+                        <div><dt>Amount paid</dt><dd><?= Security::escape(catalogue_format_price((float) $totals['amount_paid'])) ?></dd></div>
+                    <?php endif; ?>
+                    <?php if (isset($totals['amount_refunded']) && (float) $totals['amount_refunded'] > 0): ?>
+                        <div class="is-saving"><dt>Refunded</dt><dd><?= Security::escape(catalogue_format_price((float) $totals['amount_refunded'])) ?></dd></div>
+                    <?php endif; ?>
+                    <?php if (isset($totals['outstanding']) && (float) $totals['outstanding'] > 0): ?>
+                        <div><dt>Outstanding</dt><dd><?= Security::escape(catalogue_format_price((float) $totals['outstanding'])) ?></dd></div>
+                    <?php endif; ?>
+                </dl>
+            </div>
+        </section>
+
+        <?php if ($orderRefunds !== []): ?>
+            <section class="at-card">
+                <div class="at-card__body">
+                    <h2 class="at-h3">Refunds</h2>
+                    <ul class="at-order-detail__refund-list mt-3">
+                        <?php foreach ($orderRefunds as $or): ?>
+                            <li>
+                                <a class="font-semibold underline" href="<?= Security::escape(url_base()) ?>/refund-details.php?refund=<?= rawurlencode((string) $or['request_number']) ?>"><?= Security::escape((string) $or['request_number']) ?></a>
+                                <span class="at-muted"> — <?= Security::escape(RefundRequestService::publicStatusLabel((string) $or['status'])) ?></span>
+                                <?php if (isset($or['approved_amount_inr']) && (float) $or['approved_amount_inr'] > 0): ?>
+                                    <span class="block text-sm"><?= Security::escape(catalogue_format_price((float) $or['approved_amount_inr'])) ?></span>
+                                <?php endif; ?>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+                    <p class="mt-2"><a class="text-sm underline" href="<?= Security::escape(url_base()) ?>/my-refunds.php">All refund requests</a></p>
+                </div>
+            </section>
+        <?php endif; ?>
+
+        <section class="at-card" id="invoice">
+            <div class="at-card__body text-sm">
+                <h2 class="at-h3">Invoice</h2>
+                <?php if (!empty($invoiceSync['invoice'])): $inv = $invoiceSync['invoice']; ?>
+                    <p class="mt-2"><strong><?= Security::escape((string) $inv['invoice_number']) ?></strong></p>
+                    <p class="at-muted">Retail invoice · <?= Security::escape(InvoiceFormat::date((string) $inv['invoice_date'])) ?></p>
+                    <p class="mt-3 flex flex-wrap gap-2">
+                        <a class="at-btn at-btn--primary at-btn--sm at-focusable" href="<?= Security::escape(url_base()) ?>/invoice-download.php?ref=<?= rawurlencode((string) $inv['public_ref']) ?>">Download PDF</a>
+                        <a class="at-btn at-btn--secondary at-btn--sm at-focusable" target="_blank" rel="noopener" href="<?= Security::escape(url_base()) ?>/invoice-download.php?ref=<?= rawurlencode((string) $inv['public_ref']) ?>&amp;inline=1">View</a>
+                    </p>
+                    <?php foreach ($invoiceSync['credit_notes'] as $cn): ?>
+                        <div class="mt-4 pt-3 border-t border-[var(--at-line)]">
+                            <p><strong><?= Security::escape((string) $cn['invoice_number']) ?></strong> <span class="at-muted">· Credit note · <?= Security::escape(catalogue_format_price((float) $cn['grand_total'])) ?></span></p>
+                            <p class="mt-2 flex flex-wrap gap-2">
+                                <a class="at-btn at-btn--secondary at-btn--sm at-focusable" href="<?= Security::escape(url_base()) ?>/invoice-download.php?ref=<?= rawurlencode((string) $cn['public_ref']) ?>">Download</a>
+                                <a class="at-btn at-btn--secondary at-btn--sm at-focusable" target="_blank" rel="noopener" href="<?= Security::escape(url_base()) ?>/invoice-download.php?ref=<?= rawurlencode((string) $cn['public_ref']) ?>&amp;inline=1">View</a>
+                            </p>
+                        </div>
+                    <?php endforeach; ?>
+                <?php elseif ($invoiceSync !== null && !empty($invoiceSync['eligible'])): ?>
+                    <p class="at-muted mt-2">Your invoice is being prepared. Please check back in a moment.</p>
+                <?php else: ?>
+                    <p class="at-muted mt-2">Your invoice will be available once payment is confirmed.</p>
+                <?php endif; ?>
+            </div>
+        </section>
+    </aside>
+</div>
 
 <?php if ($orderDelivered): ?>
     <section class="at-card at-card--tint">
         <div class="at-card__body flex flex-wrap items-center justify-between gap-3">
             <div><h2 class="at-h3">How did we do?</h2><p class="text-sm at-muted mt-1">Reviews are for delivered orders and appear after approval.</p></div>
-            <a href="<?= Security::escape(url_base()) ?>/submit-review.php?order=<?= rawurlencode($id) ?>" class="at-btn at-btn--secondary at-focusable">Write a review</a>
+            <a href="<?= Security::escape(url_base()) ?>/submit-review.php?order=<?= rawurlencode($displayId) ?>" class="at-btn at-btn--secondary at-focusable">Write a review</a>
         </div>
     </section>
 <?php endif; ?>
@@ -155,7 +386,7 @@ foreach ($timeline as $i => $step) {
     <div class="at-card__body">
         <h2 class="at-h3">Refund or quality issue</h2>
         <p class="text-sm at-muted mt-1">Tell us what went wrong. We review every request against our <a class="underline font-semibold" href="<?= Security::escape(url_base()) ?>/page.php?slug=refund-policy">refund policy</a>.</p>
-        <?php if ($orderRefunds !== []): ?>
+        <?php if ($orderRefunds !== [] && empty($order['overview'])): ?>
             <div class="mt-3 p-3 rounded-lg bg-[var(--at-cream-2)] text-sm">
                 <p class="font-semibold">Your refund requests for this order</p>
                 <ul class="mt-2 space-y-1">
@@ -166,7 +397,6 @@ foreach ($timeline as $i => $step) {
                         </li>
                     <?php endforeach; ?>
                 </ul>
-                <p class="mt-2"><a class="underline text-xs" href="<?= Security::escape(url_base()) ?>/my-refunds.php">View all refunds</a></p>
             </div>
         <?php endif; ?>
         <?php if ($refundMsg !== ''): ?>

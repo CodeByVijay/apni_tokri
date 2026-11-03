@@ -5,7 +5,7 @@ declare(strict_types=1);
 /**
  * Customer account shell (nav + content column). Close with account-shell-end.php.
  *
- * @var string      $accountActive  overview|profile|addresses|orders|subscriptions|support|reviews|refunds
+ * @var string      $accountActive  overview|profile|addresses|orders|invoices|subscriptions|support|reviews|refunds
  * @var string      $accountTitle
  * @var string|null $accountSub
  */
@@ -16,6 +16,7 @@ $_acItems = [
     'profile' => ['/my-profile.php', 'Profile', 'user'],
     'addresses' => ['/my-addresses.php', 'Addresses', 'pin'],
     'orders' => ['/my-orders.php', 'Orders', 'receipt'],
+    'invoices' => ['/my-invoices.php', 'Invoices', 'receipt'],
     'refunds' => ['/my-refunds.php', 'Refunds', 'receipt'],
     'subscriptions' => ['/my-subscriptions.php', 'Subscriptions', 'repeat'],
     'reviews' => ['/submit-review.php', 'Reviews', 'star'],

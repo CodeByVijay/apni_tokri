@@ -361,12 +361,26 @@
       });
     });
 
+    function setPayBusy($btn, busy, msg) {
+      if (!$btn || !$btn.length) return;
+      if (busy) {
+        if (!$btn.data('orig-html')) $btn.data('orig-html', $btn.html());
+        $btn.prop('disabled', true).attr('aria-busy', 'true').addClass('is-loading');
+        if (msg) $('#at-pay-status').text(msg);
+      } else {
+        $btn.prop('disabled', false).removeAttr('aria-busy').removeClass('is-loading');
+        if ($btn.data('orig-html')) $btn.html($btn.data('orig-html'));
+      }
+    }
+
     $('#at-razorpay-pay').on('click', function () {
       var $b = $(this);
+      if ($b.prop('disabled')) return;
       if (typeof Razorpay === 'undefined') {
         alert('Payment script still loading.');
         return;
       }
+      setPayBusy($b, true, 'Opening Razorpay…');
       var rzp = new Razorpay({
         key: $b.data('key-id'),
         amount: $b.data('amount'),
@@ -388,27 +402,48 @@
           } else {
             verifyPayload.order_number = $b.data('order-number');
           }
+          setPayBusy($b, true, 'Verifying payment…');
           $.post(cfg.verifyUrl, verifyPayload).done(function (res) {
             if (res && res.success && res.data && res.data.redirect) {
               window.location.href = res.data.redirect;
+            } else {
+              setPayBusy($b, false);
+              alert((res && res.error && res.error.message) || 'Payment not confirmed yet.');
             }
           }).fail(function () {
+            setPayBusy($b, false);
             alert('Server could not verify payment.');
           });
+        },
+        modal: {
+          ondismiss: function () {
+            setPayBusy($b, false);
+            $('#at-pay-status').text('Payment was cancelled. You can try again.');
+          }
         }
+      });
+      rzp.on('payment.failed', function () {
+        setPayBusy($b, false);
+        $('#at-pay-status').text('Payment failed. Please try again.');
       });
       rzp.open();
     });
 
     $('#at-cashfree-pay').on('click', function () {
-      var session = $(this).data('session');
+      var $b = $(this);
+      if ($b.prop('disabled')) return;
+      var session = $b.data('session');
       if (!session || typeof Cashfree === 'undefined') {
         alert('Cashfree session unavailable.');
         return;
       }
+      setPayBusy($b, true, 'Opening Cashfree…');
       var mode = (cfg.cashfreeMode === 'production') ? 'production' : 'sandbox';
       var cf = Cashfree({ mode: mode });
-      cf.checkout({ paymentSessionId: session, redirectTarget: '_self' });
+      cf.checkout({ paymentSessionId: session, redirectTarget: '_self' }).catch(function () {
+        setPayBusy($b, false);
+        $('#at-pay-status').text('Could not open Cashfree. Try again or refresh status.');
+      });
     });
 
     function cashfreeSyncStatus($btn) {

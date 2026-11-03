@@ -147,6 +147,15 @@ final class AdminOrderService
             (string) ($order['pincode'] ?? ''),
         ]);
         $addressLine = $addressParts !== [] ? implode(' — ', $addressParts) : '—';
+        // Prefer the immutable order snapshot over the live (possibly later-edited) address row.
+        $snapAddr = DeliveryAddressSnapshot::forOrder($order, $pdo);
+        if ($snapAddr !== null && empty($snapAddr['legacy_order'])) {
+            $snapLine = trim(AddressInput::fullAddress($snapAddr));
+            if ($snapLine !== '') {
+                $addressLine = $snapLine;
+                $order['address_label'] = (string) ($snapAddr['label'] ?? $order['address_label'] ?? '');
+            }
+        }
 
         return [
             'id' => $orderId,

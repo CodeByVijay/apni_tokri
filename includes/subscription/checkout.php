@@ -253,10 +253,13 @@ final class SubscriptionPaymentService
         }
 
         if ($gateway === 'razorpay') {
+            $payRef = PaymentInitDiagnostics::referenceId();
             $created = RazorpayGateway::createOrder(
                 PaymentService::amountToPaise($amountInr),
                 $subNumber,
-                $idempotency
+                $idempotency,
+                $payRef,
+                null
             );
             if (!$created['ok']) {
                 return ['ok' => false, 'error' => $created['error'] ?? 'Gateway error'];
@@ -281,7 +284,8 @@ final class SubscriptionPaymentService
         }
 
         $returnUrl = SeoUrl::absolute('/subscription-payment.php?sub=' . rawurlencode($subNumber));
-        $created = CashfreeGateway::createOrder($amountInr, $subNumber, $customerMobile, $returnUrl);
+        $payRef = PaymentInitDiagnostics::referenceId();
+        $created = CashfreeGateway::createOrder($amountInr, $subNumber, $customerMobile, $returnUrl, $payRef, null);
         if (!$created['ok']) {
             return ['ok' => false, 'error' => $created['error'] ?? 'Gateway error'];
         }

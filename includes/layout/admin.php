@@ -11,6 +11,7 @@ function admin_nav_items(): array
     $items = [
         ['slug' => 'dashboard', 'module' => 'dashboard', 'href' => $base . '/dashboard.php', 'label' => 'Dashboard'],
         ['slug' => 'orders', 'module' => 'orders', 'href' => $base . '/orders/index.php', 'label' => 'Orders'],
+        ['slug' => 'invoices', 'module' => 'invoices', 'href' => $base . '/invoices/index.php', 'label' => 'Invoices'],
         ['slug' => 'products', 'module' => 'products', 'href' => $base . '/products/index.php', 'label' => 'Products'],
         ['slug' => 'categories', 'module' => 'categories', 'href' => $base . '/categories/index.php', 'label' => 'Categories'],
         ['slug' => 'inventory', 'module' => 'inventory', 'href' => $base . '/inventory/index.php', 'label' => 'Inventory'],
@@ -52,6 +53,7 @@ function admin_nav_meta(): array
     return [
         'dashboard' => ['group' => 'Overview', 'icon' => 'home'],
         'orders' => ['group' => 'Sales', 'icon' => 'receipt'],
+        'invoices' => ['group' => 'Sales', 'icon' => 'receipt'],
         'payments' => ['group' => 'Sales', 'icon' => 'wallet'],
         'refunds' => ['group' => 'Sales', 'icon' => 'refresh'],
         'subscriptions' => ['group' => 'Sales', 'icon' => 'repeat'],

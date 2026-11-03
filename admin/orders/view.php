@@ -67,6 +67,14 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
                 <strong>Payment:</strong> <?= admin_status_badge((string) $order['payment_status']) ?>
                 <span class="at-muted">· <?= Security::escape((string) ($order['order_source'] ?? '')) ?></span>
             </p>
+            <?php $adminInv = InvoiceService::retailForOrder($orderId); ?>
+            <p><strong>Invoice:</strong>
+                <?php if ($adminInv !== null): ?>
+                    <a class="underline" href="<?= Security::escape(url_base()) ?>/admin/invoices/view.php?id=<?= (int) $adminInv['id'] ?>"><?= Security::escape((string) $adminInv['invoice_number']) ?></a>
+                <?php else: ?>
+                    <span class="at-muted">Not generated yet</span>
+                <?php endif; ?>
+            </p>
             <?php if (!empty($order['delivery_id'])): ?>
                 <p><a class="underline" href="<?= Security::escape(url_base()) ?>/admin/deliveries/view.php?id=<?= (int) $order['delivery_id'] ?>">Open delivery fulfilment</a></p>
             <?php endif; ?>

@@ -12,5 +12,6 @@ $base = url_base() . '/admin/settings';
     <a href="<?= Security::escape($base) ?>/gateways.php" class="<?= $settingsTab === 'gateways' ? 'is-active' : '' ?> at-focusable">Payment gateways</a>
     <a href="<?= Security::escape($base) ?>/smtp.php" class="<?= $settingsTab === 'smtp' ? 'is-active' : '' ?> at-focusable">SMTP</a>
     <a href="<?= Security::escape($base) ?>/sms.php" class="<?= $settingsTab === 'sms' ? 'is-active' : '' ?> at-focusable">SMS</a>
+    <a href="<?= Security::escape($base) ?>/invoices.php" class="<?= $settingsTab === 'invoices' ? 'is-active' : '' ?> at-focusable">Invoices</a>
     <a href="<?= Security::escape($base) ?>/delivery.php" class="<?= $settingsTab === 'delivery' ? 'is-active' : '' ?> at-focusable">Delivery</a>
 </nav>

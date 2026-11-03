@@ -13,6 +13,7 @@
     }
     var index = 0;
     var $main = $('#at-gallery-main');
+    var productName = $main.attr('alt') || 'Product image';
 
     function show(i) {
       if (!images.length) return;
@@ -26,37 +27,210 @@
     $('.at-gallery-thumb').on('click', function () {
       show(parseInt($(this).data('index'), 10));
     });
-    $('.at-gallery-prev').on('click', function () { show(index - 1); });
-    $('.at-gallery-next').on('click', function () { show(index + 1); });
+    $('.at-gallery-prev').on('click', function (e) {
+      e.stopPropagation();
+      show(index - 1);
+    });
+    $('.at-gallery-next').on('click', function (e) {
+      e.stopPropagation();
+      show(index + 1);
+    });
 
     var touchStartX = 0;
+    var lightboxOpen = false;
     $gallery.on('touchstart', function (e) {
+      if (lightboxOpen) return;
       touchStartX = e.originalEvent.changedTouches[0].screenX;
     });
     $gallery.on('touchend', function (e) {
+      if (lightboxOpen) return;
+      if (e.originalEvent.changedTouches.length !== 1) return;
       var dx = e.originalEvent.changedTouches[0].screenX - touchStartX;
       if (Math.abs(dx) > 40) {
         show(dx > 0 ? index - 1 : index + 1);
       }
     });
 
-    // Zoom: hover-pan on desktop, toggle by button / click.
     var $stage = $gallery.find('[data-at-gallery-stage]');
+
+    function prefersFinePointer() {
+      return window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+    }
+
+    /* --- Touch / mobile full-screen viewer --- */
+    var $lightbox = null;
+    var lbState = { scale: 1, tx: 0, ty: 0, lastTap: 0 };
+
+    function applyLbTransform($pan) {
+      $pan.css(
+        'transform',
+        'translate(' + lbState.tx + 'px,' + lbState.ty + 'px) scale(' + lbState.scale + ')'
+      );
+    }
+
+    function closeLightbox() {
+      if (!$lightbox || !$lightbox.length) return;
+      $lightbox.attr('hidden', 'hidden');
+      $('body').removeClass('at-gallery-lightbox-open');
+      lightboxOpen = false;
+      $(document).off('keydown.atGalleryLb');
+    }
+
+    function lbSetImage(idx) {
+      if (!$lightbox || !images.length) return;
+      index = (idx + images.length) % images.length;
+      show(index);
+      lbState.scale = 1;
+      lbState.tx = 0;
+      lbState.ty = 0;
+      $lightbox.find('.at-gallery-lightbox__pan img').attr('src', images[index]).attr('alt', productName);
+      if (images.length > 1) {
+        $lightbox.find('.at-gallery-lightbox__title').text('Image ' + (index + 1) + ' of ' + images.length);
+      } else {
+        $lightbox.find('.at-gallery-lightbox__title').text(productName);
+      }
+      applyLbTransform($lightbox.find('.at-gallery-lightbox__pan'));
+    }
+
+    function ensureLightbox() {
+      if ($lightbox) return;
+      $lightbox = $(
+        '<div class="at-gallery-lightbox" hidden role="dialog" aria-modal="true" aria-label="Product image viewer">' +
+          '<div class="at-gallery-lightbox__bar">' +
+          '<p class="at-gallery-lightbox__title"></p>' +
+          '<button type="button" class="at-gallery-lightbox__close at-focusable" aria-label="Close image viewer">&times;</button>' +
+          '</div>' +
+          '<div class="at-gallery-lightbox__stage">' +
+          (images.length > 1
+            ? '<button type="button" class="at-gallery-lightbox__nav at-gallery-lightbox__nav--prev at-focusable" aria-label="Previous image">‹</button>' +
+              '<button type="button" class="at-gallery-lightbox__nav at-gallery-lightbox__nav--next at-focusable" aria-label="Next image">›</button>'
+            : '') +
+          '<div class="at-gallery-lightbox__pan"><img src="" alt=""></div>' +
+          '</div>' +
+          '<p class="at-gallery-lightbox__hint">Pinch or double-tap to zoom · Drag to pan</p>' +
+          '</div>'
+      );
+      $('body').append($lightbox);
+      $lightbox.find('.at-gallery-lightbox__close').on('click', closeLightbox);
+      $lightbox.on('click', function (e) {
+        if ($(e.target).is('.at-gallery-lightbox')) closeLightbox();
+      });
+      if (images.length > 1) {
+        $lightbox.find('.at-gallery-lightbox__nav--prev').on('click', function (e) {
+          e.stopPropagation();
+          lbSetImage(index - 1);
+        });
+        $lightbox.find('.at-gallery-lightbox__nav--next').on('click', function (e) {
+          e.stopPropagation();
+          lbSetImage(index + 1);
+        });
+      }
+      var $pan = $lightbox.find('.at-gallery-lightbox__pan');
+      var pinchStart = null;
+      $pan.on('touchstart', function (e) {
+        var ev = e.originalEvent;
+        if (ev.touches.length === 2) {
+          pinchStart = {
+            dist: Math.hypot(
+              ev.touches[0].clientX - ev.touches[1].clientX,
+              ev.touches[0].clientY - ev.touches[1].clientY
+            ),
+            scale: lbState.scale,
+          };
+        } else if (ev.touches.length === 1) {
+          pinchStart = {
+            mode: 'pan',
+            x: ev.touches[0].clientX,
+            y: ev.touches[0].clientY,
+            tx: lbState.tx,
+            ty: lbState.ty,
+          };
+        }
+      });
+      $pan.on('touchmove', function (e) {
+        var ev = e.originalEvent;
+        if (!pinchStart) return;
+        if (ev.touches.length === 2 && pinchStart.dist) {
+          e.preventDefault();
+          var dist = Math.hypot(
+            ev.touches[0].clientX - ev.touches[1].clientX,
+            ev.touches[0].clientY - ev.touches[1].clientY
+          );
+          lbState.scale = Math.min(4, Math.max(1, pinchStart.scale * (dist / pinchStart.dist)));
+          applyLbTransform($pan);
+        } else if (ev.touches.length === 1 && pinchStart.mode === 'pan' && lbState.scale > 1) {
+          e.preventDefault();
+          lbState.tx = pinchStart.tx + (ev.touches[0].clientX - pinchStart.x);
+          lbState.ty = pinchStart.ty + (ev.touches[0].clientY - pinchStart.y);
+          applyLbTransform($pan);
+        }
+      });
+      $pan.on('touchend touchcancel', function () {
+        pinchStart = null;
+        if (lbState.scale <= 1.05) {
+          lbState.scale = 1;
+          lbState.tx = 0;
+          lbState.ty = 0;
+          applyLbTransform($pan);
+        }
+      });
+      $pan.on('dblclick', function (e) {
+        e.preventDefault();
+        lbState.scale = lbState.scale > 1 ? 1 : 2;
+        if (lbState.scale === 1) {
+          lbState.tx = 0;
+          lbState.ty = 0;
+        }
+        applyLbTransform($pan);
+      });
+    }
+
+    function openLightbox(startIndex) {
+      if (!images.length) return;
+      ensureLightbox();
+      lbSetImage(startIndex);
+      $lightbox.removeAttr('hidden');
+      $('body').addClass('at-gallery-lightbox-open');
+      lightboxOpen = true;
+      $(document).on('keydown.atGalleryLb', function (ev) {
+        if (ev.key === 'Escape') closeLightbox();
+      });
+    }
+
     $('.js-gallery-zoom').on('click', function (e) {
       e.stopPropagation();
-      $stage.toggleClass('is-zoomed');
-      if (!$stage.hasClass('is-zoomed')) $main.css('transform-origin', 'center');
+      e.preventDefault();
+      if (prefersFinePointer()) {
+        $stage.toggleClass('is-zoomed');
+        if (!$stage.hasClass('is-zoomed')) $main.css('transform-origin', 'center');
+      } else {
+        openLightbox(index);
+      }
     });
-    $stage.on('click', function (e) {
-      if ($(e.target).closest('button').length) return;
-      $stage.toggleClass('is-zoomed');
-    });
-    $stage.on('mousemove', function (e) {
-      if (!$stage.hasClass('is-zoomed')) return;
-      var r = this.getBoundingClientRect();
-      $main.css('transform-origin', ((e.clientX - r.left) / r.width * 100) + '% ' + ((e.clientY - r.top) / r.height * 100) + '%');
-    });
-    $stage.on('mouseleave', function () { $stage.removeClass('is-zoomed'); $main.css('transform-origin', 'center'); });
+
+    if (prefersFinePointer()) {
+      $stage.on('click', function (e) {
+        if ($(e.target).closest('button').length) return;
+        $stage.toggleClass('is-zoomed');
+      });
+      $stage.on('mousemove', function (e) {
+        if (!$stage.hasClass('is-zoomed')) return;
+        var r = this.getBoundingClientRect();
+        $main.css(
+          'transform-origin',
+          ((e.clientX - r.left) / r.width) * 100 + '% ' + ((e.clientY - r.top) / r.height) * 100 + '%'
+        );
+      });
+      $stage.on('mouseleave', function () {
+        $stage.removeClass('is-zoomed');
+        $main.css('transform-origin', 'center');
+      });
+    } else {
+      $stage.on('click', function (e) {
+        if ($(e.target).closest('button').length) return;
+        openLightbox(index);
+      });
+    }
   }
 
   function initVariantPicker() {

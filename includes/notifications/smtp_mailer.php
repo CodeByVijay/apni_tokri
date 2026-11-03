@@ -16,6 +16,9 @@ final class SmtpMailer
     /** @var resource|null */
     private $stream;
 
+    /** @var list<array{filename: string, mime: string, content: string}> */
+    private $attachments = [];
+
     /** @param array<string, mixed>|null $config */
     public function __construct(?array $config = null)
     {
@@ -31,8 +34,9 @@ final class SmtpMailer
     /**
      * @return array{ok: bool, error?: string}
      */
-    public function send(string $to, string $subject, string $textBody, ?string $htmlBody = null): array
+    public function send(string $to, string $subject, string $textBody, ?string $htmlBody = null, array $attachments = []): array
     {
+        $this->attachments = $attachments;
         $ready = SmtpSettingsService::readinessError($this->config);
         if ($ready !== null) {
             return ['ok' => false, 'error' => $ready];
@@ -240,18 +244,40 @@ final class SmtpMailer
             'MIME-Version: 1.0',
         ];
 
+        $altBody = null;
         if ($htmlBody !== null && $htmlBody !== '') {
             $boundary = 'at_' . bin2hex(random_bytes(12));
+            $altBody = "--{$boundary}\r\n";
+            $altBody .= "Content-Type: text/plain; charset=UTF-8\r\n";
+            $altBody .= "Content-Transfer-Encoding: 8bit\r\n\r\n";
+            $altBody .= self::dotStuff($textBody) . "\r\n";
+            $altBody .= "--{$boundary}\r\n";
+            $altBody .= "Content-Type: text/html; charset=UTF-8\r\n";
+            $altBody .= "Content-Transfer-Encoding: 8bit\r\n\r\n";
+            $altBody .= self::dotStuff($htmlBody) . "\r\n";
+            $altBody .= "--{$boundary}--\r\n";
+        }
+        if ($this->attachments !== []) {
+            $mixed = 'atm_' . bin2hex(random_bytes(12));
+            $headers[] = 'Content-Type: multipart/mixed; boundary="' . $mixed . '"';
+            $body = "--{$mixed}\r\n";
+            if ($altBody !== null) {
+                $body .= 'Content-Type: multipart/alternative; boundary="' . $boundary . "\"\r\n\r\n" . $altBody;
+            } else {
+                $body .= "Content-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\n" . self::dotStuff($textBody) . "\r\n";
+            }
+            foreach ($this->attachments as $att) {
+                $fn = preg_replace('/[^A-Za-z0-9._\-]+/', '_', (string) $att['filename']) ?: 'attachment';
+                $body .= "--{$mixed}\r\n";
+                $body .= 'Content-Type: ' . $att['mime'] . '; name="' . $fn . "\"\r\n";
+                $body .= "Content-Transfer-Encoding: base64\r\n";
+                $body .= 'Content-Disposition: attachment; filename="' . $fn . "\"\r\n\r\n";
+                $body .= chunk_split(base64_encode((string) $att['content']), 76, "\r\n");
+            }
+            $body .= "--{$mixed}--\r\n";
+        } elseif ($altBody !== null) {
             $headers[] = 'Content-Type: multipart/alternative; boundary="' . $boundary . '"';
-            $body = "--{$boundary}\r\n";
-            $body .= "Content-Type: text/plain; charset=UTF-8\r\n";
-            $body .= "Content-Transfer-Encoding: 8bit\r\n\r\n";
-            $body .= self::dotStuff($textBody) . "\r\n";
-            $body .= "--{$boundary}\r\n";
-            $body .= "Content-Type: text/html; charset=UTF-8\r\n";
-            $body .= "Content-Transfer-Encoding: 8bit\r\n\r\n";
-            $body .= self::dotStuff($htmlBody) . "\r\n";
-            $body .= "--{$boundary}--\r\n";
+            $body = $altBody;
         } else {
             $headers[] = 'Content-Type: text/plain; charset=UTF-8';
             $headers[] = 'Content-Transfer-Encoding: 8bit';

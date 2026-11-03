@@ -12,15 +12,21 @@ final class SecretStore
         if (self::$masterKey !== null) {
             return self::$masterKey;
         }
-        $path = (string) (App::config()['encryption']['master_key_path'] ?? '');
-        if ($path === '') {
-            $path = APNI_TOKRI_ROOT . '/storage/secrets/master.key';
-        }
+        InvoiceProductionSecurity::ensureProductionStorageConfigured();
+
+        $path = InvoiceProductionSecurity::effectiveMasterKeyPath();
         $dir = dirname($path);
-        if (!is_dir($dir)) {
-            @mkdir($dir, 0700, true);
+        if (!InvoiceProductionSecurity::isProduction()) {
+            if (!is_dir($dir)) {
+                @mkdir($dir, 0700, true);
+            }
         }
         if (!is_readable($path)) {
+            if (InvoiceProductionSecurity::isProduction()) {
+                throw new RuntimeException(
+                    'Invoice encryption master key file is missing or not readable. Restore the existing key file; do not replace it with a newly generated key.'
+                );
+            }
             if (!is_file($path)) {
                 $key = random_bytes(SODIUM_CRYPTO_SECRETBOX_KEYBYTES);
                 file_put_contents($path, $key, LOCK_EX);

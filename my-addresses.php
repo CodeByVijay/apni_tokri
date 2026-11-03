@@ -6,6 +6,7 @@ require_once __DIR__ . '/includes/bootstrap.php';
 
 Security::sendSecurityHeaders(Security::isHttps());
 require APNI_TOKRI_ROOT . '/includes/partials/account-guard.php';
+require APNI_TOKRI_ROOT . '/includes/partials/address-summary.php';
 
 $base = url_base();
 $errors = [];
@@ -15,8 +16,8 @@ if (!empty($_SESSION['account_flash']) && is_string($_SESSION['account_flash']))
     unset($_SESSION['account_flash']);
 }
 
-$blank = ['label' => 'Home', 'line1' => '', 'line2' => '', 'pincode' => ''];
-$form = $blank;
+$profile = CustomerAccountService::profile($customerId) ?? [];
+$form = AddressInput::blankFormValues($profile);
 $editId = 0;
 $showForm = false;
 
@@ -28,18 +29,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $redirectMsg = null;
 
     if ($action === 'add' || $action === 'update') {
-        $form = [
-            'label' => isset($_POST['label']) && is_string($_POST['label']) ? $_POST['label'] : '',
-            'line1' => isset($_POST['line1']) && is_string($_POST['line1']) ? $_POST['line1'] : '',
-            'line2' => isset($_POST['line2']) && is_string($_POST['line2']) ? $_POST['line2'] : '',
-            'pincode' => isset($_POST['pincode']) && is_string($_POST['pincode']) ? $_POST['pincode'] : '',
-        ];
+        // Same validation + persistence path as checkout.php (CustomerAccountService / AddressInput).
+        $form = AddressInput::formValuesFromPost($_POST);
         if ($action === 'add') {
-            $res = CustomerAccountService::addAddress($customerId, $form, !empty($_POST['make_default']));
+            $res = CustomerAccountService::addAddress($customerId, $_POST, !empty($_POST['make_default']));
             $redirectMsg = 'Address added.';
         } else {
             $editId = $addrId;
-            $res = CustomerAccountService::updateAddress($customerId, $addrId, $form);
+            $res = CustomerAccountService::updateAddress($customerId, $addrId, $_POST);
             $redirectMsg = 'Address updated.';
         }
         if ($res['ok']) {
@@ -66,7 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $row = CustomerAccountService::findAddress($customerId, (int) $_GET['edit']);
     if ($row !== null) {
         $editId = (int) $row['id'];
-        $form = ['label' => (string) $row['label'], 'line1' => (string) $row['line1'], 'line2' => (string) ($row['line2'] ?? ''), 'pincode' => (string) $row['pincode']];
+        $form = AddressInput::formValuesFromRow($row, $profile);
         $showForm = true;
     } else {
         $errors['form'] = 'Address not found.';
@@ -76,20 +73,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $addresses = CustomerAccountService::listAddresses($customerId);
+$anyPin = false;
+foreach ($addresses as $a) {
+    if (AddressInput::hasPin($a)) {
+        $anyPin = true;
+        break;
+    }
+}
 
-layout_public_start(['pageTitle' => 'My addresses — Apni Tokri', 'activeNav' => 'account']);
+layout_public_start([
+    'pageTitle' => 'My addresses — Apni Tokri',
+    'activeNav' => 'account',
+    'loadAddressMap' => $showForm || $anyPin,
+]);
 $accountActive = 'addresses';
 $accountTitle = 'My addresses';
 $accountSub = 'Delivery addresses saved to your account';
 require APNI_TOKRI_ROOT . '/includes/partials/account-shell-start.php';
-$fe = static function (string $k) use ($errors): string {
-    return isset($errors[$k]) ? '<p class="at-field-hint" style="color:var(--at-danger)" role="alert">' . Security::escape($errors[$k]) . '</p>' : '';
-};
 ?>
 <?php if ($flash !== ''): ?>
     <div class="at-alert at-alert--success" role="status"><span><?= Security::escape($flash) ?></span></div>
 <?php endif; ?>
-<?php if (isset($errors['form'])): ?>
+<?php if (isset($errors['form']) && !$showForm): ?>
     <div class="at-alert at-alert--error" role="alert"><span><?= Security::escape($errors['form']) ?></span></div>
 <?php endif; ?>
 
@@ -103,19 +108,22 @@ $fe = static function (string $k) use ($errors): string {
             <p class="mt-3 text-sm at-muted">You have no saved addresses yet. Add one to speed up checkout.</p>
         <?php else: ?>
             <ul class="mt-3 grid sm:grid-cols-2 gap-3">
-                <?php foreach ($addresses as $a): $isDef = (int) $a['is_default'] === 1; ?>
-                    <li class="at-option !cursor-default flex-col !items-stretch" data-address-id="<?= (int) $a['id'] ?>">
+                <?php foreach ($addresses as $a): $isDef = (int) $a['is_default'] === 1; $hasPin = AddressInput::hasPin($a); ?>
+                    <li class="at-addr-card at-addr-card--static" data-address-id="<?= (int) $a['id'] ?>">
                         <div class="flex gap-3">
-                            <span class="text-[var(--at-green)] mt-0.5"><?= at_icon('pin', 'w-5 h-5') ?></span>
-                            <span class="text-sm">
-                                <strong><?= Security::escape((string) $a['label']) ?></strong>
-                                <?php if ($isDef): ?><span class="at-badge at-badge--success ml-1">Default</span><?php endif; ?><br>
-                                <?= Security::escape((string) $a['line1']) ?><?= !empty($a['line2']) ? ', ' . Security::escape((string) $a['line2']) : '' ?>,
-                                <?= Security::escape((string) $a['city']) ?> — <?= Security::escape((string) $a['pincode']) ?>
-                            </span>
+                            <span class="text-[var(--at-green)] mt-0.5 flex-shrink-0"><?= at_icon('pin', 'w-5 h-5') ?></span>
+                            <span class="at-addr-card__body"><?= at_address_summary_html($a) ?></span>
                         </div>
-                        <div class="flex flex-wrap gap-2 mt-3">
-                            <a href="<?= Security::escape($base) ?>/my-addresses.php?edit=<?= (int) $a['id'] ?>" class="at-btn at-btn--secondary at-btn--sm at-focusable">Edit</a>
+                        <?php if (!empty($a['delivery_instructions'])): ?>
+                            <p class="text-xs at-muted">Instructions: <?= Security::escape((string) $a['delivery_instructions']) ?></p>
+                        <?php endif; ?>
+                        <div class="at-addr-card__actions">
+                            <a href="<?= Security::escape($base) ?>/my-addresses.php?edit=<?= (int) $a['id'] ?>" class="at-btn at-btn--secondary at-btn--sm at-focusable"><?= $hasPin ? 'Edit' : 'Add map pin' ?></a>
+                            <?php if ($hasPin): ?>
+                                <button type="button" class="at-btn at-btn--secondary at-btn--sm at-focusable" data-at-view-location
+                                    data-lat="<?= Security::escape((string) $a['latitude']) ?>" data-lng="<?= Security::escape((string) $a['longitude']) ?>"
+                                    data-title="<?= Security::escape((string) $a['label']) ?>">View location</button>
+                            <?php endif; ?>
                             <?php if (!$isDef): ?>
                                 <form method="post" action="<?= Security::escape($base) ?>/my-addresses.php"><?= Csrf::field() ?>
                                     <input type="hidden" name="action" value="default"><input type="hidden" name="address_id" value="<?= (int) $a['id'] ?>">
@@ -135,27 +143,19 @@ $fe = static function (string $k) use ($errors): string {
 <?php if ($showForm): ?>
 <section class="at-card" id="address-form">
     <div class="at-card__body">
-        <h2 class="at-h3"><?= $editId > 0 ? 'Edit address' : 'Add a new address' ?></h2>
-        <form method="post" action="<?= Security::escape($base) ?>/my-addresses.php" class="mt-4 grid sm:grid-cols-2 gap-4 max-w-2xl" novalidate>
-            <?= Csrf::field() ?>
-            <input type="hidden" name="action" value="<?= $editId > 0 ? 'update' : 'add' ?>">
-            <?php if ($editId > 0): ?><input type="hidden" name="address_id" value="<?= (int) $editId ?>"><?php endif; ?>
-            <div><label class="at-label" for="ad-label">Label</label>
-                <input id="ad-label" name="label" class="at-input at-focusable" maxlength="64" value="<?= Security::escape($form['label']) ?>" placeholder="Home, Office…"><?= $fe('label') ?></div>
-            <div><label class="at-label" for="ad-pin">Pincode</label>
-                <input id="ad-pin" name="pincode" class="at-input at-focusable" inputmode="numeric" maxlength="6" value="<?= Security::escape($form['pincode']) ?>" placeholder="452001"><?= $fe('pincode') ?></div>
-            <div class="sm:col-span-2"><label class="at-label" for="ad-line1">Address</label>
-                <input id="ad-line1" name="line1" class="at-input at-focusable" maxlength="255" value="<?= Security::escape($form['line1']) ?>" placeholder="House / flat, street, area"><?= $fe('line1') ?></div>
-            <div class="sm:col-span-2"><label class="at-label" for="ad-line2">Landmark <span class="at-muted font-normal">(optional)</span></label>
-                <input id="ad-line2" name="line2" class="at-input at-focusable" maxlength="255" value="<?= Security::escape($form['line2']) ?>"><?= $fe('line2') ?></div>
-            <?php if ($editId === 0): ?>
-                <label class="sm:col-span-2 flex items-center gap-2 text-sm"><input type="checkbox" name="make_default" value="1"> Make this my default address</label>
-            <?php endif; ?>
-            <div class="sm:col-span-2 flex gap-2">
-                <button type="submit" class="at-btn at-btn--primary at-focusable"><?= $editId > 0 ? 'Save changes' : 'Save address' ?></button>
-                <a href="<?= Security::escape($base) ?>/my-addresses.php" class="at-btn at-btn--secondary at-focusable">Cancel</a>
-            </div>
-        </form>
+        <h2 class="at-h3 mb-4"><?= $editId > 0 ? 'Edit address' : 'Add a new address' ?></h2>
+        <?php
+        $addrFormAction = $base . '/my-addresses.php';
+        $addrFormMode = $editId > 0 ? 'update' : 'add';
+        $addrFormId = $editId;
+        $addrFormValues = $form;
+        $addrFormErrors = $errors;
+        $addrFormCancelUrl = $base . '/my-addresses.php';
+        $addrFormShowDefault = true;
+        $addrFormHidden = [];
+        $addrFormUid = 'ma';
+        require APNI_TOKRI_ROOT . '/includes/partials/address-form.php';
+        ?>
     </div>
 </section>
 <?php endif; ?>

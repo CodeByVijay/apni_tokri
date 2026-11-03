@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 final class PaymentHttp
 {
+    /** @var callable|null Test hook: function(string $method, string $url, ?array $jsonBody, array $headers, ?string $basicUser, ?string $basicPass): array */
+    public static $testHandler = null;
+
     /**
      * @param array<string, string> $headers
      * @return array{ok: bool, status: int, body: string, json: array<string, mixed>|null, error?: string}
@@ -17,6 +20,10 @@ final class PaymentHttp
         ?string $basicPass = null,
         ?int $timeoutSeconds = null
     ): array {
+        if (self::$testHandler !== null) {
+            return (self::$testHandler)($method, $url, $jsonBody, $headers, $basicUser, $basicPass);
+        }
+
         $ch = curl_init($url);
         if ($ch === false) {
             return ['ok' => false, 'status' => 0, 'body' => '', 'json' => null, 'error' => 'curl init failed'];

@@ -95,10 +95,30 @@ final class PaymentService
      */
     public static function initiateForOrder(int $orderId, string $orderNumber, float $amountInr, string $customerMobile): array
     {
+        $referenceId = PaymentInitDiagnostics::referenceId();
         $gateway = PaymentGatewayConfig::activeGateway();
         if (PaymentGatewayConfig::useSimulatedCheckout()) {
             $gateway = 'simulate';
+        } else {
+            $ready = PaymentGatewayConfig::readinessFor($gateway);
+            if (!$ready['ok']) {
+                PaymentInitDiagnostics::logInitFailure(
+                    $gateway,
+                    $referenceId,
+                    'configuration',
+                    $orderId,
+                    0,
+                    ['code' => (string) ($ready['code'] ?? ''), 'message' => (string) ($ready['message'] ?? '')]
+                );
+
+                return [
+                    'ok' => false,
+                    'error' => PaymentInitDiagnostics::customerMessage(PaymentGatewayConfig::gatewayLabel($gateway), $referenceId),
+                    'reference_id' => $referenceId,
+                ];
+            }
         }
+
         $idempotency = self::nextIdempotencyKey($orderNumber);
         $pdo = Database::pdo();
         $pdo->prepare(
@@ -118,9 +138,15 @@ final class PaymentService
         }
 
         if ($gateway === 'razorpay') {
-            $created = RazorpayGateway::createOrder(self::amountToPaise($amountInr), $orderNumber, $idempotency);
+            $created = RazorpayGateway::createOrder(self::amountToPaise($amountInr), $orderNumber, $idempotency, $referenceId, $orderId);
             if (!$created['ok']) {
-                return ['ok' => false, 'error' => $created['error'] ?? 'Gateway error'];
+                $pdo->prepare('UPDATE payments SET status = ? WHERE id = ?')->execute(['failed', $paymentId]);
+
+                return [
+                    'ok' => false,
+                    'error' => $created['error'] ?? PaymentInitDiagnostics::customerMessage('Razorpay', $referenceId),
+                    'reference_id' => $created['reference_id'] ?? $referenceId,
+                ];
             }
             $gwOrderId = (string) $created['gateway_order_id'];
             $pdo->prepare('UPDATE payments SET gateway_order_id = ?, status = ? WHERE id = ?')
@@ -136,14 +162,21 @@ final class PaymentService
                     'gateway_order_id' => $gwOrderId,
                     'order_number' => $orderNumber,
                     'idempotency_key' => $idempotency,
+                    'reference_id' => $referenceId,
                 ],
             ];
         }
 
         $returnUrl = SeoUrl::absolute('/payment.php?order=' . rawurlencode($orderNumber));
-        $created = CashfreeGateway::createOrder($amountInr, $orderNumber, $customerMobile, $returnUrl);
+        $created = CashfreeGateway::createOrder($amountInr, $orderNumber, $customerMobile, $returnUrl, $referenceId, $orderId);
         if (!$created['ok']) {
-            return ['ok' => false, 'error' => $created['error'] ?? 'Gateway error'];
+            $pdo->prepare('UPDATE payments SET status = ? WHERE id = ?')->execute(['failed', $paymentId]);
+
+            return [
+                'ok' => false,
+                'error' => $created['error'] ?? PaymentInitDiagnostics::customerMessage('Cashfree', $referenceId),
+                'reference_id' => $created['reference_id'] ?? $referenceId,
+            ];
         }
         $pdo->prepare('UPDATE payments SET gateway_order_id = ?, status = ? WHERE id = ?')
             ->execute([(string) $created['gateway_order_id'], 'pending', $paymentId]);
@@ -157,6 +190,7 @@ final class PaymentService
                 'payment_session_id' => (string) ($created['payment_session_id'] ?? ''),
                 'order_number' => $orderNumber,
                 'idempotency_key' => $idempotency,
+                'reference_id' => $referenceId,
             ],
         ];
     }

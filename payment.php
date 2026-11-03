@@ -46,6 +46,10 @@ if ((string) $order['payment_status'] === 'paid') {
     exit;
 }
 
+if (isset($_GET['retry']) && (string) $_GET['retry'] === '1') {
+    unset($_SESSION['checkout_payment'][$orderNumber]);
+}
+
 $latestPayment = PaymentRepository::latestPaymentForOrder((int) $order['id']);
 $cashfreeActive = PaymentGatewayConfig::activeGateway() === 'cashfree' && !PaymentGatewayConfig::useSimulatedCheckout();
 if ($cashfreeActive || PaymentService::hasOpenCashfreePayment($latestPayment)) {
@@ -103,6 +107,9 @@ if ($checkout === null || !is_array($checkout)) {
 $amount = (float) $order['grand_total'];
 $mode = is_array($checkout) ? (string) ($checkout['mode'] ?? 'simulate') : 'simulate';
 $cashfreeTestMode = PaymentGatewayConfig::isTestMode();
+$gatewayLabel = PaymentGatewayConfig::gatewayLabel($mode === 'simulate' ? 'simulate' : (string) PaymentGatewayConfig::activeGateway());
+$payReference = is_array($checkout) ? (string) ($checkout['reference_id'] ?? '') : '';
+$canRetry = $error !== '' && (string) ($order['payment_status'] ?? '') !== 'paid';
 
 layout_public_start([
     'pageTitle' => 'Pay for order — Apni Tokri',
@@ -115,12 +122,17 @@ if ($mode === 'razorpay'): ?>
 <script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
 <?php endif;
 ?>
-<div class="at-container py-8 md:py-12 max-w-lg">
+<div class="at-container py-8 md:py-12 max-w-lg at-payment-page">
     <h1 class="at-h1">Complete payment</h1>
     <p class="at-muted mt-1">Order <span class="font-mono font-bold"><?= Security::escape($orderNumber) ?></span></p>
 
     <?php if ($error !== ''): ?>
-        <div class="at-alert at-alert--error mt-4" role="alert"><?= Security::escape($error) ?></div>
+        <div class="at-alert at-alert--error mt-4" role="alert">
+            <span><?= Security::escape($error) ?></span>
+            <?php if ($canRetry): ?>
+                <p class="mt-2 text-sm"><a class="underline font-semibold" href="<?= Security::escape(url_base()) ?>/payment.php?order=<?= rawurlencode($orderNumber) ?>&amp;retry=1">Try again</a></p>
+            <?php endif; ?>
+        </div>
     <?php endif; ?>
     <?php if ($info !== ''): ?>
         <div class="at-alert at-alert--info mt-4" role="status"><?= Security::escape($info) ?></div>
@@ -128,18 +140,31 @@ if ($mode === 'razorpay'): ?>
 
     <div class="at-card mt-6">
         <div class="at-card__body grid gap-4">
-            <dl class="at-summary-list">
-                <div><dt>Amount due</dt><dd class="text-xl font-extrabold"><?= Security::escape(catalogue_format_price($amount)) ?></dd></div>
-                <div><dt>Currency</dt><dd>INR</dd></div>
-            </dl>
+            <div class="at-checkout-pay__card">
+                <div class="at-checkout-pay__row">
+                    <span class="at-checkout-pay__label">Payment gateway</span>
+                    <span class="at-checkout-pay__value"><?= Security::escape($gatewayLabel) ?>
+                        <?php if ($cashfreeTestMode && $mode !== 'simulate'): ?><span class="at-badge">Test</span><?php endif; ?>
+                    </span>
+                </div>
+                <div class="at-checkout-pay__row">
+                    <span class="at-checkout-pay__label">Amount payable</span>
+                    <span class="at-checkout-pay__value at-checkout-pay__amount"><?= Security::escape(catalogue_format_price($amount)) ?></span>
+                </div>
+                <div class="at-checkout-pay__row"><span class="at-checkout-pay__label">Currency</span><span class="at-checkout-pay__value">INR</span></div>
+                <?php if ($payReference !== ''): ?>
+                    <p class="text-xs at-muted">Reference: <span class="font-mono"><?= Security::escape($payReference) ?></span></p>
+                <?php endif; ?>
+            </div>
 
-            <?php if ($mode === 'simulate' && is_array($checkout)): ?>
+            <?php if ($mode === 'simulate' && is_array($checkout) && PaymentGatewayConfig::useSimulatedCheckout()): ?>
                 <p class="text-sm at-muted">Simulated gateway (Stage 9). Payment is confirmed only after server verification — not from the browser alone.</p>
                 <div class="flex flex-col sm:flex-row gap-3" id="at-pay-simulate" data-order="<?= Security::escape($orderNumber) ?>" data-token="<?= Security::escape((string) ($checkout['token'] ?? '')) ?>" data-idempotency="<?= Security::escape((string) ($checkout['idempotency_key'] ?? '')) ?>">
                     <button type="button" class="at-btn at-btn--primary at-btn--lg at-focusable flex-1" data-outcome="success"><?= at_icon('lock', 'w-5 h-5') ?> Pay (simulated success)</button>
                     <button type="button" class="at-btn at-btn--secondary at-focusable" data-outcome="fail">Simulate failure</button>
                 </div>
             <?php elseif ($mode === 'razorpay' && is_array($checkout)): ?>
+                <p class="text-sm at-muted" id="at-pay-status" aria-live="polite">Tap below to open secure Razorpay checkout.</p>
                 <button type="button" id="at-razorpay-pay" class="at-btn at-btn--primary at-btn--lg at-focusable at-btn--block"
                     data-key-id="<?= Security::escape((string) ($checkout['key_id'] ?? '')) ?>"
                     data-amount="<?= (int) ($checkout['amount_paise'] ?? 0) ?>"
@@ -151,6 +176,7 @@ if ($mode === 'razorpay'): ?>
                     <?= at_icon('wallet', 'w-5 h-5') ?> Pay with Razorpay
                 </button>
             <?php elseif ($mode === 'cashfree' && is_array($checkout)): ?>
+                <p class="text-sm at-muted" id="at-pay-status" aria-live="polite">Tap below to open Cashfree checkout.</p>
                 <button type="button" id="at-cashfree-pay" class="at-btn at-btn--primary at-btn--lg at-focusable at-btn--block"
                     data-session="<?= Security::escape((string) ($checkout['payment_session_id'] ?? '')) ?>"
                     data-idempotency="<?= Security::escape((string) ($checkout['idempotency_key'] ?? '')) ?>"

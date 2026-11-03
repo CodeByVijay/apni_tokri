@@ -47,6 +47,6 @@ return [
     ],
 
     'install' => [
-        'expected_schema_version' => '1.15.0-stage14-reports-6',
+        'expected_schema_version' => '1.20.0-invoices',
     ],
 ];

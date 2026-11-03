@@ -10,8 +10,12 @@ $useDb = Install::isSchemaReady() && AdminAuth::check();
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     Csrf::requireValid();
     if ($useDb) {
-        PaymentGatewaySettingsService::saveFromPost($_POST);
-        admin_flash_set('Payment gateway settings saved.');
+        $save = PaymentGatewaySettingsService::saveFromPost($_POST);
+        if (!empty($save['ok'])) {
+            admin_flash_set('Payment gateway settings saved.');
+        } else {
+            admin_flash_set($save['message'] ?? 'Could not save gateway settings.', 'error');
+        }
     } else {
         admin_flash_set('Payment gateway settings saved (demo UI).');
     }
@@ -26,6 +30,23 @@ $cfEnabled = (AppSettings::get('cashfree.enabled', '0') ?? '0') === '1';
 $rzpKeyId = AppSettings::get('razorpay.key_id', '') ?? '';
 $cfAppId = AppSettings::get('cashfree.app_id', '') ?? '';
 $secrets = PaymentGatewaySettingsService::secretPresence();
+$gwStatus = PaymentGatewaySettingsService::gatewayStatusSummary();
+$renderGwDiag = static function (array $diag): string {
+    $cls = 'at-muted';
+    if (($diag['api_state'] ?? '') === PaymentGatewayDiagnosticState::API_VERIFIED) {
+        $cls = 'text-[var(--at-success)]';
+    } elseif (($diag['api_state'] ?? '') === PaymentGatewayDiagnosticState::API_AUTH_FAILED) {
+        $cls = 'text-[var(--at-danger)]';
+    } elseif (($diag['config_state'] ?? '') !== PaymentGatewayDiagnosticState::CONFIG_READY) {
+        $cls = 'text-[var(--at-yellow-ink)]';
+    }
+    $head = Security::escape((string) ($diag['config_label'] ?? ''));
+    if (!empty($diag['api_label'])) {
+        $head .= ' · ' . Security::escape((string) $diag['api_label']);
+    }
+    return '<span class="block font-semibold ' . $cls . '">' . $head . '</span>'
+        . '<span class="block at-muted mt-1">' . Security::escape((string) ($diag['detail'] ?? '')) . '</span>';
+};
 
 admin_layout_start(['pageTitle' => 'Payment gateways', 'activeAdminNav' => 'settings']);
 admin_flash_render();
@@ -39,7 +60,29 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/settings-nav.php';
 ?>
 
 <div class="at-card max-w-2xl mb-4">
-    <div class="at-card__body text-sm space-y-2">
+    <div class="at-card__body text-sm space-y-3">
+        <h3 class="font-bold">Status overview</h3>
+        <ul class="grid sm:grid-cols-2 gap-2 text-xs">
+            <li class="p-3 rounded border border-neutral-200">
+                <strong>Active:</strong> <?= Security::escape(PaymentGatewayConfig::gatewayLabel((string) $gwStatus['active'])) ?>
+                <?php if (!empty($gwStatus['test_mode'])): ?><span class="at-badge">Test mode</span><?php else: ?><span class="at-badge at-badge--warning">Live mode</span><?php endif; ?>
+                <?php if (!empty($gwStatus['simulate_fallback'])): ?><p class="at-muted mt-1">Storefront is using simulated checkout until the active gateway is fully configured.</p><?php endif; ?>
+            </li>
+            <li class="p-3 rounded border border-neutral-200">
+                <strong>Razorpay</strong>
+                <?= !empty($gwStatus['razorpay']['enabled']) ? 'Enabled' : 'Disabled' ?>
+                <span class="block at-muted">Key ID <?= !empty($gwStatus['razorpay']['key_id_set']) ? 'set' : 'missing' ?> · Secret <?= !empty($gwStatus['razorpay']['secret_set']) ? 'saved (encrypted)' : 'missing' ?></span>
+                <?= $renderGwDiag($gwStatus['razorpay']['diagnostic'] ?? []) ?>
+            </li>
+            <li class="p-3 rounded border border-neutral-200 sm:col-span-2">
+                <strong>Cashfree</strong>
+                <?= !empty($gwStatus['cashfree']['enabled']) ? 'Enabled' : 'Disabled' ?>
+                · API host: <?= PaymentGatewayConfig::isTestMode() ? 'sandbox' : 'production' ?>
+                <span class="block at-muted">App ID <?= !empty($gwStatus['cashfree']['app_id_set']) ? 'set' : 'missing' ?> · Secret <?= !empty($gwStatus['cashfree']['secret_set']) ? 'saved (encrypted)' : 'missing' ?></span>
+                <?= $renderGwDiag($gwStatus['cashfree']['diagnostic'] ?? []) ?>
+            </li>
+        </ul>
+        <p class="text-xs at-muted">“Configuration ready” means credentials are present and pass format checks only. Gateway authentication is confirmed only after a real customer checkout successfully creates a payment order via the API (or records HTTP 401 on failure). We do not run standalone credential health checks.</p>
         <p><strong>Webhook URLs</strong> (configure in gateway dashboards). Cashfree signs webhooks with your <strong>client secret</strong> unless you set a separate webhook secret below.</p>
         <ul class="list-disc pl-5 at-muted">
             <li>Razorpay: <code class="text-xs"><?= Security::escape($whBase) ?>razorpay.php</code></li>

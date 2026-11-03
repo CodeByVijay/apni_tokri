@@ -151,7 +151,7 @@ final class CustomerService
     public static function orders(): array
     {
         if (CommerceGateway::useDatabase() && CustomerAuth::check()) {
-            return OrderRepository::listForCustomer(CustomerAuth::id());
+            return OrderRepository::listAllRowsForCustomer(CustomerAuth::id());
         }
 
         return SessionCustomerBackend::orders();

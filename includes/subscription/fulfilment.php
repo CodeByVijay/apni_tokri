@@ -261,11 +261,14 @@ final class SubscriptionFulfilmentService
                 if ($deliveryEta === null && !empty($quote['delivery_eta'])) {
                     $deliveryEta = $quote['delivery_eta'];
                 }
+                $custStmt = $pdo->prepare('SELECT name, mobile FROM customers WHERE id = ? LIMIT 1');
+                $custStmt->execute([(int) $day['customer_id']]);
+                $addrSnapshot = DeliveryAddressSnapshot::fromAddressRow($address, $custStmt->fetch(PDO::FETCH_ASSOC) ?: null);
                 $snapshot = json_encode(
                     DeliveryQuoteService::buildSubscriptionOrderSnapshot($quote, [
                         'subscription_number' => (string) $day['subscription_number'],
                         'day_id' => $dayId,
-                    ]),
+                    ], $addrSnapshot),
                     JSON_UNESCAPED_UNICODE
                 );
 

@@ -31,11 +31,23 @@ return [
     ],
 
     /**
-     * Absolute path to the 32-byte Sodium master key file (generated at install).
-     * Example: /var/www/apni-tokri-secrets/master.key
+     * Absolute path to the 32-byte Sodium master key file (0600).
+     * Local/dev: may be left empty to use storage/secrets/master.key under the project (auto-created).
+     * Production: required; must exist outside the web document root. Never auto-generate a new key.
+     * Example: /var/lib/apni-tokri/secrets/master.key
      */
     'encryption' => [
         'master_key_path' => '',
+    ],
+
+    /**
+     * Private invoice PDF storage (encrypted at rest). Directory mode 0750, files 0640.
+     * Local/dev: may be left empty to use storage/invoices under the project.
+     * Production: required; must be outside the web document root.
+     * Example: /var/lib/apni-tokri/invoices
+     */
+    'storage' => [
+        'invoices_path' => '',
     ],
 
     'session' => [
@@ -45,6 +57,16 @@ return [
         'cookie_httponly' => true,
         'cookie_samesite' => 'Lax',
     ],
+
+    /**
+     * Optional: delivery-address map (Leaflet + OpenStreetMap). No API key is used or required.
+     * Defaults to the public OSM tile server (see its usage policy); override to use your own tile host.
+     */
+    // 'map' => [
+    //     'tile_url' => 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+    //     'attribution' => '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    //     'max_zoom' => 19,
+    // ],
 
     'install' => [
         'expected_schema_version' => '1.10.0-stage14-rbac-1',

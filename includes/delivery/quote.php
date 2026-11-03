@@ -133,9 +133,9 @@ final class DeliveryQuoteService
      * @param array<string, mixed> $quote successful quote from quoteForCheckout
      * @return array<string, mixed>
      */
-    public static function buildSnapshot(array $quote): array
+    public static function buildSnapshot(array $quote, ?array $addressSnapshot = null): array
     {
-        return [
+        $snap = [
             'schema_version' => self::SNAPSHOT_SCHEMA,
             'quoted_at' => $quote['quoted_at'] ?? null,
             'pincode' => $quote['pincode'] ?? null,
@@ -159,6 +159,12 @@ final class DeliveryQuoteService
             'zone_resolution_mode' => $quote['zone_resolution_mode'] ?? null,
             'policies' => $quote['policies'] ?? [],
         ];
+        if ($addressSnapshot !== null) {
+            // Receiver, structured address, landmark, instructions and confirmed pin as of order time.
+            $snap['address'] = $addressSnapshot;
+        }
+
+        return $snap;
     }
 
     /**
@@ -166,11 +172,12 @@ final class DeliveryQuoteService
      *
      * @param array<string, mixed> $quote successful quoteForCheckout payload
      * @param array{subscription_number?: string, day_id?: int} $subscriptionMeta
+     * @param array<string, mixed>|null $addressSnapshot DeliveryAddressSnapshot::fromAddressRow()
      * @return array<string, mixed>
      */
-    public static function buildSubscriptionOrderSnapshot(array $quote, array $subscriptionMeta): array
+    public static function buildSubscriptionOrderSnapshot(array $quote, array $subscriptionMeta, ?array $addressSnapshot = null): array
     {
-        $snap = self::buildSnapshot($quote);
+        $snap = self::buildSnapshot($quote, $addressSnapshot);
         $snap['source'] = 'subscription';
         if (!empty($subscriptionMeta['subscription_number'])) {
             $snap['subscription_number'] = (string) $subscriptionMeta['subscription_number'];

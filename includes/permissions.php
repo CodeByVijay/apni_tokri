@@ -13,6 +13,7 @@ final class Permission
         $map = [
             'dashboard' => 'dashboard.view',
             'orders' => 'orders.manage',
+            'invoices' => 'orders.manage',
             'products' => 'products.manage',
             'categories' => 'categories.manage',
             'inventory' => 'inventory.manage',

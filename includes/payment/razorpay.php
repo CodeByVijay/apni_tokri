@@ -14,6 +14,13 @@ final class RazorpayGateway
         return self::isEnabled() && self::keyId() !== '' && self::keySecret() !== '';
     }
 
+    public static function keyIdLooksValid(): bool
+    {
+        $kid = self::keyId();
+
+        return $kid !== '' && preg_match('/^rzp_(test|live)_[A-Za-z0-9]+$/', $kid) === 1;
+    }
+
     public static function keyId(): string
     {
         return trim(AppSettings::get('razorpay.key_id', '') ?? '');
@@ -32,30 +39,49 @@ final class RazorpayGateway
     /**
      * @return array{ok: bool, gateway_order_id?: string, error?: string}
      */
-    public static function createOrder(int $amountPaise, string $receipt, string $idempotencyKey): array
+    public static function createOrder(int $amountPaise, string $receipt, string $idempotencyKey, string $referenceId, ?int $orderId = null): array
     {
+        if ($amountPaise < 100) {
+            PaymentInitDiagnostics::logInitFailure('razorpay', $referenceId, 'validation', $orderId, 0, null, 'amount_below_minimum');
+
+            return ['ok' => false, 'error' => PaymentInitDiagnostics::customerMessage('Razorpay', $referenceId), 'reference_id' => $referenceId];
+        }
         $resp = PaymentHttp::request(
             'POST',
             'https://api.razorpay.com/v1/orders',
             [
                 'amount' => $amountPaise,
                 'currency' => 'INR',
-                'receipt' => $receipt,
-                'notes' => ['idempotency_key' => $idempotencyKey],
+                'receipt' => substr($receipt, 0, 40),
+                'notes' => ['idempotency_key' => $idempotencyKey, 'reference_id' => $referenceId],
             ],
             [],
             self::keyId(),
             self::keySecret()
         );
         if (!$resp['ok'] || !is_array($resp['json'])) {
-            error_log('Razorpay create order HTTP ' . $resp['status']);
+            $stage = $resp['status'] === 401 ? 'gateway_authentication' : 'gateway_api';
+            PaymentInitDiagnostics::logInitFailure(
+                'razorpay',
+                $referenceId,
+                $stage,
+                $orderId,
+                (int) $resp['status'],
+                is_array($resp['json']) ? $resp['json'] : null,
+                $resp['error'] ?? null
+            );
+            PaymentGatewayDiagnosticState::recordInitAttempt('razorpay', (int) $resp['status'], false, $referenceId);
 
-            return ['ok' => false, 'error' => 'Could not start Razorpay payment.'];
+            return ['ok' => false, 'error' => PaymentInitDiagnostics::customerMessage('Razorpay', $referenceId), 'reference_id' => $referenceId];
         }
         $id = (string) ($resp['json']['id'] ?? '');
         if ($id === '') {
-            return ['ok' => false, 'error' => 'Invalid Razorpay response.'];
+            PaymentInitDiagnostics::logInitFailure('razorpay', $referenceId, 'response_parse', $orderId, (int) $resp['status'], $resp['json']);
+
+            return ['ok' => false, 'error' => PaymentInitDiagnostics::customerMessage('Razorpay', $referenceId), 'reference_id' => $referenceId];
         }
+
+        PaymentGatewayDiagnosticState::recordInitAttempt('razorpay', (int) $resp['status'], true, $referenceId);
 
         return ['ok' => true, 'gateway_order_id' => $id];
     }

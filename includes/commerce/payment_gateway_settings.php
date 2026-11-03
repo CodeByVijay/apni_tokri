@@ -42,23 +42,65 @@ final class PaymentGatewaySettingsService
     }
 
     /**
+     * @return array<string, mixed>
+     */
+    public static function gatewayStatusSummary(): array
+    {
+        $active = PaymentGatewayConfig::activeGateway();
+        $testMode = PaymentGatewayConfig::isTestMode();
+        $rzDiag = PaymentGatewayDiagnosticState::adminView('razorpay');
+        $cfDiag = PaymentGatewayDiagnosticState::adminView('cashfree');
+
+        return [
+            'active' => $active,
+            'test_mode' => $testMode,
+            'razorpay' => [
+                'enabled' => RazorpayGateway::isEnabled(),
+                'configured' => RazorpayGateway::isConfigured(),
+                'operational' => PaymentGatewayConfig::isRazorpayOperational(),
+                'key_id_set' => RazorpayGateway::keyId() !== '',
+                'secret_set' => self::hasStoredSecret(self::KEY_RAZORPAY_KEY_SECRET),
+                'diagnostic' => $rzDiag,
+            ],
+            'cashfree' => [
+                'enabled' => CashfreeGateway::isEnabled(),
+                'configured' => CashfreeGateway::isConfigured(),
+                'operational' => PaymentGatewayConfig::isCashfreeOperational(),
+                'app_id_set' => CashfreeGateway::appId() !== '',
+                'secret_set' => self::hasStoredSecret(self::KEY_CASHFREE_SECRET_KEY),
+                'diagnostic' => $cfDiag,
+            ],
+            'simulate_fallback' => PaymentGatewayConfig::useSimulatedCheckout(),
+        ];
+    }
+
+    /**
      * Persist gateway form (blank secret fields retain existing encrypted values).
      *
      * @param array<string, mixed> $post
+     * @return array{ok: bool, message?: string}
      */
-    public static function saveFromPost(array $post): void
+    public static function saveFromPost(array $post): array
     {
-        AppSettings::setMany([
-            'payment.active_gateway' => ['value' => (string) ($post['active_gateway'] ?? 'simulate')],
-            'payment.test_mode' => ['value' => !empty($post['test_mode']) ? '1' : '0'],
-            'razorpay.enabled' => ['value' => !empty($post['razorpay_enabled']) ? '1' : '0'],
-            'cashfree.enabled' => ['value' => !empty($post['cashfree_enabled']) ? '1' : '0'],
-            'razorpay.key_id' => ['value' => trim((string) ($post['razorpay_key_id'] ?? ''))],
-        ]);
+        $requested = (string) ($post['active_gateway'] ?? 'simulate');
+        if (!in_array($requested, ['simulate', 'razorpay', 'cashfree'], true)) {
+            $requested = 'simulate';
+        }
 
-        $newCfId = trim((string) ($post['cashfree_app_id'] ?? ''));
-        if ($newCfId !== '') {
-            AppSettings::set(self::KEY_CASHFREE_APP_ID, $newCfId);
+        if (array_key_exists('test_mode', $post)) {
+            AppSettings::set('payment.test_mode', !empty($post['test_mode']) ? '1' : '0');
+        }
+        if (array_key_exists('razorpay_enabled', $post)) {
+            AppSettings::set('razorpay.enabled', !empty($post['razorpay_enabled']) ? '1' : '0');
+        }
+        if (array_key_exists('cashfree_enabled', $post)) {
+            AppSettings::set('cashfree.enabled', !empty($post['cashfree_enabled']) ? '1' : '0');
+        }
+        if (array_key_exists('razorpay_key_id', $post)) {
+            AppSettings::set('razorpay.key_id', trim((string) $post['razorpay_key_id']));
+        }
+        if (array_key_exists('cashfree_app_id', $post)) {
+            AppSettings::set(self::KEY_CASHFREE_APP_ID, trim((string) $post['cashfree_app_id']));
         }
 
         $secretFields = [
@@ -71,9 +113,38 @@ final class PaymentGatewaySettingsService
             $value = trim((string) ($post[$postName] ?? ''));
             if ($value !== '') {
                 AppSettings::set($key, $value, true);
+                if ($key === self::KEY_RAZORPAY_KEY_SECRET || $key === self::KEY_RAZORPAY_WEBHOOK_SECRET) {
+                    PaymentGatewayDiagnosticState::invalidate('razorpay');
+                }
+                if ($key === self::KEY_CASHFREE_SECRET_KEY || $key === self::KEY_CASHFREE_WEBHOOK_SECRET) {
+                    PaymentGatewayDiagnosticState::invalidate('cashfree');
+                }
             }
         }
 
-        AuditLog::write('settings.payment_gateways', null, null, ['gateway' => $post['active_gateway'] ?? '']);
+        if (array_key_exists('test_mode', $post)) {
+            PaymentGatewayDiagnosticState::invalidate('razorpay');
+            PaymentGatewayDiagnosticState::invalidate('cashfree');
+        }
+        if (array_key_exists('razorpay_enabled', $post) || array_key_exists('razorpay_key_id', $post)) {
+            PaymentGatewayDiagnosticState::invalidate('razorpay');
+        }
+        if (array_key_exists('cashfree_enabled', $post) || array_key_exists('cashfree_app_id', $post)) {
+            PaymentGatewayDiagnosticState::invalidate('cashfree');
+        }
+
+        AppSettings::resetCache();
+
+        if ($requested !== 'simulate') {
+            $ready = PaymentGatewayConfig::readinessFor($requested);
+            if (!$ready['ok']) {
+                return ['ok' => false, 'message' => (string) ($ready['message'] ?? 'Selected gateway is not ready.')];
+            }
+        }
+
+        AppSettings::set('payment.active_gateway', $requested);
+        AuditLog::write('settings.payment_gateways', null, null, ['gateway' => $requested]);
+
+        return ['ok' => true];
     }
 }

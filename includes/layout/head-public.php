@@ -43,6 +43,10 @@ $locale = Lang::locale();
         };
     </script>
     <link rel="stylesheet" href="<?= Security::escape(asset_url('assets/css/apni-tokri.css')) ?>">
+    <?php $GLOBALS['loadAddressMap'] = !empty($loadAddressMap); ?>
+    <?php if (!empty($loadAddressMap)): ?>
+    <link rel="stylesheet" href="<?= Security::escape(asset_url('assets/vendor/leaflet/leaflet.css')) ?>">
+    <?php endif; ?>
     <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
 </head>
 <body class="at-body bg-brand-cream text-brand-charcoal min-h-screen flex flex-col" data-locale="<?= Security::escape($locale) ?>">

@@ -21,6 +21,13 @@ final class CashfreeGateway
         return self::isEnabled() && self::appId() !== '' && self::secretKey() !== '';
     }
 
+    public static function appIdLooksValid(): bool
+    {
+        $id = self::appId();
+
+        return strlen($id) >= 8 && preg_match('/^[A-Za-z0-9_-]+$/', $id) === 1;
+    }
+
     public static function appId(): string
     {
         return trim(AppSettings::get('cashfree.app_id', '') ?? '');
@@ -64,39 +71,51 @@ final class CashfreeGateway
         float $amountInr,
         string $orderId,
         string $customerPhone,
-        string $returnUrl
+        string $returnUrl,
+        string $referenceId,
+        ?int $internalOrderId = null
     ): array {
+        if ($amountInr < 1.0) {
+            PaymentInitDiagnostics::logInitFailure('cashfree', $referenceId, 'validation', $internalOrderId, 0, null, 'amount_below_minimum');
+
+            return ['ok' => false, 'error' => PaymentInitDiagnostics::customerMessage('Cashfree', $referenceId), 'reference_id' => $referenceId];
+        }
+        $phone = preg_replace('/\D+/', '', $customerPhone) ?: '9999999999';
         $body = [
             'order_id' => $orderId,
             'order_amount' => round($amountInr, 2),
             'order_currency' => 'INR',
             'customer_details' => [
-                'customer_id' => preg_replace('/\D+/', '', $customerPhone) ?: 'guest',
-                'customer_phone' => preg_replace('/\D+/', '', $customerPhone) ?: '9999999999',
+                'customer_id' => $phone,
+                'customer_phone' => $phone,
             ],
-            'order_meta' => ['return_url' => $returnUrl],
+            'order_meta' => ['return_url' => $returnUrl, 'notify_url' => SeoUrl::absolute('/webhooks/cashfree.php')],
         ];
         $resp = PaymentHttp::request('POST', self::baseUrl() . '/orders', $body, self::headers());
         if (!$resp['ok'] || !is_array($resp['json'])) {
-            $logMsg = 'Cashfree create order HTTP ' . $resp['status'];
-            if (is_array($resp['json'])) {
-                $code = (string) ($resp['json']['code'] ?? '');
-                $message = (string) ($resp['json']['message'] ?? '');
-                if ($code !== '' || $message !== '') {
-                    $logMsg .= ' code=' . $code . ' message=' . $message;
-                }
-            } elseif ($resp['error'] !== null && $resp['error'] !== '') {
-                $logMsg .= ' curl=' . $resp['error'];
-            }
-            error_log($logMsg);
+            $stage = $resp['status'] === 401 ? 'gateway_authentication' : 'gateway_api';
+            PaymentInitDiagnostics::logInitFailure(
+                'cashfree',
+                $referenceId,
+                $stage,
+                $internalOrderId,
+                (int) $resp['status'],
+                is_array($resp['json']) ? $resp['json'] : null,
+                $resp['error'] ?? null
+            );
+            PaymentGatewayDiagnosticState::recordInitAttempt('cashfree', (int) $resp['status'], false, $referenceId);
 
-            return ['ok' => false, 'error' => 'Could not start Cashfree payment.'];
+            return ['ok' => false, 'error' => PaymentInitDiagnostics::customerMessage('Cashfree', $referenceId), 'reference_id' => $referenceId];
         }
         $cfId = (string) ($resp['json']['cf_order_id'] ?? $resp['json']['order_id'] ?? '');
         $session = (string) ($resp['json']['payment_session_id'] ?? '');
-        if ($cfId === '') {
-            return ['ok' => false, 'error' => 'Invalid Cashfree response.'];
+        if ($cfId === '' || $session === '') {
+            PaymentInitDiagnostics::logInitFailure('cashfree', $referenceId, 'response_parse', $internalOrderId, (int) $resp['status'], $resp['json']);
+
+            return ['ok' => false, 'error' => PaymentInitDiagnostics::customerMessage('Cashfree', $referenceId), 'reference_id' => $referenceId];
         }
+
+        PaymentGatewayDiagnosticState::recordInitAttempt('cashfree', (int) $resp['status'], true, $referenceId);
 
         return [
             'ok' => true,

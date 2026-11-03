@@ -21,7 +21,7 @@ function ok(bool $c, string $m): void
 }
 
 $customerId = 80;
-$list = OrderRepository::listForCustomer($customerId);
+$list = OrderRepository::listAllRowsForCustomer($customerId);
 $found = null;
 foreach ($list as $row) {
     if (($row['id'] ?? '') === 'AT-261102-5DB0C9') {

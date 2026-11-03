@@ -63,11 +63,12 @@ $smsLogs = DeliverySmsService::logsForAdmin($id);
 $orderQuoteRow = null;
 if (Install::isSchemaReady()) {
     Install::ensureConnection();
-    $oq = Database::pdo()->prepare('SELECT delivery_fee, delivery_snapshot_json, delivery_zone_id FROM orders WHERE id = ? LIMIT 1');
+    $oq = Database::pdo()->prepare('SELECT delivery_fee, delivery_snapshot_json, delivery_zone_id, customer_id, customer_address_id FROM orders WHERE id = ? LIMIT 1');
     $oq->execute([(int) ($delivery['order_id'] ?? 0)]);
     $orderQuoteRow = $oq->fetch(PDO::FETCH_ASSOC) ?: null;
 }
 $checkoutQuote = $orderQuoteRow !== null ? DeliveryOrderSnapshot::reportingDeliveryQuote($orderQuoteRow) : null;
+$deliveryAddr = $orderQuoteRow !== null ? DeliveryAddressSnapshot::forOrder($orderQuoteRow) : null;
 $pageHeading = 'Delivery — ' . (string) $delivery['order_number'];
 require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
 ?>
@@ -99,6 +100,25 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
             <?php endif; ?>
         </div>
     </div>
+
+    <?php if ($deliveryAddr !== null): $dp = DeliveryAddressSnapshot::courierPayload($deliveryAddr); ?>
+    <div class="at-admin-card lg:col-span-2" id="delivery-address">
+        <div class="at-admin-card__body text-sm space-y-2">
+            <h3 class="font-bold mb-1">Delivery address &amp; location</h3>
+            <p class="text-xs at-muted">Taken from the order snapshot<?= !empty($deliveryAddr['legacy_order']) ? ' (legacy order: reconstructed from the saved address)' : '' ?>. Staff only — not exposed publicly. Pin is approximate.</p>
+            <pre class="whitespace-pre-wrap break-words text-sm p-3 rounded" style="background:var(--at-surface-2,#f5f5f4)" id="courier-text"><?= Security::escape(DeliveryAddressSnapshot::courierText($deliveryAddr, (string) $delivery['order_number'])) ?></pre>
+            <div class="flex flex-wrap gap-2">
+                <?php if (!empty($dp['map_link'])): ?>
+                    <a class="at-btn at-btn--secondary at-btn--sm" target="_blank" rel="noopener noreferrer" href="<?= Security::escape((string) $dp['map_link']) ?>">Open in OpenStreetMap</a>
+                <?php else: ?>
+                    <span class="at-muted">No map pin saved for this order — use the written address.</span>
+                <?php endif; ?>
+                <button type="button" class="at-btn at-btn--secondary at-btn--sm" onclick="var t=document.getElementById('courier-text').innerText;if(navigator.clipboard){navigator.clipboard.writeText(t);this.textContent='Copied';}">Copy for courier</button>
+            </div>
+            <p class="text-xs at-muted">No courier API is integrated: copy/share this text manually with the courier.</p>
+        </div>
+    </div>
+    <?php endif; ?>
 
     <div class="at-admin-card">
         <div class="at-admin-card__body">

@@ -14,10 +14,12 @@ if (!CustomerService::isLoggedIn()) {
 
 $customerId = CustomerAuth::id();
 $base = url_base();
-$subs = [];
+$subList = AccountListPagination::emptyResult(AccountListPagination::DEFAULT_PER_PAGE);
 if ($customerId !== null && CommerceGateway::useDatabase() && Install::isSchemaReady()) {
-    $subs = CustomerSubscriptionRepository::listForCustomer($customerId);
+    $pager = AccountListPagination::fromRequest();
+    $subList = CustomerSubscriptionRepository::listForCustomer($customerId, $pager['page'], $pager['per_page']);
 }
+$subs = $subList['rows'];
 
 layout_public_start(['pageTitle' => 'My subscriptions — Apni Tokri', 'activeNav' => 'account']);
 $accountActive = 'subscriptions';
@@ -30,7 +32,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/account-shell-start.php';
     <span><strong>Before you buy:</strong> prepaid plans need 100% advance payment. A valid skip carries forward as an extra delivery day, not a cash refund (unless policy allows). Pausing extends your schedule when enabled.</span>
 </div>
 
-<?php if ($subs === []): ?>
+<?php if ($subList['total'] === 0): ?>
     <div class="at-card">
         <div class="at-card__body">
             <p class="at-muted">You do not have any subscriptions yet.</p>
@@ -75,6 +77,8 @@ require APNI_TOKRI_ROOT . '/includes/partials/account-shell-start.php';
             </div>
         </article>
     <?php endforeach; ?>
+    <?php require APNI_TOKRI_ROOT . '/includes/partials/account-pagination.php';
+    customer_account_pagination($subList['page'], $subList['total'], $subList['per_page']); ?>
 <?php endif; ?>
 
 <section class="mt-8">

@@ -85,10 +85,13 @@ final class SubscriptionSubstitutionPaymentService
         }
 
         if ($gateway === 'razorpay') {
+            $payRef = PaymentInitDiagnostics::referenceId();
             $created = RazorpayGateway::createOrder(
                 PaymentService::amountToPaise($amount),
                 'SUBST-' . $substitutionId,
-                $idempotency
+                $idempotency,
+                $payRef,
+                null
             );
             if (!$created['ok']) {
                 return ['ok' => false, 'error' => $created['error'] ?? 'Gateway error'];

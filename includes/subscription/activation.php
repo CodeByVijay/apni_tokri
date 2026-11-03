@@ -39,16 +39,57 @@ final class CustomerSubscriptionRepository
         return $row ?: null;
     }
 
-    /** @return list<array<string, mixed>> */
-    public static function listForCustomer(int $customerId): array
-    {
+    /**
+     * Paginated subscriptions for a customer (newest first).
+     *
+     * @return array{rows: list<array<string, mixed>>, total: int, page: int, per_page: int, total_pages: int}
+     */
+    public static function listForCustomer(
+        int $customerId,
+        int $page = 1,
+        int $perPage = AccountListPagination::DEFAULT_PER_PAGE
+    ): array {
         Install::ensureConnection();
-        $stmt = Database::pdo()->prepare(
-            'SELECT * FROM customer_subscriptions WHERE customer_id = ? ORDER BY created_at DESC'
-        );
-        $stmt->execute([$customerId]);
+        $norm = AccountListPagination::normalize($page, $perPage, true);
+        if ($customerId <= 0) {
+            return AccountListPagination::emptyResult($norm['unlimited'] ? AccountListPagination::DEFAULT_PER_PAGE : $norm['per_page']);
+        }
 
-        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        $pdo = Database::pdo();
+        $countStmt = $pdo->prepare('SELECT COUNT(*) FROM customer_subscriptions WHERE customer_id = ?');
+        $countStmt->execute([$customerId]);
+        $total = (int) $countStmt->fetchColumn();
+        if ($total === 0) {
+            return AccountListPagination::emptyResult($norm['unlimited'] ? AccountListPagination::DEFAULT_PER_PAGE : $norm['per_page']);
+        }
+
+        if ($norm['unlimited']) {
+            $pageNum = 1;
+            $per = 0;
+            $sql = 'SELECT * FROM customer_subscriptions WHERE customer_id = ? ORDER BY created_at DESC, id DESC';
+            $params = [$customerId];
+        } else {
+            $totalPages = AccountListPagination::totalPages($total, $norm['per_page']);
+            $pageNum = AccountListPagination::clampPage($norm['page'], $totalPages);
+            $per = $norm['per_page'];
+            $offset = ($pageNum - 1) * $per;
+            $sql = 'SELECT * FROM customer_subscriptions WHERE customer_id = ? ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?';
+            $params = [$customerId, $per, $offset];
+        }
+
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        $totalPagesOut = $norm['unlimited'] ? 1 : AccountListPagination::totalPages($total, $per);
+
+        return [
+            'rows' => $rows,
+            'total' => $total,
+            'page' => $pageNum,
+            'per_page' => $norm['unlimited'] ? $total : $per,
+            'total_pages' => $totalPagesOut,
+        ];
     }
 
     /** @return array<string, mixed> */

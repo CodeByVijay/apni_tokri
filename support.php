@@ -12,10 +12,8 @@ $msg = '';
 $err = '';
 $customerOrders = [];
 if (CustomerAuth::check() && CommerceGateway::useDatabase() && CustomerAuth::id() !== null) {
-    $customerOrders = OrderRepository::listForCustomer(CustomerAuth::id());
-    if (count($customerOrders) > 25) {
-        $customerOrders = array_slice($customerOrders, 0, 25);
-    }
+    $orderPage = OrderRepository::listForCustomer((int) CustomerAuth::id(), 1, 25);
+    $customerOrders = $orderPage['rows'];
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {

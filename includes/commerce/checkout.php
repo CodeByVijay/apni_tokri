@@ -4,21 +4,55 @@ declare(strict_types=1);
 
 final class OrderRepository
 {
-    /** @return list<array<string, mixed>> */
-    public static function listForCustomer(int $customerId): array
-    {
+    /**
+     * Paginated order list for the authenticated customer (newest first).
+     *
+     * @return array{rows: list<array<string, mixed>>, total: int, page: int, per_page: int, total_pages: int}
+     */
+    public static function listForCustomer(
+        int $customerId,
+        int $page = 1,
+        int $perPage = AccountListPagination::DEFAULT_PER_PAGE
+    ): array {
         Install::ensureConnection();
-        $stmt = Database::pdo()->prepare(
+        $norm = AccountListPagination::normalize($page, $perPage, true);
+        if ($customerId <= 0) {
+            return AccountListPagination::emptyResult($norm['unlimited'] ? AccountListPagination::DEFAULT_PER_PAGE : $norm['per_page']);
+        }
+
+        $pdo = Database::pdo();
+        $countStmt = $pdo->prepare('SELECT COUNT(*) FROM orders WHERE customer_id = ?');
+        $countStmt->execute([$customerId]);
+        $total = (int) $countStmt->fetchColumn();
+        if ($total === 0) {
+            return AccountListPagination::emptyResult($norm['unlimited'] ? AccountListPagination::DEFAULT_PER_PAGE : $norm['per_page']);
+        }
+
+        if ($norm['unlimited']) {
+            $pageNum = 1;
+            $per = 0;
+            $limitSql = '';
+            $params = [$customerId];
+        } else {
+            $totalPages = AccountListPagination::totalPages($total, $norm['per_page']);
+            $pageNum = AccountListPagination::clampPage($norm['page'], $totalPages);
+            $per = $norm['per_page'];
+            $offset = ($pageNum - 1) * $per;
+            $limitSql = ' LIMIT ? OFFSET ?';
+            $params = [$customerId, $per, $offset];
+        }
+
+        $stmt = $pdo->prepare(
             'SELECT o.id, o.order_number, o.status, o.payment_status, o.grand_total, o.delivery_slot,
                     o.placed_at, o.created_at, COALESCE(SUM(oi.quantity), 0) AS item_qty
              FROM orders o
              LEFT JOIN order_items oi ON oi.order_id = o.id
              WHERE o.customer_id = ?
              GROUP BY o.id
-             ORDER BY COALESCE(o.placed_at, o.created_at) DESC'
+             ORDER BY COALESCE(o.placed_at, o.created_at) DESC, o.id DESC' . $limitSql
         );
-        $stmt->execute([$customerId]);
-        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $stmt->execute($params);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
         $orderIds = [];
         foreach ($rows as $row) {
             $orderIds[] = (int) $row['id'];
@@ -31,7 +65,21 @@ final class OrderRepository
             $out[] = self::mapSummary($row, $previews[$oid] ?? []);
         }
 
-        return $out;
+        $totalPagesOut = $norm['unlimited'] ? 1 : AccountListPagination::totalPages($total, $per);
+
+        return [
+            'rows' => $out,
+            'total' => $total,
+            'page' => $pageNum,
+            'per_page' => $norm['unlimited'] ? $total : $per,
+            'total_pages' => $totalPagesOut,
+        ];
+    }
+
+    /** @return list<array<string, mixed>> */
+    public static function listAllRowsForCustomer(int $customerId): array
+    {
+        return self::listForCustomer($customerId, 1, 0)['rows'];
     }
 
     /**
@@ -91,6 +139,23 @@ final class OrderRepository
         }
 
         return self::mapFull($order);
+    }
+
+    /** @return array<string, mixed>|null Full customer detail view (items, timeline, payment, address). */
+    public static function forCustomerDetail(string $orderNumber, int $customerId): ?array
+    {
+        Install::ensureConnection();
+        $stmt = Database::pdo()->prepare(
+            'SELECT * FROM orders WHERE order_number = ? AND customer_id = ? LIMIT 1'
+        );
+        $stmt->execute([$orderNumber, $customerId]);
+        $order = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$order) {
+            return null;
+        }
+        $base = self::mapFull($order);
+
+        return CustomerOrderDetailService::enrich($order, $base, $customerId);
     }
 
     /** @param array<string, mixed> $row @param list<array<string, mixed>> $itemPreview */
@@ -284,7 +349,15 @@ final class CheckoutService
         if ($zoneId === 0) {
             $zoneId = null;
         }
-        $snapshot = json_encode(DeliveryQuoteService::buildSnapshot($quote), JSON_UNESCAPED_UNICODE);
+        // Immutable order-time address: later edits to the saved address never change this order.
+        $addrSnapshot = DeliveryAddressSnapshot::fromAddressRow($address, CustomerService::profile());
+        if ($addrSnapshot['receiver_name'] === '' || $addrSnapshot['receiver_phone'] === '') {
+            return ['ok' => false, 'message' => 'Add a receiver name and phone number to this address before checkout.'];
+        }
+        if (Validation::normalizeMobileIndia((string) $addrSnapshot['receiver_phone']) === null) {
+            return ['ok' => false, 'message' => 'The receiver phone on this address is not valid. Please edit the address.'];
+        }
+        $snapshot = json_encode(DeliveryQuoteService::buildSnapshot($quote, $addrSnapshot), JSON_UNESCAPED_UNICODE);
 
         try {
             $orderId = Database::transaction(static function () use (
@@ -377,6 +450,15 @@ final class CheckoutService
             error_log('Checkout failed: ' . $e->getMessage());
 
             return ['ok' => false, 'message' => 'Could not place order. Please review your cart and try again.'];
+        }
+
+        if (!PaymentGatewayConfig::useSimulatedCheckout()) {
+            $liveReady = PaymentGatewayConfig::assertLivePaymentsReady();
+            if (!$liveReady['ok']) {
+                DeliverySlotReservationService::releaseForOrder($orderId);
+
+                return ['ok' => false, 'message' => (string) ($liveReady['message'] ?? 'Payment gateway is not ready.')];
+            }
         }
 
         $mobile = (string) (CustomerService::profile()['mobile'] ?? '');

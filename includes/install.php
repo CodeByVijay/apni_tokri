@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 final class Install
 {
-    public const SCHEMA_VERSION = '1.18.0-sms-operation-mode';
+    public const SCHEMA_VERSION = '1.20.0-invoices';
 
     /** @var list<string> */
     private static $markerTables = ['settings', 'admin_users', 'customers', 'products', 'orders'];

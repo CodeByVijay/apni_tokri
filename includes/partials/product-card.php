@@ -34,19 +34,25 @@ $discountPct = $prices['on_sale'] && $prices['regular'] > 0
         </span>
     </a>
     <div class="at-product-card__body">
-        <a href="<?= Security::escape($productUrl) ?>" class="at-product-card__title at-focusable"><?= Security::escape((string) $product['name']) ?></a>
-        <p class="at-product-card__unit">
-            <?= $variant ? Security::escape((string) $variant['label']) : '' ?><?= $multiVariant ? ' · +' . (count($product['variants']) - 1) . ' more' : '' ?>
-        </p>
-        <?php if ($rating !== null): ?>
-            <p class="mt-1 flex items-center gap-1 text-xs font-semibold">
-                <span class="text-[var(--at-yellow-dark)]">★</span><?= Security::escape((string) $rating['average']) ?>
-                <span class="font-normal at-muted">(<?= (int) $rating['count'] ?>)</span>
+        <div class="at-product-card__main">
+            <a href="<?= Security::escape($productUrl) ?>" class="at-product-card__title at-focusable"><?= Security::escape((string) $product['name']) ?></a>
+            <p class="at-product-card__unit">
+                <?= $variant ? Security::escape((string) $variant['label']) : '&nbsp;' ?><?= $multiVariant ? ' · +' . (count($product['variants']) - 1) . ' more' : '' ?>
             </p>
-        <?php endif; ?>
-        <?php if ($stockLabel === 'Low stock' && $variant): ?>
-            <span class="at-stockline">Only <?= (int) $variant['stock'] ?> left</span>
-        <?php endif; ?>
+            <div class="at-product-card__extras">
+                <?php if ($rating !== null): ?>
+                    <p class="at-product-card__rating flex items-center gap-1 text-xs font-semibold">
+                        <span class="text-[var(--at-yellow-dark)]" aria-hidden="true">★</span><?= Security::escape((string) $rating['average']) ?>
+                        <span class="font-normal at-muted">(<?= (int) $rating['count'] ?>)</span>
+                    </p>
+                <?php endif; ?>
+                <?php if ($stockLabel === 'Low stock' && $variant): ?>
+                    <span class="at-stockline">Only <?= (int) $variant['stock'] ?> left</span>
+                <?php elseif (!$inStock): ?>
+                    <span class="at-stockline at-stockline--out">Out of stock</span>
+                <?php endif; ?>
+            </div>
+        </div>
         <div class="at-product-card__foot">
             <div class="at-price">
                 <span class="at-price__now"><?= Security::escape(catalogue_format_price($prices['display'])) ?></span>

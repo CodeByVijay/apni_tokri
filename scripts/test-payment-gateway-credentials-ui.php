@@ -30,7 +30,9 @@ ok(AppSettings::getSecret(PaymentGatewaySettingsService::KEY_RAZORPAY_KEY_SECRET
 
 PaymentGatewaySettingsService::saveFromPost([
     'active_gateway' => 'razorpay',
-    'razorpay_key_id' => 'rzp_test_ui',
+    'razorpay_enabled' => '1',
+    'test_mode' => '1',
+    'razorpay_key_id' => 'rzp_test_ui123456',
     'razorpay_key_secret' => '',
     'razorpay_webhook_secret' => '',
     'cashfree_app_id' => '',
@@ -42,6 +44,8 @@ ok(AppSettings::getSecret(PaymentGatewaySettingsService::KEY_RAZORPAY_KEY_SECRET
 
 PaymentGatewaySettingsService::saveFromPost([
     'active_gateway' => 'razorpay',
+    'razorpay_enabled' => '1',
+    'test_mode' => '1',
     'razorpay_key_secret' => $replaceSecret,
 ]);
 AppSettings::resetCache();

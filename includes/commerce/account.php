@@ -110,39 +110,8 @@ final class CustomerAccountService
      */
     public static function validateAddress(array $input): array
     {
-        $errors = [];
-        $get = static function (string $k) use ($input): string {
-            return isset($input[$k]) && is_string($input[$k]) ? trim($input[$k]) : '';
-        };
-        $label = $get('label');
-        $line1 = $get('line1');
-        $line2 = $get('line2');
-        $pin = preg_replace('/\D+/', '', $get('pincode')) ?? '';
-
-        if ($label === '') {
-            $label = 'Home';
-        }
-        if (strlen($label) > 64 || preg_match('/[\x00-\x1F<>]/', $label)) {
-            $errors['label'] = 'Label must be up to 64 characters.';
-        }
-        if ($line1 === '') {
-            $errors['line1'] = 'Enter the house / flat, street and area.';
-        } elseif (strlen($line1) > 255 || preg_match('/[\x00-\x1F<>]/', $line1)) {
-            $errors['line1'] = 'Address is too long or has invalid characters.';
-        }
-        if (strlen($line2) > 255 || preg_match('/[\x00-\x1F<>]/', $line2)) {
-            $errors['line2'] = 'Landmark is too long or has invalid characters.';
-        }
-        if (!preg_match('/^\d{6}$/', $pin)) {
-            $errors['pincode'] = 'Enter a valid 6-digit pincode.';
-        } elseif (!DeliveryService::isPincodeServiceable($pin)) {
-            $errors['pincode'] = 'We do not deliver to this pincode yet.';
-        }
-
-        return [
-            'errors' => $errors,
-            'clean' => ['label' => $label, 'line1' => $line1, 'line2' => $line2, 'pincode' => $pin],
-        ];
+        // One validation system for my-addresses.php and checkout.php (see AddressInput).
+        return AddressInput::validate($input);
     }
 
     /**
@@ -169,7 +138,10 @@ final class CustomerAccountService
             if ($isDefault) {
                 $pdo->prepare('UPDATE customer_addresses SET is_default = 0 WHERE customer_id = ?')->execute([$customerId]);
             }
-            $id = self::insertRow($pdo, $customerId, $v['clean'], $isDefault, null);
+            $c = $v['clean'];
+            $coords = $c['latitude'] !== null ? [$c['latitude'], $c['longitude']] : null;
+            $confirmedAt = $coords !== null && !empty($c['location_confirmed']) ? self::dbNow($pdo) : null;
+            $id = self::insertRow($pdo, $customerId, $c, $isDefault, $coords, $confirmedAt);
             $pdo->commit();
 
             return ['ok' => true, 'errors' => [], 'id' => $id];
@@ -210,21 +182,44 @@ final class CustomerAccountService
             }
             $isDefault = (int) $row['is_default'] === 1;
             $c = $v['clean'];
-            $geoSame = (string) $row['pincode'] === $c['pincode'] && (string) $row['line1'] === $c['line1'];
-            $coords = $geoSame ? [$row['latitude'], $row['longitude']] : [null, null];
+            $confirmedAt = null;
+            if ($c['mode'] === 'structured') {
+                $coords = [$c['latitude'], $c['longitude']];
+                if ($coords[0] !== null) {
+                    $same = $row['latitude'] !== null && $row['longitude'] !== null
+                        && abs((float) $row['latitude'] - (float) $coords[0]) < 0.00000005
+                        && abs((float) $row['longitude'] - (float) $coords[1]) < 0.00000005;
+                    $confirmedAt = ($same && !empty($row['location_confirmed_at']))
+                        ? (string) $row['location_confirmed_at'] : self::dbNow($pdo);
+                }
+            } else {
+                // Legacy single-line edit keeps the pin only while the geocoded text is unchanged.
+                $geoSame = (string) $row['pincode'] === $c['pincode'] && (string) $row['line1'] === $c['line1'];
+                $coords = $geoSame ? [$row['latitude'], $row['longitude']] : [null, null];
+                $confirmedAt = $geoSame && !empty($row['location_confirmed_at']) ? (string) $row['location_confirmed_at'] : null;
+                // Structured columns of the existing row are preserved when only legacy fields are edited.
+                foreach (['receiver_name', 'receiver_phone', 'alternate_phone', 'house_number', 'building_name', 'street', 'area', 'delivery_instructions'] as $k) {
+                    $c[$k] = $row[$k] ?? null;
+                }
+            }
 
             if (self::isReferencedByOrder($pdo, $addressId)) {
                 // Preserve historical order address: archive original, insert corrected copy.
                 $pdo->prepare('UPDATE customer_addresses SET archived_at = NOW(), is_default = 0 WHERE id = ? AND customer_id = ?')
                     ->execute([$addressId, $customerId]);
-                $newId = self::insertRow($pdo, $customerId, $c, $isDefault, $coords);
+                $newId = self::insertRow($pdo, $customerId, $c, $isDefault, $coords, $confirmedAt);
             } else {
                 $pdo->prepare(
-                    'UPDATE customer_addresses SET label = ?, line1 = ?, line2 = ?, pincode = ?, latitude = ?, longitude = ?
+                    'UPDATE customer_addresses SET label = ?, receiver_name = ?, receiver_phone = ?, alternate_phone = ?,
+                            house_number = ?, building_name = ?, street = ?, area = ?, landmark = ?, delivery_instructions = ?,
+                            line1 = ?, line2 = ?, pincode = ?, latitude = ?, longitude = ?, location_confirmed_at = ?
                      WHERE id = ? AND customer_id = ?'
                 )->execute([
-                    $c['label'], $c['line1'], $c['line2'] !== '' ? $c['line2'] : null, $c['pincode'],
-                    $coords[0], $coords[1], $addressId, $customerId,
+                    $c['label'], $c['receiver_name'], $c['receiver_phone'], $c['alternate_phone'],
+                    $c['house_number'], $c['building_name'], $c['street'], $c['area'], $c['landmark'], $c['delivery_instructions'],
+                    $c['line1'], $c['line2'] !== '' ? $c['line2'] : null, $c['pincode'],
+                    $coords[0], $coords[1], $confirmedAt,
+                    $addressId, $customerId,
                 ]);
                 $newId = $addressId;
             }
@@ -342,19 +337,29 @@ final class CustomerAccountService
         return (bool) $stmt->fetchColumn();
     }
 
+    private static function dbNow(PDO $pdo): string
+    {
+        return (string) $pdo->query('SELECT NOW()')->fetchColumn();
+    }
+
     /**
-     * @param array<string, string> $c
+     * @param array<string, mixed> $c validated clean address (AddressInput)
      * @param array{0: mixed, 1: mixed}|null $coords
      */
-    private static function insertRow(PDO $pdo, int $customerId, array $c, bool $isDefault, ?array $coords): int
+    private static function insertRow(PDO $pdo, int $customerId, array $c, bool $isDefault, ?array $coords, ?string $confirmedAt = null): int
     {
         $pdo->prepare(
-            'INSERT INTO customer_addresses (customer_id, label, line1, line2, city, state, pincode, latitude, longitude, is_default)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+            'INSERT INTO customer_addresses (customer_id, label, receiver_name, receiver_phone, alternate_phone,
+                house_number, building_name, street, area, landmark, delivery_instructions,
+                line1, line2, city, state, pincode, latitude, longitude, location_confirmed_at, is_default)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         )->execute([
-            $customerId, $c['label'], $c['line1'], $c['line2'] !== '' ? $c['line2'] : null,
+            $customerId, $c['label'], $c['receiver_name'] ?? null, $c['receiver_phone'] ?? null, $c['alternate_phone'] ?? null,
+            $c['house_number'] ?? null, $c['building_name'] ?? null, $c['street'] ?? null, $c['area'] ?? null,
+            $c['landmark'] ?? null, $c['delivery_instructions'] ?? null,
+            $c['line1'], $c['line2'] !== '' ? $c['line2'] : null,
             'Indore', 'Madhya Pradesh', $c['pincode'],
-            $coords[0] ?? null, $coords[1] ?? null, $isDefault ? 1 : 0,
+            $coords[0] ?? null, $coords[1] ?? null, $confirmedAt, $isDefault ? 1 : 0,
         ]);
 
         return (int) $pdo->lastInsertId();
