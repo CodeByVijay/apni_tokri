@@ -138,9 +138,13 @@ final class AppEnvironment
             return ['ok' => false, 'message' => 'Simulated payments are disabled in production. Configure Razorpay or Cashfree.'];
         }
         if (PaymentGatewayConfig::isTestMode()) {
-            return ['ok' => false, 'message' => 'Payment test mode must be off in production (payment.test_mode=0).'];
+            return [
+                'ok' => false,
+                'message' => 'Payment sandbox/test mode is enabled. On production, turn off Test/Sandbox mode and use live Cashfree credentials, or run checkout on a staging environment for sandbox testing.',
+            ];
         }
-        $ready = PaymentGatewayConfig::assertLivePaymentsReady();
+        $gateway = PaymentGatewayConfig::activeGateway();
+        $ready = PaymentGatewayConfig::readinessFor($gateway);
         if (!$ready['ok']) {
             return ['ok' => false, 'message' => (string) ($ready['message'] ?? 'Payment gateway is not ready.')];
         }

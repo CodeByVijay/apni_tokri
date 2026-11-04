@@ -124,7 +124,11 @@ $totals = CartService::totals($defaultAddressId, $defaultSlotSlug);
 $paymentGwMeta = PaymentGatewayConfig::publicCheckoutConfig();
 $paymentGatewayLabel = PaymentGatewayConfig::gatewayLabel((string) ($paymentGwMeta['gateway'] ?? 'simulate'));
 $paymentUsesSimulate = PaymentGatewayConfig::useSimulatedCheckout();
-$paymentGatewayReady = $paymentUsesSimulate || !empty(PaymentGatewayConfig::assertLivePaymentsReady()['ok']);
+$paymentLiveReady = PaymentGatewayConfig::assertLivePaymentsReady();
+$paymentGatewayReady = $paymentUsesSimulate || !empty($paymentLiveReady['ok']);
+$paymentGatewayBlockedMessage = $paymentGatewayReady
+    ? ''
+    : (string) ($paymentLiveReady['message'] ?? 'Payment gateway is not ready. Check Settings → Payment gateways.');
 
 layout_public_start([
     'pageTitle' => 'Checkout — Apni Tokri',
@@ -272,7 +276,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
                     </div>
                     <p class="at-checkout-pay__hint text-sm at-muted">You will pay on the next screen. Your order is confirmed only after the server verifies payment with <?= Security::escape($paymentGatewayLabel) ?>.</p>
                     <?php if (!$paymentGatewayReady): ?>
-                        <p class="at-alert at-alert--warning text-sm mt-2" role="alert">Online payment is temporarily unavailable. Ask the store admin to check gateway credentials under Settings → Payment gateways.</p>
+                        <p class="at-alert at-alert--warning text-sm mt-2" role="alert"><?= Security::escape($paymentGatewayBlockedMessage !== '' ? $paymentGatewayBlockedMessage : 'Online payment is temporarily unavailable. Ask the store admin to check gateway credentials under Settings → Payment gateways.') ?></p>
                     <?php endif; ?>
                 </div>
             <?php else: ?>
@@ -346,6 +350,23 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
 (function () {
   var form = document.getElementById('checkout-form');
   var btn = document.getElementById('checkout-proceed-pay');
+  var terms = form ? form.querySelector('input[name="terms"]') : null;
+  function syncPayButton() {
+    if (!btn || btn.hasAttribute('data-at-checkout-hard-disabled')) return;
+    var gatewayOk = btn.getAttribute('data-at-gateway-ready') === '1';
+    var termsOk = !terms || terms.checked;
+    btn.disabled = !(gatewayOk && termsOk);
+  }
+  if (btn) {
+    btn.setAttribute('data-at-gateway-ready', <?= ($paymentGatewayReady && $loggedIn && $addresses !== [] && $slotsOk) ? "'1'" : "'0'" ?>);
+    if (!<?= ($loggedIn && $addresses !== [] && $slotsOk && $paymentGatewayReady) ? 'true' : 'false' ?>) {
+      btn.setAttribute('data-at-checkout-hard-disabled', '1');
+    }
+  }
+  if (terms) {
+    terms.addEventListener('change', syncPayButton);
+    syncPayButton();
+  }
   if (!form || !btn || btn.disabled) return;
   form.addEventListener('submit', function () {
     btn.disabled = true;
