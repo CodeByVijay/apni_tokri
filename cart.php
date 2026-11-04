@@ -95,7 +95,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
                     <div class="flex flex-wrap gap-2">
                         <input id="coupon_code" name="coupon_code" class="at-input at-focusable flex-1 min-w-[10rem]" placeholder="Enter your coupon code" value="<?= Security::escape((string) ($totals['coupon_code'] ?? '')) ?>" autocomplete="off">
                         <button type="submit" id="at-coupon-apply" class="at-btn at-btn--secondary at-focusable" data-at-coupon-apply>Apply</button>
-                        <?php if (!empty($totals['coupon_code']) && (float) ($totals['coupon_discount'] ?? 0) > 0): ?>
+                        <?php if (catalogue_cart_coupon_applied($totals)): ?>
                             <button type="button" id="at-coupon-remove" class="at-btn at-btn--ghost at-focusable" data-at-coupon-remove>Remove</button>
                         <?php else: ?>
                             <button type="button" id="at-coupon-remove" class="at-btn at-btn--ghost at-focusable hidden" data-at-coupon-remove>Remove</button>

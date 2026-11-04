@@ -5,6 +5,7 @@ declare(strict_types=1);
 /** @var array<string, float|int|string|null> $totals */
 $totals = $totals ?? DemoCart::totals();
 $compact = !empty($compact);
+$couponApplied = catalogue_cart_coupon_applied($totals);
 ?>
 <div class="at-cart-summary <?= $compact ? '' : 'at-card' ?>">
     <div class="<?= $compact ? '' : 'at-card__body' ?>">
@@ -21,9 +22,9 @@ $compact = !empty($compact);
             <?php else: ?>
                 <div class="is-saving hidden" data-cart-offer-row><dt data-cart-offer-label>Automatic offer</dt><dd data-cart-offer-amount></dd></div>
             <?php endif; ?>
-            <div class="is-saving<?= (float) ($totals['coupon_discount'] ?? 0) > 0 && !empty($totals['coupon_code']) ? '' : ' hidden' ?>" data-cart-coupon-row>
-                <dt>Coupon (<span data-cart-coupon-code><?= Security::escape((string) ($totals['coupon_code'] ?? '')) ?></span>)</dt>
-                <dd data-cart-coupon-amount><?= (float) ($totals['coupon_discount'] ?? 0) > 0 ? '−' . Security::escape(catalogue_format_price((float) $totals['coupon_discount'])) : '' ?></dd>
+            <div class="is-saving<?= $couponApplied ? '' : ' hidden' ?>" data-cart-coupon-row<?= $couponApplied ? '' : ' hidden' ?>>
+                <dt>Coupon (<span data-cart-coupon-code><?= $couponApplied ? Security::escape(trim((string) $totals['coupon_code'])) : '' ?></span>)</dt>
+                <dd data-cart-coupon-amount><?= $couponApplied ? '−' . Security::escape(catalogue_format_price((float) $totals['coupon_discount'])) : '' ?></dd>
             </div>
             <div><dt>Delivery fee</dt><dd data-cart-delivery><?php if (empty($totals['delivery_quote_accurate']) && !empty($totals['delivery_quote_message'])): ?><span class="at-muted">—</span><?php elseif ((float) $totals['delivery_fee'] === 0.0): ?>Free<?php else: ?><?= Security::escape(catalogue_format_price((float) $totals['delivery_fee'])) ?><?php endif; ?></dd></div>
             <div class="is-total"><dt>Total</dt><dd data-cart-total><?= Security::escape(catalogue_format_price((float) $totals['total'])) ?></dd></div>

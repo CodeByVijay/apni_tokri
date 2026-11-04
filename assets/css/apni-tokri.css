@@ -2718,6 +2718,10 @@ body.at-gallery-lightbox-open {
   padding: 0.35rem 0;
   font-size: 0.9375rem;
 }
+/* Tailwind .hidden loses to display:flex above; keep offer/coupon rows collapsed when not applied. */
+.at-summary-list > div.hidden {
+  display: none !important;
+}
 .at-summary-list > div.is-total {
   margin-top: 0.5rem;
   padding-top: 0.9rem;

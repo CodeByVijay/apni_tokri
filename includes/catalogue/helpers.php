@@ -23,6 +23,19 @@ function catalogue_format_price(float $amount): string
 }
 
 /**
+ * Whether order summary should show an applied coupon (server-validated totals only).
+ *
+ * @param array<string, mixed> $totals
+ */
+function catalogue_cart_coupon_applied(array $totals): bool
+{
+    $code = trim((string) ($totals['coupon_code'] ?? ''));
+    $discount = (float) ($totals['coupon_discount'] ?? 0);
+
+    return $code !== '' && $discount > 0;
+}
+
+/**
  * @param array<string, mixed> $variant
  * @return array{display: float, regular: float, on_sale: bool}
  */

@@ -74,6 +74,20 @@
     $fb.removeClass('hidden').toggleClass('text-red-600', !!isError).toggleClass('text-[var(--at-success)]', !isError).text(message);
   }
 
+  function couponAppliedFromTotals(totals) {
+    if (!totals) return false;
+    var code = String(totals.coupon_code || '').trim();
+    var disc = parseFloat(totals.coupon_discount) || 0;
+    return code !== '' && disc > 0;
+  }
+
+  function hideCouponSummaryRow() {
+    var $couponRow = $('[data-cart-coupon-row]');
+    if ($couponRow.length) {
+      $couponRow.addClass('hidden').attr('hidden', 'hidden');
+    }
+  }
+
   function setCouponUiApplied(applied, code) {
     var $remove = $('[data-at-coupon-remove]');
     var $input = $('#coupon_code');
@@ -108,17 +122,19 @@
       }
     }
 
-    var couponDisc = parseFloat(totals.coupon_discount) || 0;
-    var couponCode = totals.coupon_code || '';
     var $couponRow = $('[data-cart-coupon-row]');
     if ($couponRow.length) {
-      if (couponDisc > 0 && couponCode) {
-        $couponRow.removeClass('hidden');
+      if (couponAppliedFromTotals(totals)) {
+        var couponCode = String(totals.coupon_code).trim();
+        var couponDisc = parseFloat(totals.coupon_discount) || 0;
+        $couponRow.removeClass('hidden').removeAttr('hidden');
         $('[data-cart-coupon-code]').text(couponCode);
         $('[data-cart-coupon-amount]').text('−' + formatMoney(couponDisc));
         setCouponUiApplied(true, couponCode);
       } else {
-        $couponRow.addClass('hidden');
+        $couponRow.addClass('hidden').attr('hidden', 'hidden');
+        $('[data-cart-coupon-code]').text('');
+        $('[data-cart-coupon-amount]').text('');
         setCouponUiApplied(false, '');
       }
     }
@@ -168,12 +184,14 @@
         var errMsg = res.error && res.error.message ? res.error.message : 'Coupon could not be applied.';
         showCouponFeedback(errMsg, true);
         toast(errMsg, 'error');
+        hideCouponSummaryRow();
         if (typeof done === 'function') done(new Error(errMsg));
       }
     }).fail(function (xhr) {
       var errMsg = parseAjaxError(xhr, 'Could not apply coupon. Check your connection and try again.');
       showCouponFeedback(errMsg, true);
       toast(errMsg, 'error');
+      hideCouponSummaryRow();
       if (typeof done === 'function') done(new Error(errMsg));
     }).always(function () {
       couponBusy = false;
