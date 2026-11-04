@@ -2941,6 +2941,65 @@ body.at-gallery-lightbox-open {
   display: grid;
   gap: 0.55rem;
 }
+/* CMS rich-text content (public pages, admin preview, version history).
+   Tailwind preflight resets headings/lists and the CDN build has no typography
+   plugin, so semantic HTML must be styled here. */
+.cms-body {
+  max-width: 50rem;
+  margin-inline: auto;
+  font-size: 1rem;
+  line-height: 1.75;
+  color: var(--at-ink-2, #3b423b);
+  overflow-wrap: anywhere;
+}
+.cms-body > :first-child { margin-top: 0; }
+.cms-body > :last-child { margin-bottom: 0; }
+.cms-body p { margin: 0 0 1.1em; }
+.cms-body h1,
+.cms-body h2,
+.cms-body h3,
+.cms-body h4 {
+  font-family: var(--at-font-display, 'Fraunces', Georgia, serif);
+  color: var(--at-green-deep, #1b4a2e);
+  line-height: 1.3;
+  font-weight: 700;
+}
+.cms-body h1 { font-size: 1.85rem; margin: 2em 0 0.6em; }
+.cms-body h2 { font-size: 1.5rem; margin: 2em 0 0.6em; padding-bottom: 0.3em; border-bottom: 1px solid var(--at-line, #e3e8e2); }
+.cms-body h3 { font-size: 1.2rem; margin: 1.6em 0 0.5em; }
+.cms-body h4 { font-size: 1.05rem; margin: 1.4em 0 0.4em; }
+.cms-body strong,
+.cms-body b { font-weight: 700; color: var(--at-ink, #222); }
+.cms-body em,
+.cms-body i { font-style: italic; }
+.cms-body ul,
+.cms-body ol { margin: 0 0 1.1em; padding-left: 1.6em; }
+.cms-body ul { list-style: disc; }
+.cms-body ol { list-style: decimal; }
+.cms-body ul ul { list-style: circle; }
+.cms-body ul ul ul { list-style: square; }
+.cms-body ol ol { list-style: lower-alpha; }
+.cms-body li { margin: 0.35em 0; padding-left: 0.2em; }
+.cms-body li > p { margin: 0.3em 0; }
+.cms-body li > ul,
+.cms-body li > ol { margin: 0.4em 0 0.2em; }
+.cms-body a { color: var(--at-green, #245c3a); text-decoration: underline; text-underline-offset: 2px; }
+.cms-body a:hover { color: var(--at-green-deep, #1b4a2e); }
+.cms-body blockquote {
+  margin: 1.4em 0;
+  padding: 0.6em 1.1em;
+  border-left: 4px solid var(--at-yellow, #f5a623);
+  background: rgba(36, 92, 58, 0.05);
+  border-radius: 0 var(--at-radius, 0.5rem) var(--at-radius, 0.5rem) 0;
+}
+.cms-body blockquote > :last-child { margin-bottom: 0; }
+.cms-body img { max-width: 100%; height: auto; border-radius: var(--at-radius, 0.5rem); margin: 1em 0; }
+@media (max-width: 640px) {
+  .cms-body { font-size: 0.97rem; line-height: 1.7; }
+  .cms-body h1 { font-size: 1.55rem; }
+  .cms-body h2 { font-size: 1.3rem; }
+}
+
 .at-footer-social {
   display: flex;
   flex-wrap: wrap;

@@ -100,6 +100,31 @@ final class CmsHtmlSanitizer
             return;
         }
 
+        if ($tag === 'div' || $tag === 'section' || $tag === 'article') {
+            // Pasted rich text (browsers, Word, ChatGPT) wraps paragraphs in <div>. Keep the
+            // block boundary: a leaf div becomes <p>; a div holding blocks is unwrapped.
+            if (self::containsBlockDescendant($el)) {
+                self::unwrapElement($doc, $el);
+            } else {
+                $p = $doc->createElement('p');
+                while ($el->firstChild !== null) {
+                    $p->appendChild($el->firstChild);
+                }
+                $el->parentNode->replaceChild($p, $el);
+                $el = $p;
+                $tag = 'p';
+            }
+            if ($tag === 'p') {
+                foreach (iterator_to_array($el->childNodes) as $child) {
+                    self::sanitizeNodeTree($doc, $child);
+                }
+
+                return;
+            }
+
+            return;
+        }
+
         if (!isset(self::ALLOWED[$tag])) {
             self::unwrapElement($doc, $el);
 
@@ -154,16 +179,33 @@ final class CmsHtmlSanitizer
         }
     }
 
+    private static function containsBlockDescendant(DOMElement $el): bool
+    {
+        foreach (['p', 'div', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'table', 'section', 'article'] as $t) {
+            if ($el->getElementsByTagName($t)->length > 0) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private static function unwrapElement(DOMDocument $doc, DOMElement $el): void
     {
         $parent = $el->parentNode;
         if ($parent === null) {
             return;
         }
+        $moved = [];
         while ($el->firstChild !== null) {
+            $moved[] = $el->firstChild;
             $parent->insertBefore($el->firstChild, $el);
         }
         $parent->removeChild($el);
+        // Moved children are no longer in the caller's snapshot; they must still be sanitized.
+        foreach ($moved as $child) {
+            self::sanitizeNodeTree($doc, $child);
+        }
     }
 
     private static function isSafeUrl(string $url): bool

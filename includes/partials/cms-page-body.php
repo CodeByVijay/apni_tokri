@@ -16,8 +16,8 @@ $cmsBody = (string) ($cmsPage['body_html'] ?? '');
         <h1 class="at-h1"><?= Security::escape($cmsTitle) ?></h1>
     </div>
 </div>
-<div class="at-container py-8 md:py-12 max-w-3xl">
-    <div class="cms-body prose prose-neutral max-w-none text-[var(--at-ink-2)] leading-relaxed">
+<div class="at-container py-8 md:py-12">
+    <div class="cms-body">
         <?= $cmsBody ?>
     </div>
 </div>

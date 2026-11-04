@@ -29,7 +29,7 @@ admin_layout_start(['pageTitle' => 'Preview: ' . (string) ($cmsPage['title'] ?? 
 <div class="at-card max-w-3xl">
     <div class="at-card__body">
         <h1 class="at-h2 mb-4"><?= Security::escape((string) ($cmsPage['title'] ?? '')) ?></h1>
-        <div class="cms-body prose prose-neutral max-w-none">
+        <div class="cms-body">
             <?= (string) ($cmsPage['body_html'] ?? '') ?>
         </div>
     </div>

@@ -42,7 +42,7 @@ if ($versionDetail !== null && (int) ($versionDetail['cms_page_id'] ?? 0) === $i
             <?php endif; ?>
         </p>
         <h3 class="font-semibold text-lg"><?= Security::escape((string) ($versionDetail['title'] ?? '')) ?></h3>
-        <div class="cms-body prose max-w-none border-t pt-4 mt-2">
+        <div class="cms-body border-t pt-4 mt-2">
             <?= (string) ($versionDetail['body_html'] ?? '') ?>
         </div>
     </div>
