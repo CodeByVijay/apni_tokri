@@ -305,6 +305,27 @@
     });
   }
 
+  /** Hidden tab panels use display:none; required fields there block submit with no visible hint. */
+  function initAdminTabbedFormValidation() {
+    $('form[data-at-admin-tabbed-form]').on('submit', function () {
+      var $form = $(this);
+      $form.find('[data-admin-panel].hidden').find('input, select, textarea').each(function () {
+        this.required = false;
+      });
+    });
+  }
+
+  function initSubmitOnce() {
+    $(document).on('click', 'form button[type="submit"][data-at-submit-once], form input[type="submit"][data-at-submit-once]', function () {
+      var $btn = $(this);
+      var $form = $btn.closest('form');
+      if (!$form.length) return;
+      $form.one('submit', function () {
+        $btn.prop('disabled', true).attr('aria-disabled', 'true');
+      });
+    });
+  }
+
   $(function () {
     $('#at-admin-menu-toggle').on('click', function () {
       var $n = $('#at-admin-mobile-nav').toggleClass('hidden');
@@ -326,6 +347,8 @@
     initSecretCredentialToggles();
     initAdminSlugSync();
     initAdminSkuFill();
+    initAdminTabbedFormValidation();
+    initSubmitOnce();
     initAdminFlashDismiss();
   });
 })(jQuery);

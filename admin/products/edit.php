@@ -51,26 +51,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($action === 'save') {
         $catId = $_POST['category_id'] ?? '';
-        $result = ProductRepository::saveGeneral($postId, [
-            'name' => $_POST['name'] ?? '',
-            'slug' => $_POST['slug'] ?? '',
-            'slug_manual' => !empty($_POST['slug_manual']),
-            'sku' => $_POST['sku'] ?? '',
-            'category_id' => $catId,
-            'short_description' => $_POST['short_description'] ?? '',
-            'description' => $_POST['description'] ?? '',
-            'product_type' => $_POST['product_type'] ?? ProductTypeRepository::defaultCode(),
-            'status' => $_POST['status'] ?? 'draft',
-            'is_featured' => $_POST['is_featured'] ?? null,
-            'is_bestseller' => $_POST['is_bestseller'] ?? null,
-            'is_new_arrival' => $_POST['is_new_arrival'] ?? null,
-            'meta_title' => $_POST['meta_title'] ?? '',
-            'meta_description' => $_POST['meta_description'] ?? '',
-            'robots_index' => $_POST['robots_index'] ?? null,
-        ]);
-        if (!$result['ok']) {
-            $errors = $result['errors'] ?? ['form' => $result['message'] ?? 'Save failed.'];
-        } else {
+        try {
+            $result = ProductRepository::saveGeneral($postId, [
+                'name' => $_POST['name'] ?? '',
+                'slug' => $_POST['slug'] ?? '',
+                'slug_manual' => !empty($_POST['slug_manual']),
+                'sku' => $_POST['sku'] ?? '',
+                'category_id' => $catId,
+                'short_description' => $_POST['short_description'] ?? '',
+                'description' => $_POST['description'] ?? '',
+                'product_type' => $_POST['product_type'] ?? ProductTypeRepository::defaultCode(),
+                'status' => $_POST['status'] ?? 'draft',
+                'is_featured' => $_POST['is_featured'] ?? null,
+                'is_bestseller' => $_POST['is_bestseller'] ?? null,
+                'is_new_arrival' => $_POST['is_new_arrival'] ?? null,
+                'meta_title' => $_POST['meta_title'] ?? '',
+                'meta_description' => $_POST['meta_description'] ?? '',
+                'robots_index' => $_POST['robots_index'] ?? null,
+            ]);
+        } catch (Throwable $e) {
+            error_log('admin/products/edit.php save: ' . $e->getMessage());
+            $errors = ['form' => 'Could not save product. Please try again or contact support.'];
+            $result = ['ok' => false];
+        }
+        if (!empty($result['ok'])) {
             $savedId = (int) $result['id'];
             $variantRows = [];
             $vNames = $_POST['variant_name'] ?? [];
@@ -114,6 +118,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             header('Location: ' . url_base() . '/admin/products/edit.php?id=' . $savedId, true, 302);
             exit;
         }
+        if ($errors === [] && empty($result['ok'])) {
+            $errors = $result['errors'] ?? ['form' => $result['message'] ?? 'Save failed.'];
+        }
     }
 }
 
@@ -139,6 +146,10 @@ if ($product) {
     $defaults['name'] = trim((string) ($_POST['name'] ?? ''));
     $defaults['slug'] = trim((string) ($_POST['slug'] ?? ''));
     $defaults['sku'] = trim((string) ($_POST['sku'] ?? ''));
+    $defaults['category_id'] = trim((string) ($_POST['category_id'] ?? ''));
+    $defaults['short_description'] = trim((string) ($_POST['short_description'] ?? ''));
+    $defaults['description'] = trim((string) ($_POST['description'] ?? ''));
+    $defaults['status'] = trim((string) ($_POST['status'] ?? 'draft'));
     $defaults['product_type'] = trim((string) ($_POST['product_type'] ?? ProductTypeRepository::defaultCode()));
 }
 $productTypeOptions = ProductTypeRepository::optionsForProductForm((string) ($defaults['product_type'] ?? ''));
@@ -171,7 +182,7 @@ if ($errors !== []) {
     <button type="button" class="at-focusable" data-admin-tab="seo">SEO</button>
 </div>
 
-<form method="post" class="mt-4" data-at-admin-slug data-slug-api="<?= Security::escape(url_base()) ?>/admin/ajax/slug-from-name.php">
+<form method="post" class="mt-4" data-at-admin-slug data-at-admin-tabbed-form data-slug-api="<?= Security::escape(url_base()) ?>/admin/ajax/slug-from-name.php">
     <?= Csrf::field() ?>
     <input type="hidden" name="action" value="save">
     <?php if ($product): ?><input type="hidden" name="id" value="<?= (int) $product['id'] ?>"><?php endif; ?>
@@ -192,8 +203,11 @@ if ($errors !== []) {
                     $slugSourcePlaceholder = 'e.g. Fresh Red Tomatoes';
                     $slugTargetPlaceholder = 'Auto-generated from name';
                 }
+                $nameError = $errors['name'] ?? null;
                 require APNI_TOKRI_ROOT . '/includes/partials/admin/slug-field.php';
-                ?>
+                if (!empty($nameError)): ?>
+                    <p class="text-sm text-red-600 -mt-2"><?= Security::escape((string) $nameError) ?></p>
+                <?php endif; ?>
                 <div class="grid md:grid-cols-3 gap-3">
                     <div>
                         <label class="at-label" for="sku">SKU</label>
@@ -276,7 +290,7 @@ if ($errors !== []) {
                             <tr>
                                 <td>
                                     <input type="hidden" name="variant_id[]" value="<?= Security::escape((string) ($v['id'] ?? '')) ?>">
-                                    <input name="variant_name[]" class="at-input at-focusable" value="<?= Security::escape((string) ($v['name'] ?? '')) ?>" required>
+                                    <input name="variant_name[]" class="at-input at-focusable" value="<?= Security::escape((string) ($v['name'] ?? '')) ?>" aria-label="Variant name">
                                 </td>
                                 <td><input name="variant_sku[]" class="at-input at-focusable" value="<?= Security::escape((string) ($v['sku'] ?? '')) ?>"></td>
                                 <td><input name="variant_price[]" type="number" step="0.01" min="0" class="at-input at-focusable" value="<?= Security::escape((string) ($v['price'] ?? '')) ?>"></td>
@@ -329,7 +343,7 @@ if ($errors !== []) {
     </div>
 
     <div class="flex gap-3 mt-6">
-        <button type="submit" class="at-btn at-btn--primary at-focusable">Save product</button>
+        <button type="submit" class="at-btn at-btn--primary at-focusable" data-at-submit-once>Save product</button>
         <a href="<?= Security::escape(url_base()) ?>/admin/products/index.php" class="at-btn at-btn--ghost at-focusable">Cancel</a>
     </div>
 </form>
