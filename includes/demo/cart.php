@@ -34,6 +34,11 @@ final class DemoCart
         return CartService::applyCoupon($code);
     }
 
+    public static function removeCoupon(): array
+    {
+        return CartService::removeCoupon();
+    }
+
     public static function items(): array
     {
         return CartService::items();

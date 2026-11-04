@@ -10,10 +10,12 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 Csrf::requireValid();
 
-$code = isset($_POST['coupon_code']) && is_string($_POST['coupon_code']) ? $_POST['coupon_code'] : '';
-$result = DemoCart::applyCoupon($code);
+$result = CartCouponHandler::process($_POST);
 if (!$result['ok']) {
-    Ajax::error($result['message']);
+    Ajax::error($result['message'] ?? 'Coupon could not be applied.');
 }
 
-Ajax::success(['totals' => $result['totals'] ?? DemoCart::totals()], $result['message']);
+Ajax::success(
+    ['totals' => $result['totals'] ?? DemoCart::totals()],
+    $result['message'] ?? 'Coupon applied.'
+);

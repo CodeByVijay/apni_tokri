@@ -110,6 +110,7 @@ require_once APNI_TOKRI_ROOT . '/includes/commerce/offer.php';
 require_once APNI_TOKRI_ROOT . '/includes/commerce/coupon_admin.php';
 require_once APNI_TOKRI_ROOT . '/includes/commerce/pricing.php';
 require_once APNI_TOKRI_ROOT . '/includes/commerce/cart.php';
+require_once APNI_TOKRI_ROOT . '/includes/commerce/cart_coupon_handler.php';
 require_once APNI_TOKRI_ROOT . '/includes/commerce/customer.php';
 require_once APNI_TOKRI_ROOT . '/includes/commerce/account.php';
 require_once APNI_TOKRI_ROOT . '/includes/commerce/order_cancellation.php';

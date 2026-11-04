@@ -92,11 +92,17 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
                 <div class="at-card__body !py-4">
                     <?= Csrf::field() ?>
                     <label class="at-label flex items-center gap-2" for="coupon_code"><?= at_icon('tag', 'w-4 h-4 text-[var(--at-green)]') ?>Have a coupon?</label>
-                    <div class="flex gap-2">
-                        <input id="coupon_code" name="coupon_code" class="at-input at-focusable" placeholder="Try WELCOME10 or SAVE50" value="<?= Security::escape((string) ($totals['coupon_code'] ?? '')) ?>" autocomplete="off">
-                        <button type="submit" class="at-btn at-btn--secondary at-focusable">Apply</button>
+                    <div class="flex flex-wrap gap-2">
+                        <input id="coupon_code" name="coupon_code" class="at-input at-focusable flex-1 min-w-[10rem]" placeholder="Enter your coupon code" value="<?= Security::escape((string) ($totals['coupon_code'] ?? '')) ?>" autocomplete="off">
+                        <button type="submit" id="at-coupon-apply" class="at-btn at-btn--secondary at-focusable" data-at-coupon-apply>Apply</button>
+                        <?php if (!empty($totals['coupon_code']) && (float) ($totals['coupon_discount'] ?? 0) > 0): ?>
+                            <button type="button" id="at-coupon-remove" class="at-btn at-btn--ghost at-focusable" data-at-coupon-remove>Remove</button>
+                        <?php else: ?>
+                            <button type="button" id="at-coupon-remove" class="at-btn at-btn--ghost at-focusable hidden" data-at-coupon-remove>Remove</button>
+                        <?php endif; ?>
                     </div>
-                    <p class="at-field-hint">Demo coupons only. Eligibility is validated on the server.</p>
+                    <p id="at-coupon-feedback" class="text-sm mt-2 hidden" data-at-coupon-feedback role="alert"></p>
+                    <p class="at-field-hint mt-2">Eligibility is validated on the server. Discount appears in your order summary.</p>
                 </div>
             </form>
         </div>

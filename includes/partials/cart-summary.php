@@ -17,11 +17,14 @@ $compact = !empty($compact);
                 <div class="is-saving"><dt>Product savings</dt><dd>−<?= Security::escape(catalogue_format_price((float) $totals['product_savings'])) ?></dd></div>
             <?php endif; ?>
             <?php if ((float) ($totals['offer_discount'] ?? 0) > 0): ?>
-                <div class="is-saving"><dt><?= Security::escape((string) ($totals['offer_label'] ?? 'Automatic offer')) ?></dt><dd>−<?= Security::escape(catalogue_format_price((float) $totals['offer_discount'])) ?></dd></div>
+                <div class="is-saving" data-cart-offer-row><dt><?= Security::escape((string) ($totals['offer_label'] ?? 'Automatic offer')) ?></dt><dd data-cart-offer-amount>−<?= Security::escape(catalogue_format_price((float) $totals['offer_discount'])) ?></dd></div>
+            <?php else: ?>
+                <div class="is-saving hidden" data-cart-offer-row><dt data-cart-offer-label>Automatic offer</dt><dd data-cart-offer-amount></dd></div>
             <?php endif; ?>
-            <?php if ((float) ($totals['coupon_discount'] ?? 0) > 0): ?>
-                <div class="is-saving"><dt>Coupon (<?= Security::escape((string) $totals['coupon_code']) ?>)</dt><dd>−<?= Security::escape(catalogue_format_price((float) $totals['coupon_discount'])) ?></dd></div>
-            <?php endif; ?>
+            <div class="is-saving<?= (float) ($totals['coupon_discount'] ?? 0) > 0 && !empty($totals['coupon_code']) ? '' : ' hidden' ?>" data-cart-coupon-row>
+                <dt>Coupon (<span data-cart-coupon-code><?= Security::escape((string) ($totals['coupon_code'] ?? '')) ?></span>)</dt>
+                <dd data-cart-coupon-amount><?= (float) ($totals['coupon_discount'] ?? 0) > 0 ? '−' . Security::escape(catalogue_format_price((float) $totals['coupon_discount'])) : '' ?></dd>
+            </div>
             <div><dt>Delivery fee</dt><dd data-cart-delivery><?php if (empty($totals['delivery_quote_accurate']) && !empty($totals['delivery_quote_message'])): ?><span class="at-muted">—</span><?php elseif ((float) $totals['delivery_fee'] === 0.0): ?>Free<?php else: ?><?= Security::escape(catalogue_format_price((float) $totals['delivery_fee'])) ?><?php endif; ?></dd></div>
             <div class="is-total"><dt>Total</dt><dd data-cart-total><?= Security::escape(catalogue_format_price((float) $totals['total'])) ?></dd></div>
         </dl>

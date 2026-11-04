@@ -16,7 +16,8 @@
   }
 
   function formatMoney(amount) {
-    return '₹' + Math.round(amount).toLocaleString('en-IN');
+    var n = Number(amount) || 0;
+    return '₹' + Math.round(n).toLocaleString('en-IN');
   }
 
   function updateHeaderCount(count) {
@@ -63,17 +64,121 @@
     }
   }
 
+  function showCouponFeedback(message, isError) {
+    var $fb = $('[data-at-coupon-feedback]');
+    if (!$fb.length) return;
+    if (!message) {
+      $fb.addClass('hidden').removeClass('text-red-600 text-[var(--at-success)]').text('');
+      return;
+    }
+    $fb.removeClass('hidden').toggleClass('text-red-600', !!isError).toggleClass('text-[var(--at-success)]', !isError).text(message);
+  }
+
+  function setCouponUiApplied(applied, code) {
+    var $remove = $('[data-at-coupon-remove]');
+    var $input = $('#coupon_code');
+    if (applied && code) {
+      $remove.removeClass('hidden');
+      $input.val(code);
+    } else {
+      $remove.addClass('hidden');
+      if (!applied) {
+        $input.val('');
+      }
+    }
+  }
+
   function refreshSummary(totals) {
     if (!totals) return;
     $('[data-cart-subtotal]').text(formatMoney(totals.subtotal));
     $('[data-cart-delivery]').text(totals.delivery_fee === 0 ? 'Free' : formatMoney(totals.delivery_fee));
     $('[data-cart-total]').text(formatMoney(totals.total));
-    var $free = $('[data-cart-free-delivery]');
-    if (totals.amount_to_free_delivery > 0) {
-      $free.removeClass('hidden').text('Add ' + formatMoney(totals.amount_to_free_delivery) + ' more for free delivery.');
-    } else {
-      $free.addClass('hidden');
+
+    var offerDisc = parseFloat(totals.offer_discount) || 0;
+    var $offerRow = $('[data-cart-offer-row]');
+    if ($offerRow.length) {
+      if (offerDisc > 0) {
+        $offerRow.removeClass('hidden');
+        if (totals.offer_label) {
+          $offerRow.find('[data-cart-offer-label]').text(totals.offer_label);
+        }
+        $('[data-cart-offer-amount]').text('−' + formatMoney(offerDisc));
+      } else {
+        $offerRow.addClass('hidden');
+      }
     }
+
+    var couponDisc = parseFloat(totals.coupon_discount) || 0;
+    var couponCode = totals.coupon_code || '';
+    var $couponRow = $('[data-cart-coupon-row]');
+    if ($couponRow.length) {
+      if (couponDisc > 0 && couponCode) {
+        $couponRow.removeClass('hidden');
+        $('[data-cart-coupon-code]').text(couponCode);
+        $('[data-cart-coupon-amount]').text('−' + formatMoney(couponDisc));
+        setCouponUiApplied(true, couponCode);
+      } else {
+        $couponRow.addClass('hidden');
+        setCouponUiApplied(false, '');
+      }
+    }
+
+    var $free = $('[data-cart-free-delivery]');
+    if ($free.length) {
+      if (totals.amount_to_free_delivery > 0) {
+        $free.removeClass('hidden').text('Add ' + formatMoney(totals.amount_to_free_delivery) + ' more for free delivery.');
+      } else {
+        $free.addClass('hidden');
+      }
+    }
+  }
+
+  function parseAjaxError(xhr, fallback) {
+    var msg = fallback || 'Something went wrong. Please try again.';
+    try {
+      var j = JSON.parse(xhr.responseText);
+      if (j.error && j.error.message) msg = j.error.message;
+    } catch (e) {}
+    return msg;
+  }
+
+  var couponBusy = false;
+
+  function postCoupon(payload, done) {
+    if (couponBusy) return;
+    couponBusy = true;
+    var $btn = $('[data-at-coupon-apply]');
+    var prevLabel = $btn.text();
+    $btn.prop('disabled', true).attr('aria-busy', 'true').text('Applying…');
+    showCouponFeedback('', false);
+
+    $.ajax({
+      url: baseUrl() + '/ajax/cart/coupon.php',
+      method: 'POST',
+      dataType: 'json',
+      data: $.extend({ _csrf_token: csrfToken() }, payload)
+    }).done(function (res) {
+      if (res.success) {
+        var totals = res.data && res.data.totals ? res.data.totals : null;
+        refreshSummary(totals);
+        showCouponFeedback(res.message || 'Coupon applied.', false);
+        toast(res.message || 'Coupon applied.', 'success');
+        if (typeof done === 'function') done(null, res);
+      } else {
+        var errMsg = res.error && res.error.message ? res.error.message : 'Coupon could not be applied.';
+        showCouponFeedback(errMsg, true);
+        toast(errMsg, 'error');
+        if (typeof done === 'function') done(new Error(errMsg));
+      }
+    }).fail(function (xhr) {
+      var errMsg = parseAjaxError(xhr, 'Could not apply coupon. Check your connection and try again.');
+      showCouponFeedback(errMsg, true);
+      toast(errMsg, 'error');
+      if (typeof done === 'function') done(new Error(errMsg));
+    }).always(function () {
+      couponBusy = false;
+      $btn.prop('disabled', false).removeAttr('aria-busy').text(prevLabel);
+    });
   }
 
   $(function () {
@@ -89,7 +194,9 @@
         } else {
           toast(res.error && res.error.message ? res.error.message : 'Update failed', 'error');
         }
-      }, 'json');
+      }, 'json').fail(function (xhr) {
+        toast(parseAjaxError(xhr, 'Update failed'), 'error');
+      });
     });
 
     $('.js-cart-remove').on('click', function () {
@@ -104,16 +211,15 @@
 
     $('#at-coupon-form').on('submit', function (e) {
       e.preventDefault();
-      $.post(baseUrl() + '/ajax/cart/coupon.php', {
-        _csrf_token: csrfToken(),
-        coupon_code: $('#coupon_code').val()
-      }, function (res) {
-        if (res.success) {
-          location.reload();
-        } else {
-          toast(res.error && res.error.message ? res.error.message : 'Coupon failed', 'error');
+      postCoupon({ coupon_code: $('#coupon_code').val() });
+    });
+
+    $('[data-at-coupon-remove]').on('click', function () {
+      postCoupon({ remove: '1' }, function (err) {
+        if (!err) {
+          showCouponFeedback('Coupon removed.', false);
         }
-      }, 'json');
+      });
     });
   });
 })(jQuery);

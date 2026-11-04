@@ -488,6 +488,9 @@ final class CheckoutService
     {
         $profile = CustomerService::profile();
         $totals = CartService::totals();
+        if (!empty($totals['coupon_error'])) {
+            return ['ok' => false, 'message' => (string) $totals['coupon_error']];
+        }
         $order = [
             'status' => $paySim === 'fail' ? 'payment_failed' : 'confirmed',
             'customer_name' => $profile['name'] ?? 'Customer',

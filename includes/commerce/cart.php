@@ -35,36 +35,55 @@ final class CartService
     }
 
     /** @return array{ok: bool, message?: string, totals?: array<string, mixed>} */
-    public static function applyCoupon(?string $code): array
+    public static function removeCoupon(): array
     {
         if (AppEnvironment::usePersistedStorefront()) {
             $cartId = self::resolveCartId(true);
-            $normalized = $code !== null && trim($code) !== '' ? strtoupper(trim($code)) : null;
+            if ($cartId === 0) {
+                return ['ok' => false, 'message' => 'Cart is empty.'];
+            }
+            Install::ensureConnection();
+            Database::pdo()->prepare('UPDATE carts SET coupon_code = NULL, updated_at = NOW() WHERE id = ?')
+                ->execute([$cartId]);
+
+            return ['ok' => true, 'message' => 'Coupon removed.', 'totals' => self::totals()];
+        }
+
+        return SessionCartBackend::removeCoupon();
+    }
+
+    /** @return array{ok: bool, message?: string, totals?: array<string, mixed>} */
+    public static function applyCoupon(?string $code): array
+    {
+        $normalized = $code !== null ? strtoupper(trim($code)) : '';
+        if ($normalized === '') {
+            return ['ok' => false, 'message' => 'Please enter a coupon code.'];
+        }
+        if (AppEnvironment::usePersistedStorefront()) {
+            $cartId = self::resolveCartId(true);
             $lines = self::pricingLines($cartId);
             if ($lines === []) {
                 return ['ok' => false, 'message' => 'Cart is empty.'];
             }
-            if ($normalized !== null) {
-                $offer = PromotionService::bestAutomaticOffer($lines, CustomerAuth::id());
-                $check = CouponService::validateForCart(
-                    $normalized,
-                    $lines,
-                    CustomerAuth::id(),
-                    (float) ($offer['discount'] ?? 0),
-                    !empty($offer['stack_with_coupons'])
-                );
-                if (!$check['ok']) {
-                    return ['ok' => false, 'message' => $check['message'] ?? 'Invalid coupon.'];
-                }
+            $offer = PromotionService::bestAutomaticOffer($lines, CustomerAuth::id());
+            $check = CouponService::validateForCart(
+                $normalized,
+                $lines,
+                CustomerAuth::id(),
+                (float) ($offer['discount'] ?? 0),
+                !empty($offer['stack_with_coupons'])
+            );
+            if (!$check['ok']) {
+                return ['ok' => false, 'message' => $check['message'] ?? 'Invalid coupon.'];
             }
             Install::ensureConnection();
             Database::pdo()->prepare('UPDATE carts SET coupon_code = ?, updated_at = NOW() WHERE id = ?')
                 ->execute([$normalized, $cartId]);
 
-            return ['ok' => true, 'message' => $normalized ? 'Coupon applied.' : 'Coupon removed.', 'totals' => self::totals()];
+            return ['ok' => true, 'message' => 'Coupon applied.', 'totals' => self::totals()];
         }
 
-        return SessionCartBackend::applyCoupon($code);
+        return SessionCartBackend::applyCoupon($normalized);
     }
 
     /** @return list<array<string, mixed>> */
@@ -102,6 +121,11 @@ final class CartService
             $coupon = is_string($coupon) && $coupon !== '' ? $coupon : null;
             $lines = self::pricingLines($cartId);
             $base = PricingService::totalsFromLines($lines, $coupon, self::resolveDeliveryPin());
+            if (!empty($base['coupon_error']) && $coupon !== null && $coupon !== '') {
+                Database::pdo()->prepare('UPDATE carts SET coupon_code = NULL, updated_at = NOW() WHERE id = ?')
+                    ->execute([$cartId]);
+                $base = PricingService::totalsFromLines($lines, null, self::resolveDeliveryPin());
+            }
             $address = self::resolveCheckoutAddress($checkoutAddressId);
 
             return PricingService::applyDeliveryQuotePreview($base, $lines, $address, $deliverySlotSlug);
@@ -627,15 +651,25 @@ final class SessionCartBackend
     }
 
     /** @return array{ok: bool, message?: string, totals?: array<string, mixed>} */
-    public static function applyCoupon(?string $code): array
+    public static function removeCoupon(): array
     {
         $state = self::state();
-        $code = $code !== null ? strtoupper(trim($code)) : '';
-        if ($code === '') {
-            $state['coupon_code'] = null;
-            self::save($state);
+        $state['coupon_code'] = null;
+        self::save($state);
 
-            return ['ok' => true, 'message' => 'Coupon removed.', 'totals' => self::totals()];
+        return ['ok' => true, 'message' => 'Coupon removed.', 'totals' => self::totals()];
+    }
+
+    /** @return array{ok: bool, message?: string, totals?: array<string, mixed>} */
+    public static function applyCoupon(string $code): array
+    {
+        $code = strtoupper(trim($code));
+        if ($code === '') {
+            return ['ok' => false, 'message' => 'Please enter a coupon code.'];
+        }
+        $state = self::state();
+        if ($state['items'] === []) {
+            return ['ok' => false, 'message' => 'Cart is empty.'];
         }
         $subtotal = 0.0;
         foreach ($state['items'] as $item) {
@@ -691,7 +725,16 @@ final class SessionCartBackend
             ];
         }
 
-        return PricingService::totalsFromLines($lines, self::state()['coupon_code'] ?? null, DeliveryContext::sessionPin());
+        $state = self::state();
+        $coupon = $state['coupon_code'] ?? null;
+        $totals = PricingService::totalsFromLines($lines, $coupon, DeliveryContext::sessionPin());
+        if (!empty($totals['coupon_error']) && $coupon) {
+            $state['coupon_code'] = null;
+            self::save($state);
+            $totals = PricingService::totalsFromLines($lines, null, DeliveryContext::sessionPin());
+        }
+
+        return $totals;
     }
 
     public static function clear(): void
