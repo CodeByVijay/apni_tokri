@@ -33,20 +33,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $productIds = array_map('intval', (array) ($_POST['product_ids'] ?? []));
     $excluded = array_map('intval', (array) ($_POST['excluded_product_ids'] ?? []));
 
+    $minCart = trim((string) ($_POST['min_cart_value'] ?? ''));
+    $maxDiscount = trim((string) ($_POST['max_discount'] ?? ''));
+    $usageLimit = trim((string) ($_POST['usage_limit'] ?? ''));
+    $perCustomerLimit = trim((string) ($_POST['per_customer_limit'] ?? ''));
+    $startsRaw = trim((string) ($_POST['starts_at'] ?? ''));
+    $endsRaw = trim((string) ($_POST['ends_at'] ?? ''));
+
     CouponRepository::save($postId, [
         'code' => $code,
         'internal_name' => trim((string) ($_POST['internal_name'] ?? '')),
         'discount_type' => ($_POST['discount_type'] ?? '') === 'fixed' ? 'fixed' : 'percent',
         'discount_value' => (float) ($_POST['discount_value'] ?? 0),
-        'min_cart_value' => $_POST['min_cart_value'] !== '' ? (float) $_POST['min_cart_value'] : null,
-        'max_discount' => $_POST['max_discount'] !== '' ? (float) $_POST['max_discount'] : null,
-        'usage_limit' => $_POST['usage_limit'] !== '' ? (int) $_POST['usage_limit'] : null,
-        'per_customer_limit' => $_POST['per_customer_limit'] !== '' ? (int) $_POST['per_customer_limit'] : null,
+        'min_cart_value' => $minCart !== '' ? (float) $minCart : null,
+        'max_discount' => $maxDiscount !== '' ? (float) $maxDiscount : null,
+        'usage_limit' => $usageLimit !== '' ? (int) $usageLimit : null,
+        'per_customer_limit' => $perCustomerLimit !== '' ? (int) $perCustomerLimit : null,
         'first_order_only' => !empty($_POST['first_order_only']) ? 1 : 0,
         'stackable_with_offers' => !empty($_POST['stackable_with_offers']) ? 1 : 0,
         'priority' => (int) ($_POST['priority'] ?? 0),
-        'starts_at' => $_POST['starts_at'] !== '' ? date('Y-m-d H:i:s', strtotime((string) $_POST['starts_at'])) : null,
-        'ends_at' => $_POST['ends_at'] !== '' ? date('Y-m-d H:i:s', strtotime((string) $_POST['ends_at'])) : null,
+        'starts_at' => $startsRaw !== '' ? date('Y-m-d H:i:s', strtotime($startsRaw)) : null,
+        'ends_at' => $endsRaw !== '' ? date('Y-m-d H:i:s', strtotime($endsRaw)) : null,
         'is_active' => !empty($_POST['is_active']) ? 1 : 0,
     ], $customerIds, $categoryIds, $productIds, $excluded);
 
@@ -67,7 +74,17 @@ $c = $coupon ?? [
     'code' => '', 'internal_name' => '', 'discount_type' => 'percent', 'discount_value' => 10,
     'min_cart_value' => 100, 'max_discount' => '', 'usage_limit' => '', 'per_customer_limit' => 1,
     'first_order_only' => 0, 'stackable_with_offers' => 0, 'priority' => 0, 'is_active' => 1,
+    'starts_at' => null, 'ends_at' => null,
 ];
+
+$couponDatetimeLocal = static function (?string $mysql): string {
+    if ($mysql === null || trim($mysql) === '') {
+        return '';
+    }
+    $ts = strtotime($mysql);
+
+    return $ts ? date('Y-m-d\TH:i', $ts) : '';
+};
 ?>
 <form method="post" class="at-card max-w-3xl">
     <div class="at-card__body at-admin-form-grid at-admin-form-grid--2">
@@ -84,6 +101,9 @@ $c = $coupon ?? [
         <div><label class="at-label">Max discount (₹, percent only)</label><input name="max_discount" class="at-input at-focusable" value="<?= Security::escape((string) ($c['max_discount'] ?? '')) ?>"></div>
         <div><label class="at-label">Total usage limit</label><input name="usage_limit" class="at-input at-focusable" value="<?= Security::escape((string) ($c['usage_limit'] ?? '')) ?>"></div>
         <div><label class="at-label">Per-customer limit</label><input name="per_customer_limit" class="at-input at-focusable" value="<?= Security::escape((string) ($c['per_customer_limit'] ?? '')) ?>"></div>
+        <div><label class="at-label">Priority</label><input name="priority" type="number" class="at-input at-focusable" value="<?= (int) ($c['priority'] ?? 0) ?>"></div>
+        <div><label class="at-label">Valid from</label><input type="datetime-local" name="starts_at" class="at-input at-focusable" value="<?= Security::escape($couponDatetimeLocal(isset($c['starts_at']) ? (string) $c['starts_at'] : null)) ?>"></div>
+        <div><label class="at-label">Valid until</label><input type="datetime-local" name="ends_at" class="at-input at-focusable" value="<?= Security::escape($couponDatetimeLocal(isset($c['ends_at']) ? (string) $c['ends_at'] : null)) ?>"></div>
         <div class="md:col-span-2"><label class="at-label">Assigned customer IDs (comma-separated, empty = all)</label><input name="assigned_customer_ids" class="at-input at-focusable" value="<?= Security::escape($assigned) ?>"></div>
         <div class="md:col-span-2">
             <label class="at-label">Eligible categories (empty = all)</label>
