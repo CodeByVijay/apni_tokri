@@ -168,6 +168,7 @@ if ($errors !== []) {
     echo '<div class="at-alert at-alert--error mb-4">' . Security::escape(implode(' ', $errors)) . '</div>';
 }
 ?>
+<div class="at-product-edit mt-4" data-at-product-edit>
 <div class="at-admin-tabs">
     <button type="button" class="is-active at-focusable" data-admin-tab="general">General</button>
     <button type="button" class="at-focusable" data-admin-tab="variants">Variants & stock</button>
@@ -176,7 +177,7 @@ if ($errors !== []) {
     <button type="button" class="at-focusable" data-admin-tab="seo">SEO</button>
 </div>
 
-<form method="post" class="mt-4" data-at-admin-slug data-at-admin-tabbed-form data-at-product-form data-slug-api="<?= Security::escape(url_base()) ?>/admin/ajax/slug-from-name.php">
+<form method="post" id="at-product-edit-form" class="mt-4" data-at-admin-slug data-at-admin-tabbed-form data-at-product-form data-slug-api="<?= Security::escape(url_base()) ?>/admin/ajax/slug-from-name.php">
     <?= Csrf::field() ?>
     <input type="hidden" name="action" value="save">
     <?php if ($product): ?><input type="hidden" name="id" value="<?= (int) $product['id'] ?>"><?php endif; ?>
@@ -333,46 +334,61 @@ if ($errors !== []) {
             <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="robots_index" value="1"<?= !empty($defaults['robots_index']) ? ' checked' : '' ?>> Allow search indexing</label>
         </div>
     </div>
-
-    <div class="flex gap-3 mt-6">
-        <button type="submit" class="at-btn at-btn--primary at-focusable" data-at-submit-once>Save product</button>
-        <a href="<?= Security::escape(url_base()) ?>/admin/products/index.php" class="at-btn at-btn--ghost at-focusable">Cancel</a>
-    </div>
 </form>
 
-<?php if ($useDb && $product): ?>
-<section id="images" class="mt-8" data-admin-panel="images">
-    <h3 class="font-bold mb-3">Product images</h3>
-    <div class="flex flex-wrap gap-3 mb-4">
-        <?php foreach ($images as $img):
-            $src = asset_url((string) $img['file_path']);
-            ?>
-            <div class="relative w-28">
-                <img src="<?= Security::escape($src) ?>" alt="" class="w-28 h-28 object-cover rounded-lg border border-neutral-200">
-                <?php if (!empty($img['is_primary'])): ?><span class="absolute top-1 left-1 at-status at-status--ok text-[10px]">Primary</span><?php endif; ?>
-                <form method="post" class="mt-1">
-                    <?= Csrf::field() ?>
-                    <input type="hidden" name="action" value="delete_image">
-                    <input type="hidden" name="id" value="<?= (int) $product['id'] ?>">
-                    <input type="hidden" name="image_id" value="<?= (int) $img['id'] ?>">
-                    <button type="submit" class="text-xs text-red-700 at-focusable">Remove</button>
-                </form>
+    <div id="images" data-admin-panel="images" class="hidden mt-4">
+        <?php if ($useDb && $product): ?>
+            <div class="at-admin-card">
+                <div class="at-admin-card__body space-y-4">
+                    <h3 class="font-bold">Product images</h3>
+                    <div class="flex flex-wrap gap-3">
+                        <?php foreach ($images as $img):
+                            $src = asset_url((string) $img['file_path']);
+                            ?>
+                            <div class="relative w-28 shrink-0">
+                                <img src="<?= Security::escape($src) ?>" alt="" class="w-28 h-28 object-cover rounded-lg border border-neutral-200">
+                                <?php if (!empty($img['is_primary'])): ?><span class="absolute top-1 left-1 at-status at-status--ok text-[10px]">Primary</span><?php endif; ?>
+                                <form method="post" class="mt-1">
+                                    <?= Csrf::field() ?>
+                                    <input type="hidden" name="action" value="delete_image">
+                                    <input type="hidden" name="id" value="<?= (int) $product['id'] ?>">
+                                    <input type="hidden" name="image_id" value="<?= (int) $img['id'] ?>">
+                                    <button type="submit" class="text-xs text-red-700 at-focusable">Remove</button>
+                                </form>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                    <form method="post" enctype="multipart/form-data" class="at-admin-card max-w-md">
+                        <div class="at-admin-card__body space-y-3">
+                            <?= Csrf::field() ?>
+                            <input type="hidden" name="action" value="upload_image">
+                            <input type="hidden" name="id" value="<?= (int) $product['id'] ?>">
+                            <label class="at-label" for="image">Upload image (JPEG, PNG, WebP — max 5 MB)</label>
+                            <input id="image" type="file" name="image" accept="image/jpeg,image/png,image/webp,image/gif" class="at-input" required>
+                            <button type="submit" class="at-btn at-btn--secondary at-focusable">Upload</button>
+                        </div>
+                    </form>
+                </div>
             </div>
-        <?php endforeach; ?>
+        <?php elseif ($useDb): ?>
+            <div class="at-admin-card">
+                <div class="at-admin-card__body">
+                    <p class="text-sm at-muted">Save the product first, then upload images.</p>
+                </div>
+            </div>
+        <?php else: ?>
+            <div class="at-admin-card">
+                <div class="at-admin-card__body">
+                    <p class="text-sm at-muted">Sign in with database admin to manage product images.</p>
+                </div>
+            </div>
+        <?php endif; ?>
     </div>
-    <form method="post" enctype="multipart/form-data" class="at-admin-card max-w-md">
-        <div class="at-admin-card__body space-y-3">
-            <?= Csrf::field() ?>
-            <input type="hidden" name="action" value="upload_image">
-            <input type="hidden" name="id" value="<?= (int) $product['id'] ?>">
-            <label class="at-label" for="image">Upload image (JPEG, PNG, WebP — max 5 MB)</label>
-            <input id="image" type="file" name="image" accept="image/jpeg,image/png,image/webp,image/gif" class="at-input" required>
-            <button type="submit" class="at-btn at-btn--secondary at-focusable">Upload</button>
-        </div>
-    </form>
-</section>
-<?php elseif (!$product && $useDb): ?>
-<p class="text-sm at-muted mt-6">Save the product first, then upload images.</p>
-<?php endif; ?>
+
+    <div class="flex flex-wrap gap-3 mt-6">
+        <button type="submit" form="at-product-edit-form" class="at-btn at-btn--primary at-focusable" data-at-submit-once>Save product</button>
+        <a href="<?= Security::escape(url_base()) ?>/admin/products/index.php" class="at-btn at-btn--ghost at-focusable">Cancel</a>
+    </div>
+</div>
 
 <?php admin_layout_end(); ?>

@@ -377,9 +377,10 @@
   }
 
   function initSubmitOnce() {
-    $(document).on('click', 'form button[type="submit"][data-at-submit-once], form input[type="submit"][data-at-submit-once]', function () {
+    $(document).on('click', 'button[type="submit"][data-at-submit-once], input[type="submit"][data-at-submit-once]', function () {
       var $btn = $(this);
-      var $form = $btn.closest('form');
+      var formId = $btn.attr('form');
+      var $form = formId ? $('#' + formId) : $btn.closest('form');
       if (!$form.length) return;
       $form.one('submit', function () {
         $btn.prop('disabled', true).attr('aria-disabled', 'true');
@@ -395,11 +396,18 @@
     $('[data-admin-tab]').on('click', function (e) {
       e.preventDefault();
       var target = $(this).data('admin-tab');
+      var $root = $(this).closest('[data-at-product-edit]');
+      var $scope = $root.length ? $root : $(this).closest('.at-admin-tabs').parent();
       $(this).closest('.at-admin-tabs').find('[data-admin-tab]').removeClass('is-active');
       $(this).addClass('is-active');
-      $('[data-admin-panel]').addClass('hidden');
-      $('[data-admin-panel="' + target + '"]').removeClass('hidden');
+      $scope.find('[data-admin-panel]').addClass('hidden');
+      $scope.find('[data-admin-panel="' + target + '"]').removeClass('hidden');
     });
+
+    var $productEdit = $('[data-at-product-edit]');
+    if ($productEdit.length && window.location.hash === '#images') {
+      $productEdit.find('[data-admin-tab="images"]').trigger('click');
+    }
     $('.js-image-sortable li').each(function (i) {
       $(this).attr('data-order', i + 1);
     });
