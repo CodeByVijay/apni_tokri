@@ -92,7 +92,9 @@ final class AdminDashboardService
         }
         $skips = 0;
         try {
-            $stmt = $pdo->prepare('SELECT COUNT(*) FROM subscription_skips WHERE skip_date = ?');
+            $stmt = $pdo->prepare(
+                'SELECT COUNT(*) FROM subscription_skips WHERE DATE(skipped_at) = ?'
+            );
             $stmt->execute([$today]);
             $skips = (int) $stmt->fetchColumn();
         } catch (Throwable $e) {

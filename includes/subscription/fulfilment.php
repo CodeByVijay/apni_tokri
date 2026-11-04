@@ -31,6 +31,7 @@ final class SubscriptionFulfilmentService
         if ($runId === null) {
             $runId = 'fulfil_' . $now->format('YmdHis') . '_' . substr(Security::randomToken(4), 0, 6);
         }
+        SubscriptionAutoConfirmService::resolveDueSubscriptions($now);
         $today = $now->format('Y-m-d');
 
         $stmt = Database::pdo()->prepare(
@@ -40,6 +41,7 @@ final class SubscriptionFulfilmentService
              INNER JOIN subscription_delivery_baskets b ON b.subscription_delivery_day_id = d.id
              LEFT JOIN subscription_fulfilment_events fe ON fe.subscription_delivery_day_id = d.id AND fe.status = 'completed'
              WHERE cs.status = 'active'
+               AND cs.deliveries_remaining > 0
                AND d.status = 'scheduled'
                AND d.delivery_date <= ?
                AND b.status = 'confirmed'

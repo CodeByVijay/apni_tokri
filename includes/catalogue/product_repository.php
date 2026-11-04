@@ -288,18 +288,27 @@ final class ProductRepository
         if (!in_array($status, ['draft', 'published', 'archived'], true)) {
             $status = 'draft';
         }
-        $type = (string) ($input['product_type'] ?? 'fresh');
-        if (!in_array($type, ['fresh', 'cut', 'packaged'], true)) {
-            $type = 'fresh';
+        $type = strtolower(trim((string) ($input['product_type'] ?? ProductTypeRepository::defaultCode())));
+        if (!ProductTypeRepository::isAllowedCode(
+            $type,
+            $existing !== null && (string) ($existing['product_type'] ?? '') === $type
+        )) {
+            $errors['product_type'] = 'Choose a valid product type.';
         }
         $categoryId = isset($input['category_id']) && $input['category_id'] !== ''
             ? (int) $input['category_id']
             : null;
+        $skuInput = trim((string) ($input['sku'] ?? ''));
+        if ($skuInput !== '') {
+            $skuCheck = ProductSkuService::validateForSave($skuInput, $id);
+            if (!$skuCheck['ok']) {
+                $errors['sku'] = $skuCheck['message'] ?? 'Invalid SKU.';
+            }
+        }
         if ($errors !== []) {
             return ['ok' => false, 'errors' => $errors];
         }
 
-        $sku = trim((string) ($input['sku'] ?? ''));
         $short = trim((string) ($input['short_description'] ?? ''));
         $desc = trim((string) ($input['description'] ?? ''));
         $featured = !empty($input['is_featured']) ? 1 : 0;
@@ -310,37 +319,56 @@ final class ProductRepository
         $robots = !empty($input['robots_index']) ? 1 : 0;
 
         Install::ensureConnection();
-        $pdo = Database::pdo();
 
         if ($id === null) {
-            $stmt = $pdo->prepare(
-                'INSERT INTO products (category_id, name, slug, sku, short_description, description, product_type, status,
-                 is_featured, is_bestseller, is_new_arrival, meta_title, meta_description, robots_index)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-            );
-            $stmt->execute([
+            return Database::transaction(static function () use (
                 $categoryId,
                 $name,
                 $slug,
-                $sku !== '' ? $sku : null,
-                $short !== '' ? $short : null,
-                $desc !== '' ? $desc : null,
+                $skuInput,
+                $short,
+                $desc,
                 $type,
                 $status,
                 $featured,
                 $best,
                 $newArr,
-                $metaTitle !== '' ? $metaTitle : null,
-                $metaDesc !== '' ? $metaDesc : null,
-                $robots,
-            ]);
-            $newId = (int) $pdo->lastInsertId();
-            AuditLog::write('product.create', 'product', (string) $newId, ['slug' => $slug]);
+                $metaTitle,
+                $metaDesc,
+                $robots
+            ): array {
+                $sku = $skuInput !== '' ? ProductSkuService::normalize($skuInput) : ProductSkuService::allocateNext();
+                $pdo = Database::pdo();
+                $stmt = $pdo->prepare(
+                    'INSERT INTO products (category_id, name, slug, sku, short_description, description, product_type, status,
+                     is_featured, is_bestseller, is_new_arrival, meta_title, meta_description, robots_index)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                );
+                $stmt->execute([
+                    $categoryId,
+                    $name,
+                    $slug,
+                    $sku,
+                    $short !== '' ? $short : null,
+                    $desc !== '' ? $desc : null,
+                    $type,
+                    $status,
+                    $featured,
+                    $best,
+                    $newArr,
+                    $metaTitle !== '' ? $metaTitle : null,
+                    $metaDesc !== '' ? $metaDesc : null,
+                    $robots,
+                ]);
+                $newId = (int) $pdo->lastInsertId();
+                AuditLog::write('product.create', 'product', (string) $newId, ['slug' => $slug, 'sku' => $sku]);
 
-            return ['ok' => true, 'id' => $newId];
+                return ['ok' => true, 'id' => $newId];
+            });
         }
 
-        $existing = self::find($id);
+        $sku = $skuInput !== '' ? ProductSkuService::normalize($skuInput) : null;
+
         if ($existing === null) {
             return ['ok' => false, 'message' => 'Product not found.'];
         }
@@ -414,6 +442,7 @@ final class ProductRepository
             $existingIds[(int) $e['id']] = true;
         }
         $kept = [];
+        $seenSkus = [];
 
         foreach ($variants as $i => $v) {
             $vid = isset($v['id']) && $v['id'] !== '' ? (int) $v['id'] : null;
@@ -428,6 +457,20 @@ final class ProductRepository
             $saleRaw = trim((string) ($v['sale_price'] ?? ''));
             $sale = $saleRaw === '' ? null : (float) $saleRaw;
             $sku = trim((string) ($v['sku'] ?? ''));
+            if ($sku !== '') {
+                $sku = ProductSkuService::normalize($sku);
+                if (isset($seenSkus[$sku])) {
+                    return ['ok' => false, 'message' => 'Duplicate variant SKU "' . $sku . '" on this product.'];
+                }
+                $seenSkus[$sku] = true;
+                $productRow = self::find($productId);
+                if ($productRow !== null && ProductSkuService::normalize((string) ($productRow['sku'] ?? '')) === $sku) {
+                    return ['ok' => false, 'message' => 'Variant SKU cannot be the same as this product\'s SKU.'];
+                }
+                if (ProductSkuService::skuInUse($sku, $productId, $vid)) {
+                    return ['ok' => false, 'message' => 'Variant SKU "' . $sku . '" is already used by another product or variant.'];
+                }
+            }
             $stock = max(0, (int) ($v['stock_qty'] ?? 0));
             $low = max(0, (int) ($v['low_stock_threshold'] ?? 5));
             $active = !empty($v['is_active']) ? 1 : 0;

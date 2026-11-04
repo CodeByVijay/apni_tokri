@@ -54,7 +54,8 @@ final class SubscriptionAdminListService
             $page = $totalPages;
         }
         $offset = ($page - 1) * $perPage;
-        $sql = 'SELECT cs.subscription_number, c.mobile, d.delivery_date, d.basket_status, b.status AS basket_row_status,
+        $sql = 'SELECT cs.subscription_number, cs.status AS subscription_status, cs.deliveries_remaining,
+                c.mobile, d.delivery_date, d.status AS day_status, d.basket_status, b.status AS basket_row_status,
                 b.total_inr, b.allowance_inr, b.source_type' . $from . ' ORDER BY ' . $orderSql . ' LIMIT ? OFFSET ?';
         $stmt = $pdo->prepare($sql);
         $i = 1;

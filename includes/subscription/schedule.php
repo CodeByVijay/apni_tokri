@@ -43,6 +43,76 @@ final class SubscriptionScheduleGenerator
     }
 
     /**
+     * Next delivery date on plan frequency after $afterYmd, ignoring calendar window limits.
+     *
+     * @param array<string, mixed> $plan
+     * @param list<string> $excludeYmd
+     */
+    public static function nextDeliveryDateAfter(array $plan, string $afterYmd, array $excludeYmd = []): ?string
+    {
+        $tz = new DateTimeZone(self::TZ);
+        $cursor = DateTimeImmutable::createFromFormat('Y-m-d', $afterYmd, $tz);
+        if (!$cursor) {
+            return null;
+        }
+        $exclude = array_flip($excludeYmd);
+        $frequency = (string) ($plan['frequency_type'] ?? 'daily');
+        $config = is_array($plan['frequency_config'] ?? null)
+            ? $plan['frequency_config']
+            : self::decodeJson($plan['frequency_config'] ?? null);
+        $planStart = (string) ($plan['_schedule_anchor_date'] ?? $afterYmd);
+        $maxSteps = 800;
+        for ($i = 0; $i < $maxSteps; $i++) {
+            $ymd = $cursor->format('Y-m-d');
+            if (self::isDeliveryDateOnFrequency($ymd, $planStart, $frequency, $config) && !isset($exclude[$ymd])) {
+                return $ymd;
+            }
+            $cursor = $cursor->modify('+1 day');
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<string, mixed>|null $config
+     */
+    public static function isDeliveryDateOnFrequency(
+        string $dateYmd,
+        string $planStartYmd,
+        string $frequency,
+        ?array $config
+    ): bool {
+        $tz = new DateTimeZone(self::TZ);
+        $date = DateTimeImmutable::createFromFormat('Y-m-d', $dateYmd, $tz);
+        $start = DateTimeImmutable::createFromFormat('Y-m-d', $planStartYmd, $tz);
+        if (!$date || !$start || $date < $start) {
+            return false;
+        }
+        if ($frequency === 'daily') {
+            return true;
+        }
+        if ($frequency === 'alternate') {
+            $days = (int) $start->diff($date)->days;
+
+            return $days % 2 === 0;
+        }
+        if ($frequency === 'weekdays') {
+            $allowed = array_map('intval', (array) ($config['weekdays'] ?? [1, 2, 3, 4, 5, 6, 7]));
+            $dow = (int) $date->format('N');
+
+            return in_array($dow, $allowed, true);
+        }
+        if ($frequency === 'custom_interval') {
+            $n = max(1, (int) ($config['interval_days'] ?? 1));
+            $days = (int) $start->diff($date)->days;
+
+            return $days % $n === 0;
+        }
+
+        return false;
+    }
+
+    /**
      * @param array<string, mixed> $plan
      * @return array{ok: bool, errors?: list<string>}
      */

@@ -296,6 +296,15 @@
     });
   }
 
+  function initAdminSkuFill() {
+    $(document).on('click', '[data-at-fill-sku]', function () {
+      var sku = $(this).attr('data-at-fill-sku') || '';
+      if (sku) {
+        $('#sku').val(sku).trigger('focus');
+      }
+    });
+  }
+
   $(function () {
     $('#at-admin-menu-toggle').on('click', function () {
       var $n = $('#at-admin-mobile-nav').toggleClass('hidden');
@@ -316,6 +325,7 @@
     initNotificationCenter();
     initSecretCredentialToggles();
     initAdminSlugSync();
+    initAdminSkuFill();
     initAdminFlashDismiss();
   });
 })(jQuery);

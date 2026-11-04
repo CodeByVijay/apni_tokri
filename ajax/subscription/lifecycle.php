@@ -46,11 +46,19 @@ if ($action === 'skip') {
 
 if ($action === 'pause') {
     $note = isset($_POST['note']) && is_string($_POST['note']) ? trim($_POST['note']) : '';
-    $result = SubscriptionLifecycleService::pause($customerId, $subNumber, $note);
+    $pauseStart = isset($_POST['pause_start_date']) && is_string($_POST['pause_start_date'])
+        ? trim($_POST['pause_start_date']) : '';
+    $resumeOn = isset($_POST['resume_on_date']) && is_string($_POST['resume_on_date'])
+        ? trim($_POST['resume_on_date']) : '';
+    if ($pauseStart !== '' && $resumeOn !== '') {
+        $result = SubscriptionLifecycleService::pauseWithDates($customerId, $subNumber, $pauseStart, $resumeOn, $note);
+    } else {
+        $result = SubscriptionLifecycleService::pause($customerId, $subNumber, $note);
+    }
     if (!$result['ok']) {
         Ajax::error($result['message'] ?? 'Could not pause.');
     }
-    Ajax::success(['message' => 'Subscription paused.']);
+    Ajax::success(['message' => 'Pause scheduled.']);
 }
 
 if ($action === 'resume') {

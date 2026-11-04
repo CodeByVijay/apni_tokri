@@ -46,7 +46,7 @@ final class SubscriptionBasketRepository
 final class SubscriptionBasketService
 {
     /**
-     * @return array{ok: bool, basket?: array<string, mixed>, items?: list<array<string, mixed>>, message?: string}
+     * @return array{ok: bool, basket?: array<string, mixed>, items?: list<array<string, mixed>>, skipped?: list<array<string, mixed>>, message?: string}
      */
     public static function ensureSuggestedBasket(
         array $subscriptionRow,
@@ -60,28 +60,46 @@ final class SubscriptionBasketService
                 'ok' => true,
                 'basket' => $existing,
                 'items' => SubscriptionBasketRepository::basketItems((int) $existing['id']),
+                'skipped' => self::decodeGenerationSkipped($existing),
             ];
         }
 
-        $lines = self::buildSuggestedLines(
+        $built = self::buildSuggestedLines(
             $subscriptionRow,
             $dayRow,
             $snapshot
         );
+        $lines = $built['lines'];
+        $skipped = $built['skipped'];
         if ($lines === []) {
-            return ['ok' => false, 'message' => 'No menu items available for this delivery day.'];
+            return [
+                'ok' => false,
+                'message' => $skipped !== []
+                    ? 'No items could be added to your suggested basket. See the skipped menu items below.'
+                    : 'No menu items available for this delivery day.',
+                'skipped' => $skipped,
+            ];
         }
 
         $allowance = self::dailyAllowance($snapshot);
         $total = self::sumLines($lines);
+        $skippedJson = $skipped !== [] ? json_encode($skipped, JSON_UNESCAPED_UNICODE) : null;
 
-        return Database::transaction(static function () use ($dayId, $lines, $allowance, $total, $subscriptionRow, $dayRow): array {
+        return Database::transaction(static function () use ($dayId, $lines, $allowance, $total, $subscriptionRow, $dayRow, $skipped, $skippedJson): array {
             $pdo = Database::pdo();
-            $pdo->prepare(
-                'INSERT INTO subscription_delivery_baskets
-                 (subscription_delivery_day_id, source_type, status, allowance_inr, total_inr)
-                 VALUES (?, ?, ?, ?, ?)'
-            )->execute([$dayId, 'suggested', 'suggested', $allowance, $total]);
+            if (self::generationSkippedColumnReady()) {
+                $pdo->prepare(
+                    'INSERT INTO subscription_delivery_baskets
+                     (subscription_delivery_day_id, source_type, status, allowance_inr, total_inr, generation_skipped_json)
+                     VALUES (?, ?, ?, ?, ?, ?)'
+                )->execute([$dayId, 'suggested', 'suggested', $allowance, $total, $skippedJson]);
+            } else {
+                $pdo->prepare(
+                    'INSERT INTO subscription_delivery_baskets
+                     (subscription_delivery_day_id, source_type, status, allowance_inr, total_inr)
+                     VALUES (?, ?, ?, ?, ?)'
+                )->execute([$dayId, 'suggested', 'suggested', $allowance, $total]);
+            }
             $basketId = (int) $pdo->lastInsertId();
             self::insertItems($pdo, $basketId, $lines);
             $pdo->prepare(
@@ -94,7 +112,7 @@ final class SubscriptionBasketService
                 'system',
                 null,
                 'suggested_basket_generated',
-                ['total_inr' => $total, 'line_count' => count($lines)]
+                ['total_inr' => $total, 'line_count' => count($lines), 'skipped' => $skipped]
             );
 
             $basket = SubscriptionBasketRepository::basketByDayId($dayId);
@@ -103,6 +121,7 @@ final class SubscriptionBasketService
                 'ok' => true,
                 'basket' => $basket,
                 'items' => SubscriptionBasketRepository::basketItems($basketId),
+                'skipped' => $skipped,
             ];
         });
     }
@@ -354,7 +373,9 @@ final class SubscriptionBasketService
         }
     }
 
-    /** @return list<array<string, mixed>> */
+    /**
+     * @return array{lines: list<array<string, mixed>>, skipped: list<array{product_name: string, variant_name: string, reason: string}>}
+     */
     public static function buildSuggestedLines(array $subscriptionRow, array $dayRow, array $snapshot): array
     {
         $deliveryDate = (string) $dayRow['delivery_date'];
@@ -366,34 +387,26 @@ final class SubscriptionBasketService
             isset($subscriptionRow['created_at']) ? (string) $subscriptionRow['created_at'] : null
         );
         if ($menuLines === []) {
-            return [];
+            return ['lines' => [], 'skipped' => []];
         }
 
         $avoid = SubscriptionPreferenceRepository::avoidedVariantIds((int) $subscriptionRow['customer_id']);
         $allowance = self::dailyAllowance($snapshot);
         $maxItems = max(1, (int) ($snapshot['basket_rules_json']['max_line_items'] ?? 10));
         $rotationSeed = (int) $subscriptionRow['id'] + $dayIndex;
+        $skipped = [];
 
         $pool = [];
         foreach ($menuLines as $ml) {
-            $vid = (int) $ml['variant_id'];
-            if (in_array($vid, $avoid, true)) {
-                continue;
-            }
-            if (empty($ml['include_in_rotation'])) {
-                continue;
-            }
-            if (empty($ml['variant_active']) || (string) ($ml['product_status'] ?? '') !== 'published') {
-                continue;
-            }
-            $stock = (int) ($ml['stock_qty'] ?? 0);
-            if ($stock <= 0) {
+            $skipReason = self::suggestionSkipReason($ml, $avoid);
+            if ($skipReason !== null) {
+                $skipped[] = self::skippedEntry($ml, $skipReason);
                 continue;
             }
             $pool[] = $ml;
         }
         if ($pool === []) {
-            return [];
+            return ['lines' => [], 'skipped' => $skipped];
         }
 
         usort($pool, static function ($a, $b): int {
@@ -410,6 +423,7 @@ final class SubscriptionBasketService
             }
             $unitPrice = round((float) $ml['unit_price_inr'], 2);
             if ($unitPrice <= 0) {
+                $skipped[] = self::skippedEntry($ml, 'Invalid menu price');
                 continue;
             }
             $defaultQty = (float) $ml['default_qty'];
@@ -417,18 +431,21 @@ final class SubscriptionBasketService
             $stockCap = (int) ($ml['stock_qty'] ?? 0);
             $qty = min($defaultQty, $maxQty, (float) $stockCap);
             if ($qty <= 0) {
+                $skipped[] = self::skippedEntry($ml, 'Insufficient stock for the suggested quantity');
                 continue;
             }
             $lineTotal = round($qty * $unitPrice, 2);
             if ($spent + $lineTotal > $allowance + 0.01) {
                 $affordable = floor(($allowance - $spent) / $unitPrice * 1000) / 1000;
                 if ($affordable <= 0) {
+                    $skipped[] = self::skippedEntry($ml, 'Would exceed your daily allowance');
                     break;
                 }
                 $qty = min($qty, $affordable);
                 $lineTotal = round($qty * $unitPrice, 2);
             }
             if ($lineTotal <= 0) {
+                $skipped[] = self::skippedEntry($ml, 'Would exceed your daily allowance');
                 continue;
             }
             $out[] = self::lineFromMenu($ml, $qty, $unitPrice, $lineTotal);
@@ -438,7 +455,7 @@ final class SubscriptionBasketService
             }
         }
 
-        return $out;
+        return ['lines' => $out, 'skipped' => $skipped];
     }
 
     /** @return list<array<string, mixed>> */
@@ -571,6 +588,69 @@ final class SubscriptionBasketService
         }
 
         return round((float) $p, 2);
+    }
+
+    /** @param array<string, mixed> $ml */
+    private static function skippedEntry(array $ml, string $reason): array
+    {
+        return [
+            'product_name' => (string) ($ml['product_name'] ?? ''),
+            'variant_name' => (string) ($ml['variant_name'] ?? ''),
+            'reason' => $reason,
+        ];
+    }
+
+    /** @param list<int> $avoid */
+    private static function suggestionSkipReason(array $ml, array $avoid): ?string
+    {
+        $vid = (int) ($ml['variant_id'] ?? 0);
+        if ($vid > 0 && in_array($vid, $avoid, true)) {
+            return 'On your avoid list';
+        }
+        if (empty($ml['include_in_rotation'])) {
+            return 'Not included in rotation';
+        }
+        if (empty($ml['variant_active'])) {
+            return 'Variant is inactive';
+        }
+        if ((string) ($ml['product_status'] ?? '') !== 'published') {
+            return 'Product is not published';
+        }
+        if ((int) ($ml['stock_qty'] ?? 0) <= 0) {
+            return 'Out of stock';
+        }
+
+        return null;
+    }
+
+    /** @param array<string, mixed> $basketRow */
+    private static function decodeGenerationSkipped(array $basketRow): array
+    {
+        $raw = $basketRow['generation_skipped_json'] ?? null;
+        if (!is_string($raw) || trim($raw) === '') {
+            return [];
+        }
+        $decoded = json_decode($raw, true);
+
+        return is_array($decoded) ? $decoded : [];
+    }
+
+    public static function generationSkippedColumnReady(): bool
+    {
+        if (!Install::isSchemaReady()) {
+            return false;
+        }
+        try {
+            Install::ensureConnection();
+            $stmt = Database::pdo()->prepare(
+                'SELECT COUNT(*) FROM information_schema.COLUMNS WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?'
+            );
+            $stmt->execute(['subscription_delivery_baskets', 'generation_skipped_json']);
+
+            return (int) $stmt->fetchColumn() > 0;
+        } catch (Throwable $e) {
+            return false;
+        }
     }
 
     /** @param array<string, mixed> $ml */

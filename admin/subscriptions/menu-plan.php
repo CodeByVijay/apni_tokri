@@ -36,18 +36,28 @@ if ($ready && $id !== null) {
 
 if ($ready && $_SERVER['REQUEST_METHOD'] === 'POST') {
     Csrf::requireValid();
-    $raw = isset($_POST['payload']) && is_string($_POST['payload']) ? $_POST['payload'] : '';
-    $payload = json_decode($raw, true);
-    if (!is_array($payload) || strlen($raw) > 4000000) {
-        $errors = ['The menu data could not be read. Please try saving again.'];
+    $submitToken = isset($_POST['submit_token']) && is_string($_POST['submit_token']) ? trim($_POST['submit_token']) : '';
+    $guard = MenuPlanSubmitGuard::beginSave($submitToken);
+    if (!$guard['ok']) {
+        $errors = [$guard['message'] ?? 'Could not save.'];
+    } elseif (!empty($guard['idempotent']) && !empty($guard['plan_id'])) {
+        header('Location: ' . $base . '/menu-plan.php?id=' . (int) $guard['plan_id'] . '&saved=1', true, 302);
+        exit;
     } else {
-        $result = SubscriptionMenuPlanService::save($id, $payload);
-        if ($result['ok']) {
-            header('Location: ' . $base . '/menu-plan.php?id=' . (int) $result['id'] . '&saved=1', true, 302);
-            exit;
+        $raw = isset($_POST['payload']) && is_string($_POST['payload']) ? $_POST['payload'] : '';
+        $payload = json_decode($raw, true);
+        if (!is_array($payload) || strlen($raw) > 4000000) {
+            $errors = ['The menu data could not be read. Please try saving again.'];
+        } else {
+            $result = SubscriptionMenuPlanService::save($id, $payload);
+            if ($result['ok']) {
+                MenuPlanSubmitGuard::completeSave($submitToken, (int) $result['id']);
+                header('Location: ' . $base . '/menu-plan.php?id=' . (int) $result['id'] . '&saved=1', true, 302);
+                exit;
+            }
+            $errors = $result['errors'] ?? ['Could not save the menu plan.'];
+            $draftFromPost = $payload;
         }
-        $errors = $result['errors'] ?? ['Could not save the menu plan.'];
-        $draftFromPost = $payload;
     }
 }
 
@@ -97,10 +107,23 @@ $config = [
     'listUrl' => $base . '/menu-planner.php',
     'csrf' => Csrf::token(),
     'csrfName' => Csrf::fieldName(),
+    'submitToken' => MenuPlanSubmitGuard::issueSaveToken(),
+    'liveMenuBySubscriptionId' => [],
     'errors' => $errors,
     'step' => 1,
     'initial' => null,
 ];
+if ($ready) {
+    foreach (SubscriptionMenuPlanService::listPlans() as $mp) {
+        if (!empty($mp['is_active']) && !empty($mp['subscription_plan_id'])) {
+            $sid = (int) $mp['subscription_plan_id'];
+            $config['liveMenuBySubscriptionId'][(string) $sid] = [
+                'id' => (int) $mp['id'],
+                'name' => (string) $mp['name'],
+            ];
+        }
+    }
+}
 if ($initial !== null) {
     $config['initial'] = [
         'id' => (int) $initial['id'],

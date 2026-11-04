@@ -36,10 +36,13 @@ if ($customerId <= 0) {
 }
 ok($customerId > 0, 'Test customer');
 
+$deliveryDate = (new DateTimeImmutable('+3 days', new DateTimeZone(SubscriptionScheduleGenerator::TZ)))->format('Y-m-d');
+$menuWeekday = (new DateTimeImmutable($deliveryDate, new DateTimeZone(SubscriptionScheduleGenerator::TZ)))->format('N');
+
 $menuSave = SubscriptionMenuRepository::save(null, [
     'name' => 'Test weekly menu ' . Security::randomToken(3),
     'planner_type' => 'weekly',
-    'weekday' => '1',
+    'weekday' => $menuWeekday,
     'is_active' => '1',
 ], [[
     'variant_id' => $variantId,
@@ -79,7 +82,6 @@ $pdo->prepare(
     (int) $plan['delivery_count'],
 ]);
 $subId = (int) $pdo->lastInsertId();
-$deliveryDate = (new DateTimeImmutable('+3 days', new DateTimeZone(SubscriptionScheduleGenerator::TZ)))->format('Y-m-d');
 $cutoff = SubscriptionCutoff::cutoffDateTime($deliveryDate, SubscriptionCutoff::cutoffHoursFromSnapshot($snapshot))->format('Y-m-d H:i:s');
 $pdo->prepare(
     'INSERT INTO subscription_delivery_days (customer_subscription_id, delivery_date, day_index, status, selection_cutoff_at, basket_status)

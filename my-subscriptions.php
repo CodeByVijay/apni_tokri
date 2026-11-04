@@ -48,7 +48,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/account-shell-start.php';
         $total = (int) ($snapshot['delivery_count'] ?? $remaining);
         $completed = max(0, $total - $remaining);
         $pct = $total > 0 ? min(100, (int) round(($completed / $total) * 100)) : 0;
-        $statusClass = $status === 'active' ? 'ok' : ($status === 'pending_payment' ? 'warn' : 'neutral');
+        $statusClass = $status === 'active' ? 'ok' : ($status === 'completed' ? 'ok' : ($status === 'pending_payment' ? 'warn' : 'neutral'));
         $subNum = (string) $sub['subscription_number'];
         ?>
         <article class="at-card mb-4">
@@ -61,9 +61,9 @@ require APNI_TOKRI_ROOT . '/includes/partials/account-shell-start.php';
                     <?= customer_status_badge($status, ucwords(str_replace('_', ' ', $status)), 'generic') ?>
                 </div>
 
-                <?php if ($status === 'active'): ?>
+                <?php if ($status === 'active' || $status === 'paused' || $status === 'completed'): ?>
                     <div class="mt-5">
-                        <div class="flex justify-between text-sm font-semibold"><span><?= $completed ?> of <?= $total ?> deliveries completed</span><span class="at-muted"><?= $remaining ?> remaining</span></div>
+                        <div class="flex justify-between text-sm font-semibold"><span><?= $completed ?> of <?= $total ?> deliveries completed</span><span class="at-muted"><?= $remaining ?> credits remaining</span></div>
                         <div class="at-progress mt-2" role="progressbar" aria-valuenow="<?= $completed ?>" aria-valuemin="0" aria-valuemax="<?= $total ?>"><div class="at-progress__bar" style="width:<?= $pct ?>%"></div></div>
                     </div>
                 <?php elseif ($status === 'pending_payment'): ?>
@@ -71,7 +71,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/account-shell-start.php';
                     <a href="<?= Security::escape($base) ?>/subscription-payment.php?sub=<?= rawurlencode($subNum) ?>" class="at-btn at-btn--primary at-focusable mt-3">Pay now</a>
                 <?php endif; ?>
 
-                <?php if ($status === 'active'): ?>
+                <?php if (in_array($status, ['active', 'paused', 'completed'], true)): ?>
                     <a href="<?= Security::escape($base) ?>/subscription-details.php?sub=<?= rawurlencode($subNum) ?>" class="at-btn at-btn--primary at-focusable mt-5">View calendar</a>
                 <?php endif; ?>
             </div>

@@ -239,11 +239,11 @@ final class SubscriptionActivationService
                         $calendarEnd = $d;
                     }
                 }
-                $windowEnd = (new DateTimeImmutable($startDate, $tz))
-                    ->modify('+' . ((int) ($snapshot['calendar_duration_days'] ?? 1) - 1) . ' days')
-                    ->format('Y-m-d');
-                if ($calendarEnd > $windowEnd) {
-                    throw new RuntimeException('Generated schedule exceeds calendar duration.');
+                $windowEnd = $calendarEnd;
+                foreach ($dates as $d) {
+                    if ($d > $windowEnd) {
+                        $windowEnd = $d;
+                    }
                 }
 
                 $cutoffHours = SubscriptionCutoff::cutoffHoursFromSnapshot($snapshot);
@@ -287,6 +287,8 @@ final class SubscriptionActivationService
                     round($expected, 2),
                     $subId,
                 ]);
+
+                SubscriptionCreditScheduleService::ensureScheduleCoversRemainingCredits($subId, $pdo);
 
                 $pdo->prepare(
                     'INSERT INTO subscription_selection_audit (customer_subscription_id, delivery_date, actor_type, action, detail_json)

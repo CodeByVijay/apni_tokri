@@ -59,7 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'category_id' => $catId,
             'short_description' => $_POST['short_description'] ?? '',
             'description' => $_POST['description'] ?? '',
-            'product_type' => $_POST['product_type'] ?? 'fresh',
+            'product_type' => $_POST['product_type'] ?? ProductTypeRepository::defaultCode(),
             'status' => $_POST['status'] ?? 'draft',
             'is_featured' => $_POST['is_featured'] ?? null,
             'is_bestseller' => $_POST['is_bestseller'] ?? null,
@@ -120,11 +120,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $defaults = [
     'name' => '',
     'slug' => '',
-    'sku' => 'VEG-TOM-001',
+    'sku' => '',
     'category_id' => '',
     'short_description' => '',
     'description' => '',
-    'product_type' => 'fresh',
+    'product_type' => ProductTypeRepository::defaultCode(),
     'status' => 'draft',
     'is_featured' => 0,
     'is_bestseller' => 0,
@@ -138,7 +138,11 @@ if ($product) {
 } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && ($errors !== [])) {
     $defaults['name'] = trim((string) ($_POST['name'] ?? ''));
     $defaults['slug'] = trim((string) ($_POST['slug'] ?? ''));
+    $defaults['sku'] = trim((string) ($_POST['sku'] ?? ''));
+    $defaults['product_type'] = trim((string) ($_POST['product_type'] ?? ProductTypeRepository::defaultCode()));
 }
+$productTypeOptions = ProductTypeRepository::optionsForProductForm((string) ($defaults['product_type'] ?? ''));
+$nextSkuHint = ($useDb && !$product) ? ProductSkuService::peekNext() : '';
 if (!$useDb) {
     $variants = [
         ['id' => 0, 'name' => '500 g', 'sku' => 'VEG-TOM-500', 'price' => 35, 'sale_price' => null, 'stock_qty' => 24, 'low_stock_threshold' => 10],
@@ -193,7 +197,15 @@ if ($errors !== []) {
                 <div class="grid md:grid-cols-3 gap-3">
                     <div>
                         <label class="at-label" for="sku">SKU</label>
-                        <input id="sku" name="sku" class="at-input at-focusable" value="<?= Security::escape((string) ($defaults['sku'] ?? '')) ?>">
+                        <input id="sku" name="sku" class="at-input at-focusable" value="<?= Security::escape((string) ($defaults['sku'] ?? '')) ?>" placeholder="Leave blank to auto-assign on save" autocomplete="off">
+                        <?php if ($useDb && !$product && $nextSkuHint !== ''): ?>
+                            <p class="text-sm at-muted mt-1">Next available: <code><?= Security::escape($nextSkuHint) ?></code>
+                                <button type="button" class="at-btn at-btn--ghost at-btn--xs at-focusable ml-1" data-at-fill-sku="<?= Security::escape($nextSkuHint) ?>">Use this SKU</button>
+                            </p>
+                        <?php endif; ?>
+                        <?php if (!empty($errors['sku'])): ?>
+                            <p class="text-sm text-red-600 mt-1"><?= Security::escape((string) $errors['sku']) ?></p>
+                        <?php endif; ?>
                     </div>
                     <div>
                         <label class="at-label" for="category_id">Category</label>
@@ -220,10 +232,19 @@ if ($errors !== []) {
                 <div>
                     <label class="at-label" for="product_type">Product type</label>
                     <select id="product_type" name="product_type" class="at-select at-focusable">
-                        <?php foreach (['fresh' => 'Fresh produce', 'cut' => 'Cut / prepared', 'packaged' => 'Packaged food'] as $val => $lab): ?>
-                            <option value="<?= $val ?>"<?= ($defaults['product_type'] ?? '') === $val ? ' selected' : '' ?>><?= $lab ?></option>
+                        <?php foreach ($productTypeOptions as $opt):
+                            $val = (string) $opt['code'];
+                            $lab = (string) $opt['name'];
+                            ?>
+                            <option value="<?= Security::escape($val) ?>"<?= ($defaults['product_type'] ?? '') === $val ? ' selected' : '' ?>><?= Security::escape($lab) ?></option>
                         <?php endforeach; ?>
                     </select>
+                    <?php if ($useDb && ProductTypeRepository::tableReady()): ?>
+                        <p class="text-sm at-muted mt-1"><a class="at-link" href="<?= Security::escape(url_base()) ?>/admin/products/product-types.php">Manage product types</a></p>
+                    <?php endif; ?>
+                    <?php if (!empty($errors['product_type'])): ?>
+                        <p class="text-sm text-red-600 mt-1"><?= Security::escape((string) $errors['product_type']) ?></p>
+                    <?php endif; ?>
                 </div>
                 <div class="flex flex-wrap gap-4 text-sm">
                     <label class="flex items-center gap-2"><input type="checkbox" name="is_featured" value="1"<?= !empty($defaults['is_featured']) ? ' checked' : '' ?>> Featured</label>

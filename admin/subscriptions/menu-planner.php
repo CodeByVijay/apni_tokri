@@ -11,19 +11,34 @@ $esc = static function ($v): string {
     return Security::escape((string) $v);
 };
 $useDb = Install::isSchemaReady() && AdminAuth::check();
+$activateTokens = [];
 
 if ($useDb && $_SERVER['REQUEST_METHOD'] === 'POST') {
     Csrf::requireValid();
     $act = isset($_POST['menu_plan_action']) ? (string) $_POST['menu_plan_action'] : '';
     $pid = isset($_POST['menu_plan_id']) ? (int) $_POST['menu_plan_id'] : 0;
+    $actionToken = isset($_POST['action_token']) && is_string($_POST['action_token']) ? trim($_POST['action_token']) : '';
     if ($pid > 0 && in_array($act, ['activate', 'deactivate', 'delete'], true)) {
-        $res = $act === 'delete'
-            ? SubscriptionMenuPlanService::delete($pid)
-            : SubscriptionMenuPlanService::setActive($pid, $act === 'activate');
-        admin_flash_set($res['message'], $res['ok'] ? 'success' : 'error');
+        $consume = MenuPlanSubmitGuard::consumeAction($act, $actionToken);
+        if (!$consume['ok']) {
+            admin_flash_set($consume['message'] ?? 'Action could not be completed.', 'error');
+        } elseif (!empty($consume['idempotent'])) {
+            admin_flash_set('That action was already processed.', 'success');
+        } else {
+            $res = $act === 'delete'
+                ? SubscriptionMenuPlanService::delete($pid)
+                : SubscriptionMenuPlanService::setActive($pid, $act === 'activate');
+            admin_flash_set($res['message'], $res['ok'] ? 'success' : 'error');
+        }
     }
     header('Location: ' . $base . '/menu-planner.php', true, 303);
     exit;
+}
+
+if ($useDb) {
+    foreach (SubscriptionMenuPlanService::listPlans() as $p) {
+        $activateTokens[(int) $p['id']] = MenuPlanSubmitGuard::issueActionToken('activate');
+    }
 }
 
 admin_layout_start(['pageTitle' => 'Menu planner', 'activeAdminNav' => 'subscriptions']);
@@ -62,6 +77,20 @@ $plans = $useDb ? SubscriptionMenuPlanService::listPlans() : [];
             $pid = (int) $p['id'];
             $dur = (int) $p['duration_days'];
             $conf = (int) $p['configured_days'];
+            $subPlanId = $p['subscription_plan_id'] !== null ? (int) $p['subscription_plan_id'] : 0;
+            $liveOther = (!$p['is_active'] && $subPlanId > 0)
+                ? SubscriptionMenuPlanService::findActiveForSubscriptionPlan($subPlanId, $pid)
+                : null;
+            $makeLiveConfirm = '';
+            if ($liveOther !== null) {
+                $makeLiveConfirm = 'Making “' . (string) $p['name'] . '” live will deactivate the current live menu “'
+                    . (string) $liveOther['name'] . '” for this subscription plan. Existing customer baskets are unchanged. Continue?';
+            } else {
+                $makeLiveConfirm = 'Make “' . (string) $p['name'] . '” live for new subscriptions on this plan? Existing customer baskets stay unchanged.';
+            }
+            $deactToken = MenuPlanSubmitGuard::issueActionToken('deactivate');
+            $delToken = MenuPlanSubmitGuard::issueActionToken('delete');
+            $actToken = $activateTokens[$pid] ?? MenuPlanSubmitGuard::issueActionToken('activate');
             ?>
             <tr>
                 <td><a class="font-semibold underline" href="<?= $esc($base) ?>/menu-plan.php?id=<?= $pid ?>&amp;step=3"><?= $esc($p['name']) ?></a></td>
@@ -69,20 +98,31 @@ $plans = $useDb ? SubscriptionMenuPlanService::listPlans() : [];
                 <td><?= $dur ?> days</td>
                 <td><?= $conf ?> of <?= $dur ?><?= $conf < $dur ? ' <span class="mp-badge mp-badge--partial">Incomplete</span>' : '' ?></td>
                 <td><?= !empty($p['is_active']) ? '<span class="mp-badge mp-badge--ready">Live</span>' : '<span class="mp-badge mp-badge--not_configured">Draft</span>' ?></td>
-                <td class="text-right">
+                <td class="text-right space-x-1">
                     <a class="at-btn at-btn--ghost at-btn--sm at-focusable" href="<?= $esc($base) ?>/menu-plan.php?id=<?= $pid ?>">Edit</a>
-                    <form method="post" class="inline" style="display:inline">
-                        <?= Csrf::field() ?>
-                        <input type="hidden" name="menu_plan_id" value="<?= $pid ?>">
-                        <?php if (!empty($p['is_active'])): ?>
+                    <?php if (!empty($p['is_active'])): ?>
+                        <form method="post" class="inline" style="display:inline">
+                            <?= Csrf::field() ?>
+                            <input type="hidden" name="menu_plan_id" value="<?= $pid ?>">
+                            <input type="hidden" name="action_token" value="<?= $esc($deactToken) ?>">
                             <button class="at-btn at-btn--ghost at-btn--sm at-focusable" name="menu_plan_action" value="deactivate" onclick="return confirm('Stop using this menu for new subscriptions?');">Deactivate</button>
-                        <?php elseif ($p['subscription_plan_id'] !== null): ?>
-                            <button class="at-btn at-btn--ghost at-btn--sm at-focusable" name="menu_plan_action" value="activate">Make live</button>
-                        <?php endif; ?>
-                        <?php if ($p['activated_at'] === null): ?>
+                        </form>
+                    <?php elseif ($p['subscription_plan_id'] !== null): ?>
+                        <form method="post" class="inline" style="display:inline">
+                            <?= Csrf::field() ?>
+                            <input type="hidden" name="menu_plan_id" value="<?= $pid ?>">
+                            <input type="hidden" name="action_token" value="<?= $esc($actToken) ?>">
+                            <button class="at-btn at-btn--ghost at-btn--sm at-focusable" name="menu_plan_action" value="activate" onclick="return confirm(<?= json_encode($makeLiveConfirm, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE) ?>);">Make live</button>
+                        </form>
+                    <?php endif; ?>
+                    <?php if ($p['activated_at'] === null): ?>
+                        <form method="post" class="inline" style="display:inline">
+                            <?= Csrf::field() ?>
+                            <input type="hidden" name="menu_plan_id" value="<?= $pid ?>">
+                            <input type="hidden" name="action_token" value="<?= $esc($delToken) ?>">
                             <button class="at-btn at-btn--ghost at-btn--sm at-focusable" name="menu_plan_action" value="delete" onclick="return confirm('Delete this menu plan? This cannot be undone.');">Delete</button>
-                        <?php endif; ?>
-                    </form>
+                        </form>
+                    <?php endif; ?>
                 </td>
             </tr>
         <?php endforeach; ?>

@@ -32,7 +32,8 @@ t(strpos($catEdit, 'Fresh Vegetables') === false || strpos($catEdit, 'e.g. Fresh
 t(strpos($catEdit, 'slugSourcePlaceholder') !== false, 'Category add passes name placeholder');
 
 t(strpos($prodEdit, "'name' => ''") !== false && strpos($prodEdit, "'slug' => ''") !== false, 'Add product form defaults name and slug to empty');
-t(strpos($prodEdit, 'VEG-TOM-001') !== false, 'Add product keeps existing SKU default unchanged');
+t(strpos($prodEdit, "'sku' => ''") !== false, 'Add product form defaults SKU to empty (auto-assign on save)');
+t(strpos($prodEdit, 'VEG-TOM-001') === false, 'Add product form must not prefill sample SKU VEG-TOM-001');
 t(strpos($prodEdit, "'status' => 'draft'") !== false, 'Add product keeps draft status default');
 t(strpos($prodEdit, 'slugSourcePlaceholder') !== false, 'Product add passes name placeholder');
 
@@ -56,6 +57,8 @@ t($prodCreate['ok'], 'Add product save with blank slug succeeds');
 $prodRow = ProductRepository::find((int) $prodCreate['id']);
 $expectedProdSlug = CatalogueSlug::fromName('Veg Pulao Mix ' . $tok);
 t($prodRow !== null && (string) $prodRow['slug'] === $expectedProdSlug, 'Product slug auto-generated from name');
+t($prodRow !== null && (string) ($prodRow['sku'] ?? '') !== '' && (string) ($prodRow['sku'] ?? '') !== 'VEG-TOM-001', 'Product SKU auto-assigned when blank on create');
+t(strpos((string) ($prodRow['sku'] ?? ''), 'PRD-') === 0, 'Auto SKU uses PRD- sequence prefix');
 
 // Manual slug on add
 $manualSlug = 'zt-manual-prod-' . $tok;

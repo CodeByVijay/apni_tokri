@@ -170,6 +170,29 @@ final class SubscriptionMenuPlanService
     }
 
     /** @return array<string, mixed>|null */
+    public static function findActiveForSubscriptionPlan(int $subscriptionPlanId, ?int $exceptMenuPlanId = null): ?array
+    {
+        if ($subscriptionPlanId <= 0) {
+            return null;
+        }
+        Install::ensureConnection();
+        $sql = 'SELECT mp.*, sp.name AS subscription_plan_name FROM subscription_menu_plans mp
+                LEFT JOIN subscription_plans sp ON sp.id = mp.subscription_plan_id
+                WHERE mp.subscription_plan_id = ? AND mp.is_active = 1';
+        $params = [$subscriptionPlanId];
+        if ($exceptMenuPlanId !== null && $exceptMenuPlanId > 0) {
+            $sql .= ' AND mp.id <> ?';
+            $params[] = $exceptMenuPlanId;
+        }
+        $sql .= ' ORDER BY mp.activated_at DESC, mp.id DESC LIMIT 1';
+        $stmt = Database::pdo()->prepare($sql);
+        $stmt->execute($params);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        return $row ?: null;
+    }
+
+    /** @return array<string, mixed>|null */
     public static function find(int $id): ?array
     {
         Install::ensureConnection();

@@ -334,7 +334,7 @@
         var st = Ops.stats(state);
         var p = selectedPlan();
         var h = '<section class="at-card"><form id="mp-form" method="post" action="' + esc(cfg.saveUrl) + '"><div class="at-card__body"><h3 class="mp-h">4. Save Plan</h3>' +
-            '<input type="hidden" name="' + esc(cfg.csrfName) + '" value="' + esc(cfg.csrf) + '"><input type="hidden" name="payload" id="mp-payload">' +
+            '<input type="hidden" name="' + esc(cfg.csrfName) + '" value="' + esc(cfg.csrf) + '"><input type="hidden" name="submit_token" value="' + esc(cfg.submitToken || '') + '"><input type="hidden" name="payload" id="mp-payload">' +
             '<p class="mb-3"><strong>' + esc(plan.name) + '</strong> · ' + state.duration + ' days · ' + st.configured + ' of ' + state.duration + ' days configured · ' + st.entries + ' vegetable entries.</p>';
         h += '<label class="mp-radio"><input type="checkbox" id="mp-live"' + (plan.is_active ? ' checked' : '') + (p ? '' : ' disabled') + '><span><strong>Make this menu live for customers</strong><br><span class="at-muted text-sm">' +
             (p ? 'Used for new ' + esc(p.name) + ' subscriptions started after saving. Existing customer subscriptions and their saved baskets stay exactly as they are.' : 'Go back to step 1 and choose a subscription plan to enable this. Otherwise the menu is saved as a draft.') + '</span></span></label>';
@@ -560,6 +560,8 @@
 
     root.addEventListener('submit', function (e) {
         if (e.target.id !== 'mp-form') { return; }
+        e.preventDefault();
+        var form = e.target;
         var days = {};
         for (var d = 1; d <= state.duration; d++) {
             days[d] = { customized: state.days[d].customized, items: state.days[d].items.map(function (it) { return { variant_id: it.variant_id, qty: it.qty, max_qty: it.max_qty }; }) };
@@ -570,7 +572,33 @@
             repeat_mode: plan.repeat_mode, repeat_every: plan.repeat_every,
             is_active: live ? live.checked : false, allow_incomplete: allow ? allow.checked : false, refresh_prices: refresh ? refresh.checked : false, days: days
         });
-        var b = $('#mp-save'); b.disabled = true; b.textContent = 'Saving…';
+        var b = $('#mp-save');
+        if (b) { b.disabled = true; b.textContent = 'Saving…'; }
+
+        function nativeSubmit() {
+            HTMLFormElement.prototype.submit.call(form);
+        }
+
+        if (!live || !live.checked || !plan.subscription_plan_id) {
+            nativeSubmit();
+            return;
+        }
+        var liveMap = cfg.liveMenuBySubscriptionId || {};
+        var other = liveMap[String(plan.subscription_plan_id)];
+        if (!other || (plan.id && Number(other.id) === Number(plan.id))) {
+            nativeSubmit();
+            return;
+        }
+        var body = '<p>Making <strong>' + esc(plan.name) + '</strong> live will deactivate the current live menu <strong>' + esc(other.name) + '</strong> for this subscription plan.</p>' +
+            '<p class="at-muted text-sm">Existing customer baskets and subscriptions are not changed. Only new subscriptions started after this save will use the new menu.</p>';
+        confirmDialog('Replace the live menu?', body, 'Make live and save', true).then(function (ok) {
+            if (ok) {
+                nativeSubmit();
+            } else if (b) {
+                b.disabled = false;
+                b.textContent = 'Save Menu Plan';
+            }
+        });
     });
 
     render();

@@ -22,6 +22,7 @@ final class SubscriptionAutoConfirmService
         if ($runId === null) {
             $runId = 'auto_confirm_' . $now->format('YmdHis') . '_' . substr(Security::randomToken(4), 0, 6);
         }
+        self::resolveDueSubscriptions($now);
         $nowSql = $now->format('Y-m-d H:i:s');
 
         $stmt = Database::pdo()->prepare(
@@ -32,6 +33,7 @@ final class SubscriptionAutoConfirmService
              LEFT JOIN subscription_delivery_baskets b ON b.subscription_delivery_day_id = d.id
              LEFT JOIN subscription_auto_confirm_events ace ON ace.subscription_delivery_day_id = d.id
              WHERE cs.status = \'active\'
+               AND cs.deliveries_remaining > 0
                AND d.status IN (\'scheduled\')
                AND d.selection_cutoff_at IS NOT NULL
                AND d.selection_cutoff_at <= ?
@@ -56,6 +58,25 @@ final class SubscriptionAutoConfirmService
         }
 
         return ['ok' => true, 'processed' => $processed, 'skipped' => $skipped, 'errors' => $errors, 'run_id' => $runId];
+    }
+
+    public static function resolveDueSubscriptions(DateTimeImmutable $now): void
+    {
+        if (!SubscriptionCreditScheduleService::pauseColumnsReady()) {
+            return;
+        }
+        $today = $now->format('Y-m-d');
+        Install::ensureConnection();
+        $stmt = Database::pdo()->prepare(
+            "SELECT DISTINCT customer_subscription_id FROM subscription_pauses
+             WHERE status IN ('pending', 'open')
+               AND ((pause_start_date IS NOT NULL AND pause_start_date <= ?)
+                 OR (resume_on_date IS NOT NULL AND resume_on_date <= ?))"
+        );
+        $stmt->execute([$today, $today]);
+        foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) ?: [] as $subId) {
+            SubscriptionCreditScheduleService::resolveSubscription((int) $subId);
+        }
     }
 
     /**

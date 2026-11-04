@@ -63,6 +63,7 @@ final class SubscriptionEntitlementService
                     'delivery_entitlement_consumed',
                     ['delivery_id' => $deliveryId, 'day_id' => $dayId]
                 );
+                SubscriptionCreditScheduleService::maybeCompleteSubscription($subId, $pdo);
             });
         } catch (Throwable $e) {
             error_log('Subscription entitlement: ' . $e->getMessage());
@@ -106,12 +107,14 @@ final class SubscriptionEntitlementService
                     return;
                 }
                 $pdo->prepare(
-                    'UPDATE customer_subscriptions SET deliveries_remaining = deliveries_remaining + 1, updated_at = NOW() WHERE id = ?'
+                    "UPDATE customer_subscriptions SET deliveries_remaining = deliveries_remaining + 1,
+                     status = IF(status = 'completed', 'active', status), updated_at = NOW() WHERE id = ?"
                 )->execute([$subId]);
                 $pdo->prepare(
                     "UPDATE subscription_delivery_days SET status = 'scheduled', fulfilment_status = 'generated', updated_at = NOW() WHERE id = ?"
                 )->execute([$dayId]);
                 SubscriptionAudit::log($subId, null, 'system', null, 'delivery_entitlement_restored', ['delivery_id' => $deliveryId]);
+                SubscriptionCreditScheduleService::ensureScheduleCoversRemainingCredits($subId, $pdo);
             });
         } catch (Throwable $e) {
             error_log('Subscription entitlement restore: ' . $e->getMessage());

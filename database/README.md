@@ -5,7 +5,7 @@
 
 ## Project progress
 
-See [PROJECT_PROGRESS.md](../PROJECT_PROGRESS.md). **Current target schema:** **`1.9.0-stage13-cms-1`** (`Install::SCHEMA_VERSION`). Fresh installs: import `database.sql`, then apply migrations in version order through Stage 13 (see below). **Stage 13 Phase 9** did not re-verify a from-scratch empty DB import in this pass.
+See [PROJECT_PROGRESS.md](../PROJECT_PROGRESS.md). **Current target schema:** **`1.28.0-subscription-credit-lifecycle`** (`Install::SCHEMA_VERSION`). Subscription credit rules: [SUBSCRIPTION_CREDIT_LIFECYCLE.md](../docs/SUBSCRIPTION_CREDIT_LIFECYCLE.md). Fresh installs: use `database/production/apni_tokri_production.sql` or forward migrations — never overwrite a populated DB with the consolidated dump.
 
 ## Fresh install
 
