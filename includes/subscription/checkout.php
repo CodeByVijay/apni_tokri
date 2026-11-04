@@ -86,6 +86,28 @@ final class SubscriptionCheckoutService
         ];
     }
 
+    /**
+     * Active subscription plans for public listing (homepage, subscriptions page).
+     * Uses DB when schema is ready — independent of catalogue product count.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public static function activeStorefrontPlanCards(): array
+    {
+        if (!Install::isSchemaReady()) {
+            return [];
+        }
+        $cards = [];
+        foreach (SubscriptionPlanRepository::activeForStorefront() as $row) {
+            $card = self::publicPlanCard($row);
+            if ($card !== null) {
+                $cards[] = $card;
+            }
+        }
+
+        return $cards;
+    }
+
     /** @return array<string, mixed>|null */
     public static function publicPlanCard(array $planRow): ?array
     {

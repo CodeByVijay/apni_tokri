@@ -146,28 +146,13 @@ foreach ($rails as $rail) {
                 <p>Pay once for a fixed number of deliveries. Skip rules and carry-forward are explained before you pay.</p>
             </div>
         </div>
+        <?php $homePlans = SubscriptionCheckoutService::activeStorefrontPlanCards(); ?>
+        <?php if ($homePlans === []): ?>
+            <div class="at-alert at-alert--info">Subscription plans will be available soon.</div>
+        <?php else: ?>
         <div class="at-plans">
-            <?php
-            $homePlans = [];
-            if (Install::isSchemaReady() && CommerceGateway::useDatabase()) {
-                foreach (SubscriptionPlanRepository::activeForStorefront() as $row) {
-                    $card = SubscriptionCheckoutService::publicPlanCard($row);
-                    if ($card !== null) {
-                        $homePlans[] = $card;
-                    }
-                }
-            }
-            if ($homePlans === []):
-                $homePlans = [
-                    ['name' => 'Starter', 'delivery_count' => 7, 'price' => 999, 'featured' => false, 'calendar_duration_days' => 7, 'frequency_label' => 'Daily', 'daily_allowance_inr' => 499, 'unused_allowance_policy' => 'expire', 'id' => 0],
-                    ['name' => 'Family', 'delivery_count' => 15, 'price' => 1899, 'featured' => true, 'calendar_duration_days' => 15, 'frequency_label' => 'Daily', 'daily_allowance_inr' => 499, 'unused_allowance_policy' => 'expire', 'id' => 0],
-                ];
-                $plansDemoOnly = true;
-            else:
-                $plansDemoOnly = false;
-            endif;
-            foreach ($homePlans as $i => $plan):
-                $featured = $plansDemoOnly ? !empty($plan['featured']) : ($i === 1 && count($homePlans) > 1);
+            <?php foreach ($homePlans as $i => $plan):
+                $featured = $i === 1 && count($homePlans) > 1;
                 ?>
                 <article class="at-plan <?= $featured ? 'at-plan--featured' : '' ?>">
                     <?php if ($featured): ?><span class="at-badge at-badge--green at-plan__ribbon">Popular</span><?php endif; ?>
@@ -178,15 +163,12 @@ foreach ($rails as $rail) {
                         <li><?= at_icon('check') ?><span>Basket allowance ≈ <?= Security::escape(catalogue_format_price((float) ($plan['daily_allowance_inr'] ?? 0))) ?>/day</span></li>
                         <li><?= at_icon('check') ?><span>Skip rules explained before you pay</span></li>
                     </ul>
-                    <?php if (!$plansDemoOnly && (int) ($plan['id'] ?? 0) > 0): ?>
-                        <a href="<?= Security::escape($base) ?>/subscribe.php?plan=<?= (int) $plan['id'] ?>" class="at-btn <?= $featured ? 'at-btn--primary' : 'at-btn--secondary' ?> at-btn--block mt-4">Subscribe</a>
-                    <?php else: ?>
-                        <a href="<?= Security::escape($base) ?>/subscriptions.php" class="at-btn at-btn--secondary at-btn--block mt-4">View plans</a>
-                    <?php endif; ?>
+                    <a href="<?= Security::escape($base) ?>/subscribe.php?plan=<?= (int) $plan['id'] ?>" class="at-btn <?= $featured ? 'at-btn--primary' : 'at-btn--secondary' ?> at-btn--block mt-4">Subscribe</a>
                 </article>
             <?php endforeach; ?>
         </div>
-        <p class="mt-4 text-sm at-muted"><?= $plansDemoOnly ? 'Connect the database to show live plans. ' : '' ?>Read the <a class="underline text-[var(--at-green)] font-semibold" href="<?= Security::escape($base) ?>/page.php?slug=subscription-terms">subscription terms</a> before subscribing.</p>
+        <?php endif; ?>
+        <p class="mt-4 text-sm at-muted">Read the <a class="underline text-[var(--at-green)] font-semibold" href="<?= Security::escape($base) ?>/page.php?slug=subscription-terms">subscription terms</a> before subscribing.</p>
     </div>
 </section>
 

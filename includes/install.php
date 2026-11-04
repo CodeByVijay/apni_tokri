@@ -158,13 +158,39 @@ final class Install
         return self::isSchemaReady() && self::installedSchemaVersion() !== null && self::installedSchemaVersion() !== '';
     }
 
+    public static function installLockPath(): string
+    {
+        if (class_exists('InstallWizardService', false) && InstallWizardService::$testLockPath !== null) {
+            return InstallWizardService::$testLockPath;
+        }
+
+        return APNI_TOKRI_ROOT . '/storage/install.lock';
+    }
+
+    public static function hasInstallLock(): bool
+    {
+        $path = self::installLockPath();
+
+        return is_file($path) && is_readable($path);
+    }
+
+    /** Whether public install.php must not be shown (installed site or lock present). */
+    public static function isPublicInstallBlocked(): bool
+    {
+        if (self::hasInstallLock()) {
+            return true;
+        }
+
+        return self::isApplicationInstalled() && self::hasLocalConfig();
+    }
+
     /**
      * Block public install/health surfaces after installation (AT-SEC-004).
      * Sends 404 and exits when installed.
      */
     public static function denyPublicInstallSurface(): void
     {
-        if (!self::isApplicationInstalled()) {
+        if (!self::isPublicInstallBlocked()) {
             return;
         }
         http_response_code(404);

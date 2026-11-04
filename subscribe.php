@@ -37,7 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $planRow = null;
 $card = null;
-if ($planId > 0 && Install::isSchemaReady() && CommerceGateway::useDatabase()) {
+if ($planId > 0 && Install::isSchemaReady()) {
     $planRow = SubscriptionPlanRepository::find($planId);
     if ($planRow !== null && !empty($planRow['is_active'])) {
         $card = SubscriptionCheckoutService::publicPlanCard($planRow);

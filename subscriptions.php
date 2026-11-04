@@ -14,15 +14,7 @@ if (!CustomerService::isLoggedIn()) {
 }
 
 $base = url_base();
-$plans = [];
-if (Install::isSchemaReady() && CommerceGateway::useDatabase()) {
-    foreach (SubscriptionPlanRepository::activeForStorefront() as $row) {
-        $card = SubscriptionCheckoutService::publicPlanCard($row);
-        if ($card !== null) {
-            $plans[] = $card;
-        }
-    }
-}
+$plans = SubscriptionCheckoutService::activeStorefrontPlanCards();
 
 layout_public_start([
     'pageTitle' => 'Subscription plans — Apni Tokri',
@@ -39,7 +31,7 @@ layout_public_start([
     </div>
 
     <?php if ($plans === []): ?>
-        <div class="at-alert at-alert--info mt-6">No subscription plans are available right now. Please check back later.</div>
+        <div class="at-alert at-alert--info mt-6">Subscription plans will be available soon.</div>
     <?php else: ?>
         <div class="at-plans mt-8">
             <?php foreach ($plans as $i => $plan): ?>
