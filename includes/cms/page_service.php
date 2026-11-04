@@ -377,6 +377,18 @@ final class CmsPageService
         if (!in_array($visibility, [self::VISIBILITY_PUBLIC, self::VISIBILITY_PRIVATE], true)) {
             $visibility = self::VISIBILITY_PUBLIC;
         }
+        $footerOrder = $existing !== null && isset($existing['footer_display_order'])
+            ? (int) $existing['footer_display_order'] : null;
+        if (array_key_exists('footer_display_order', $input)) {
+            $rawOrder = trim((string) ($input['footer_display_order'] ?? ''));
+            if ($rawOrder === '') {
+                $footerOrder = null;
+            } elseif (!ctype_digit($rawOrder) || (int) $rawOrder > 999999) {
+                $errors['footer_display_order'] = 'Footer display order must be a whole number from 0 to 999999.';
+            } else {
+                $footerOrder = (int) $rawOrder;
+            }
+        }
         if ($errors !== []) {
             return ['ok' => false, 'message' => 'Validation failed.', 'errors' => $errors];
         }
@@ -386,6 +398,7 @@ final class CmsPageService
             'data' => [
                 'title' => $title,
                 'slug' => $slug,
+                'footer_display_order' => $footerOrder,
                 'body_html' => $san['html'],
                 'show_in_footer' => !empty($input['show_in_footer']) ? 1 : 0,
                 'visibility' => $visibility,
@@ -454,6 +467,7 @@ final class CmsPageService
             'slug' => (string) ($row['slug'] ?? ''),
             'body_html' => (string) ($row['body_html'] ?? ''),
             'show_in_footer' => (int) ($row['show_in_footer'] ?? 0),
+            'footer_display_order' => isset($row['footer_display_order']) ? (int) $row['footer_display_order'] : null,
             'visibility' => (string) ($row['visibility'] ?? self::VISIBILITY_PUBLIC),
             'meta_title' => $row['meta_title'] ?? null,
             'meta_description' => $row['meta_description'] ?? null,

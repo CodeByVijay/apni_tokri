@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 final class Install
 {
-    public const SCHEMA_VERSION = '1.23.0-order-customer-cancellation';
+    public const SCHEMA_VERSION = '1.24.0-cms-footer-order';
 
     /** Seeded bootstrap admin (fresh SQL import). Detection uses password hash only — never expose the plain password. */
     public const SEED_ADMIN_EMAIL = 'admin@apnitokri.local';

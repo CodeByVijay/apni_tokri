@@ -85,6 +85,10 @@ if (!is_readable($sqlFile)) {
 
 okF(mysqlF($dbCfg, '-e ' . escapeshellarg("CREATE DATABASE `{$freshDb}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci")) === 0, 'Create disposable DB');
 okF(mysqlF($dbCfg, escapeshellarg($freshDb) . ' < ' . escapeshellarg($sqlFile)) === 0, 'Import production SQL');
+$orderMig = $root . '/database/migrations/1.24.0_cms_footer_display_order.sql';
+okF(mysqlF($dbCfg, escapeshellarg($freshDb) . ' < ' . escapeshellarg($orderMig)) === 0, 'Apply 1.24.0 footer order migration');
+okF(mysqlF($dbCfg, escapeshellarg($freshDb) . ' < ' . escapeshellarg($orderMig)) === 0, 'Migration 1.24.0 is idempotent');
+CmsPageRepository::resetSchemaCache();
 
 $orig = App::config();
 App::setConfig(array_replace_recursive($orig, ['database' => array_merge($dbCfg, ['name' => $freshDb])]));
@@ -145,6 +149,88 @@ try {
 
     okF(CmsPageService::publishedPublicBySlug('subscription-terms') === null, 'Draft subscription terms not public');
     okF(CmsPageService::publishedPublicBySlug('disclaimer') !== null, 'Published disclaimer is public');
+
+    // ---- Footer display order ----
+    okF(CmsPageRepository::hasFooterOrderColumn(), 'footer_display_order column exists');
+    $pdo->exec("UPDATE cms_pages SET show_in_footer = 0, footer_display_order = NULL");
+    $mk = static function (string $slug, string $title, string $status, int $foot, $order) use ($pdo): int {
+        setCmsPage($pdo, $slug, $title, $status, $foot);
+        $row = CmsPageRepository::findBySlug($slug);
+        $id = (int) $row['id'];
+        $res = CmsPageService::update($id, [
+            'title' => $title,
+            'slug' => $slug,
+            'body_html' => '<p>x</p>',
+            'show_in_footer' => $foot === 1,
+            'footer_display_order' => $order,
+        ], null, 'order test');
+        if (!$res['ok']) {
+            fwrite(STDERR, 'update failed: ' . json_encode($res) . "\n");
+        }
+        // update() keeps status from existing row (set by setCmsPage)
+        return $id;
+    };
+    $a = $mk('at-ord-a-' . $token, 'Ord A', PublishStatus::PUBLISHED, 1, '3');
+    $b = $mk('at-ord-b-' . $token, 'Ord B', PublishStatus::PUBLISHED, 1, '1');
+    $c = $mk('at-ord-c-' . $token, 'Ord C', PublishStatus::PUBLISHED, 1, '2');
+    $mk('at-ord-hid-' . $token, 'Ord Hidden', PublishStatus::PUBLISHED, 0, '0');
+    $mk('at-ord-dr-' . $token, 'Ord Draft', PublishStatus::DRAFT, 1, '0');
+    $mine = static function () use ($token): array {
+        return array_values(array_filter(footerSlugs(), static function ($s) use ($token) {
+            return strpos($s, 'at-ord-') === 0 && substr($s, -strlen($token)) === $token;
+        }));
+    };
+    okF($mine() === ['at-ord-b-' . $token, 'at-ord-c-' . $token, 'at-ord-a-' . $token], 'Lower order numbers appear first');
+    okF(!in_array('at-ord-hid-' . $token, $mine(), true), 'Unchecked page hidden despite order 0');
+    okF(!in_array('at-ord-dr-' . $token, $mine(), true), 'Draft page hidden despite order 0');
+
+    CmsPageService::update($a, [
+        'title' => 'Ord A', 'slug' => 'at-ord-a-' . $token, 'body_html' => '<p>x</p>',
+        'show_in_footer' => true, 'footer_display_order' => '0',
+    ], null, 'reorder');
+    okF($mine()[0] === 'at-ord-a-' . $token, 'Admin can update order (A moved first)');
+    okF((int) CmsPageRepository::findById($a)['footer_display_order'] === 0, 'Order 0 persisted for admin edit form');
+
+    CmsPageService::update($b, [
+        'title' => 'Ord B', 'slug' => 'at-ord-b-' . $token, 'body_html' => '<p>x</p>',
+        'show_in_footer' => true, 'footer_display_order' => '2',
+    ], null, 'tie');
+    $tie = $mine();
+    okF($tie === ['at-ord-a-' . $token, 'at-ord-b-' . $token, 'at-ord-c-' . $token], 'Equal order values tie-break by id (B before C)');
+    okF($tie === $mine(), 'Tie ordering is stable across calls');
+
+    $bad = CmsPageService::update($b, [
+        'title' => 'Ord B', 'slug' => 'at-ord-b-' . $token, 'body_html' => '<p>x</p>',
+        'show_in_footer' => true, 'footer_display_order' => '-5',
+    ], null, 'bad');
+    okF(!$bad['ok'] && isset($bad['errors']['footer_display_order']), 'Invalid order rejected');
+
+    CmsPageService::update($b, [
+        'title' => 'Ord B', 'slug' => 'at-ord-b-' . $token, 'body_html' => '<p>x</p>',
+        'show_in_footer' => true,
+    ], null, 'no order key');
+    okF((int) CmsPageRepository::findById($b)['footer_display_order'] === 2, 'Omitted order input preserves stored value');
+
+    // Unset order falls back to id (existing pages keep id order)
+    $pdo->exec("UPDATE cms_pages SET show_in_footer = 0, footer_display_order = NULL");
+    $pdo->exec("UPDATE cms_pages SET status = 'published', show_in_footer = 1, visibility = 'public' WHERE slug IN ('privacy-policy','terms','shipping-policy')");
+    $idOrder = $pdo->query("SELECT slug FROM cms_pages WHERE slug IN ('privacy-policy','terms','shipping-policy') ORDER BY id")->fetchAll(PDO::FETCH_COLUMN);
+    $got = array_values(array_intersect(footerSlugs(), ['privacy-policy', 'terms', 'shipping-policy']));
+    okF($got === $idOrder, 'Unset order falls back to page id');
+
+    // About Us in About column only; no duplicates
+    $pdo->exec("UPDATE cms_pages SET status = 'published', show_in_footer = 1, visibility = 'public', footer_display_order = 1 WHERE slug = 'about-us'");
+    ob_start();
+    require APNI_TOKRI_ROOT . '/includes/layout/footer-public.php';
+    $footerOrdHtml = (string) ob_get_clean();
+    okF(substr_count($footerOrdHtml, 'page.php?slug=about-us') === 1, 'About Us appears exactly once');
+    $posAbout = strpos($footerOrdHtml, 'page.php?slug=about-us');
+    $posPolicies = strpos($footerOrdHtml, __('footer_policies'));
+    $posPrivacy = strpos($footerOrdHtml, 'page.php?slug=privacy-policy');
+    okF($posAbout !== false && $posPolicies !== false && $posAbout < $posPolicies, 'About Us rendered in About column (before Policies)');
+    okF($posPrivacy !== false && $posPrivacy > $posPolicies, 'Policy pages rendered in Policies column');
+    preg_match_all('/page\.php\?slug=([a-z0-9-]+)/', $footerOrdHtml, $m);
+    okF(count($m[1]) === count(array_unique($m[1])), 'No duplicate footer links');
 
     okF(str_contains($footerHtml, 'at-footer'), 'Footer layout class preserved');
     okF(str_contains($footerHtml, __('footer_policies')), 'Policies column heading preserved');

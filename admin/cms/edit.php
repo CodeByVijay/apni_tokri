@@ -24,6 +24,8 @@ $form = [
     'body_html' => (string) ($page['body_html'] ?? ''),
     'visibility' => (string) ($page['visibility'] ?? CmsPageService::VISIBILITY_PUBLIC),
     'show_in_footer' => !isset($page) || !empty($page['show_in_footer']),
+    'footer_display_order' => isset($page['footer_display_order']) && $page['footer_display_order'] !== null
+        ? (string) (int) $page['footer_display_order'] : '',
     'change_summary' => '',
 ];
 
@@ -43,6 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'body_html' => (string) ($_POST['body_html'] ?? ''),
         'visibility' => (string) ($_POST['visibility'] ?? CmsPageService::VISIBILITY_PUBLIC),
         'show_in_footer' => !empty($_POST['show_in_footer']),
+        'footer_display_order' => trim((string) ($_POST['footer_display_order'] ?? '')),
         'slug_manual' => !empty($_POST['slug_manual']),
         'preserve_slug' => !empty($_POST['preserve_slug']),
         'change_summary' => trim((string) ($_POST['change_summary'] ?? '')),
@@ -88,6 +91,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'body_html' => $input['body_html'],
         'visibility' => $input['visibility'],
         'show_in_footer' => $input['show_in_footer'],
+        'footer_display_order' => $input['footer_display_order'],
         'change_summary' => $input['change_summary'],
     ]);
     admin_flash_set($result['message'] ?? 'Could not save page.', 'error');
@@ -149,6 +153,24 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
                 </label>
             </div>
         </div>
+        <div id="cms-footer-order-wrap"<?= $form['show_in_footer'] ? '' : ' hidden' ?>>
+            <label class="at-label" for="cms-footer-order">Footer Display Order</label>
+            <input id="cms-footer-order" type="number" name="footer_display_order" min="0" max="999999" step="1"
+                   class="at-input at-focusable w-full md:w-40" placeholder="Auto"
+                   value="<?= Security::escape((string) $form['footer_display_order']) ?>">
+            <p class="text-xs at-muted mt-1">Lower numbers appear first (1 = first). Leave blank to keep the default position.</p>
+            <?php if (!empty($errors['footer_display_order'])): ?>
+                <p class="text-sm text-red-600"><?= Security::escape($errors['footer_display_order']) ?></p>
+            <?php endif; ?>
+        </div>
+        <script>
+        (function () {
+            var cb = document.querySelector('input[name="show_in_footer"]');
+            var wrap = document.getElementById('cms-footer-order-wrap');
+            if (!cb || !wrap) { return; }
+            cb.addEventListener('change', function () { wrap.hidden = !cb.checked; });
+        })();
+        </script>
 
         <div>
             <label class="at-label" for="cms-summary">Change summary (optional)</label>

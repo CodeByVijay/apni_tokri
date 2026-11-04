@@ -26,6 +26,34 @@ final class CmsPageRepository
         return $row ?: null;
     }
 
+    /** @var bool|null */
+    private static $footerOrderColumn = null;
+
+    public static function hasFooterOrderColumn(): bool
+    {
+        if (self::$footerOrderColumn !== null) {
+            return self::$footerOrderColumn;
+        }
+        try {
+            Install::ensureConnection();
+            $n = (int) Database::pdo()->query(
+                "SELECT COUNT(*) FROM information_schema.COLUMNS
+                 WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'cms_pages' AND COLUMN_NAME = 'footer_display_order'"
+            )->fetchColumn();
+            self::$footerOrderColumn = $n > 0;
+        } catch (Throwable $e) {
+            return false;
+        }
+
+        return self::$footerOrderColumn;
+    }
+
+    /** For tests that switch databases. */
+    public static function resetSchemaCache(): void
+    {
+        self::$footerOrderColumn = null;
+    }
+
     /**
      * Published public CMS pages flagged for the storefront footer.
      *
@@ -37,12 +65,15 @@ final class CmsPageRepository
             return [];
         }
         Install::ensureConnection();
+        $orderSql = self::hasFooterOrderColumn()
+            ? 'COALESCE(footer_display_order, id) ASC, id ASC'
+            : 'id ASC';
         $stmt = Database::pdo()->prepare(
-            'SELECT title, slug FROM cms_pages
+            'SELECT id, title, slug FROM cms_pages
              WHERE status = ?
                AND show_in_footer = 1
                AND visibility = ?
-             ORDER BY title ASC'
+             ORDER BY ' . $orderSql
         );
         $stmt->execute([PublishStatus::PUBLISHED, CmsPageService::VISIBILITY_PUBLIC]);
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -181,7 +212,21 @@ final class CmsPageRepository
             $data['published_at'],
         ]);
 
-        return (int) $pdo->lastInsertId();
+        $newId = (int) $pdo->lastInsertId();
+        self::saveFooterOrder($newId, $data);
+
+        return $newId;
+    }
+
+    /** @param array<string, mixed> $data */
+    private static function saveFooterOrder(int $id, array $data): void
+    {
+        if (!self::hasFooterOrderColumn() || !array_key_exists('footer_display_order', $data)) {
+            return;
+        }
+        $v = $data['footer_display_order'];
+        Database::pdo()->prepare('UPDATE cms_pages SET footer_display_order = ? WHERE id = ?')
+            ->execute([$v === null ? null : (int) $v, $id]);
     }
 
     /**
@@ -216,6 +261,7 @@ final class CmsPageRepository
             $data['published_at'],
             $id,
         ]);
+        self::saveFooterOrder($id, $data);
     }
 
     public static function nextVersionNumber(int $cmsPageId): int
