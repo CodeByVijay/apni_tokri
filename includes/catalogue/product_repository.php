@@ -646,6 +646,19 @@ final class ProductRepository
         }
     }
 
+    /** Published products visible on the public storefront (status + category visibility). */
+    public static function publishedPublicProductCount(): int
+    {
+        if (!Install::isSchemaReady()) {
+            return 0;
+        }
+        try {
+            return count(self::publishedProducts());
+        } catch (Throwable $e) {
+            return 0;
+        }
+    }
+
     /** @return array{ok: bool, message: string, archived?: bool} */
     public static function deleteOrArchiveForAdmin(int $id): array
     {

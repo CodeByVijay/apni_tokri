@@ -10,7 +10,9 @@ Security::sendSecurityHeaders(Security::isHttps());
 $slug = isset($_GET['slug']) && is_string($_GET['slug']) ? trim($_GET['slug']) : 'vegetables';
 $sort = isset($_GET['sort']) && is_string($_GET['sort']) ? $_GET['sort'] : 'relevance';
 $availability = isset($_GET['availability']) && is_string($_GET['availability']) ? $_GET['availability'] : 'all';
-$demoLoading = isset($_GET['demo']) && $_GET['demo'] === 'loading';
+$demoLoading = StorefrontDesignPreview::allowsLoadingPreview()
+    && isset($_GET['demo'])
+    && $_GET['demo'] === 'loading';
 
 $catalogue = demo_catalogue();
 $category = $catalogue->category($slug);
@@ -81,7 +83,14 @@ $baseCatUrl = url_base() . '/category.php?slug=' . rawurlencode($slug);
         <div class="flex flex-wrap items-end justify-between gap-4">
             <div>
                 <h1 class="at-h1"><?= Security::escape($catName) ?></h1>
-                <p class="mt-1 at-muted text-sm"><?= count($products) ?> product<?= count($products) === 1 ? '' : 's' ?> · sample catalogue</p>
+                <?php
+                $productCount = count($products);
+                $countLine = $productCount . ' product' . ($productCount === 1 ? '' : 's');
+                if (storefront_uses_demo_catalogue()) {
+                    $countLine .= ' · sample catalogue';
+                }
+                ?>
+                <p class="mt-1 at-muted text-sm"><?= Security::escape($countLine) ?></p>
             </div>
             <nav class="at-catnav -mx-1 max-w-full md:hidden" aria-label="Switch category">
                 <?php foreach (catalogue_nav_tree() as $c): ?>
@@ -130,6 +139,12 @@ $baseCatUrl = url_base() . '/category.php?slug=' . rawurlencode($slug);
             require APNI_TOKRI_ROOT . '/includes/partials/loading-skeleton.php'; ?>
         <?php elseif ($products === [] && $childCats !== [] && $availability === 'all'): ?>
             <p class="at-muted text-sm">Browse the sub-categories above.</p>
+        <?php elseif ($products === [] && storefront_catalogue_coming_soon() && $availability === 'all'): ?>
+            <?php
+            $emptyTitle = 'Products coming soon';
+            $emptyMessage = 'We\'re preparing our catalogue. Please check back shortly.';
+            require APNI_TOKRI_ROOT . '/includes/partials/empty-state.php';
+            ?>
         <?php elseif ($products === []): ?>
             <?php
             $emptyTitle = 'No products match these filters';
@@ -142,6 +157,8 @@ $baseCatUrl = url_base() . '/category.php?slug=' . rawurlencode($slug);
             <?php require APNI_TOKRI_ROOT . '/includes/partials/product-grid.php'; ?>
         <?php endif; ?>
     </div>
-    <p class="mt-8 text-xs at-muted"><a href="<?= Security::escape($baseCatUrl) ?>&amp;demo=loading" class="underline">Preview loading state</a> (design review only)</p>
+    <?php if (StorefrontDesignPreview::allowsLoadingPreview()): ?>
+        <p class="mt-8 text-xs at-muted"><a href="<?= Security::escape($baseCatUrl) ?>&amp;demo=loading" class="underline">Preview loading state</a> (design review only)</p>
+    <?php endif; ?>
 </div>
 <?php layout_public_end(); ?>

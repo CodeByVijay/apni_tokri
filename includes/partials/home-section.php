@@ -23,8 +23,15 @@ declare(strict_types=1);
         </div>
         <?php if ($products === []): ?>
             <?php
-            $emptyTitle = 'No products in this section';
-            $emptyMessage = 'Admin will configure homepage sections in a later stage.';
+            if (function_exists('storefront_catalogue_coming_soon') && storefront_catalogue_coming_soon()) {
+                $emptyTitle = 'Products coming soon';
+                $emptyMessage = 'We\'re preparing our catalogue.';
+            } else {
+                $emptyTitle = 'No products in this section';
+                $emptyMessage = storefront_uses_demo_catalogue()
+                    ? 'Admin will configure homepage sections in a later stage.'
+                    : 'Check back soon for new items in this section.';
+            }
             require APNI_TOKRI_ROOT . '/includes/partials/empty-state.php';
             ?>
         <?php else: ?>

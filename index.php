@@ -82,6 +82,13 @@ $categoryHints = [
                 <p>Everything for the daily tokri, in four aisles.</p>
             </div>
         </div>
+        <?php if (storefront_catalogue_coming_soon()): ?>
+            <?php
+            $emptyTitle = 'Products coming soon';
+            $emptyMessage = 'We\'re preparing our catalogue.';
+            require APNI_TOKRI_ROOT . '/includes/partials/empty-state.php';
+            ?>
+        <?php else: ?>
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-5">
             <?php foreach (catalogue_homepage_categories() as $cat):
                 $name = Lang::locale() === 'hi' ? ($cat['name_hi'] ?? $cat['name']) : $cat['name'];
@@ -96,18 +103,23 @@ $categoryHints = [
                 </a>
             <?php endforeach; ?>
         </div>
+        <?php endif; ?>
     </div>
 </section>
 
+<?php if (!storefront_catalogue_coming_soon()): ?>
 <?php
 $sectionTitle = 'Best sellers';
-$sectionSubtitle = 'Our most-picked items (demo flags until real sales data exists)';
+$sectionSubtitle = storefront_uses_demo_catalogue()
+    ? 'Our most-picked items (demo flags until real sales data exists)'
+    : 'Customer favourites';
 $sectionHref = $base . '/search.php?q=';
 $sectionLinkLabel = 'Browse all';
 $products = $catalogue->productsWithFlag('bestseller', 5);
 require APNI_TOKRI_ROOT . '/includes/partials/home-section.php';
 ?>
 
+<?php if (!AppEnvironment::isProduction()): ?>
 <!-- Offer -->
 <section class="at-container pb-2" aria-label="Current offer">
     <div class="at-offer">
@@ -119,6 +131,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/home-section.php';
         <a href="<?= Security::escape($base) ?>/cart.php" class="at-btn at-btn--accent at-btn--lg at-focusable relative">View cart</a>
     </div>
 </section>
+<?php endif; ?>
 
 <?php
 // Rails are grouped so each shelf is visually full with the small demo catalogue.
@@ -135,6 +148,7 @@ foreach ($rails as $rail) {
     require APNI_TOKRI_ROOT . '/includes/partials/home-section.php';
 }
 ?>
+<?php endif; ?>
 
 <!-- Subscriptions -->
 <section class="at-section at-section--white" id="subscriptions">

@@ -29,6 +29,7 @@ if (PHP_SAPI !== 'cli') {
 require_once APNI_TOKRI_ROOT . '/includes/helpers.php';
 require_once APNI_TOKRI_ROOT . '/includes/app_environment.php';
 require_once APNI_TOKRI_ROOT . '/includes/storefront/readiness.php';
+require_once APNI_TOKRI_ROOT . '/includes/storefront/design_preview.php';
 require_once APNI_TOKRI_ROOT . '/includes/account/list_pagination.php';
 require_once APNI_TOKRI_ROOT . '/includes/lang.php';
 require_once APNI_TOKRI_ROOT . '/includes/layout/public.php';

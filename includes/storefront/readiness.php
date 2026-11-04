@@ -16,7 +16,7 @@ final class StorefrontReadiness
             return false;
         }
         try {
-            return ProductRepository::productCount() > 0;
+            return ProductRepository::publishedPublicProductCount() > 0;
         } catch (Throwable $e) {
             return false;
         }

@@ -80,7 +80,7 @@ $isPackaged = ($product['type'] ?? '') === 'packaged';
                     <a href="#reviews" class="flex items-center gap-2 font-semibold no-underline">
                         <span class="at-stars" aria-hidden="true"><?= str_repeat('★', (int) round($rating['average'])) ?><span class="is-off"><?= str_repeat('★', 5 - (int) round($rating['average'])) ?></span></span>
                         <?= Security::escape((string) $rating['average']) ?>
-                        <span class="at-muted font-normal">(<?= (int) $rating['count'] ?> sample review<?= $rating['count'] === 1 ? '' : 's' ?>)</span>
+                        <span class="at-muted font-normal">(<?= (int) $rating['count'] ?> <?= storefront_uses_demo_catalogue() ? 'sample ' : '' ?>review<?= $rating['count'] === 1 ? '' : 's' ?>)</span>
                     </a>
                 <?php else: ?>
                     <span class="at-muted">No reviews yet — verified customers can review after delivery</span>
@@ -215,7 +215,7 @@ $isPackaged = ($product['type'] ?? '') === 'packaged';
             <div class="at-card"><div class="at-card__body text-center">
                 <p class="at-display !text-5xl"><?= Security::escape((string) $rating['average']) ?></p>
                 <p class="at-stars mt-1" aria-hidden="true"><?= str_repeat('★', (int) round($rating['average'])) ?><span class="is-off"><?= str_repeat('★', 5 - (int) round($rating['average'])) ?></span></p>
-                <p class="text-xs at-muted mt-1">Based on <?= (int) $rating['count'] ?> sample review<?= $rating['count'] === 1 ? '' : 's' ?></p>
+                <p class="text-xs at-muted mt-1">Based on <?= (int) $rating['count'] ?> <?= storefront_uses_demo_catalogue() ? 'sample ' : '' ?>review<?= $rating['count'] === 1 ? '' : 's' ?></p>
                 <a href="<?= Security::escape(url_base()) ?>/submit-review.php" class="at-btn at-btn--secondary at-btn--sm at-btn--block at-focusable mt-4">Write a review</a>
             </div></div>
             <ul class="grid gap-3">
@@ -224,7 +224,7 @@ $isPackaged = ($product['type'] ?? '') === 'packaged';
                         <div class="flex flex-wrap items-center gap-2">
                             <span class="at-stars" aria-label="<?= (int) ($review['rating'] ?? 0) ?> out of 5"><?= str_repeat('★', (int) ($review['rating'] ?? 0)) ?><span class="is-off"><?= str_repeat('★', 5 - (int) ($review['rating'] ?? 0)) ?></span></span>
                             <?php if (!empty($review['verified'])): ?><span class="at-badge at-badge--green"><?= at_icon('check', 'w-3 h-3') ?>Verified purchase</span><?php endif; ?>
-                            <?php if (!empty($review['is_sample'])): ?><span class="at-badge at-badge--neutral">Sample UI review</span><?php endif; ?>
+                            <?php if (storefront_uses_demo_catalogue() && !empty($review['is_sample'])): ?><span class="at-badge at-badge--neutral">Sample UI review</span><?php endif; ?>
                         </div>
                         <p class="mt-2 font-bold"><?= Security::escape($review['title'] ?? '') ?></p>
                         <p class="mt-1 text-[var(--at-ink-2)]"><?= Security::escape($review['body'] ?? '') ?></p>

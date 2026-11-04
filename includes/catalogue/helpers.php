@@ -2,6 +2,20 @@
 
 declare(strict_types=1);
 
+/** True when the active catalogue is the static demo dataset (local dev only). */
+function storefront_uses_demo_catalogue(): bool
+{
+    return function_exists('app_catalogue') && app_catalogue()->isDemo();
+}
+
+/** Production storefront with schema but no published public products yet. */
+function storefront_catalogue_coming_soon(): bool
+{
+    return AppEnvironment::isProduction()
+        && Install::isSchemaReady()
+        && !StorefrontReadiness::cataloguePublished();
+}
+
 /** Format INR amounts for display. */
 function catalogue_format_price(float $amount): string
 {
