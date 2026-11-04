@@ -641,7 +641,16 @@ final class SessionCartBackend
         foreach ($state['items'] as $item) {
             $subtotal += (float) $item['unit_price'] * (int) $item['qty'];
         }
-        $check = CouponService::validate($code, $subtotal);
+        $sessionLines = [];
+        foreach ($state['items'] as $item) {
+            $sessionLines[] = [
+                'qty' => $item['qty'],
+                'unit_price' => $item['unit_price'],
+                'product_id' => $item['product_id'] ?? 0,
+                'category_id' => $item['category_id'] ?? 0,
+            ];
+        }
+        $check = CouponService::validate($code, $subtotal, CustomerAuth::id(), $sessionLines);
         if (!$check['ok']) {
             return ['ok' => false, 'message' => $check['message'] ?? 'Invalid coupon.'];
         }
@@ -677,6 +686,8 @@ final class SessionCartBackend
                 'unit_price' => $item['unit_price'],
                 'regular_price' => $item['regular_price'],
                 'on_sale' => $item['on_sale'],
+                'product_id' => $item['product_id'] ?? 0,
+                'category_id' => $item['category_id'] ?? 0,
             ];
         }
 

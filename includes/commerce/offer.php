@@ -146,8 +146,16 @@ final class PromotionService
     public static function isFirstPaidOrderCustomer(int $customerId): bool
     {
         Install::ensureConnection();
+        // A "successful paid order": payment marked paid, order not in an unpaid/failed state,
+        // and (when payment rows exist) at least one captured payment.
         $stmt = Database::pdo()->prepare(
-            "SELECT COUNT(*) FROM orders WHERE customer_id = ? AND payment_status = 'paid'"
+            "SELECT COUNT(*) FROM orders o
+             WHERE o.customer_id = ? AND o.payment_status = 'paid'
+               AND o.status NOT IN ('pending_payment', 'payment_failed')
+               AND (
+                 NOT EXISTS (SELECT 1 FROM payments p WHERE p.order_id = o.id)
+                 OR EXISTS (SELECT 1 FROM payments p2 WHERE p2.order_id = o.id AND p2.status = 'captured')
+               )"
         );
         $stmt->execute([$customerId]);
 

@@ -104,6 +104,7 @@ require_once APNI_TOKRI_ROOT . '/includes/commerce/address_input.php';
 require_once APNI_TOKRI_ROOT . '/includes/delivery/address_snapshot.php';
 require_once APNI_TOKRI_ROOT . '/includes/commerce/coupon.php';
 require_once APNI_TOKRI_ROOT . '/includes/commerce/offer.php';
+require_once APNI_TOKRI_ROOT . '/includes/commerce/coupon_admin.php';
 require_once APNI_TOKRI_ROOT . '/includes/commerce/pricing.php';
 require_once APNI_TOKRI_ROOT . '/includes/commerce/cart.php';
 require_once APNI_TOKRI_ROOT . '/includes/commerce/customer.php';

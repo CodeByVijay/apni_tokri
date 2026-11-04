@@ -4343,3 +4343,30 @@ body.at-map-viewer-open { overflow: hidden; }
 .at-order-detail__addr p { margin: 0.15rem 0; overflow-wrap: anywhere; }
 .at-order-detail__refund-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.65rem; }
 .at-order-detail__refund-list li { overflow-wrap: anywhere; }
+
+/* Admin coupon form: cards, pickers, chips */
+.at-coupon-form { display: grid; gap: 1.25rem; max-width: 64rem; }
+.at-coupon-form__grid { display: grid; gap: 1rem; }
+@media (min-width: 768px) { .at-coupon-form__grid--2 { grid-template-columns: 1fr 1fr; } }
+.at-coupon-form .at-field-help { font-size: 0.8125rem; color: var(--at-muted, #6b7280); margin-top: 0.25rem; }
+.at-coupon-form .at-field-error { font-size: 0.8125rem; color: #b91c1c; margin-top: 0.25rem; }
+.at-coupon-form .at-input.is-invalid { border-color: #b91c1c; }
+.at-coupon-form [hidden] { display: none !important; }
+.at-coupon-code-row { display: flex; gap: 0.5rem; }
+.at-coupon-code-row .at-input { flex: 1 1 auto; text-transform: uppercase; }
+.at-coupon-radio { display: flex; gap: 0.6rem; align-items: flex-start; padding: 0.6rem 0.75rem; border: 1px solid var(--at-line, #e5e7eb); border-radius: 0.6rem; }
+.at-coupon-radio small { display: block; color: var(--at-muted, #6b7280); }
+.at-coupon-actions { position: sticky; bottom: 0; display: flex; gap: 0.75rem; padding: 0.75rem 1rem; background: #fff; border: 1px solid var(--at-line, #e5e7eb); border-radius: 0.75rem; box-shadow: 0 -4px 12px rgba(0,0,0,0.05); z-index: 5; }
+.at-picker__head { display: flex; gap: 0.5rem; align-items: center; margin-top: 0.5rem; }
+.at-picker__chips { display: flex; flex-wrap: wrap; gap: 0.4rem; min-height: 1.75rem; align-items: center; }
+.at-picker__chip { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.2rem 0.3rem 0.2rem 0.65rem; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 999px; font-size: 0.8125rem; }
+.at-picker__chip-x { border: 0; background: transparent; cursor: pointer; font-size: 1rem; line-height: 1; padding: 0 0.35rem; border-radius: 999px; }
+.at-picker__chip-x:hover { background: #fecaca; }
+.at-picker__results { list-style: none; margin: 0.35rem 0 0; padding: 0.25rem; max-height: 16rem; overflow: auto; border: 1px solid var(--at-line, #e5e7eb); border-radius: 0.6rem; background: #fff; box-shadow: 0 8px 20px rgba(0,0,0,0.08); }
+.at-picker__item { display: flex; gap: 0.5rem; padding: 0.5rem 0.6rem; border-radius: 0.4rem; cursor: pointer; align-items: flex-start; }
+.at-picker__item:hover, .at-picker__item:focus { background: #f3f4f6; outline: none; }
+.at-picker__item.is-selected { background: #ecfdf5; }
+.at-picker__check { width: 1rem; color: #047857; font-weight: 700; }
+.at-picker__body { display: flex; flex-direction: column; min-width: 0; }
+.at-picker__body small { font-size: 0.75rem; overflow-wrap: anywhere; }
+.at-picker__empty { padding: 0.75rem; color: var(--at-muted, #6b7280); font-size: 0.875rem; }

@@ -65,8 +65,13 @@ final class CouponService
         if (!self::customerMayUseCoupon($couponId, $customerId)) {
             return ['ok' => false, 'message' => 'This coupon is not assigned to your account.'];
         }
-        if (!empty($row['first_order_only']) && $customerId !== null && !PromotionService::isFirstPaidOrderCustomer($customerId)) {
-            return ['ok' => false, 'message' => 'This coupon is valid on your first order only.'];
+        if (!empty($row['first_order_only'])) {
+            if ($customerId === null) {
+                return ['ok' => false, 'message' => 'Please log in to use this first-order coupon.'];
+            }
+            if (!PromotionService::isFirstPaidOrderCustomer($customerId)) {
+                return ['ok' => false, 'message' => 'This coupon is valid on your first order only.'];
+            }
         }
         if ($row['usage_limit'] !== null && (int) $row['used_count'] >= (int) $row['usage_limit']) {
             return ['ok' => false, 'message' => 'This coupon has reached its usage limit.'];
@@ -85,9 +90,13 @@ final class CouponService
             return ['ok' => false, 'message' => 'Coupon does not apply to items in your cart.'];
         }
 
+        // Minimum applies to the ELIGIBLE subtotal (items the coupon can discount).
+        // For coupons valid on all products this equals the whole cart subtotal.
         $min = $row['min_cart_value'] !== null ? (float) $row['min_cart_value'] : 0.0;
-        if ($subtotal < $min) {
-            return ['ok' => false, 'message' => 'Minimum cart value for this coupon is ₹' . number_format($min, 0) . '.'];
+        if ($eligibleSubtotal < $min) {
+            $scoped = $lines !== null && abs($eligibleSubtotal - $subtotal) > 0.009;
+            return ['ok' => false, 'message' => 'Minimum ' . ($scoped ? 'eligible items value' : 'cart value')
+                . ' for this coupon is ₹' . number_format($min, 0) . '.'];
         }
 
         if ($offerDiscount > 0 && empty($row['stackable_with_offers'])) {
@@ -130,6 +139,18 @@ final class CouponService
         $stmt->execute([$couponId, $customerId]);
 
         return (int) $stmt->fetchColumn();
+    }
+
+    /**
+     * Eligibility: no categories/products selected = all products. Otherwise UNION
+     * (product matches selected products OR its category matches selected categories).
+     * Explicitly excluded products never qualify.
+     *
+     * @param list<array<string, mixed>> $lines
+     */
+    public static function eligibleSubtotal(int $couponId, array $lines): float
+    {
+        return self::eligibleSubtotalForCoupon($couponId, $lines);
     }
 
     /** @param list<array<string, mixed>> $lines */
