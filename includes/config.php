@@ -22,6 +22,26 @@ if (!is_array($config)) {
     throw new RuntimeException('Configuration must return an array.');
 }
 
+// Disposable DB subprocesses (see scripts/run-in-disposable-db.php + test_cli_exec_script).
+if (getenv('APNI_TOKRI_DISPOSABLE_DB') === '1') {
+    $db = &$config['database'];
+    $name = getenv('APNI_TOKRI_TEST_DB_NAME');
+    if (is_string($name) && $name !== '') {
+        $db['name'] = $name;
+    }
+    foreach (['host' => 'APNI_TOKRI_TEST_DB_HOST', 'port' => 'APNI_TOKRI_TEST_DB_PORT', 'user' => 'APNI_TOKRI_TEST_DB_USER'] as $key => $envKey) {
+        $v = getenv($envKey);
+        if (is_string($v) && $v !== '') {
+            $db[$key] = $key === 'port' ? (int) $v : $v;
+        }
+    }
+    $pass = getenv('APNI_TOKRI_TEST_DB_PASS');
+    if ($pass !== false && $pass !== '') {
+        $db['pass'] = $pass;
+        $db['password'] = $pass;
+    }
+}
+
 date_default_timezone_set($config['app']['timezone'] ?? 'Asia/Kolkata');
 
 return $config;

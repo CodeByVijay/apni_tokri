@@ -39,8 +39,17 @@ register_shutdown_function(static function () use ($mysql, $fresh): void {
     Database::disconnect();
     $mysql('-e ' . escapeshellarg("DROP DATABASE IF EXISTS `{$fresh}`"));
 });
-App::setConfig(array_replace_recursive(App::config(), ['database' => array_merge($db, ['name' => $fresh])]));
+$mergedDb = array_merge($db, ['name' => $fresh]);
+App::setConfig(array_replace_recursive(App::config(), ['database' => $mergedDb]));
 Database::disconnect();
+
+putenv('APNI_TOKRI_DISPOSABLE_DB=1');
+putenv('APNI_TOKRI_TEST_DB_NAME=' . $fresh);
+putenv('APNI_TOKRI_TEST_DB_HOST=' . (string) ($mergedDb['host'] ?? '127.0.0.1'));
+putenv('APNI_TOKRI_TEST_DB_PORT=' . (string) ($mergedDb['port'] ?? 3306));
+putenv('APNI_TOKRI_TEST_DB_USER=' . (string) ($mergedDb['user'] ?? 'root'));
+$passExport = (string) ($mergedDb['pass'] ?? $mergedDb['password'] ?? '');
+putenv('APNI_TOKRI_TEST_DB_PASS=' . $passExport);
 // Minimal baseline data that these suites assume exists in a developer database (catalogue + one customer).
 Install::ensureConnection();
 $seedPdo = Database::pdo();
@@ -57,6 +66,10 @@ $seedPdo->prepare('INSERT INTO customers (mobile, name) VALUES (?, ?)')->execute
 $seedCust = (int) $seedPdo->lastInsertId();
 $seedPdo->prepare('INSERT INTO customer_addresses (customer_id, label, line1, city, state, pincode, is_default) VALUES (?, ?, ?, ?, ?, ?, 1)')
     ->execute([$seedCust, 'Home', 'Test line', 'Indore', 'MP', '452001']);
-echo "[disposable DB {$fresh}] running " . basename($targetPath) . "\n";
+$seedPdo->exec(
+    "UPDATE settings SET setting_value = " . $seedPdo->quote(Install::SCHEMA_VERSION)
+    . " WHERE setting_key = 'schema_version'"
+);
+fwrite(STDERR, "[disposable DB {$fresh}] running " . basename($targetPath) . "\n");
 $argv = [$targetPath];
 require $targetPath;

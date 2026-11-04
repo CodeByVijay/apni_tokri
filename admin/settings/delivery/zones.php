@@ -256,38 +256,7 @@ if ($modeMismatch): ?>
         </form>
 
         <?php if ($test !== null): ?>
-            <?php if ($test['errors'] !== []): ?>
-                <div class="at-alert at-alert--error" role="alert"><ul class="list-disc pl-5 text-sm"><?php foreach ($test['errors'] as $e): ?><li><?= Security::escape($e) ?></li><?php endforeach; ?></ul></div>
-            <?php else: ?>
-                <div class="at-alert <?= $test['serviceable'] ? 'at-alert--success' : 'at-alert--warning' ?> text-sm space-y-1" role="status">
-                    <p class="font-bold"><?= $test['serviceable'] ? 'Delivery available' : 'Delivery unavailable' ?> for pincode <?= Security::escape($test['pin']) ?></p>
-                    <p><?= Security::escape((string) $test['message']) ?></p>
-                    <?php if ($test['serviceable']): ?>
-                        <dl class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 mt-2">
-                            <dt class="at-muted">Delivery area</dt><dd><?= Security::escape((string) $test['zone_name']) ?></dd>
-                            <dt class="at-muted">How it was matched</dt><dd><?= Security::escape((string) $test['method']) ?></dd>
-                            <?php if ($test['distance_km'] !== null): ?>
-                                <dt class="at-muted">Distance</dt><dd>about <?= Security::escape(DeliveryAdminUi::km($test['distance_km'])) ?> (straight-line)</dd>
-                            <?php endif; ?>
-                            <dt class="at-muted">Delivery charge</dt><dd><?= Security::escape(DeliveryAdminUi::inr($test['flat_fee'])) ?> — free on orders of <?= Security::escape(DeliveryAdminUi::inr($test['free_above'])) ?> or more</dd>
-                            <?php if (isset($test['fee_for_amount'])): ?>
-                                <dt class="at-muted">For a <?= Security::escape(DeliveryAdminUi::inr($test['amount'])) ?> order</dt>
-                                <dd class="font-semibold"><?= $test['fee_for_amount'] > 0 ? Security::escape(DeliveryAdminUi::inr($test['fee_for_amount'])) . ' delivery charge' : 'Free delivery' ?></dd>
-                            <?php else: ?>
-                                <dt class="at-muted">Just below <?= Security::escape(DeliveryAdminUi::inr($test['free_above'])) ?></dt><dd><?= $test['fee_below'] > 0 ? Security::escape(DeliveryAdminUi::inr($test['fee_below'])) : 'Free delivery' ?></dd>
-                                <dt class="at-muted"><?= Security::escape(DeliveryAdminUi::inr($test['free_above'])) ?> or more</dt><dd><?= $test['fee_at_threshold'] > 0 ? Security::escape(DeliveryAdminUi::inr($test['fee_at_threshold'])) : 'Free delivery' ?></dd>
-                            <?php endif; ?>
-                            <?php if ($test['eta'] !== ''): ?><dt class="at-muted">Expected time</dt><dd><?= Security::escape($test['eta']) ?></dd><?php endif; ?>
-                            <?php if ($test['max_weight'] !== null): ?><dt class="at-muted">Weight limit</dt><dd><?= Security::escape((string) $test['max_weight']) ?> kg per order</dd><?php endif; ?>
-                        </dl>
-                    <?php endif; ?>
-                    <?php foreach ($test['notes'] as $n): ?><p class="at-muted"><?= Security::escape($n) ?></p><?php endforeach; ?>
-                </div>
-                <details class="text-xs">
-                    <summary class="cursor-pointer at-muted">Technical details (for support)</summary>
-                    <pre class="bg-slate-50 p-3 rounded overflow-auto mt-1"><?= Security::escape(json_encode($test['raw'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)) ?></pre>
-                </details>
-            <?php endif; ?>
+            <?php require APNI_TOKRI_ROOT . '/includes/partials/admin/delivery-test-result.php'; ?>
         <?php endif; ?>
     </div></div>
 </div>

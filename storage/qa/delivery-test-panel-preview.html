@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Delivery test result preview</title>
+<link rel="stylesheet" href="/Apni_Tokri/assets/css/apni-tokri.css">
+<style>
+body { font-family: system-ui, sans-serif; margin: 0; padding: 1rem; background: #f5f5f0; }
+.preview-wrap { max-width: 420px; margin: 0 auto; }
+.preview-block { margin-bottom: 2rem; }
+.preview-block h2 { font-size: 0.75rem; text-transform: uppercase; color: #666; margin: 0 0 0.5rem; }
+@media (min-width: 900px) { .preview-wrap { max-width: 520px; } }
+</style>
+</head>
+<body>
+<div class="preview-wrap">
+<p class="text-sm at-muted">Simulates the right column width of Delivery areas (test calculator).</p>
+<section class="preview-block" id="available_with_amount"><h2>available_with_amount</h2><div class="at-delivery-test-result at-delivery-test-result--ok" role="status">
+    <div class="at-delivery-test-result__head">
+        <p class="at-delivery-test-result__status mb-0">Delivery available</p>
+        <p class="at-delivery-test-result__pin mb-0">Pincode 452010</p>
+    </div>
+
+            <div class="at-delivery-test-result__fee-block">
+            <p class="at-delivery-test-result__fee mb-0">₹40</p>
+            <p class="at-delivery-test-result__fee-sub mb-0">For a ₹350 order</p>
+        </div>
+
+        <dl class="at-delivery-test-result__rows">
+            <div class="at-delivery-test-result__row">
+                <dt class="at-delivery-test-result__label">Delivery area</dt>
+                <dd class="at-delivery-test-result__value">Indore Central — Premium Same-Day Corridor (4520xx extended service area with long descriptive title)</dd>
+            </div>
+            <div class="at-delivery-test-result__row">
+                <dt class="at-delivery-test-result__label">Matching method</dt>
+                <dd class="at-delivery-test-result__value">Pincode match</dd>
+            </div>
+                                    <div class="at-delivery-test-result__row">
+                <dt class="at-delivery-test-result__label">Order amount</dt>
+                <dd class="at-delivery-test-result__value">₹350</dd>
+            </div>
+                        <div class="at-delivery-test-result__row">
+                <dt class="at-delivery-test-result__label">Free delivery from</dt>
+                <dd class="at-delivery-test-result__value">Orders of ₹499 or more</dd>
+            </div>
+                        <div class="at-delivery-test-result__row">
+                <dt class="at-delivery-test-result__label">Expected delivery time</dt>
+                <dd class="at-delivery-test-result__value">Within 2 hours</dd>
+            </div>
+                                </dl>
+
+            </div>
+<details class="at-delivery-test-result__tech text-xs mt-3">
+    <summary class="cursor-pointer at-muted">Technical details (for support)</summary>
+    <pre class="at-delivery-test-result__pre">{
+    &quot;preview&quot;: true
+}</pre>
+</details>
+</section><section class="preview-block" id="available_free"><h2>available_free</h2><div class="at-delivery-test-result at-delivery-test-result--ok" role="status">
+    <div class="at-delivery-test-result__head">
+        <p class="at-delivery-test-result__status mb-0">Delivery available</p>
+        <p class="at-delivery-test-result__pin mb-0">Pincode 452010</p>
+    </div>
+
+            <div class="at-delivery-test-result__fee-block">
+            <p class="at-delivery-test-result__fee mb-0">Free delivery</p>
+            <p class="at-delivery-test-result__fee-sub mb-0">For a ₹650 order</p>
+        </div>
+
+        <dl class="at-delivery-test-result__rows">
+            <div class="at-delivery-test-result__row">
+                <dt class="at-delivery-test-result__label">Delivery area</dt>
+                <dd class="at-delivery-test-result__value">Indore Central — Premium Same-Day Corridor (4520xx extended service area with long descriptive title)</dd>
+            </div>
+            <div class="at-delivery-test-result__row">
+                <dt class="at-delivery-test-result__label">Matching method</dt>
+                <dd class="at-delivery-test-result__value">Nearby-area backup (address is close enough to your store)</dd>
+            </div>
+                                    <div class="at-delivery-test-result__row">
+                <dt class="at-delivery-test-result__label">Order amount</dt>
+                <dd class="at-delivery-test-result__value">₹650</dd>
+            </div>
+                        <div class="at-delivery-test-result__row">
+                <dt class="at-delivery-test-result__label">Free delivery from</dt>
+                <dd class="at-delivery-test-result__value">Orders of ₹499 or more</dd>
+            </div>
+                        <div class="at-delivery-test-result__row">
+                <dt class="at-delivery-test-result__label">Expected delivery time</dt>
+                <dd class="at-delivery-test-result__value">Same day</dd>
+            </div>
+                                </dl>
+
+            </div>
+<details class="at-delivery-test-result__tech text-xs mt-3">
+    <summary class="cursor-pointer at-muted">Technical details (for support)</summary>
+    <pre class="at-delivery-test-result__pre">{
+    &quot;preview&quot;: true
+}</pre>
+</details>
+</section><section class="preview-block" id="unavailable"><h2>unavailable</h2><div class="at-delivery-test-result at-delivery-test-result--no" role="status">
+    <div class="at-delivery-test-result__head">
+        <p class="at-delivery-test-result__status mb-0">Delivery unavailable</p>
+        <p class="at-delivery-test-result__pin mb-0">Pincode 110001</p>
+    </div>
+
+            <p class="at-delivery-test-result__reason mb-0">Sorry — we do not deliver to this pincode yet.</p>
+            </div>
+<details class="at-delivery-test-result__tech text-xs mt-3">
+    <summary class="cursor-pointer at-muted">Technical details (for support)</summary>
+    <pre class="at-delivery-test-result__pre">{
+    &quot;pin&quot;: &quot;110001&quot;,
+    &quot;serviceable&quot;: false,
+    &quot;zone&quot;: null,
+    &quot;message&quot;: &quot;Sorry — we do not deliver to this pincode yet.&quot;,
+    &quot;distance_km&quot;: null,
+    &quot;distance_source&quot;: null,
+    &quot;requires_map_pin&quot;: false,
+    &quot;mode&quot;: &quot;pincode_legacy&quot;
+}</pre>
+</details>
+</section>
+</div>
+</body>
+</html>
