@@ -27,6 +27,37 @@ final class CmsPageService
         self::$testThrowOnVersionInsert = $enabled;
     }
 
+    /**
+     * Footer policy / info links (published + public visibility + show_in_footer).
+     *
+     * @return list<array{title: string, slug: string, href: string}>
+     */
+    public static function footerLinksForPublic(): array
+    {
+        if (!self::schemaReady()) {
+            return [];
+        }
+        $base = url_base();
+        $links = [];
+        foreach (CmsPageRepository::listForPublicFooter() as $row) {
+            $slug = trim((string) ($row['slug'] ?? ''));
+            if ($slug === '' || !Validation::slug($slug)) {
+                continue;
+            }
+            $title = trim((string) ($row['title'] ?? ''));
+            if ($title === '') {
+                continue;
+            }
+            $links[] = [
+                'title' => $title,
+                'slug' => $slug,
+                'href' => $base . '/page.php?slug=' . rawurlencode($slug),
+            ];
+        }
+
+        return $links;
+    }
+
     /** @return array<string, mixed>|null Published public page for storefront */
     public static function publishedPublicBySlug(string $slug): ?array
     {

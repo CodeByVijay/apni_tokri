@@ -54,6 +54,42 @@ if (CommerceGateway::useDatabase() && CustomerAuth::id() !== null) {
     }
 }
 
+$cancelSuccess = '';
+$cancelError = '';
+$cancelEligible = false;
+$cancelMessage = null;
+if (CommerceGateway::useDatabase() && CustomerAuth::id() !== null && $id !== '') {
+    $cancelState = OrderCancellationService::customerCancelState((int) CustomerAuth::id(), $id);
+    $cancelEligible = !empty($cancelState['eligible']);
+    $cancelMessage = $cancelState['message'] ?? null;
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cancel_order'])) {
+    Csrf::requireValid();
+    if (!CommerceGateway::useDatabase() || CustomerAuth::id() === null) {
+        $cancelError = 'Cancellation requires a live account order.';
+    } else {
+        $result = OrderCancellationService::cancelByCustomer(
+            (int) CustomerAuth::id(),
+            $id,
+            (string) ($_POST['reason_code'] ?? ''),
+            (string) ($_POST['reason_detail'] ?? ''),
+            (string) ($_POST['idempotency_key'] ?? '')
+        );
+        if (!empty($result['ok'])) {
+            $cancelSuccess = (string) ($result['message'] ?? 'Order cancelled.');
+            $order = OrderRepository::forCustomerDetail($id, CustomerAuth::id());
+            $row = OrderFulfillmentService::orderRowForCustomer($id, CustomerAuth::id());
+            if ($row !== null) {
+                $orderRefunds = RefundRequestService::listForOrderCustomer((int) $row['id'], CustomerAuth::id());
+            }
+            $cancelEligible = false;
+        } else {
+            $cancelError = (string) ($result['message'] ?? 'Could not cancel order.');
+        }
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['refund_request'])) {
     Csrf::requireValid();
     if (!CommerceGateway::useDatabase() || CustomerAuth::id() === null) {
@@ -151,8 +187,18 @@ $formatDeliveryDay = static function (?string $d): string {
             <p class="text-sm mt-2"><strong>Expected delivery:</strong> <?= Security::escape($formatDeliveryDay((string) $overview['expected_delivery'])) ?></p>
         <?php endif; ?>
     </div>
-    <a href="<?= Security::escape(url_base()) ?>/support.php?order=<?= rawurlencode($displayId) ?>" class="at-btn at-btn--secondary at-btn--sm at-focusable"><?= at_icon('chat', 'w-4 h-4') ?><?= Security::escape(__('need_help')) ?></a>
+    <div class="flex flex-wrap gap-2 items-center">
+        <?php if ($cancelEligible): ?>
+            <a href="#at-open-cancel-dialog" class="at-btn at-btn--ghost at-btn--sm at-focusable" onclick="document.getElementById('at-open-cancel-dialog')?.click();return false;">Cancel order</a>
+        <?php endif; ?>
+        <a href="<?= Security::escape(url_base()) ?>/support.php?order=<?= rawurlencode($displayId) ?>" class="at-btn at-btn--secondary at-btn--sm at-focusable"><?= at_icon('chat', 'w-4 h-4') ?><?= Security::escape(__('need_help')) ?></a>
+    </div>
 </header>
+
+<?php
+$cancelOrderNumber = $displayId;
+require APNI_TOKRI_ROOT . '/includes/partials/customer-order-cancel.php';
+?>
 
 <section class="at-card at-order-detail__timeline">
     <div class="at-card__body">

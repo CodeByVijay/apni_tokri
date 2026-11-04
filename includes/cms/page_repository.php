@@ -26,6 +26,30 @@ final class CmsPageRepository
         return $row ?: null;
     }
 
+    /**
+     * Published public CMS pages flagged for the storefront footer.
+     *
+     * @return list<array{title: string, slug: string}>
+     */
+    public static function listForPublicFooter(): array
+    {
+        if (!Install::isSchemaReady()) {
+            return [];
+        }
+        Install::ensureConnection();
+        $stmt = Database::pdo()->prepare(
+            'SELECT title, slug FROM cms_pages
+             WHERE status = ?
+               AND show_in_footer = 1
+               AND visibility = ?
+             ORDER BY title ASC'
+        );
+        $stmt->execute([PublishStatus::PUBLISHED, CmsPageService::VISIBILITY_PUBLIC]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        return is_array($rows) ? $rows : [];
+    }
+
     /** @return array{rows: list<array<string, mixed>>, total: int} */
     public static function listForAdmin(int $page, int $perPage): array
     {

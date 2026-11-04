@@ -67,6 +67,22 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
                 <span class="at-muted">· <?= Security::escape((string) ($order['order_source'] ?? '')) ?></span>
             </p>
             <?php
+            $cancelEvt = OrderCancellationService::cancellationEventForOrder($orderId);
+            if ($cancelEvt !== null):
+                $by = (string) ($cancelEvt['requested_by'] ?? '');
+                $reasonCode = (string) ($cancelEvt['reason_code'] ?? '');
+                $reasonLabel = OrderCancellationService::CUSTOMER_REASONS[$reasonCode] ?? $reasonCode;
+                ?>
+            <div class="mt-3 p-3 rounded-lg bg-[var(--at-surface-2)] text-sm space-y-1">
+                <p><strong>Cancellation</strong> · <?= Security::escape(ucfirst($by)) ?> · <?= Security::escape((string) ($cancelEvt['created_at'] ?? '')) ?></p>
+                <p><strong>Reason:</strong> <?= Security::escape($reasonLabel) ?>
+                    <?php if (trim((string) ($cancelEvt['reason_detail'] ?? '')) !== ''): ?>
+                        — <?= Security::escape(trim((string) $cancelEvt['reason_detail'])) ?>
+                    <?php endif; ?>
+                </p>
+            </div>
+            <?php endif; ?>
+            <?php
             $adminInv = null;
             if (Install::isSchemaReady()) {
                 $adminInv = InvoiceService::syncForOrder($orderId)['invoice'];

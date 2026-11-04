@@ -5,6 +5,16 @@ declare(strict_types=1);
 $base = url_base();
 $showBottomNav = $showBottomNav ?? true;
 $activeNav = $activeNav ?? '';
+$cmsFooterLinks = CmsPageService::footerLinksForPublic();
+$cmsAboutFooterLink = null;
+$cmsPolicyFooterLinks = [];
+foreach ($cmsFooterLinks as $cmsFooterLink) {
+    if (($cmsFooterLink['slug'] ?? '') === 'about-us') {
+        $cmsAboutFooterLink = $cmsFooterLink;
+        continue;
+    }
+    $cmsPolicyFooterLinks[] = $cmsFooterLink;
+}
 ?>
 <footer class="at-footer mt-auto" role="contentinfo">
     <div class="at-container py-10 md:py-14 grid gap-10 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1.2fr]">
@@ -36,7 +46,9 @@ $activeNav = $activeNav ?? '';
         <div>
             <h3><?= Security::escape(__('footer_about')) ?></h3>
             <ul>
-                <li><a class="at-focusable" href="<?= Security::escape($base) ?>/page.php?slug=about-us">About Us</a></li>
+                <?php if ($cmsAboutFooterLink !== null): ?>
+                <li><a class="at-focusable" href="<?= Security::escape((string) $cmsAboutFooterLink['href']) ?>"><?= Security::escape((string) $cmsAboutFooterLink['title']) ?></a></li>
+                <?php endif; ?>
                 <li><a class="at-focusable" href="<?= Security::escape($base) ?>/faqs.php"><?= Security::escape(__('nav_faqs')) ?></a></li>
                 <li><a class="at-focusable" href="<?= Security::escape($base) ?>/contact.php"><?= Security::escape(__('nav_contact')) ?></a></li>
                 <li><a class="at-focusable" href="<?= Security::escape($base) ?>/my-subscriptions.php">Subscriptions</a></li>
@@ -45,11 +57,9 @@ $activeNav = $activeNav ?? '';
         <div>
             <h3><?= Security::escape(__('footer_policies')) ?></h3>
             <ul>
-                <li><a class="at-focusable" href="<?= Security::escape($base) ?>/page.php?slug=refund-policy">Refund &amp; cancellation</a></li>
-                <li><a class="at-focusable" href="<?= Security::escape($base) ?>/page.php?slug=shipping-policy">Shipping &amp; delivery</a></li>
-                <li><a class="at-focusable" href="<?= Security::escape($base) ?>/page.php?slug=privacy-policy">Privacy</a></li>
-                <li><a class="at-focusable" href="<?= Security::escape($base) ?>/page.php?slug=terms">Terms</a></li>
-                <li><a class="at-focusable" href="<?= Security::escape($base) ?>/page.php?slug=subscription-terms">Subscription terms</a></li>
+                <?php foreach ($cmsPolicyFooterLinks as $cmsPolicyLink): ?>
+                <li><a class="at-focusable" href="<?= Security::escape((string) $cmsPolicyLink['href']) ?>"><?= Security::escape((string) $cmsPolicyLink['title']) ?></a></li>
+                <?php endforeach; ?>
             </ul>
         </div>
         <div>

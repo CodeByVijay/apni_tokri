@@ -37,7 +37,10 @@ final class SubscriptionRestockService
                     $vid = (int) $it['variant_id'];
                     $qty = (int) $it['quantity'];
                     if ($vid > 0 && $qty > 0) {
-                        InventoryService::adjust($vid, $qty, $reason . ' (order ' . $orderId . ')');
+                        $lineReason = $reason . ' (order ' . $orderId . ')';
+                        if (!InventoryService::increment($vid, $qty, $lineReason)) {
+                            throw new RuntimeException('Could not restore subscription stock for variant ' . $vid);
+                        }
                     }
                 }
                 $dayId = (int) ($order['subscription_delivery_day_id'] ?? 0);

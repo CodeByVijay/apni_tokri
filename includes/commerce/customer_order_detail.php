@@ -403,13 +403,21 @@ final class CustomerOrderDetailService
     {
         $cancellationReason = null;
         if ((string) ($orderRow['status'] ?? '') === OrderStatus::CANCELLED) {
-            $st = $pdo->prepare(
-                'SELECT note FROM order_status_history WHERE order_id = ? AND status = ? ORDER BY created_at DESC LIMIT 1'
-            );
-            $st->execute([(int) $orderRow['id'], OrderStatus::CANCELLED]);
-            $note = trim((string) ($st->fetchColumn() ?: ''));
-            if ($note !== '') {
-                $cancellationReason = $note;
+            $evt = OrderCancellationService::cancellationEventForOrder((int) $orderRow['id']);
+            if ($evt !== null) {
+                $code = (string) ($evt['reason_code'] ?? '');
+                $label = OrderCancellationService::CUSTOMER_REASONS[$code] ?? $code;
+                $detail = trim((string) ($evt['reason_detail'] ?? ''));
+                $cancellationReason = $label . ($detail !== '' ? ' — ' . $detail : '');
+            } else {
+                $st = $pdo->prepare(
+                    'SELECT note FROM order_status_history WHERE order_id = ? AND status = ? ORDER BY created_at DESC LIMIT 1'
+                );
+                $st->execute([(int) $orderRow['id'], OrderStatus::CANCELLED]);
+                $note = trim((string) ($st->fetchColumn() ?: ''));
+                if ($note !== '') {
+                    $cancellationReason = $note;
+                }
             }
         }
 

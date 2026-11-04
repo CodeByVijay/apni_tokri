@@ -108,6 +108,7 @@ require_once APNI_TOKRI_ROOT . '/includes/commerce/pricing.php';
 require_once APNI_TOKRI_ROOT . '/includes/commerce/cart.php';
 require_once APNI_TOKRI_ROOT . '/includes/commerce/customer.php';
 require_once APNI_TOKRI_ROOT . '/includes/commerce/account.php';
+require_once APNI_TOKRI_ROOT . '/includes/commerce/order_cancellation.php';
 require_once APNI_TOKRI_ROOT . '/includes/encryption.php';
 require_once APNI_TOKRI_ROOT . '/includes/settings/store.php';
 require_once APNI_TOKRI_ROOT . '/includes/settings/branding.php';

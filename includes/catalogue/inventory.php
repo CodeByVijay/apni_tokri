@@ -103,6 +103,40 @@ final class InventoryService
         });
     }
 
+    /** Restore sellable stock (order cancellation restock). Uses row lock. */
+    public static function increment(int $variantId, int $qty, string $reason): bool
+    {
+        if ($qty <= 0) {
+            return false;
+        }
+        $reason = trim($reason);
+        if ($reason === '') {
+            return false;
+        }
+
+        return Database::transaction(static function () use ($variantId, $qty, $reason): bool {
+            $pdo = Database::pdo();
+            $stmt = $pdo->prepare(
+                'SELECT id, stock_qty, is_active FROM product_variants WHERE id = ? FOR UPDATE'
+            );
+            $stmt->execute([$variantId]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$row || !(int) $row['is_active']) {
+                return false;
+            }
+            $before = (int) $row['stock_qty'];
+            $after = $before + $qty;
+            $pdo->prepare('UPDATE product_variants SET stock_qty = ?, updated_at = NOW() WHERE id = ?')
+                ->execute([$after, $variantId]);
+            $pdo->prepare(
+                'INSERT INTO inventory_movements (variant_id, change_qty, qty_before, qty_after, reason, admin_user_id)
+                 VALUES (?, ?, ?, ?, ?, ?)'
+            )->execute([$variantId, $qty, $before, $after, $reason, AdminAuth::id()]);
+
+            return true;
+        });
+    }
+
     public static function availableQty(int $variantId): int
     {
         Install::ensureConnection();

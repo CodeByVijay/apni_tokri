@@ -80,6 +80,13 @@ require APNI_TOKRI_ROOT . '/includes/partials/account-shell-start.php';
                     <div class="text-left sm:text-right">
                         <p class="font-extrabold"><?= Security::escape(catalogue_format_price((float) (($order['totals']['total'] ?? 0)))) ?></p>
                         <a href="<?= Security::escape(url_base()) ?>/order-details.php?id=<?= rawurlencode((string) $order['id']) ?>" class="at-link-arrow !text-sm at-focusable">Details</a>
+                        <?php
+                        if (!$usingDemoOrders && CustomerAuth::id() !== null) {
+                            $canCancel = OrderCancellationService::customerCancelState((int) CustomerAuth::id(), (string) ($order['id'] ?? ''));
+                            if (!empty($canCancel['eligible'])): ?>
+                        <a href="<?= Security::escape(url_base()) ?>/order-details.php?id=<?= rawurlencode((string) $order['id']) ?>&amp;cancel=1" class="at-link-arrow !text-sm at-focusable text-red-700">Cancel</a>
+                        <?php endif;
+                        } ?>
                         <?php $invRef = $invoiceRefs[(string) ($order['id'] ?? '')] ?? null; if ($invRef !== null): ?>
                             <a href="<?= Security::escape(url_base()) ?>/invoice-download.php?ref=<?= rawurlencode($invRef) ?>" class="at-link-arrow !text-sm at-focusable" title="Download invoice">Invoice</a>
                         <?php endif; ?>
