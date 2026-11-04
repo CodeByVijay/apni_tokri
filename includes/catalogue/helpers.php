@@ -64,6 +64,42 @@ function catalogue_is_in_stock(array $product): bool
     return false;
 }
 
+/**
+ * Homepage shelf eligibility: has an active variant with a positive price and stock.
+ *
+ * @param array<string, mixed> $product public catalogue array
+ */
+function catalogue_is_home_eligible(array $product): bool
+{
+    foreach ($product['variants'] ?? [] as $v) {
+        $prices = catalogue_variant_prices($v);
+        if ($prices['display'] > 0 && (int) ($v['stock'] ?? 0) > 0) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/**
+ * @param list<array<string, mixed>> $products
+ * @return list<array<string, mixed>>
+ */
+function catalogue_home_eligible_products(array $products, int $limit = 5): array
+{
+    $out = [];
+    foreach ($products as $p) {
+        if (catalogue_is_home_eligible($p)) {
+            $out[] = $p;
+            if (count($out) >= $limit) {
+                break;
+            }
+        }
+    }
+
+    return $out;
+}
+
 /** @param array<string, mixed> $variant */
 function catalogue_stock_label(array $variant): ?string
 {

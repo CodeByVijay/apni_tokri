@@ -115,8 +115,10 @@ $sectionSubtitle = storefront_uses_demo_catalogue()
     : 'Customer favourites';
 $sectionHref = $base . '/search.php?q=';
 $sectionLinkLabel = 'Browse all';
-$products = $catalogue->productsWithFlag('bestseller', 5);
-require APNI_TOKRI_ROOT . '/includes/partials/home-section.php';
+$products = catalogue_home_eligible_products($catalogue->productsWithFlag('bestseller', PHP_INT_MAX), 5);
+if ($products !== []) {
+    require APNI_TOKRI_ROOT . '/includes/partials/home-section.php';
+}
 ?>
 
 <?php if (!AppEnvironment::isProduction()): ?>
@@ -144,7 +146,10 @@ foreach ($rails as $rail) {
     $sectionSubtitle = $rail[1];
     $sectionHref = $base . '/category.php?slug=' . rawurlencode($rail[2]);
     $sectionLinkLabel = 'View all';
-    $products = array_slice($rail[3], 0, 5);
+    $products = catalogue_home_eligible_products($rail[3], 5);
+    if ($products === []) {
+        continue;
+    }
     require APNI_TOKRI_ROOT . '/includes/partials/home-section.php';
 }
 ?>
