@@ -364,3 +364,34 @@ Adds `processing_started_at` and `worker_token` on `payment_webhook_events` for 
 Refund validation, merchant `order_id` for Cashfree refund API, official refund status mapping (API 2023-08-01).
 
 Live Cashfree staging verification is still required before production sign-off (signed refund webhook end-to-end).
+
+## Upgrade to 1.21.0-security-phase1 (Security remediation phase 1)
+
+**Depends on:** 1.20.0-invoices  
+**Rollback:** `database/migrations/rollback/1.21.0_security_remediation_phase1_rollback.sql`
+
+```bash
+mysql -u USER -p apni_tokri < database/migrations/1.21.0_security_remediation_phase1.sql
+php scripts/test-security-remediation-phase1.php
+```
+
+Adds `admin_users.auth_epoch`, `admin_login_attempts`, `admin_password_reset_tokens`, `support_guest_ticket_attempts`.
+
+## Upgrade to 1.22.0-startmessaging-sms (StartMessaging SMS settings)
+
+**Depends on:** 1.21.0-security-phase1  
+**Rollback:** `database/migrations/rollback/1.22.0_startmessaging_sms_rollback.sql`
+
+```bash
+mysql -u USER -p apni_tokri < database/migrations/1.22.0_startmessaging_sms.sql
+php scripts/test-startmessaging-sms.php
+```
+
+No DDL — seeds `sms.startmessaging.variable_app_name` and `sms.startmessaging.variable_expiry` defaults. API keys, StartMessaging template IDs, and provider selection remain admin-configured (never in SQL).
+
+Regenerate consolidated installer after schema bumps:
+
+```bash
+php scripts/build-apni-tokri-production-sql.php
+php scripts/validate-apni-tokri-production-sql.php
+```

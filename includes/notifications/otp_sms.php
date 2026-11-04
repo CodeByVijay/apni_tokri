@@ -120,36 +120,41 @@ final class OtpSmsService
             return ['ok' => false, 'error' => self::ERR_SMS_CONFIGURATION_MISSING];
         }
 
-        if ((AppSettings::get('sms.provider', '') ?? '') !== SmsSettingsService::PROVIDER_HTTP) {
+        $provider = SmsSettingsService::currentProvider();
+        if (!in_array($provider, [SmsSettingsService::PROVIDER_HTTP, SmsSettingsService::PROVIDER_STARTMESSAGING], true)) {
             SmsDiagnosticsService::record(false, 'login_otp', [
-                'provider' => (string) (AppSettings::get('sms.provider', '') ?? ''),
+                'provider' => $provider,
                 'error_code' => 'configuration_missing',
-                'error_message' => 'Live mode requires HTTP provider',
+                'error_message' => 'Live mode requires HTTP or StartMessaging provider',
                 'mobile_suffix' => substr($mobile, -4),
             ]);
 
             return ['ok' => false, 'error' => self::ERR_SMS_CONFIGURATION_MISSING];
         }
 
-        $minutes = max(1, (int) ceil($ttlSeconds / 60));
-        $template = trim(AppSettings::get('sms.template.otp', '') ?? '');
-        if ($template === '') {
-            $template = 'Your Apni Tokri login code is {otp}. Valid for {minutes} minutes. Do not share it.';
-        }
-        $message = str_replace(
-            ['{otp}', '{minutes}'],
-            [$otpPlain, (string) $minutes],
-            $template
-        );
+        if ($provider === SmsSettingsService::PROVIDER_STARTMESSAGING) {
+            $result = StartMessagingSmsService::sendOtp($mobile, $otpPlain, $ttlSeconds);
+        } else {
+            $minutes = max(1, (int) ceil($ttlSeconds / 60));
+            $template = trim(AppSettings::get('sms.template.otp', '') ?? '');
+            if ($template === '') {
+                $template = 'Your Apni Tokri login code is {otp}. Valid for {minutes} minutes. Do not share it.';
+            }
+            $message = str_replace(
+                ['{otp}', '{minutes}'],
+                [$otpPlain, (string) $minutes],
+                $template
+            );
 
-        $sender = trim(AppSettings::get('sms.sender_id', '') ?? '');
-        $dlt = trim(AppSettings::get('sms.dlt.otp', '') ?? '');
-        $adapter = SmsGatewayFactory::adapter();
-        $result = $adapter->send($mobile, $message, $sender, $dlt !== '' ? $dlt : null);
+            $sender = trim(AppSettings::get('sms.sender_id', '') ?? '');
+            $dlt = trim(AppSettings::get('sms.dlt.otp', '') ?? '');
+            $adapter = SmsGatewayFactory::adapter();
+            $result = $adapter->send($mobile, $message, $sender, $dlt !== '' ? $dlt : null);
+        }
 
         $httpStatus = isset($result['http_status']) ? (int) $result['http_status'] : null;
         SmsDiagnosticsService::recordFromGateway(
-            SmsSettingsService::PROVIDER_HTTP,
+            $provider,
             $httpStatus,
             $result,
             'login_otp',

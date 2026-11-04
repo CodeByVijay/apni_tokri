@@ -68,6 +68,7 @@ require_once APNI_TOKRI_ROOT . '/includes/notifications/sms_environment.php';
 require_once APNI_TOKRI_ROOT . '/includes/notifications/sms_diagnostics.php';
 require_once APNI_TOKRI_ROOT . '/includes/notifications/sms_settings.php';
 require_once APNI_TOKRI_ROOT . '/includes/notifications/sms_gateway.php';
+require_once APNI_TOKRI_ROOT . '/includes/notifications/startmessaging_sms.php';
 require_once APNI_TOKRI_ROOT . '/includes/notifications/otp_sms.php';
 require_once APNI_TOKRI_ROOT . '/includes/notifications/smtp_settings.php';
 require_once APNI_TOKRI_ROOT . '/includes/notifications/smtp_mailer.php';

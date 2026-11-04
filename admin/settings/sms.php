@@ -58,6 +58,9 @@ if (!empty($_SESSION['sms_form_post']) && is_array($_SESSION['sms_form_post'])) 
     $form['test_fixed_otp'] = trim((string) ($posted['test_fixed_otp'] ?? $form['test_fixed_otp']));
     $form['api_url'] = trim((string) ($posted['api_url'] ?? $form['api_url']));
     $form['sender_id'] = trim((string) ($posted['sender_id'] ?? $form['sender_id']));
+    $form['provider'] = (string) ($posted['provider'] ?? $form['provider']);
+    $form['startmessaging_variable_app_name'] = !empty($posted['startmessaging_variable_app_name']);
+    $form['startmessaging_variable_expiry'] = !empty($posted['startmessaging_variable_expiry']);
 }
 if (!empty($_SESSION['sms_form_errors']) && is_array($_SESSION['sms_form_errors'])) {
     $errors = $_SESSION['sms_form_errors'];
@@ -84,7 +87,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/settings-nav.php';
 <?php if ($isTest): ?>
     <div class="at-alert at-alert--warning max-w-3xl mb-4" role="status"><strong>TEST MODE — No real SMS is sent.</strong> OTP login uses hashed codes in the database only. Configure an optional fixed 6-digit test OTP below for QA.</div>
 <?php elseif ($isLive): ?>
-    <div class="at-alert at-alert--success max-w-3xl mb-4" role="status"><strong>Live Mode.</strong> OTP and test SMS use your HTTP provider. Messages are sent only after the provider accepts them.</div>
+    <div class="at-alert at-alert--success max-w-3xl mb-4" role="status"><strong>Live Mode.</strong> OTP uses the selected provider (HTTP or StartMessaging). Delivery notifications require the generic HTTP provider.</div>
 <?php else: ?>
     <div class="at-alert max-w-3xl mb-4" role="status"><strong>Disabled.</strong> Customer OTP requests are rejected with a service-unavailable message.</div>
 <?php endif; ?>
@@ -129,33 +132,47 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/settings-nav.php';
         </div>
 
         <div id="live-mode-fields" class="<?= $form['configured_operation_mode'] === OtpSmsService::MODE_LIVE ? '' : 'hidden' ?>">
-            <p class="text-sm at-muted mb-3">Live mode uses the HTTP provider below. Simulated provider is not used for OTP in Live Mode.</p>
+            <p class="text-sm at-muted mb-3">Live mode sends real OTP SMS via the provider below. Simulated provider is not used for OTP in Live Mode.</p>
             <div class="space-y-3">
                 <div>
-                    <label class="at-label" for="sms_api_url">HTTP API URL (HTTPS only)</label>
-                    <input id="sms_api_url" name="api_url" class="at-input at-focusable" autocomplete="off" value="<?= Security::escape($form['api_url']) ?>">
+                    <label class="at-label" for="sms_provider">SMS provider</label>
+                    <select id="sms_provider" name="provider" class="at-input at-focusable">
+                        <option value="<?= Security::escape(SmsSettingsService::PROVIDER_HTTP) ?>" <?= $form['provider'] === SmsSettingsService::PROVIDER_HTTP ? 'selected' : '' ?>>Generic HTTP (Bearer + JSON body)</option>
+                        <option value="<?= Security::escape(SmsSettingsService::PROVIDER_STARTMESSAGING) ?>" <?= $form['provider'] === SmsSettingsService::PROVIDER_STARTMESSAGING ? 'selected' : '' ?>>StartMessaging (OTP API, X-API-Key)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="at-label" for="sms_api_url"><span id="sms_api_url_label">API URL (HTTPS)</span></label>
+                    <input id="sms_api_url" name="api_url" class="at-input at-focusable" autocomplete="off"
+                           placeholder="https://api.startmessaging.com"
+                           value="<?= Security::escape($form['api_url']) ?>">
+                    <p id="sms_api_url_hint" class="text-xs at-muted mt-1 hidden">Base URL only; Apni Tokri calls <code>POST /otp/send</code> automatically.</p>
                     <?php if (isset($errors['api_url'])): ?><p class="text-xs text-red-600"><?= Security::escape($errors['api_url']) ?></p><?php endif; ?>
                 </div>
                 <div>
-                    <label class="at-label" for="sms_api_key">API key / bearer token</label>
+                    <label class="at-label" for="sms_api_key"><span id="sms_api_key_label">API key</span></label>
                     <input id="sms_api_key" name="api_key" type="password" class="at-input at-focusable" autocomplete="new-password"
                            placeholder="<?= $form['has_api_key'] ? 'Saved (enter to replace)' : 'Enter API key' ?>">
                     <?php if (isset($errors['api_key'])): ?><p class="text-xs text-red-600"><?= Security::escape($errors['api_key']) ?></p><?php endif; ?>
                 </div>
                 <div>
-                    <label class="at-label" for="sms_sender">Sender ID</label>
+                    <label class="at-label" for="sms_sender">Sender ID <span id="sms_sender_optional" class="at-muted font-normal hidden">(optional for StartMessaging)</span></label>
                     <input id="sms_sender" name="sender_id" class="at-input at-focusable" maxlength="11" value="<?= Security::escape($form['sender_id']) ?>">
                     <?php if (isset($errors['sender_id'])): ?><p class="text-xs text-red-600"><?= Security::escape($errors['sender_id']) ?></p><?php endif; ?>
+                </div>
+                <div id="startmessaging-template-vars" class="grid gap-2 hidden">
+                    <p class="text-xs at-muted">Template variables sent to StartMessaging (match your dashboard template):</p>
+                    <label class="flex gap-2 text-sm"><input type="checkbox" name="startmessaging_variable_app_name" value="1" <?= !empty($form['startmessaging_variable_app_name']) ? 'checked' : '' ?>> Include <code>appName</code> (from app name setting)</label>
+                    <label class="flex gap-2 text-sm"><input type="checkbox" name="startmessaging_variable_expiry" value="1" <?= !empty($form['startmessaging_variable_expiry']) ? 'checked' : '' ?>> Include <code>expiry</code> (minutes, from OTP TTL)</label>
                 </div>
             </div>
         </div>
 
         <input type="hidden" name="enabled" value="<?= $isLive ? '1' : '0' ?>">
-        <input type="hidden" name="provider" value="<?= Security::escape($isLive ? SmsSettingsService::PROVIDER_HTTP : SmsSettingsService::PROVIDER_SIMULATE) ?>">
 
-        <hr>
-        <h3 class="font-bold text-sm">HTTP provider response contract</h3>
-        <div class="grid md:grid-cols-2 gap-3">
+        <hr id="http-contract-heading">
+        <h3 class="font-bold text-sm" id="http-contract-title">HTTP provider response contract</h3>
+        <div id="http-contract-fields" class="grid md:grid-cols-2 gap-3">
             <div>
                 <label class="at-label">Allowed HTTP status codes</label>
                 <input name="http_allowed_status_codes" class="at-input at-focusable" value="<?= Security::escape($form['http_allowed_status_codes']) ?>">
@@ -182,12 +199,17 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/settings-nav.php';
 
         <hr>
         <h3 class="font-bold text-sm">Message templates</h3>
-        <p class="text-xs at-muted">Delivery templates use <code>{order_number}</code>. OTP template uses <code>{otp}</code> and <code>{minutes}</code>.</p>
+        <p class="text-xs at-muted">Delivery templates use <code>{order_number}</code>. OTP text template uses <code>{otp}</code> and <code>{minutes}</code> (HTTP provider only). For StartMessaging, set the OTP row’s DLT field to your StartMessaging <strong>template ID</strong>.</p>
         <?php foreach (array_merge(SmsSettingsService::deliveryTemplateKeys(), ['otp']) as $tKey): ?>
             <div>
                 <label class="at-label" for="tpl_<?= Security::escape($tKey) ?>"><?= Security::escape(str_replace('_', ' ', $tKey)) ?></label>
                 <textarea id="tpl_<?= Security::escape($tKey) ?>" name="template_<?= Security::escape($tKey) ?>" class="at-input at-focusable" rows="2"><?= Security::escape($form['templates'][$tKey] ?? '') ?></textarea>
-                <input name="dlt_<?= Security::escape($tKey) ?>" class="at-input at-focusable mt-1" placeholder="DLT template ID (optional)" value="<?= Security::escape($form['dlt'][$tKey] ?? '') ?>">
+                <?php
+                $dltPlaceholder = $tKey === 'otp'
+                    ? 'StartMessaging template ID or DLT template ID'
+                    : 'DLT template ID (optional)';
+                ?>
+                <input name="dlt_<?= Security::escape($tKey) ?>" class="at-input at-focusable mt-1" placeholder="<?= Security::escape($dltPlaceholder) ?>" value="<?= Security::escape($form['dlt'][$tKey] ?? '') ?>">
             </div>
         <?php endforeach; ?>
 
@@ -214,13 +236,37 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/settings-nav.php';
   var sel = document.getElementById('operation_mode');
   var testFields = document.getElementById('test-mode-fields');
   var liveFields = document.getElementById('live-mode-fields');
+  var providerSel = document.getElementById('sms_provider');
+  var sm = '<?= Security::escape(SmsSettingsService::PROVIDER_STARTMESSAGING) ?>';
+  function syncProvider() {
+    if (!providerSel) return;
+    var isSm = providerSel.value === sm;
+    var opt = document.getElementById('sms_sender_optional');
+    var hint = document.getElementById('sms_api_url_hint');
+    var smVars = document.getElementById('startmessaging-template-vars');
+    var httpBlock = document.getElementById('http-contract-fields');
+    var httpTitle = document.getElementById('http-contract-title');
+    var httpHr = document.getElementById('http-contract-heading');
+    var keyLabel = document.getElementById('sms_api_key_label');
+    var urlLabel = document.getElementById('sms_api_url_label');
+    if (opt) opt.classList.toggle('hidden', !isSm);
+    if (hint) hint.classList.toggle('hidden', !isSm);
+    if (smVars) smVars.classList.toggle('hidden', !isSm);
+    if (httpBlock) httpBlock.classList.toggle('hidden', isSm);
+    if (httpTitle) httpTitle.classList.toggle('hidden', isSm);
+    if (httpHr) httpHr.classList.toggle('hidden', isSm);
+    if (keyLabel) keyLabel.textContent = isSm ? 'StartMessaging API key (X-API-Key header)' : 'API key / bearer token';
+    if (urlLabel) urlLabel.textContent = isSm ? 'StartMessaging API base URL (HTTPS)' : 'HTTP API URL (HTTPS only)';
+  }
   if (!sel) return;
   function sync() {
     var v = sel.value;
     if (testFields) testFields.classList.toggle('hidden', v !== 'test');
     if (liveFields) liveFields.classList.toggle('hidden', v !== 'live');
+    syncProvider();
   }
   sel.addEventListener('change', sync);
+  if (providerSel) providerSel.addEventListener('change', syncProvider);
   sync();
 })();
 </script>

@@ -167,6 +167,40 @@ $badCounts = [
     'testimonials' => 0,
     'support_tickets' => 0,
 ];
+foreach (['sms.startmessaging.variable_app_name', 'sms.startmessaging.variable_expiry'] as $smsKey) {
+    foreach ([$pdoCons, $pdoIncr] as $idx => $pdo) {
+        $label = $idx === 0 ? 'consolidated' : 'incremental';
+        $val = $pdo->query(
+            'SELECT setting_value FROM settings WHERE setting_key = ' . $pdo->quote($smsKey) . ' LIMIT 1'
+        )->fetchColumn();
+        $ok = $val !== false && $val !== '';
+        echo ($ok ? 'OK' : 'FAIL') . ": StartMessaging setting {$smsKey} on {$label}\n";
+        if (!$ok) {
+            $fail++;
+        }
+    }
+}
+
+$apiKeyRows = (int) $pdoCons->query(
+    "SELECT COUNT(*) FROM settings WHERE setting_key = 'sms.api_key' AND setting_value != '' AND is_encrypted = 0"
+)->fetchColumn();
+echo ($apiKeyRows === 0 ? 'OK' : 'FAIL') . ": no plaintext sms.api_key in consolidated seed\n";
+if ($apiKeyRows !== 0) {
+    $fail++;
+}
+
+$smSenderOk = SmsSettingsService::validateSaveFields(
+    true,
+    SmsSettingsService::PROVIDER_STARTMESSAGING,
+    StartMessagingSmsService::DEFAULT_BASE_URL,
+    '',
+    ''
+) === [];
+echo ($smSenderOk ? 'OK' : 'FAIL') . ": StartMessaging save validation allows empty Sender ID\n";
+if (!$smSenderOk) {
+    $fail++;
+}
+
 foreach ($badCounts as $table => $expect) {
     try {
         $c = (int) $pdoCons->query('SELECT COUNT(*) FROM `' . str_replace('`', '``', $table) . '`')->fetchColumn();

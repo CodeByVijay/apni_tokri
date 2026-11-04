@@ -17,11 +17,32 @@ final class SmsSettingsService
 
     public const PROVIDER_SIMULATE = 'simulate';
     public const PROVIDER_HTTP = 'http';
+    public const PROVIDER_STARTMESSAGING = 'startmessaging';
 
     /** @return list<string> */
     public static function supportedProviders(): array
     {
-        return [self::PROVIDER_SIMULATE, self::PROVIDER_HTTP];
+        return [self::PROVIDER_SIMULATE, self::PROVIDER_HTTP, self::PROVIDER_STARTMESSAGING];
+    }
+
+    public static function currentProvider(): string
+    {
+        $provider = (string) (AppSettings::get(self::KEY_PROVIDER, self::PROVIDER_SIMULATE) ?? self::PROVIDER_SIMULATE);
+        if (!in_array($provider, self::supportedProviders(), true)) {
+            return self::PROVIDER_SIMULATE;
+        }
+
+        return $provider;
+    }
+
+    public static function providerRequiresSenderId(string $provider): bool
+    {
+        return $provider === self::PROVIDER_HTTP;
+    }
+
+    public static function startMessagingTimeoutSeconds(): int
+    {
+        return max(3, min(60, (int) (AppSettings::get('sms.http.timeout_seconds', '15') ?? 15)));
     }
 
     /** @return list<string> */
@@ -82,6 +103,8 @@ final class SmsSettingsService
             'http_success_json_value' => AppSettings::get('sms.http.success_json_value', 'success') ?? 'success',
             'http_message_id_json_path' => AppSettings::get('sms.http.message_id_json_path', 'message_id') ?? 'message_id',
             'http_timeout_seconds' => max(3, min(60, (int) (AppSettings::get('sms.http.timeout_seconds', '15') ?? 15))),
+            'startmessaging_variable_app_name' => StartMessagingSmsService::includeAppNameVariable(),
+            'startmessaging_variable_expiry' => StartMessagingSmsService::includeExpiryVariable(),
             'templates' => $templates,
             'dlt' => $dlt,
         ];
@@ -118,7 +141,10 @@ final class SmsSettingsService
 
         if ($operationMode === OtpSmsService::MODE_LIVE) {
             $enabled = true;
-            $provider = self::PROVIDER_HTTP;
+            $provider = trim((string) ($post['provider'] ?? self::PROVIDER_HTTP));
+            if (!in_array($provider, [self::PROVIDER_HTTP, self::PROVIDER_STARTMESSAGING], true)) {
+                $provider = self::PROVIDER_HTTP;
+            }
         } elseif ($operationMode === OtpSmsService::MODE_TEST) {
             $enabled = false;
             $provider = self::PROVIDER_SIMULATE;
@@ -127,6 +153,9 @@ final class SmsSettingsService
         }
 
         $apiUrl = trim((string) ($post['api_url'] ?? ''));
+        if ($provider === self::PROVIDER_STARTMESSAGING && $apiUrl === '') {
+            $apiUrl = StartMessagingSmsService::DEFAULT_BASE_URL;
+        }
         $senderId = trim((string) ($post['sender_id'] ?? ''));
         $newApiKey = trim((string) ($post['api_key'] ?? ''));
 
@@ -152,6 +181,8 @@ final class SmsSettingsService
             'sms.http.success_json_value' => ['value' => trim((string) ($post['http_success_json_value'] ?? ''))],
             'sms.http.message_id_json_path' => ['value' => trim((string) ($post['http_message_id_json_path'] ?? ''))],
             'sms.http.timeout_seconds' => ['value' => (string) max(3, min(60, (int) ($post['http_timeout_seconds'] ?? 15)))],
+            'sms.startmessaging.variable_app_name' => ['value' => !empty($post['startmessaging_variable_app_name']) ? '1' : '0'],
+            'sms.startmessaging.variable_expiry' => ['value' => !empty($post['startmessaging_variable_expiry']) ? '1' : '0'],
         ];
 
         foreach (array_merge(self::deliveryTemplateKeys(), ['otp']) as $key) {
@@ -169,10 +200,10 @@ final class SmsSettingsService
 
         if ($newApiKey !== '') {
             AppSettings::set(self::KEY_API_KEY, $newApiKey, true);
-        } elseif ($provider === self::PROVIDER_HTTP && !self::hasStoredApiKey()) {
+        } elseif (in_array($provider, [self::PROVIDER_HTTP, self::PROVIDER_STARTMESSAGING], true) && !self::hasStoredApiKey()) {
             return [
                 'ok' => false,
-                'errors' => ['api_key' => 'API key is required for the HTTP SMS provider.'],
+                'errors' => ['api_key' => 'API key is required for the selected SMS provider.'],
                 'message' => 'Please correct the highlighted fields.',
             ];
         }
@@ -210,10 +241,16 @@ final class SmsSettingsService
             return ['ok' => false, 'message' => self::publicSendError($ready)];
         }
 
-        $adapter = SmsGatewayFactory::adapter();
-        $sender = trim(AppSettings::get(self::KEY_SENDER_ID, '') ?? '');
-        $message = 'Apni Tokri SMS test message. If you received this, SMS settings are working.';
-        $result = $adapter->send($mobile, $message, $sender, null);
+        $provider = self::currentProvider();
+        if ($provider === self::PROVIDER_STARTMESSAGING) {
+            $otp = (string) random_int(100000, 999999);
+            $result = StartMessagingSmsService::sendOtp($mobile, $otp, 300);
+        } else {
+            $adapter = SmsGatewayFactory::adapter();
+            $sender = trim(AppSettings::get(self::KEY_SENDER_ID, '') ?? '');
+            $message = 'Apni Tokri SMS test message. If you received this, SMS settings are working.';
+            $result = $adapter->send($mobile, $message, $sender, null);
+        }
         SmsDiagnosticsService::recordFromGateway(
             (string) (AppSettings::get(self::KEY_PROVIDER, '') ?? ''),
             isset($result['http_status']) ? (int) $result['http_status'] : null,
@@ -235,7 +272,7 @@ final class SmsSettingsService
 
     public static function readinessErrorForSend(): ?string
     {
-        $provider = AppSettings::get(self::KEY_PROVIDER, self::PROVIDER_SIMULATE) ?? self::PROVIDER_SIMULATE;
+        $provider = self::currentProvider();
         if ($provider === self::PROVIDER_SIMULATE) {
             return null;
         }
@@ -243,17 +280,26 @@ final class SmsSettingsService
             return 'SMS is disabled.';
         }
         $url = trim(AppSettings::get(self::KEY_API_URL, '') ?? '');
-        if ($url === '' || self::validateHttpApiUrl($url) !== null) {
+        if ($provider === self::PROVIDER_STARTMESSAGING && $url === '') {
+            $url = StartMessagingSmsService::DEFAULT_BASE_URL;
+        }
+        $checkUrl = $provider === self::PROVIDER_STARTMESSAGING
+            ? StartMessagingSmsService::otpSendUrl()
+            : $url;
+        if ($checkUrl === '' || self::validateHttpApiUrl($checkUrl) !== null) {
             return 'SMS HTTP endpoint is not configured.';
         }
-        if (trim(AppSettings::get(self::KEY_SENDER_ID, '') ?? '') === '') {
+        if (self::providerRequiresSenderId($provider) && trim(AppSettings::get(self::KEY_SENDER_ID, '') ?? '') === '') {
             return 'Sender ID is not configured.';
         }
         if ((AppSettings::getSecret(self::KEY_API_KEY, '') ?? '') === '') {
             return 'SMS API key is not configured.';
         }
-        if (!SmsHttpResponsePolicy::isConfigured()) {
+        if ($provider === self::PROVIDER_HTTP && !SmsHttpResponsePolicy::isConfigured()) {
             return 'HTTP SMS success contract is not configured.';
+        }
+        if ($provider === self::PROVIDER_STARTMESSAGING && trim(AppSettings::get('sms.dlt.otp', '') ?? '') === '') {
+            return 'StartMessaging OTP template ID is not configured (OTP DLT template field).';
         }
 
         return null;
@@ -312,22 +358,30 @@ final class SmsSettingsService
             $errors['provider'] = 'Unsupported SMS provider.';
         }
 
-        if ($provider === self::PROVIDER_HTTP && ($enabled || $apiUrl !== '' || $senderId !== '')) {
+        $liveProvider = in_array($provider, [self::PROVIDER_HTTP, self::PROVIDER_STARTMESSAGING], true);
+        if ($liveProvider && ($enabled || $apiUrl !== '' || $senderId !== '' || $newApiKey !== '')) {
             if ($apiUrl === '') {
-                $errors['api_url'] = 'HTTP API URL is required.';
+                $errors['api_url'] = 'API base URL is required.';
             } else {
-                $urlErr = self::validateHttpApiUrl($apiUrl);
+                $checkUrl = $provider === self::PROVIDER_STARTMESSAGING
+                    ? (preg_match('#/otp/send#i', $apiUrl) ? $apiUrl : rtrim($apiUrl, '/') . '/otp/send')
+                    : $apiUrl;
+                $urlErr = self::validateHttpApiUrl($checkUrl);
                 if ($urlErr !== null) {
                     $errors['api_url'] = $urlErr;
                 }
             }
-            if ($senderId === '') {
-                $errors['sender_id'] = 'Sender ID is required for HTTP SMS.';
-            } elseif (strlen($senderId) > 11) {
+            if (self::providerRequiresSenderId($provider)) {
+                if ($senderId === '') {
+                    $errors['sender_id'] = 'Sender ID is required for HTTP SMS.';
+                } elseif (strlen($senderId) > 11) {
+                    $errors['sender_id'] = 'Sender ID is too long.';
+                }
+            } elseif ($senderId !== '' && strlen($senderId) > 11) {
                 $errors['sender_id'] = 'Sender ID is too long.';
             }
             if ($newApiKey === '' && !self::hasStoredApiKey()) {
-                $errors['api_key'] = 'API key is required for the HTTP SMS provider.';
+                $errors['api_key'] = 'API key is required for the selected SMS provider.';
             }
         }
 

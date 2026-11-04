@@ -93,9 +93,12 @@ final class SmsGatewayFactory
         if (self::$testAdapter instanceof SmsGatewayAdapter) {
             return self::$testAdapter;
         }
-        $provider = AppSettings::get('sms.provider', 'simulate') ?? 'simulate';
-        if ($provider === 'http') {
+        $provider = SmsSettingsService::currentProvider();
+        if ($provider === SmsSettingsService::PROVIDER_HTTP) {
             return new HttpSmsGateway();
+        }
+        if ($provider === SmsSettingsService::PROVIDER_STARTMESSAGING) {
+            return new StartMessagingSmsGateway();
         }
 
         return new SimulateSmsGateway();
