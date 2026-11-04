@@ -8,7 +8,7 @@ AdminDemoPerms::denyIfCannot('settings');
 
 $useDb = Install::isSchemaReady() && AdminAuth::check();
 $store = DeliveryConfig::store();
-$zones = DeliveryZoneRepository::activeZones();
+$zones = DeliveryZoneRepository::allZones();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     Csrf::requireValid();
@@ -73,15 +73,26 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/delivery-settings-nav.php';
     <div class="at-admin-card lg:col-span-2"><div class="at-admin-card__body space-y-3">
         <h3 class="font-bold">Delivery zones</h3>
         <div class="at-admin-table-wrap">
-            <table class="at-admin-table at-admin-table--fixed">
-                <thead><tr><th>Zone</th><th>Match</th><th>Flat fee ₹</th><th>Free above ₹</th></tr></thead>
+            <table class="at-admin-table">
+                <thead><tr>
+                    <th>Delivery area</th>
+                    <th>Identified</th>
+                    <th>Covers</th>
+                    <th>Flat Fee (₹)</th>
+                    <th>Free Above (₹)</th>
+                    <th>Expected time</th>
+                    <th>Status</th>
+                </tr></thead>
                 <tbody>
-                <?php foreach ($zones as $z): ?>
-                    <tr>
-                        <td><?= Security::escape((string) $z['name']) ?></td>
-                        <td><?= Security::escape((string) $z['match_type']) ?> <?= Security::escape((string) $z['match_value']) ?></td>
-                        <td><input name="zone_fee[<?= (int) $z['id'] ?>]" class="at-input at-focusable w-24" value="<?= Security::escape((string) $z['flat_fee']) ?>"></td>
-                        <td><input name="zone_free[<?= (int) $z['id'] ?>]" class="at-input at-focusable w-24" value="<?= Security::escape((string) $z['free_above']) ?>"></td>
+                <?php foreach ($zones as $z): $isOn = !empty($z['is_active']); ?>
+                    <tr<?= $isOn ? '' : ' class="opacity-60"' ?>>
+                        <td><strong><?= Security::escape((string) $z['name']) ?></strong></td>
+                        <td><?= Security::escape(DeliveryAdminUi::kindLabel((string) ($z['zone_kind'] ?? 'pincode'))) ?></td>
+                        <td><?= Security::escape(DeliveryAdminUi::coverage($z)) ?></td>
+                        <td><input name="zone_fee[<?= (int) $z['id'] ?>]" class="at-input at-focusable w-24" inputmode="decimal" value="<?= Security::escape((string) $z['flat_fee']) ?>"></td>
+                        <td><input name="zone_free[<?= (int) $z['id'] ?>]" class="at-input at-focusable w-24" inputmode="decimal" value="<?= Security::escape((string) $z['free_above']) ?>"></td>
+                        <td><?= trim((string) ($z['eta_display'] ?? '')) !== '' ? Security::escape((string) $z['eta_display']) : '—' ?></td>
+                        <td><?= admin_status_badge($isOn ? 'active' : 'inactive', $isOn ? 'Delivering' : 'Not delivering') ?></td>
                     </tr>
                 <?php endforeach; ?>
                 </tbody>
