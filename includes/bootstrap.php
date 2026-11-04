@@ -156,6 +156,7 @@ require_once APNI_TOKRI_ROOT . '/includes/subscription/plan.php';
 require_once APNI_TOKRI_ROOT . '/includes/subscription/cutoff.php';
 require_once APNI_TOKRI_ROOT . '/includes/subscription/audit.php';
 require_once APNI_TOKRI_ROOT . '/includes/subscription/menu.php';
+require_once APNI_TOKRI_ROOT . '/includes/subscription/menu_plan.php';
 require_once APNI_TOKRI_ROOT . '/includes/subscription/basket.php';
 require_once APNI_TOKRI_ROOT . '/includes/subscription/auto_confirm.php';
 require_once APNI_TOKRI_ROOT . '/includes/subscription/lifecycle.php';

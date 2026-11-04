@@ -58,6 +58,7 @@ function production_migration_sequence(): array
         'database/migrations/1.22.0_startmessaging_sms.sql',
         'database/migrations/1.23.0_order_customer_cancellation.sql',
         'database/migrations/1.24.0_cms_footer_display_order.sql',
+        'database/migrations/1.25.0_subscription_menu_plans.sql',
     ];
 }
 

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 final class Install
 {
-    public const SCHEMA_VERSION = '1.24.0-cms-footer-order';
+    public const SCHEMA_VERSION = '1.25.0-subscription-menu-planner';
 
     /** Seeded bootstrap admin (fresh SQL import). Detection uses password hash only — never expose the plain password. */
     public const SEED_ADMIN_EMAIL = 'admin@apnitokri.local';

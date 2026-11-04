@@ -10,7 +10,7 @@ final class SubscriptionMenuRepository
         Install::ensureConnection();
 
         return Database::pdo()->query(
-            'SELECT * FROM subscription_menu_templates ORDER BY planner_type, template_date, weekday, day_index, id'
+            'SELECT * FROM subscription_menu_templates WHERE menu_plan_id IS NULL ORDER BY planner_type, template_date, weekday, day_index, id'
         )->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
@@ -133,14 +133,23 @@ final class SubscriptionMenuRepository
      *
      * @return list<array<string, mixed>>
      */
-    public static function resolveMenuLines(string $deliveryDateYmd, int $dayIndex): array
-    {
+    public static function resolveMenuLines(
+        string $deliveryDateYmd,
+        int $dayIndex,
+        ?int $subscriptionPlanId = null,
+        ?string $subscriptionCreatedAt = null
+    ): array {
         Install::ensureConnection();
         $tz = new DateTimeZone(SubscriptionScheduleGenerator::TZ);
         $d = DateTimeImmutable::createFromFormat('Y-m-d', $deliveryDateYmd, $tz);
         $weekday = $d ? (int) $d->format('N') : 0;
 
-        $templateId = self::resolveTemplateIdForDay($deliveryDateYmd, $dayIndex);
+        $templateId = self::resolveTemplateIdForDay(
+            $deliveryDateYmd,
+            $dayIndex,
+            $subscriptionPlanId,
+            $subscriptionCreatedAt
+        );
         if ($templateId === null) {
             return [];
         }
@@ -149,14 +158,27 @@ final class SubscriptionMenuRepository
     }
 
     /** Which menu template would apply for a delivery day (date → weekly → day index). */
-    public static function resolveTemplateIdForDay(string $deliveryDateYmd, int $dayIndex): ?int
-    {
+    public static function resolveTemplateIdForDay(
+        string $deliveryDateYmd,
+        int $dayIndex,
+        ?int $subscriptionPlanId = null,
+        ?string $subscriptionCreatedAt = null
+    ): ?int {
         Install::ensureConnection();
         $tz = new DateTimeZone(SubscriptionScheduleGenerator::TZ);
         $d = DateTimeImmutable::createFromFormat('Y-m-d', $deliveryDateYmd, $tz);
         $weekday = $d ? (int) $d->format('N') : 0;
 
         $template = self::findTemplate('date', $deliveryDateYmd, null, null);
+        if ($template === null && $subscriptionPlanId !== null && $subscriptionPlanId > 0 && $dayIndex > 0) {
+            // Menu Planner set linked to this subscription plan. Only subscriptions created after the set was
+            // activated use it, so already-activated customer subscriptions are never silently changed.
+            $template = SubscriptionMenuPlanService::findPlanTemplate(
+                $subscriptionPlanId,
+                $dayIndex,
+                $subscriptionCreatedAt
+            );
+        }
         if ($template === null && $weekday > 0) {
             $template = self::findTemplate('weekly', null, $weekday, null);
         }
@@ -224,6 +246,9 @@ final class SubscriptionMenuRepository
         if ($row === null) {
             return ['ok' => false, 'message' => 'Menu template not found.'];
         }
+        if (!empty($row['menu_plan_id'])) {
+            return ['ok' => false, 'message' => 'This day belongs to a Menu Planner plan. Manage it from Subscriptions → Menu Planner.'];
+        }
         if (self::hasBlockingReferences($id)) {
             $c = self::referenceCounts($id);
             $parts = [];
@@ -281,8 +306,10 @@ final class SubscriptionMenuRepository
         $where = '';
         $params = [];
         if ($search !== '') {
-            $where = ' WHERE name LIKE ?';
+            $where = ' WHERE name LIKE ? AND menu_plan_id IS NULL';
             $params[] = '%' . $search . '%';
+        } else {
+            $where = ' WHERE menu_plan_id IS NULL';
         }
         $countStmt = $pdo->prepare('SELECT COUNT(*) FROM subscription_menu_templates' . $where);
         $countStmt->execute($params);
@@ -313,9 +340,9 @@ final class SubscriptionMenuRepository
         Install::ensureConnection();
         $pdo = Database::pdo();
         if ($search === '') {
-            return (int) $pdo->query('SELECT COUNT(*) FROM subscription_menu_templates')->fetchColumn();
+            return (int) $pdo->query('SELECT COUNT(*) FROM subscription_menu_templates WHERE menu_plan_id IS NULL')->fetchColumn();
         }
-        $stmt = $pdo->prepare('SELECT COUNT(*) FROM subscription_menu_templates WHERE name LIKE ?');
+        $stmt = $pdo->prepare('SELECT COUNT(*) FROM subscription_menu_templates WHERE name LIKE ? AND menu_plan_id IS NULL');
         $stmt->execute(['%' . $search . '%']);
 
         return (int) $stmt->fetchColumn();
@@ -331,17 +358,17 @@ final class SubscriptionMenuRepository
         $pdo = Database::pdo();
         if ($type === 'date') {
             $stmt = $pdo->prepare(
-                'SELECT * FROM subscription_menu_templates WHERE planner_type = ? AND template_date = ? AND is_active = 1 LIMIT 1'
+                'SELECT * FROM subscription_menu_templates WHERE planner_type = ? AND template_date = ? AND is_active = 1 AND menu_plan_id IS NULL LIMIT 1'
             );
             $stmt->execute([$type, $templateDate]);
         } elseif ($type === 'weekly') {
             $stmt = $pdo->prepare(
-                'SELECT * FROM subscription_menu_templates WHERE planner_type = ? AND weekday = ? AND is_active = 1 LIMIT 1'
+                'SELECT * FROM subscription_menu_templates WHERE planner_type = ? AND weekday = ? AND is_active = 1 AND menu_plan_id IS NULL LIMIT 1'
             );
             $stmt->execute([$type, $weekday]);
         } else {
             $stmt = $pdo->prepare(
-                'SELECT * FROM subscription_menu_templates WHERE planner_type = ? AND day_index = ? AND is_active = 1 LIMIT 1'
+                'SELECT * FROM subscription_menu_templates WHERE planner_type = ? AND day_index = ? AND is_active = 1 AND menu_plan_id IS NULL LIMIT 1'
             );
             $stmt->execute([$type, $dayIndex]);
         }

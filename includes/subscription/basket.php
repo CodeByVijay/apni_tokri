@@ -359,7 +359,12 @@ final class SubscriptionBasketService
     {
         $deliveryDate = (string) $dayRow['delivery_date'];
         $dayIndex = (int) $dayRow['day_index'];
-        $menuLines = SubscriptionMenuRepository::resolveMenuLines($deliveryDate, $dayIndex);
+        $menuLines = SubscriptionMenuRepository::resolveMenuLines(
+            $deliveryDate,
+            $dayIndex,
+            isset($subscriptionRow['subscription_plan_id']) ? (int) $subscriptionRow['subscription_plan_id'] : null,
+            isset($subscriptionRow['created_at']) ? (string) $subscriptionRow['created_at'] : null
+        );
         if ($menuLines === []) {
             return [];
         }

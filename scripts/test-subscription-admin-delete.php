@@ -177,9 +177,9 @@ $_SESSION['admin_user_id'] = 1;
 Permission::clearCache();
 
 $idx = (string) file_get_contents(APNI_TOKRI_ROOT . '/admin/subscriptions/index.php');
-$menuPhp = (string) file_get_contents(APNI_TOKRI_ROOT . '/admin/subscriptions/menu-planner.php');
+$menuPhp = (string) file_get_contents(APNI_TOKRI_ROOT . '/admin/subscriptions/menu-templates.php');
 t(str_contains($idx, 'admin_process_list_delete') && str_contains($idx, 'admin_table_actions'), 'Plans index wires shared delete UI');
-t(str_contains($menuPhp, 'admin_table_actions') && str_contains($menuPhp, 'subscription_menu_template'), 'Menu planner wires delete UI');
+t(str_contains($menuPhp, 'admin_table_actions') && str_contains($menuPhp, 'subscription_menu_template'), 'Advanced templates page (moved from menu-planner) wires delete UI');
 t(str_contains($idx, 'plan-edit.php') && str_contains($menuPhp, 'menu-edit.php'), 'Edit links preserved');
 
 // Cleanup

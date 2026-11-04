@@ -23,7 +23,12 @@ $items = [];
 if ($id !== null && Install::isSchemaReady()) {
     $row = SubscriptionMenuRepository::find($id);
     if ($row === null) {
-        header('Location: ' . $base . '/menu-planner.php', true, 302);
+        header('Location: ' . $base . '/menu-templates.php', true, 302);
+        exit;
+    }
+    if (!empty($row['menu_plan_id'])) {
+        admin_flash_set('This day belongs to a Menu Planner plan. Edit it in the planner.', 'info');
+        header('Location: ' . $base . '/menu-plan.php?id=' . (int) $row['menu_plan_id'], true, 302);
         exit;
     }
     $template = array_merge($template, $row);
