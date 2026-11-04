@@ -16,6 +16,9 @@ final class BrandingSettings
     public const KEY_FAVICON_PATH = 'branding.favicon_path';
     public const KEY_OG_IMAGE_PATH = 'branding.og_image_path';
     public const KEY_LOGO_ALT = 'branding.logo_alt';
+    public const KEY_FOOTER_BRAND_DESCRIPTION = 'branding.footer_brand_description';
+
+    public const DEFAULT_FOOTER_BRAND_DESCRIPTION = 'Har Ghar Ki Taazgi — fresh vegetables, fruits, ready-cut produce and pantry favourites for Indore homes.';
 
     public const DEFAULT_LOGO = 'assets/images/logo.svg';
     public const UPLOAD_SUBDIR = 'branding';
@@ -75,6 +78,27 @@ final class BrandingSettings
         $alt = trim(AppSettings::get(self::KEY_LOGO_ALT, '') ?? '');
 
         return $alt !== '' ? $alt : self::siteName();
+    }
+
+    /** Footer blurb below the logo; null when explicitly cleared by admin. */
+    public static function footerBrandDescription(): ?string
+    {
+        if (!AppSettings::has(self::KEY_FOOTER_BRAND_DESCRIPTION)) {
+            return self::DEFAULT_FOOTER_BRAND_DESCRIPTION;
+        }
+        $trim = trim(AppSettings::get(self::KEY_FOOTER_BRAND_DESCRIPTION, '') ?? '');
+
+        return $trim === '' ? null : $trim;
+    }
+
+    /** Value shown in admin form (default text until first save). */
+    public static function footerBrandDescriptionForForm(): string
+    {
+        if (!AppSettings::has(self::KEY_FOOTER_BRAND_DESCRIPTION)) {
+            return self::DEFAULT_FOOTER_BRAND_DESCRIPTION;
+        }
+
+        return trim(AppSettings::get(self::KEY_FOOTER_BRAND_DESCRIPTION, '') ?? '');
     }
 
     public static function defaultSeoTitle(): string
@@ -155,6 +179,7 @@ final class BrandingSettings
             'default_seo_title' => trim(AppSettings::get(self::KEY_DEFAULT_SEO_TITLE, '') ?? ''),
             'default_meta_description' => trim(AppSettings::get(self::KEY_DEFAULT_META_DESC, '') ?? ''),
             'logo_alt' => trim(AppSettings::get(self::KEY_LOGO_ALT, '') ?? ''),
+            'footer_brand_description' => self::footerBrandDescriptionForForm(),
             'logo_path' => self::storedPath(self::KEY_LOGO_PATH),
             'footer_logo_path' => self::storedPath(self::KEY_FOOTER_LOGO_PATH),
             'favicon_path' => self::storedPath(self::KEY_FAVICON_PATH),
@@ -167,7 +192,7 @@ final class BrandingSettings
             'using_default_footer_logo' => self::storedPath(self::KEY_FOOTER_LOGO_PATH) === '',
             'using_default_favicon' => self::storedPath(self::KEY_FAVICON_PATH) === '',
             'using_default_og' => self::storedPath(self::KEY_OG_IMAGE_PATH) === '',
-        ];
+        ] + BrandingSocialLinks::adminFormValues();
     }
 
     /**
@@ -202,18 +227,32 @@ final class BrandingSettings
         if ($logoAlt !== '' && mb_strlen($logoAlt) > 191) {
             $errors['logo_alt'] = 'Logo alt text must be 191 characters or fewer.';
         }
+        $footerDesc = trim((string) ($post['footer_brand_description'] ?? ''));
+        if ($footerDesc !== '' && mb_strlen($footerDesc) > 500) {
+            $errors['footer_brand_description'] = 'Footer brand description must be 500 characters or fewer.';
+        }
+
+        $social = BrandingSocialLinks::validateFromPost($post);
+        if ($social['errors'] !== []) {
+            $errors = array_merge($errors, $social['errors']);
+        }
 
         if ($errors !== []) {
             return ['ok' => false, 'message' => 'Fix the highlighted fields.', 'errors' => $errors];
         }
 
-        AppSettings::setMany([
+        $settingsBatch = [
             self::KEY_SITE_NAME => ['value' => $siteName !== '' ? $siteName : null],
             self::KEY_TAGLINE => ['value' => $tagline !== '' ? $tagline : null],
             self::KEY_DEFAULT_SEO_TITLE => ['value' => $seoTitle !== '' ? $seoTitle : null],
             self::KEY_DEFAULT_META_DESC => ['value' => $metaDesc !== '' ? $metaDesc : null],
             self::KEY_LOGO_ALT => ['value' => $logoAlt !== '' ? $logoAlt : null],
-        ]);
+            self::KEY_FOOTER_BRAND_DESCRIPTION => ['value' => $footerDesc !== '' ? $footerDesc : null],
+        ];
+        foreach ($social['normalized'] as $socialKey => $socialUrl) {
+            $settingsBatch[$socialKey] = ['value' => $socialUrl];
+        }
+        AppSettings::setMany($settingsBatch);
 
         $remove = isset($post['remove']) && is_array($post['remove']) ? $post['remove'] : [];
         foreach (['logo', 'footer_logo', 'favicon', 'og_image'] as $slot) {

@@ -2941,6 +2941,39 @@ body.at-gallery-lightbox-open {
   display: grid;
   gap: 0.55rem;
 }
+.at-footer-social {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+  margin-top: 1rem;
+}
+.at-footer-social__link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.88);
+  background: rgba(255, 255, 255, 0.08);
+  text-decoration: none;
+  transition: color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+}
+.at-footer-social__link:hover {
+  color: var(--at-yellow);
+  background: rgba(255, 255, 255, 0.14);
+  text-decoration: none;
+  transform: translateY(-1px);
+}
+.at-footer-social__link:focus-visible {
+  outline: 2px solid var(--at-yellow);
+  outline-offset: 2px;
+}
+.at-footer-social__icon {
+  width: 1.15rem;
+  height: 1.15rem;
+}
 .at-footer__news {
   background: var(--at-green);
   border-radius: var(--at-radius-lg);

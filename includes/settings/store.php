@@ -14,6 +14,13 @@ final class AppSettings
         return self::$cache[$key] ?? $default;
     }
 
+    public static function has(string $key): bool
+    {
+        self::loadCache();
+
+        return array_key_exists($key, self::$cache);
+    }
+
     public static function getSecret(string $key, ?string $default = null): ?string
     {
         if (!Install::isSchemaReady()) {

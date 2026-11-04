@@ -23,6 +23,10 @@ function ok(bool $c, string $m): void
 
 $origName = BrandingSettings::siteName();
 $origTag = BrandingSettings::tagline();
+$origHadFooterDesc = AppSettings::has(BrandingSettings::KEY_FOOTER_BRAND_DESCRIPTION);
+$origFooterDesc = $origHadFooterDesc
+    ? AppSettings::get(BrandingSettings::KEY_FOOTER_BRAND_DESCRIPTION, '')
+    : null;
 
 AppSettings::set(BrandingSettings::KEY_SITE_NAME, 'Verify Brand Co');
 AppSettings::resetCache();
@@ -93,11 +97,60 @@ if ($limitedId > 0) {
     ok(true, 'Non-super admin RBAC check skipped (no limited admin user)');
 }
 
+Database::pdo()->prepare('DELETE FROM settings WHERE setting_key = ?')->execute([
+    BrandingSettings::KEY_FOOTER_BRAND_DESCRIPTION,
+]);
+AppSettings::resetCache();
+ok(
+    BrandingSettings::footerBrandDescription() === BrandingSettings::DEFAULT_FOOTER_BRAND_DESCRIPTION,
+    'Missing footer description uses code default'
+);
+ok(
+    BrandingSettings::footerBrandDescriptionForForm() === BrandingSettings::DEFAULT_FOOTER_BRAND_DESCRIPTION,
+    'Admin form shows default before first save'
+);
+
+AppSettings::set(BrandingSettings::KEY_FOOTER_BRAND_DESCRIPTION, 'Custom footer blurb for tests.');
+AppSettings::resetCache();
+ok(BrandingSettings::footerBrandDescription() === 'Custom footer blurb for tests.', 'Stored footer description on storefront');
+
+ob_start();
+require APNI_TOKRI_ROOT . '/includes/layout/footer-public.php';
+$footer = (string) ob_get_clean();
+ok(str_contains($footer, 'Custom footer blurb for tests.'), 'Footer partial renders saved description');
+ok(!str_contains($footer, 'pantry favourites for Indore'), 'Footer omits default when custom saved');
+
+AppSettings::set(BrandingSettings::KEY_FOOTER_BRAND_DESCRIPTION, '');
+AppSettings::resetCache();
+ok(BrandingSettings::footerBrandDescription() === null, 'Empty saved footer description is hidden');
+
+ob_start();
+require APNI_TOKRI_ROOT . '/includes/layout/footer-public.php';
+$footerEmpty = (string) ob_get_clean();
+ok(!str_contains($footerEmpty, 'max-w-xs leading-relaxed'), 'Footer hides description paragraph when empty');
+
+$saveResult = BrandingSettings::saveFromRequest([
+    'site_name' => '',
+    'tagline' => '',
+    'default_seo_title' => '',
+    'default_meta_description' => '',
+    'logo_alt' => '',
+    'footer_brand_description' => str_repeat('x', 501),
+], []);
+ok(isset($saveResult['errors']['footer_brand_description']), 'Footer description over 500 chars rejected');
+
 // Restore
 AppSettings::set(BrandingSettings::KEY_SITE_NAME, null);
 AppSettings::set(BrandingSettings::KEY_TAGLINE, null);
 AppSettings::set(BrandingSettings::KEY_DEFAULT_SEO_TITLE, null);
 AppSettings::set(BrandingSettings::KEY_DEFAULT_META_DESC, null);
+if ($origHadFooterDesc) {
+    AppSettings::set(BrandingSettings::KEY_FOOTER_BRAND_DESCRIPTION, $origFooterDesc);
+} else {
+    Database::pdo()->prepare('DELETE FROM settings WHERE setting_key = ?')->execute([
+        BrandingSettings::KEY_FOOTER_BRAND_DESCRIPTION,
+    ]);
+}
 AppSettings::resetCache();
 
 // Frontend snippet checks (CLI render)

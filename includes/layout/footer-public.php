@@ -13,7 +13,21 @@ $activeNav = $activeNav ?? '';
                 <img src="<?= Security::escape(BrandingSettings::footerLogoUrl()) ?>" alt="<?= Security::escape(BrandingSettings::logoAlt()) ?>" width="44" height="44">
                 <span class="at-logo__word !text-white"><?= Security::escape(__('brand_name')) ?></span>
             </a>
-            <p class="mt-4 max-w-xs leading-relaxed"><?= Security::escape(__('tagline')) ?> — fresh vegetables, fruits, ready-cut produce and pantry favourites for Indore homes.</p>
+            <?php $footerBrandDesc = BrandingSettings::footerBrandDescription(); ?>
+            <?php if ($footerBrandDesc !== null): ?>
+            <p class="mt-4 max-w-xs leading-relaxed"><?= Security::escape($footerBrandDesc) ?></p>
+            <?php endif; ?>
+            <?php $footerSocialLinks = BrandingSocialLinks::visibleFooterLinks(); ?>
+            <?php if ($footerSocialLinks !== []): ?>
+            <nav class="at-footer-social" aria-label="Social media">
+                <?php foreach ($footerSocialLinks as $socialLink): ?>
+                <a href="<?= Security::escape($socialLink['url']) ?>" class="at-footer-social__link at-focusable"
+                   target="_blank" rel="noopener noreferrer" aria-label="<?= Security::escape($socialLink['label']) ?>">
+                    <?= at_social_icon($socialLink['id'], 'at-footer-social__icon') ?>
+                </a>
+                <?php endforeach; ?>
+            </nav>
+            <?php endif; ?>
             <ul class="mt-5 !grid-flow-col !auto-cols-max gap-4 text-xs text-white/70">
                 <li class="flex items-center gap-1.5"><?= at_icon('shield', 'w-4 h-4') ?>Secure payments</li>
                 <li class="flex items-center gap-1.5"><?= at_icon('refresh', 'w-4 h-4') ?>Clear refund policy</li>

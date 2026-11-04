@@ -40,6 +40,12 @@ if (!empty($_SESSION['branding_form_post']) && is_array($_SESSION['branding_form
     $form['default_seo_title'] = trim((string) ($posted['default_seo_title'] ?? $form['default_seo_title']));
     $form['default_meta_description'] = trim((string) ($posted['default_meta_description'] ?? $form['default_meta_description']));
     $form['logo_alt'] = trim((string) ($posted['logo_alt'] ?? $form['logo_alt']));
+    $form['footer_brand_description'] = trim((string) ($posted['footer_brand_description'] ?? $form['footer_brand_description']));
+    foreach (['social_instagram', 'social_facebook', 'social_youtube', 'social_whatsapp', 'social_x'] as $socialField) {
+        if (array_key_exists($socialField, $posted)) {
+            $form[$socialField] = trim((string) $posted[$socialField]);
+        }
+    }
 }
 if (!empty($_SESSION['branding_form_errors']) && is_array($_SESSION['branding_form_errors'])) {
     $errors = $_SESSION['branding_form_errors'];
@@ -93,6 +99,55 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/settings-nav.php';
                 <textarea id="default_meta_description" name="default_meta_description" class="at-textarea at-focusable" maxlength="320" rows="3"
                           placeholder="Used when a page does not define its own description"><?= Security::escape($form['default_meta_description']) ?></textarea>
                 <?php if (isset($errors['default_meta_description'])): ?><p class="text-xs text-red-600 mt-1"><?= Security::escape($errors['default_meta_description']) ?></p><?php endif; ?>
+            </div>
+        </div>
+    </div>
+
+    <div class="at-card lg:col-span-2">
+        <div class="at-card__body space-y-3">
+            <h3 class="font-bold">Footer brand description</h3>
+            <div>
+                <label class="at-label" for="footer_brand_description">Footer brand description</label>
+                <textarea id="footer_brand_description" name="footer_brand_description" class="at-textarea at-focusable" maxlength="500" rows="3"><?= Security::escape($form['footer_brand_description']) ?></textarea>
+                <p class="text-xs at-muted mt-1">This description appears below the Apni Tokri logo in the website footer.</p>
+                <?php if (isset($errors['footer_brand_description'])): ?><p class="text-xs text-red-600 mt-1"><?= Security::escape($errors['footer_brand_description']) ?></p><?php endif; ?>
+            </div>
+        </div>
+    </div>
+
+    <div class="at-card lg:col-span-2">
+        <div class="at-card__body space-y-4">
+            <h3 class="font-bold">Social media links</h3>
+            <p class="text-sm at-muted">Only configured social media links will appear in your website footer. Leave a field empty to hide its icon.</p>
+            <div class="grid md:grid-cols-2 gap-4">
+                <?php
+                $socialFieldNames = [
+                    'instagram' => 'social_instagram',
+                    'facebook' => 'social_facebook',
+                    'youtube' => 'social_youtube',
+                    'whatsapp' => 'social_whatsapp',
+                    'x' => 'social_x',
+                ];
+                foreach (BrandingSocialLinks::platformSpecs() as $platformId => $spec):
+                    $fieldName = $socialFieldNames[$platformId] ?? ('social_' . $platformId);
+                    $fieldId = $fieldName;
+                    ?>
+                <div>
+                    <label class="at-label flex items-center gap-2" for="<?= Security::escape($fieldId) ?>">
+                        <?= at_social_icon($platformId, 'w-4 h-4 text-[var(--at-green-deep)]') ?>
+                        <span><?= Security::escape($spec['label']) ?></span>
+                    </label>
+                    <input id="<?= Security::escape($fieldId) ?>" name="<?= Security::escape($fieldName) ?>"
+                           type="<?= $platformId === 'whatsapp' ? 'text' : 'url' ?>" inputmode="url"
+                           class="at-input at-focusable" maxlength="500" autocomplete="off"
+                           placeholder="<?= Security::escape($spec['placeholder']) ?>"
+                           value="<?= Security::escape((string) ($form[$fieldName] ?? '')) ?>">
+                    <?php if ($platformId === 'whatsapp'): ?>
+                    <p class="text-xs at-muted mt-1">Use a full <code>https://wa.me/…</code> link or an international number starting with <strong>+</strong> and country code (e.g. +91…).</p>
+                    <?php endif; ?>
+                    <?php if (isset($errors[$fieldName])): ?><p class="text-xs text-red-600 mt-1"><?= Security::escape($errors[$fieldName]) ?></p><?php endif; ?>
+                </div>
+                <?php endforeach; ?>
             </div>
         </div>
     </div>

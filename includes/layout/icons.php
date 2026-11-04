@@ -71,3 +71,25 @@ function at_icon(string $name, string $class = ''): string
     // rendered where no sizing rule applies can never expand to fill its container.
     return '<svg' . $cls . ' width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' . $inner . '</svg>';
 }
+
+/**
+ * Filled brand icons for footer / admin social fields.
+ * Usage: echo at_social_icon('instagram', 'w-5 h-5');
+ */
+function at_social_icon(string $platform, string $class = ''): string
+{
+    static $paths = null;
+    if ($paths === null) {
+        $paths = [
+            'instagram' => '<path fill="currentColor" d="M7 3h10a4 4 0 0 1 4 4v10a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V7a4 4 0 0 1 4-4zm5 4.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11zm6.2-.9a1.1 1.1 0 1 0 0 2.2 1.1 1.1 0 0 0 0-2.2z"/>',
+            'facebook' => '<path fill="currentColor" d="M14 4h3.5V1h-3c-2.8 0-4.5 1.7-4.5 4.6V9H7v3.5h3V23h3.5v-10.5H17l.5-3.5h-3.5V6.2c0-1 .3-1.7 1.7-1.7z"/>',
+            'youtube' => '<path fill="currentColor" d="M21.6 7.2a2.5 2.5 0 0 0-1.8-1.8C17.8 5 12 5 12 5s-5.8 0-7.8.4A2.5 2.5 0 0 0 2.4 7.2 26 26 0 0 0 2 12a26 26 0 0 0 .4 4.8 2.5 2.5 0 0 0 1.8 1.8C6.2 19 12 19 12 19s5.8 0 7.8-.4a2.5 2.5 0 0 0 1.8-1.8A26 26 0 0 0 22 12a26 26 0 0 0-.4-4.8zM10 15.5v-7l6 3.5-6 3.5z"/>',
+            'whatsapp' => '<path fill="currentColor" d="M12 2a10 10 0 0 0-8.7 14.9L2 22l5.3-1.3A10 10 0 1 0 12 2zm5.2 14.2c-.2.6-1.2 1.1-1.7 1.2-.4.1-.9.2-3.1-.7-2.6-1-4.3-3.4-4.4-3.6-.1-.2-1-1.3-1-2.5s.6-1.8.9-2c.2-.3.5-.4.7-.4h.5c.2 0 .4 0 .6.5.2.5.7 1.7.8 1.8.1.1.1.3 0 .4-.1.2-.2.3-.3.5-.1.1-.2.2-.1.4.1.2.5.8 1.2 1.3.8.7 1.5.9 1.7 1 .2.1.4.1.5-.1.2-.2.6-.7.8-.9.2-.2.3-.2.6-.1.2.1 1.4.7 1.7.8.3.1.5.2.6.3.1.2.1 1-.1 1.6z"/>',
+            'x' => '<path fill="currentColor" d="M4 3h4.7l3.3 4.6L16.5 3H20l-5.8 7.5L20.5 21h-4.7l-3.6-5-4.4 5H4l6.2-8.1L4 3zm14.8 16h-2.2L7.4 5h2.2l9.2 14z"/>',
+        ];
+    }
+    $inner = $paths[$platform] ?? $paths['instagram'];
+    $cls = $class !== '' ? ' class="' . htmlspecialchars($class, ENT_QUOTES, 'UTF-8') . '"' : '';
+
+    return '<svg' . $cls . ' width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" focusable="false">' . $inner . '</svg>';
+}

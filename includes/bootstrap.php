@@ -111,6 +111,7 @@ require_once APNI_TOKRI_ROOT . '/includes/commerce/account.php';
 require_once APNI_TOKRI_ROOT . '/includes/encryption.php';
 require_once APNI_TOKRI_ROOT . '/includes/settings/store.php';
 require_once APNI_TOKRI_ROOT . '/includes/settings/branding.php';
+require_once APNI_TOKRI_ROOT . '/includes/settings/branding_social.php';
 require_once APNI_TOKRI_ROOT . '/includes/settings/business.php';
 require_once APNI_TOKRI_ROOT . '/includes/settings/marketing.php';
 require_once APNI_TOKRI_ROOT . '/includes/payment/diagnostics.php';
