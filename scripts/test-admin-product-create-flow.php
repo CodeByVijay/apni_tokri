@@ -27,8 +27,9 @@ $tok = strtolower(bin2hex(random_bytes(4)));
 $editPhp = (string) file_get_contents(APNI_TOKRI_ROOT . '/admin/products/edit.php');
 $adminJs = (string) file_get_contents(APNI_TOKRI_ROOT . '/assets/js/admin.js');
 
-t(strpos($editPhp, 'variant_name[]') !== false && strpos($editPhp, 'variant_name[]" class="at-input') !== false, 'Variant name inputs present');
-t(strpos($editPhp, 'variant_name[]') === false || !preg_match('/name="variant_name\[\]"[^>]*\srequired/', $editPhp), 'Variant name not HTML5-required (hidden tab blocked submit)');
+$variantPartial = (string) file_get_contents(APNI_TOKRI_ROOT . '/includes/partials/admin/product-variant-row.php');
+t(strpos($variantPartial, 'name="variant_name[]"') !== false, 'Variant name inputs present');
+t(!preg_match('/name="variant_name\[\]"[^>]*\srequired/', $variantPartial), 'Variant name not HTML5-required (hidden tab blocked submit)');
 t(strpos($editPhp, 'data-at-admin-tabbed-form') !== false, 'Product form uses tabbed validation helper');
 t(strpos($adminJs, 'initAdminTabbedFormValidation') !== false, 'admin.js clears required on hidden tab panels before submit');
 t(strpos($editPhp, 'data-at-submit-once') !== false && strpos($adminJs, 'initSubmitOnce') !== false, 'Double-submit guard on Save product');

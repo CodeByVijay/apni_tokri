@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/_init.php';
 require_once APNI_TOKRI_ROOT . '/includes/catalogue/helpers.php';
+require_once APNI_TOKRI_ROOT . '/includes/catalogue/product_admin_form.php';
 
 AdminDemoPerms::denyIfCannot('products');
 
@@ -76,47 +77,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         if (!empty($result['ok'])) {
             $savedId = (int) $result['id'];
-            $variantRows = [];
-            $vNames = $_POST['variant_name'] ?? [];
-            $vIds = $_POST['variant_id'] ?? [];
-            $vSkus = $_POST['variant_sku'] ?? [];
-            $vPrices = $_POST['variant_price'] ?? [];
-            $vSales = $_POST['variant_sale'] ?? [];
-            $vStocks = $_POST['variant_stock'] ?? [];
-            $vLows = $_POST['variant_low'] ?? [];
-            if (is_array($vNames)) {
-                foreach ($vNames as $i => $vname) {
-                    $variantRows[] = [
-                        'id' => $vIds[$i] ?? '',
-                        'name' => $vname,
-                        'sku' => $vSkus[$i] ?? '',
-                        'price' => $vPrices[$i] ?? 0,
-                        'sale_price' => $vSales[$i] ?? '',
-                        'stock_qty' => $vStocks[$i] ?? 0,
-                        'low_stock_threshold' => $vLows[$i] ?? 5,
-                        'is_active' => 1,
-                        'sort_order' => $i,
-                    ];
+            $variantRows = ProductAdminForm::variantRowsFromPost($_POST);
+            $errors = array_merge(
+                $errors,
+                ProductAdminForm::validateVariantRows($variantRows),
+                ProductAdminForm::validateAttributesFromPost($_POST)
+            );
+            if ($errors === []) {
+                $vRes = ProductRepository::saveVariants(
+                    $savedId,
+                    ProductAdminForm::variantRowsForRepository($variantRows)
+                );
+                if (!$vRes['ok']) {
+                    $errors['variants'] = $vRes['message'] ?? 'Variant save failed.';
+                } else {
+                    ProductRepository::saveAttributes($savedId, ProductAdminForm::attributesFromPost($_POST));
+                    CatalogueGateway::reset();
+                    admin_flash_set('Product saved.');
+                    header('Location: ' . url_base() . '/admin/products/edit.php?id=' . $savedId, true, 302);
+                    exit;
                 }
             }
-            $vRes = ProductRepository::saveVariants($savedId, $variantRows);
-            if (!$vRes['ok']) {
-                admin_flash_set($vRes['message'] ?? 'Variant save failed.', 'error');
-            }
-
-            $attrs = [];
-            $labels = $_POST['attr_label'] ?? [];
-            $values = $_POST['attr_value'] ?? [];
-            if (is_array($labels)) {
-                foreach ($labels as $i => $label) {
-                    $attrs[] = ['label' => $label, 'value' => $values[$i] ?? ''];
-                }
-            }
-            ProductRepository::saveAttributes($savedId, $attrs);
-            CatalogueGateway::reset();
-            admin_flash_set('Product saved.');
-            header('Location: ' . url_base() . '/admin/products/edit.php?id=' . $savedId, true, 302);
-            exit;
+            $id = $savedId;
+            $product = ProductRepository::find($savedId);
+            $variants = ProductAdminForm::variantsForDisplay($_POST);
+            $attributes = ProductAdminForm::attributesForDisplay($_POST);
         }
         if ($errors === [] && empty($result['ok'])) {
             $errors = $result['errors'] ?? ['form' => $result['message'] ?? 'Save failed.'];
@@ -142,7 +127,16 @@ $defaults = [
 ];
 if ($product) {
     $defaults = array_merge($defaults, $product);
-} elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && ($errors !== [])) {
+}
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($errors !== []) && (string) ($_POST['action'] ?? '') === 'save') {
+    if ($variants === [] || isset($_POST['variant_name'])) {
+        $variants = ProductAdminForm::variantsForDisplay($_POST);
+    }
+    if ($attributes === [] || isset($_POST['attr_label'])) {
+        $attributes = ProductAdminForm::attributesForDisplay($_POST);
+    }
+}
+if (!$product && $_SERVER['REQUEST_METHOD'] === 'POST' && ($errors !== [])) {
     $defaults['name'] = trim((string) ($_POST['name'] ?? ''));
     $defaults['slug'] = trim((string) ($_POST['slug'] ?? ''));
     $defaults['sku'] = trim((string) ($_POST['sku'] ?? ''));
@@ -182,7 +176,7 @@ if ($errors !== []) {
     <button type="button" class="at-focusable" data-admin-tab="seo">SEO</button>
 </div>
 
-<form method="post" class="mt-4" data-at-admin-slug data-at-admin-tabbed-form data-slug-api="<?= Security::escape(url_base()) ?>/admin/ajax/slug-from-name.php">
+<form method="post" class="mt-4" data-at-admin-slug data-at-admin-tabbed-form data-at-product-form data-slug-api="<?= Security::escape(url_base()) ?>/admin/ajax/slug-from-name.php">
     <?= Csrf::field() ?>
     <input type="hidden" name="action" value="save">
     <?php if ($product): ?><input type="hidden" name="id" value="<?= (int) $product['id'] ?>"><?php endif; ?>
@@ -281,27 +275,25 @@ if ($errors !== []) {
         <div class="at-admin-card">
             <div class="at-admin-card__body space-y-3">
                 <p class="text-sm at-muted">Stock changes from orders use locked decrements (Stage 7). Manual edits here set absolute stock levels.</p>
+                <?php if (!empty($errors['variants'])): ?>
+                    <p class="text-sm text-red-600"><?= Security::escape((string) $errors['variants']) ?></p>
+                <?php endif; ?>
                 <div class="at-admin-table-wrap">
                     <table class="at-admin-table at-admin-table--fixed">
-                        <thead><tr><th>Variant</th><th>SKU</th><th>Price (₹)</th><th>Sale</th><th>Stock</th><th>Low at</th></tr></thead>
+                        <thead><tr><th>Variant</th><th>SKU</th><th>Price (₹)</th><th>Sale</th><th>Stock</th><th>Low at</th><th class="text-right"> </th></tr></thead>
                         <tbody id="at-variant-rows">
-                        <?php if ($variants === []): $variants = [['id' => '', 'name' => '', 'sku' => '', 'price' => '', 'sale_price' => null, 'stock_qty' => 0, 'low_stock_threshold' => 5]]; endif;
-                        foreach ($variants as $v): ?>
-                            <tr>
-                                <td>
-                                    <input type="hidden" name="variant_id[]" value="<?= Security::escape((string) ($v['id'] ?? '')) ?>">
-                                    <input name="variant_name[]" class="at-input at-focusable" value="<?= Security::escape((string) ($v['name'] ?? '')) ?>" aria-label="Variant name">
-                                </td>
-                                <td><input name="variant_sku[]" class="at-input at-focusable" value="<?= Security::escape((string) ($v['sku'] ?? '')) ?>"></td>
-                                <td><input name="variant_price[]" type="number" step="0.01" min="0" class="at-input at-focusable" value="<?= Security::escape((string) ($v['price'] ?? '')) ?>"></td>
-                                <td><input name="variant_sale[]" type="number" step="0.01" min="0" class="at-input at-focusable" value="<?= $v['sale_price'] !== null ? Security::escape((string) $v['sale_price']) : '' ?>" placeholder="—"></td>
-                                <td><input name="variant_stock[]" type="number" min="0" class="at-input at-focusable" value="<?= (int) ($v['stock_qty'] ?? 0) ?>"></td>
-                                <td><input name="variant_low[]" type="number" min="0" class="at-input at-focusable" value="<?= (int) ($v['low_stock_threshold'] ?? 5) ?>"></td>
-                            </tr>
-                        <?php endforeach; ?>
+                        <?php
+                        if ($variants === []) {
+                            $variants = [['id' => '', 'name' => '', 'sku' => '', 'price' => '', 'sale_price' => null, 'stock_qty' => 0, 'low_stock_threshold' => 5]];
+                        }
+                        foreach ($variants as $v) {
+                            require APNI_TOKRI_ROOT . '/includes/partials/admin/product-variant-row.php';
+                        }
+                        ?>
                         </tbody>
                     </table>
                 </div>
+                <button type="button" class="at-btn at-btn--secondary at-btn--sm at-focusable" data-at-add-variant>+ Add variant</button>
             </div>
         </div>
     </div>
@@ -310,20 +302,20 @@ if ($errors !== []) {
         <div class="at-admin-card">
             <div class="at-admin-card__body space-y-3">
                 <p class="text-sm at-muted">Category-specific details (storage, ingredients, cut size, etc.).</p>
+                <?php if (!empty($errors['attributes'])): ?>
+                    <p class="text-sm text-red-600"><?= Security::escape((string) $errors['attributes']) ?></p>
+                <?php endif; ?>
+                <div id="at-attribute-rows" class="space-y-2">
                 <?php
                 if ($attributes === []) {
-                    $attributes = [['attr_key' => 'Storage', 'attr_value' => '']];
+                    $attributes = [['attr_key' => '', 'attr_value' => '']];
                 }
-                foreach ($attributes as $a): ?>
-                    <div class="grid sm:grid-cols-2 gap-2">
-                        <input name="attr_label[]" class="at-input at-focusable" placeholder="Label" value="<?= Security::escape((string) ($a['attr_key'] ?? '')) ?>">
-                        <input name="attr_value[]" class="at-input at-focusable" placeholder="Value" value="<?= Security::escape((string) ($a['attr_value'] ?? '')) ?>">
-                    </div>
-                <?php endforeach; ?>
-                <div class="grid sm:grid-cols-2 gap-2">
-                    <input name="attr_label[]" class="at-input at-focusable" placeholder="Label">
-                    <input name="attr_value[]" class="at-input at-focusable" placeholder="Value">
+                foreach ($attributes as $a) {
+                    require APNI_TOKRI_ROOT . '/includes/partials/admin/product-attribute-row.php';
+                }
+                ?>
                 </div>
+                <button type="button" class="at-btn at-btn--secondary at-btn--sm at-focusable" data-at-add-attribute>+ Add attribute</button>
             </div>
         </div>
     </div>

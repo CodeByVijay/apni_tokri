@@ -315,6 +315,67 @@
     });
   }
 
+  function initAdminProductDynamicRows() {
+    var $form = $('form[data-at-product-form]');
+    if (!$form.length) return;
+
+    $form.on('click', '[data-at-add-variant]', function () {
+      var $tbody = $('#at-variant-rows');
+      var $proto = $tbody.find('[data-at-variant-row]').first();
+      if (!$proto.length) return;
+      var $row = $proto.clone();
+      $row.find('input').each(function () {
+        var $el = $(this);
+        if ($el.attr('name') === 'variant_id[]') {
+          $el.val('');
+        } else if ($el.attr('type') === 'number') {
+          $el.val($el.attr('name') === 'variant_low[]' ? '5' : ($el.attr('name') === 'variant_stock[]' ? '0' : ''));
+        } else {
+          $el.val('');
+        }
+      });
+      $tbody.append($row);
+    });
+
+    $form.on('click', '[data-at-remove-variant]', function () {
+      var $tbody = $('#at-variant-rows');
+      var $rows = $tbody.find('[data-at-variant-row]');
+      if ($rows.length <= 1) {
+        $rows.first().find('input').each(function () {
+          var $el = $(this);
+          if ($el.attr('name') === 'variant_id[]') {
+            $el.val('');
+          } else if ($el.attr('type') === 'number') {
+            $el.val($el.attr('name') === 'variant_low[]' ? '5' : '0');
+          } else {
+            $el.val('');
+          }
+        });
+        return;
+      }
+      $(this).closest('[data-at-variant-row]').remove();
+    });
+
+    $form.on('click', '[data-at-add-attribute]', function () {
+      var $wrap = $('#at-attribute-rows');
+      var $proto = $wrap.find('[data-at-attribute-row]').first();
+      if (!$proto.length) return;
+      var $row = $proto.clone();
+      $row.find('input').val('');
+      $wrap.append($row);
+    });
+
+    $form.on('click', '[data-at-remove-attribute]', function () {
+      var $wrap = $('#at-attribute-rows');
+      var $rows = $wrap.find('[data-at-attribute-row]');
+      if ($rows.length <= 1) {
+        $rows.first().find('input').val('');
+        return;
+      }
+      $(this).closest('[data-at-attribute-row]').remove();
+    });
+  }
+
   function initSubmitOnce() {
     $(document).on('click', 'form button[type="submit"][data-at-submit-once], form input[type="submit"][data-at-submit-once]', function () {
       var $btn = $(this);
@@ -348,6 +409,7 @@
     initAdminSlugSync();
     initAdminSkuFill();
     initAdminTabbedFormValidation();
+    initAdminProductDynamicRows();
     initSubmitOnce();
     initAdminFlashDismiss();
   });
