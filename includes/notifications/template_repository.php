@@ -37,4 +37,40 @@ final class NotificationTemplateRepository
 
         return $row ?: null;
     }
+
+    /** @return array<string, mixed>|null */
+    public static function findByKeyAny(string $templateKey): ?array
+    {
+        if (!self::tableReady() || $templateKey === '') {
+            return null;
+        }
+        Install::ensureConnection();
+        $stmt = Database::pdo()->prepare(
+            'SELECT * FROM notification_templates WHERE template_key = ? LIMIT 1'
+        );
+        $stmt->execute([$templateKey]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        return $row ?: null;
+    }
+
+    public static function updateEmailTemplate(
+        string $templateKey,
+        string $subject,
+        string $bodyHtml,
+        string $bodyText,
+        bool $isActive
+    ): bool {
+        if (!self::tableReady() || $templateKey === '') {
+            return false;
+        }
+        Install::ensureConnection();
+        $stmt = Database::pdo()->prepare(
+            'UPDATE notification_templates SET subject = ?, body_html = ?, body_text = ?, is_active = ?, updated_at = NOW()
+             WHERE template_key = ? AND channel = ?'
+        );
+        $stmt->execute([$subject, $bodyHtml, $bodyText, $isActive ? 1 : 0, $templateKey, 'email']);
+
+        return $stmt->rowCount() > 0;
+    }
 }
