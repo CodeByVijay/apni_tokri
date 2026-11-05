@@ -38,7 +38,8 @@ final class NotificationTemplateRenderer
         $out = [];
         if ($channel === 'email') {
             $out['subject'] = self::render((string) ($templateRow['subject'] ?? ''), $variables, false);
-            $out['html'] = self::render((string) ($templateRow['body_html'] ?? ''), $variables, true);
+            $innerHtml = self::render((string) ($templateRow['body_html'] ?? ''), $variables, true);
+            $out['html'] = $innerHtml !== '' ? CustomerEmailLayout::wrap($innerHtml) : '';
             $out['text'] = self::render((string) ($templateRow['body_text'] ?? ''), $variables, false);
         } elseif ($channel === 'sms') {
             $out['sms'] = self::render((string) ($templateRow['sms_body'] ?? ''), $variables, false);

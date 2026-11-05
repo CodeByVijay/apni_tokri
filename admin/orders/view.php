@@ -160,11 +160,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
             <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
                 <h3 class="font-bold">Payment attempts</h3>
                 <?php if ($canRefreshCashfree): ?>
-                    <form method="post" class="inline">
-                        <?= Csrf::field() ?>
-                        <input type="hidden" name="action" value="refresh_cashfree_payment">
-                        <button type="submit" class="at-btn at-btn--secondary at-btn--sm at-focusable">Refresh payment status</button>
-                    </form>
+                    <button type="submit" form="admin-order-refresh-cashfree" name="action" value="refresh_cashfree_payment" class="at-btn at-btn--secondary at-btn--sm at-focusable">Refresh payment status</button>
                 <?php endif; ?>
             </div>
             <p class="text-xs at-muted mb-2">Re-queries Cashfree server-side (live/sandbox per gateway settings). Does not expose credentials.</p>
@@ -210,7 +206,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
         <?php endif; ?>
     </div>
 
-    <div class="at-card"><div class="at-card__body space-y-3">
+    <div class="at-card lg:col-span-1 self-start"><div class="at-card__body space-y-3">
         <h3 class="font-bold">Update status</h3>
         <label class="at-label" for="status">Order status</label>
         <select id="status" name="status" class="at-select at-focusable" required>
@@ -232,5 +228,8 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
         <button type="submit" class="at-btn at-btn--primary at-focusable at-btn--block">Save</button>
         <p class="text-xs at-muted">Payment status is not changed here. Use Payments / Refunds modules for gateway actions.</p>
     </div></div>
+</form>
+<form method="post" id="admin-order-refresh-cashfree" class="hidden" aria-hidden="true" tabindex="-1">
+    <?= Csrf::field() ?>
 </form>
 <?php admin_layout_end(); ?>

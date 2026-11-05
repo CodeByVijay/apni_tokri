@@ -822,6 +822,7 @@ final class PaymentService
                     throw new RuntimeException('Order not found.');
                 }
                 $orderId = (int) $order['id'];
+                $statusBeforePayment = (string) ($order['status'] ?? '');
                 if ((string) $order['payment_status'] === 'paid') {
                     return [
                         'ok' => true,
@@ -925,6 +926,8 @@ final class PaymentService
                     'ok' => true,
                     'order_id' => $orderId,
                     'customer_id' => (int) $order['customer_id'],
+                    'status_from' => $statusBeforePayment,
+                    'status_to' => OrderStatus::CONFIRMED,
                 ];
             });
 
@@ -934,6 +937,11 @@ final class PaymentService
                 if (empty($orderIdOut['idempotent'])) {
                     DeliveryAssignmentService::createForOrder($oid);
                     NotificationDispatcher::orderPaymentSuccess($oid);
+                    $from = (string) ($orderIdOut['status_from'] ?? '');
+                    $to = (string) ($orderIdOut['status_to'] ?? '');
+                    if ($to !== '') {
+                        NotificationDispatcher::orderStatusChanged($oid, $from, $to);
+                    }
                     CatalogueGateway::reset();
                 }
                 if ($custId > 0) {

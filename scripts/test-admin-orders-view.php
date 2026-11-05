@@ -58,6 +58,13 @@ ok((int) $histStmt->fetchColumn() === $beforeHist + 1, 'Status history row added
 $dup = AdminOrderService::updateStatus($orderId, $target, '');
 ok(empty($dup['ok']), 'Duplicate status without meaningful change rejected');
 
+$viewPhp = (string) file_get_contents(dirname(__DIR__) . '/admin/orders/view.php');
+ok(substr_count($viewPhp, '<form') === 2, 'Status form + separate Cashfree refresh form (no nested forms)');
+ok(str_contains($viewPhp, 'lg:grid-cols-3') && str_contains($viewPhp, 'lg:col-span-2'), 'Order detail retains two-column desktop grid');
+ok(str_contains($viewPhp, 'refresh_cashfree_payment'), 'Cashfree refresh action preserved');
+ok(str_contains($viewPhp, 'form="admin-order-refresh-cashfree"'), 'Refresh button targets external form');
+ok(!preg_match('/<form[^>]*>\s*<form/s', $viewPhp), 'No nested form elements');
+
 $indexHtml = @file_get_contents('http://127.0.0.1/Apni_Tokri/admin/orders/index.php') ?: '';
 if ($indexHtml !== '' && str_contains($indexHtml, 'admin/orders/view.php?id=')) {
     ok(true, 'Orders index HTML contains view links');

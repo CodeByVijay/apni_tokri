@@ -6,20 +6,23 @@ Queued events use `NotificationDispatcher` → `NotificationQueueService::enqueu
 
 | Event type | Channel | Template key | Idempotency key | Trigger |
 |------------|---------|--------------|-----------------|---------|
-| `payment.success` | email | `payment.success.email` | `payment.success:order:{orderId}:email` | `PaymentService` after successful non-idempotent checkout (`NotificationDispatcher::orderPaymentSuccess`) |
-| `payment.failed` | email | `payment.failed.email` | `payment.failed:order:{orderNumber}:email` | `PaymentService::markPaymentFailed()` |
+| `order.placed` | email | `order.placed.email` | `order.placed:order:{orderId}:email` | `CheckoutService::placeOrderDb()` after order insert (`NotificationDispatcher::orderPlacedPendingPayment`) |
+| `payment.success` | email | `payment.success.email` | `payment.success:order:{orderId}:email` | `PaymentService::completePayment()` after non-idempotent capture (Cashfree + Razorpay webhooks / verify) |
+| `payment.failed` | email | `payment.failed.email` | `payment.failed:order:{orderNumber}:email` | `PaymentService::markPaymentFailed()` when order moves to `payment_failed` (not per-attempt when retry remains open) |
+| `order.status` | email | `order.status.email` | `order.status:order:{orderId}:{status}:email` | `AdminOrderService::updateStatus()` on real transition; `completePayment()` → confirmed |
+| `refund.initiated` | email | `refund.initiated.email` | `refund.initiated:{requestId}:email` | `RefundRequestService` transition to `refund_initiated` |
+| `refund.completed` | email | `refund.completed.email` | `refund.completed:{requestId}:email` | `RefundRequestService` transition to `refunded` |
 | `support.ticket_created` | in_app | `support.ticket_created.in_app` | `support.ticket_created:{ticketId}:in_app` | `SupportTicketService::create()` after insert |
 | `support.ticket_created` | email | `support.ticket_created.email` | `support.ticket_created:{ticketId}:email` | Same (if customer has valid email) |
 | `support.ticket_replied` | email | `support.ticket_replied.email` | `support.ticket_replied:{ticketId}:email:{Y-m-d}` | `SupportTicketService::adminReply()` |
 | `refund.status_updated` | email | `refund.status_updated.email` | `refund.status_updated:{requestId}:{status}:email` | `RefundRequestService` private `transition()` after successful status change |
 
-## Intentionally deferred (not enqueued in 14.4)
+## Intentionally deferred (not enqueued)
 
 | Area | Reason |
 |------|--------|
 | Customer login OTP | Must stay **synchronous** (`OtpSmsService`); auth flow and rate limits depend on immediate provider result |
-| Order placed (pre-payment) | No queue hook; order confirmation email not wired |
-| Order / delivery status changes | No safe replacement for existing paths in this phase |
+| Pending payment reminders | No repeat emails while payment stays pending (abandon ≠ failed) |
 | D3 delivery SMS (`order_confirmed`, `ready`, `dispatched`, …) | **`DeliverySmsService`** + `delivery_sms_logs` + send locks — do not duplicate |
 | Subscription lifecycle in-app | **`SubscriptionNotificationDedupeService`** + direct `CustomerNotificationService` |
 | Subscription delivery / basket events | Existing dedupe and notify paths unchanged |

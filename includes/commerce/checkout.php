@@ -458,6 +458,8 @@ final class CheckoutService
             return ['ok' => false, 'message' => 'Could not place order. Please review your cart and try again.'];
         }
 
+        NotificationDispatcher::orderPlacedPendingPayment($orderId);
+
         if (!PaymentGatewayConfig::useSimulatedCheckout()) {
             $liveReady = PaymentGatewayConfig::assertLivePaymentsReady();
             if (!$liveReady['ok']) {

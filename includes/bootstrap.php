@@ -83,6 +83,8 @@ require_once APNI_TOKRI_ROOT . '/includes/notifications/sms_http_policy.php';
 require_once APNI_TOKRI_ROOT . '/includes/notifications/sms_send_lock.php';
 require_once APNI_TOKRI_ROOT . '/includes/notifications/delivery_sms.php';
 require_once APNI_TOKRI_ROOT . '/includes/notifications/template_repository.php';
+require_once APNI_TOKRI_ROOT . '/includes/notifications/customer_email_layout.php';
+require_once APNI_TOKRI_ROOT . '/includes/notifications/order_email_context.php';
 require_once APNI_TOKRI_ROOT . '/includes/notifications/template_renderer.php';
 require_once APNI_TOKRI_ROOT . '/includes/notifications/queue_service.php';
 require_once APNI_TOKRI_ROOT . '/includes/notifications/dispatcher.php';

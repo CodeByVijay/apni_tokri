@@ -302,6 +302,10 @@ final class AdminOrderService
             }
         }
 
+        if ($previous !== $status) {
+            NotificationDispatcher::orderStatusChanged($orderId, $previous, $status);
+        }
+
         return ['ok' => true, 'message' => 'Order status updated.'];
     }
 

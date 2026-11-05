@@ -175,7 +175,7 @@ final class OrderCancellationService
         $orderNumber = (string) ($orderRow['order_number'] ?? '');
 
         try {
-            return Database::transaction(static function () use (
+            $result = Database::transaction(static function () use (
                 $orderRow,
                 $orderId,
                 $orderNumber,
@@ -215,6 +215,7 @@ final class OrderCancellationService
                     }
                 }
 
+                $statusBeforeCancel = (string) ($fresh['status'] ?? '');
                 $humanReason = self::CUSTOMER_REASONS[$reasonCode] ?? $reasonCode;
                 $note = 'Cancelled by ' . $requestedBy . ': ' . $humanReason;
                 if ($reasonDetail !== '') {
@@ -270,19 +271,35 @@ final class OrderCancellationService
                     'reason_code' => $reasonCode,
                 ]);
 
-                return ['ok' => true, 'order_number' => $orderNumber, 'message' => 'Your order has been cancelled.'];
+                return [
+                    'ok' => true,
+                    'order_number' => $orderNumber,
+                    'message' => 'Your order has been cancelled.',
+                    'status_from' => $statusBeforeCancel,
+                ];
             });
         } catch (Throwable $e) {
+            $result = null;
             error_log('OrderCancellationService: ' . $e->getMessage());
 
             return ['ok' => false, 'message' => 'Could not cancel order. Please try again or contact support.'];
-        } finally {
-            try {
-                InvoiceService::syncForOrder($orderId);
-            } catch (Throwable $e) {
-                error_log('OrderCancellationService invoice sync: ' . $e->getMessage());
-            }
         }
+
+        if (!empty($result['ok']) && empty($result['idempotent']) && !empty($result['status_from'])) {
+            NotificationDispatcher::orderStatusChanged(
+                $orderId,
+                (string) $result['status_from'],
+                OrderStatus::CANCELLED
+            );
+        }
+
+        try {
+            InvoiceService::syncForOrder($orderId);
+        } catch (Throwable $e) {
+            error_log('OrderCancellationService invoice sync: ' . $e->getMessage());
+        }
+
+        return is_array($result) ? $result : ['ok' => false, 'message' => 'Could not cancel order. Please try again or contact support.'];
     }
 
     private static function markSubscriptionDayCancelledForOrder(PDO $pdo, int $orderId, ?int $customerId): void
