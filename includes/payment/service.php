@@ -41,6 +41,33 @@ final class PaymentRepository
         return $row ?: null;
     }
 
+    /** @return list<array<string, mixed>> */
+    public static function listPaymentsForOrder(int $orderId): array
+    {
+        Install::ensureConnection();
+        $stmt = Database::pdo()->prepare(
+            'SELECT * FROM payments WHERE order_id = ? ORDER BY id ASC'
+        );
+        $stmt->execute([$orderId]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        return is_array($rows) ? $rows : [];
+    }
+
+    /** Latest Cashfree attempt that is still open (created/pending). */
+    public static function latestOpenCashfreePayment(int $orderId): ?array
+    {
+        Install::ensureConnection();
+        $stmt = Database::pdo()->prepare(
+            "SELECT * FROM payments WHERE order_id = ? AND gateway = 'cashfree'
+             AND status IN ('created', 'pending') ORDER BY id DESC LIMIT 1"
+        );
+        $stmt->execute([$orderId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        return $row ?: null;
+    }
+
     /** @return array<string, mixed>|null */
     public static function paymentByIdempotency(string $key): ?array
     {
@@ -316,15 +343,62 @@ final class PaymentService
      */
     public static function syncCashfreeOrderPayment(string $orderNumber, int $customerId): array
     {
+        return self::reconcileCashfreeOrderFromGateway($orderNumber, $customerId, 'customer_sync', null);
+    }
+
+    /**
+     * Admin-only Cashfree reconciliation (no customer ownership check).
+     *
+     * @return array{ok: bool, state: string, message?: string, idempotent?: bool}
+     */
+    public static function adminRefreshCashfreePayment(string $orderNumber, int $adminUserId): array
+    {
+        $result = self::reconcileCashfreeOrderFromGateway($orderNumber, null, 'admin_refresh', $adminUserId);
+        unset($result['redirect']);
+
+        return $result;
+    }
+
+    public static function customerCanRetryStorefrontPayment(array $orderRow): bool
+    {
+        if ((string) ($orderRow['payment_status'] ?? '') === 'paid') {
+            return false;
+        }
+        $status = (string) ($orderRow['status'] ?? '');
+        if (in_array($status, ['cancelled', 'confirmed', 'delivered', 'completed'], true)) {
+            return false;
+        }
+
+        return in_array((string) ($orderRow['payment_status'] ?? ''), ['pending', 'failed'], true);
+    }
+
+    /**
+     * @return array{ok: bool, state: string, redirect?: string, message?: string, idempotent?: bool}
+     */
+    public static function reconcileCashfreeOrderFromGateway(
+        string $orderNumber,
+        ?int $restrictCustomerId,
+        string $source,
+        ?int $actingAdminUserId
+    ): array {
         if (!CashfreeGateway::isConfigured()) {
             return ['ok' => false, 'state' => 'error', 'message' => 'Cashfree is not configured.'];
         }
 
-        $order = PaymentRepository::orderByNumberForCustomer($orderNumber, $customerId);
+        $order = $restrictCustomerId !== null
+            ? PaymentRepository::orderByNumberForCustomer($orderNumber, $restrictCustomerId)
+            : PaymentRepository::orderByNumber($orderNumber);
         if ($order === null) {
             return ['ok' => false, 'state' => 'error', 'message' => 'Order not found.'];
         }
-        if ((string) ($order['payment_status'] ?? '') === 'paid') {
+
+        $orderId = (int) $order['id'];
+        $oldOrderPayStatus = (string) ($order['payment_status'] ?? '');
+        $orderPayments = PaymentRepository::listPaymentsForOrder($orderId);
+        $openCashfree = PaymentRepository::latestOpenCashfreePayment($orderId);
+        $latestPayment = $orderPayments !== [] ? $orderPayments[count($orderPayments) - 1] : null;
+
+        if ($oldOrderPayStatus === 'paid') {
             return [
                 'ok' => true,
                 'state' => 'confirmed',
@@ -332,50 +406,90 @@ final class PaymentService
             ];
         }
 
-        $payment = PaymentRepository::latestPaymentForOrder((int) $order['id']);
-        if ($payment === null || (string) ($payment['gateway'] ?? '') !== 'cashfree') {
-            return ['ok' => true, 'state' => 'noop'];
+        $hasCashfree = false;
+        foreach ($orderPayments as $p) {
+            if ((string) ($p['gateway'] ?? '') === 'cashfree') {
+                $hasCashfree = true;
+                break;
+            }
         }
-        if ((string) ($payment['status'] ?? '') === 'captured') {
-            return [
-                'ok' => true,
-                'state' => 'confirmed',
-                'redirect' => url_base() . '/order.php?id=' . rawurlencode($orderNumber),
-            ];
+        if (!$hasCashfree) {
+            return ['ok' => true, 'state' => 'noop', 'message' => 'No Cashfree payment attempts on this order.'];
         }
 
-        $idempotency = (string) ($payment['idempotency_key'] ?? '');
-        if ($idempotency === '') {
-            return ['ok' => false, 'state' => 'error', 'message' => 'Payment record invalid.'];
+        foreach ($orderPayments as $p) {
+            if ((string) ($p['status'] ?? '') === 'captured') {
+                return [
+                    'ok' => true,
+                    'state' => 'confirmed',
+                    'redirect' => url_base() . '/order.php?id=' . rawurlencode($orderNumber),
+                ];
+            }
         }
 
         $orderFetch = CashfreeGateway::fetchOrder($orderNumber);
         if (!$orderFetch['ok']) {
+            self::recordCashfreeReconciliationAudit(
+                $orderId,
+                $orderNumber,
+                $source,
+                $oldOrderPayStatus,
+                $oldOrderPayStatus,
+                $openCashfree,
+                $openCashfree,
+                'api_error',
+                null,
+                null,
+                $orderFetch['error'] ?? 'Could not verify payment status.',
+                $actingAdminUserId
+            );
+
             return ['ok' => false, 'state' => 'error', 'message' => $orderFetch['error'] ?? 'Could not verify payment status.'];
         }
 
-        $storedCf = trim((string) ($payment['gateway_order_id'] ?? ''));
         $cfOrderId = trim((string) ($orderFetch['cf_order_id'] ?? ''));
-        if ($storedCf !== '' && $cfOrderId !== '' && $storedCf !== $cfOrderId) {
+        if (!self::cashfreeGatewayOrderIdMatches($orderPayments, $cfOrderId)) {
             return ['ok' => false, 'state' => 'error', 'message' => 'Gateway order reference mismatch.'];
         }
 
         $paymentsFetch = CashfreeGateway::fetchPayments($orderNumber);
         if (!$paymentsFetch['ok']) {
+            self::recordCashfreeReconciliationAudit(
+                $orderId,
+                $orderNumber,
+                $source,
+                $oldOrderPayStatus,
+                $oldOrderPayStatus,
+                $openCashfree,
+                $openCashfree,
+                'api_error',
+                $cfOrderId !== '' ? $cfOrderId : null,
+                null,
+                $paymentsFetch['error'] ?? 'Could not verify payment status.',
+                $actingAdminUserId
+            );
+
             return ['ok' => false, 'state' => 'error', 'message' => $paymentsFetch['error'] ?? 'Could not verify payment status.'];
         }
 
-        $payments = $paymentsFetch['payments'] ?? [];
-        $success = CashfreeGateway::findSuccessfulCapturedPayment($payments);
+        $gatewayPayments = $paymentsFetch['payments'] ?? [];
+        $analysis = CashfreeGateway::analyzeGatewayPayments($gatewayPayments);
+        $success = $analysis['success'];
+
         if ($success !== null) {
+            $idempotency = self::resolveIdempotencyKeyForCashfreeCapture($orderPayments, $success, $openCashfree);
+            if ($idempotency === '') {
+                return ['ok' => false, 'state' => 'error', 'message' => 'Payment record invalid.'];
+            }
             $cfPaymentId = (string) ($success['cf_payment_id'] ?? $success['payment_id'] ?? '');
             if ($cfPaymentId === '') {
                 return ['ok' => false, 'state' => 'error', 'message' => 'Invalid Cashfree payment reference.'];
             }
             $amount = (float) ($success['payment_amount'] ?? $orderFetch['order_amount'] ?? 0);
             $currency = strtoupper((string) ($success['payment_currency'] ?? 'INR'));
+            $storedCf = trim((string) ($openCashfree['gateway_order_id'] ?? $latestPayment['gateway_order_id'] ?? ''));
             $gwOrderId = $cfOrderId !== '' ? $cfOrderId : $storedCf;
-            $eventId = 'cashfree:api:' . $cfPaymentId;
+            $eventId = 'cashfree:' . $source . ':' . $cfPaymentId;
             $result = self::completePayment(
                 $orderNumber,
                 'cashfree',
@@ -385,6 +499,23 @@ final class PaymentService
                 $currency,
                 $idempotency,
                 $eventId
+            );
+            $orderAfter = PaymentRepository::orderByNumber($orderNumber);
+            $newOrderPayStatus = (string) ($orderAfter['payment_status'] ?? $oldOrderPayStatus);
+            $payAfter = PaymentRepository::paymentByIdempotency($idempotency);
+            self::recordCashfreeReconciliationAudit(
+                $orderId,
+                $orderNumber,
+                $source,
+                $oldOrderPayStatus,
+                $newOrderPayStatus,
+                $openCashfree,
+                $payAfter,
+                $result['ok'] ? 'confirmed' : (!empty($result['reconciliation']) ? 'reconciliation' : 'error'),
+                $gwOrderId,
+                $cfPaymentId,
+                $result['message'] ?? null,
+                $actingAdminUserId
             );
             if (!$result['ok']) {
                 if (!empty($result['reconciliation'])) {
@@ -398,7 +529,7 @@ final class PaymentService
                 return ['ok' => false, 'state' => 'error', 'message' => $result['message'] ?? 'Could not confirm payment.'];
             }
 
-            unset($_SESSION['checkout_payment'][$orderNumber]);
+            self::clearCheckoutPaymentSession($orderNumber);
 
             return [
                 'ok' => true,
@@ -410,6 +541,21 @@ final class PaymentService
 
         $orderStatus = strtoupper((string) ($orderFetch['order_status'] ?? ''));
         if ($orderStatus === 'PAID') {
+            self::recordCashfreeReconciliationAudit(
+                $orderId,
+                $orderNumber,
+                $source,
+                $oldOrderPayStatus,
+                $oldOrderPayStatus,
+                $openCashfree,
+                $openCashfree,
+                'pending',
+                $cfOrderId !== '' ? $cfOrderId : null,
+                null,
+                'Cashfree order PAID; payment row not yet captured.',
+                $actingAdminUserId
+            );
+
             return [
                 'ok' => true,
                 'state' => 'pending',
@@ -417,9 +563,27 @@ final class PaymentService
             ];
         }
 
-        if (CashfreeGateway::hasTerminalFailure($payments)) {
-            self::markPaymentFailed($orderNumber, $idempotency, 'Cashfree reported payment failure.');
-            unset($_SESSION['checkout_payment'][$orderNumber]);
+        if (!empty($analysis['should_mark_order_failed'])) {
+            $failKey = self::resolveIdempotencyKeyForCashfreeFailure($orderPayments, $openCashfree);
+            if ($failKey !== '') {
+                self::markPaymentFailed($orderNumber, $failKey, 'Cashfree reported payment failure (server verification).');
+            }
+            self::clearCheckoutPaymentSession($orderNumber);
+            $orderAfter = PaymentRepository::orderByNumber($orderNumber);
+            self::recordCashfreeReconciliationAudit(
+                $orderId,
+                $orderNumber,
+                $source,
+                $oldOrderPayStatus,
+                (string) ($orderAfter['payment_status'] ?? $oldOrderPayStatus),
+                $openCashfree,
+                PaymentRepository::paymentByIdempotency($failKey),
+                'failed',
+                $cfOrderId !== '' ? $cfOrderId : null,
+                null,
+                'Hard gateway failure confirmed via API.',
+                $actingAdminUserId
+            );
 
             return [
                 'ok' => true,
@@ -428,11 +592,169 @@ final class PaymentService
             ];
         }
 
+        self::recordCashfreeReconciliationAudit(
+            $orderId,
+            $orderNumber,
+            $source,
+            $oldOrderPayStatus,
+            $oldOrderPayStatus,
+            $openCashfree,
+            $openCashfree,
+            'pending',
+            $cfOrderId !== '' ? $cfOrderId : null,
+            null,
+            'No captured payment yet (retryable).',
+            $actingAdminUserId
+        );
+
         return [
             'ok' => true,
             'state' => 'pending',
-            'message' => 'Complete payment below or wait if you already paid — we will verify with Cashfree.',
+            'message' => $source === 'admin_refresh'
+                ? 'Still pending at Cashfree — customer can retry payment. No status change.'
+                : 'Complete payment below or wait if you already paid — we will verify with Cashfree.',
         ];
+    }
+
+    /**
+     * @param list<array<string, mixed>> $orderPayments
+     */
+    private static function cashfreeGatewayOrderIdMatches(array $orderPayments, string $cfOrderId): bool
+    {
+        if ($cfOrderId === '') {
+            return true;
+        }
+        foreach ($orderPayments as $payment) {
+            if ((string) ($payment['gateway'] ?? '') !== 'cashfree') {
+                continue;
+            }
+            $stored = trim((string) ($payment['gateway_order_id'] ?? ''));
+            if ($stored !== '' && $stored !== $cfOrderId) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * @param list<array<string, mixed>> $orderPayments
+     * @param array<string, mixed> $successPayment
+     * @param array<string, mixed>|null $openCashfree
+     */
+    private static function resolveIdempotencyKeyForCashfreeCapture(
+        array $orderPayments,
+        array $successPayment,
+        ?array $openCashfree
+    ): string {
+        $cfPaymentId = (string) ($successPayment['cf_payment_id'] ?? $successPayment['payment_id'] ?? '');
+        if ($cfPaymentId !== '') {
+            foreach ($orderPayments as $row) {
+                if ((string) ($row['gateway_payment_id'] ?? '') === $cfPaymentId) {
+                    return (string) ($row['idempotency_key'] ?? '');
+                }
+            }
+        }
+        if ($openCashfree !== null && (string) ($openCashfree['idempotency_key'] ?? '') !== '') {
+            return (string) $openCashfree['idempotency_key'];
+        }
+        for ($i = count($orderPayments) - 1; $i >= 0; $i--) {
+            $row = $orderPayments[$i];
+            if ((string) ($row['gateway'] ?? '') !== 'cashfree') {
+                continue;
+            }
+            if (in_array((string) ($row['status'] ?? ''), ['created', 'pending'], true)) {
+                return (string) ($row['idempotency_key'] ?? '');
+            }
+        }
+        for ($i = count($orderPayments) - 1; $i >= 0; $i--) {
+            if ((string) ($orderPayments[$i]['gateway'] ?? '') === 'cashfree') {
+                return (string) ($orderPayments[$i]['idempotency_key'] ?? '');
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * @param list<array<string, mixed>> $orderPayments
+     * @param array<string, mixed>|null $openCashfree
+     */
+    private static function resolveIdempotencyKeyForCashfreeFailure(array $orderPayments, ?array $openCashfree): string
+    {
+        if ($openCashfree !== null && (string) ($openCashfree['idempotency_key'] ?? '') !== '') {
+            return (string) $openCashfree['idempotency_key'];
+        }
+        for ($i = count($orderPayments) - 1; $i >= 0; $i--) {
+            $row = $orderPayments[$i];
+            if ((string) ($row['gateway'] ?? '') === 'cashfree'
+                && in_array((string) ($row['status'] ?? ''), ['created', 'pending'], true)) {
+                return (string) ($row['idempotency_key'] ?? '');
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * @param array<string, mixed>|null $paymentBefore
+     * @param array<string, mixed>|null $paymentAfter
+     */
+    private static function clearCheckoutPaymentSession(string $orderNumber): void
+    {
+        if (PHP_SAPI === 'cli' || !isset($_SESSION) || !is_array($_SESSION)) {
+            return;
+        }
+        unset($_SESSION['checkout_payment'][$orderNumber]);
+    }
+
+    /**
+     * @param array<string, mixed>|null $paymentBefore
+     * @param array<string, mixed>|null $paymentAfter
+     */
+    private static function recordCashfreeReconciliationAudit(
+        int $orderId,
+        string $orderNumber,
+        string $source,
+        string $oldOrderPaymentStatus,
+        string $newOrderPaymentStatus,
+        ?array $paymentBefore,
+        ?array $paymentAfter,
+        string $outcomeState,
+        ?string $gatewayOrderId,
+        ?string $gatewayPaymentId,
+        ?string $detailMessage,
+        ?int $actingAdminUserId
+    ): void {
+        $payload = [
+            'order_number' => $orderNumber,
+            'source' => $source,
+            'outcome' => $outcomeState,
+            'old_order_payment_status' => $oldOrderPaymentStatus,
+            'new_order_payment_status' => $newOrderPaymentStatus,
+            'old_payment_row_status' => $paymentBefore !== null ? (string) ($paymentBefore['status'] ?? '') : null,
+            'new_payment_row_status' => $paymentAfter !== null ? (string) ($paymentAfter['status'] ?? '') : null,
+            'gateway_order_id' => $gatewayOrderId,
+            'gateway_payment_id' => $gatewayPaymentId,
+            'detail' => $detailMessage,
+            'reconciled_at' => date('c'),
+        ];
+        AuditLog::write('payment.cashfree_reconcile', 'orders', (string) $orderId, $payload, $actingAdminUserId);
+
+        if ($oldOrderPaymentStatus !== $newOrderPaymentStatus && $detailMessage !== null && $detailMessage !== '') {
+            try {
+                Install::ensureConnection();
+                Database::pdo()->prepare(
+                    'INSERT INTO order_status_history (order_id, status, note) VALUES (?, ?, ?)'
+                )->execute([
+                    $orderId,
+                    'Payment reconciliation',
+                    ucfirst(str_replace('_', ' ', $source)) . ': ' . $oldOrderPaymentStatus . ' → ' . $newOrderPaymentStatus . '. ' . $detailMessage,
+                ]);
+            } catch (Throwable $e) {
+                error_log('Payment reconciliation history: ' . $e->getMessage());
+            }
+        }
     }
 
     public static function issueSimulateToken(string $orderNumber): string
@@ -703,7 +1025,8 @@ final class PaymentService
     public static function markPaymentFailed(string $orderNumber, string $idempotencyKey, string $note): array
     {
         try {
-            Database::transaction(static function () use ($orderNumber, $idempotencyKey, $note): void {
+            $markOrderFailed = false;
+            Database::transaction(static function () use ($orderNumber, $idempotencyKey, $note, &$markOrderFailed): void {
                 $pdo = Database::pdo();
                 $stmt = $pdo->prepare('SELECT id, payment_status FROM orders WHERE order_number = ? FOR UPDATE');
                 $stmt->execute([$orderNumber]);
@@ -712,16 +1035,30 @@ final class PaymentService
                     return;
                 }
                 $orderId = (int) $order['id'];
-                $pdo->prepare('UPDATE orders SET status = ?, payment_status = ?, updated_at = NOW() WHERE id = ?')
-                    ->execute(['payment_failed', 'failed', $orderId]);
                 $pdo->prepare('UPDATE payments SET status = ? WHERE order_id = ? AND idempotency_key = ?')
                     ->execute(['failed', $orderId, $idempotencyKey]);
-                $pdo->prepare('INSERT INTO order_status_history (order_id, status, note) VALUES (?, ?, ?)')
-                    ->execute([$orderId, 'Payment failed', $note]);
-                DeliverySlotReservationService::releaseForOrder($orderId, $pdo);
+                $openStmt = $pdo->prepare(
+                    "SELECT COUNT(*) FROM payments WHERE order_id = ? AND status IN ('created', 'pending')
+                     AND idempotency_key <> ?"
+                );
+                $openStmt->execute([$orderId, $idempotencyKey]);
+                $otherOpen = (int) $openStmt->fetchColumn();
+                if ($otherOpen === 0) {
+                    $pdo->prepare('UPDATE orders SET status = ?, payment_status = ?, updated_at = NOW() WHERE id = ?')
+                        ->execute(['payment_failed', 'failed', $orderId]);
+                    $pdo->prepare('INSERT INTO order_status_history (order_id, status, note) VALUES (?, ?, ?)')
+                        ->execute([$orderId, 'Payment failed', $note]);
+                    DeliverySlotReservationService::releaseForOrder($orderId, $pdo);
+                    $markOrderFailed = true;
+                } else {
+                    $pdo->prepare('INSERT INTO order_status_history (order_id, status, note) VALUES (?, ?, ?)')
+                        ->execute([$orderId, 'Payment attempt failed', $note]);
+                }
             });
 
-            NotificationDispatcher::orderPaymentFailed($orderNumber);
+            if ($markOrderFailed) {
+                NotificationDispatcher::orderPaymentFailed($orderNumber);
+            }
 
             return ['ok' => true];
         } catch (Throwable $e) {

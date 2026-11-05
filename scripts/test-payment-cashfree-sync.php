@@ -31,8 +31,12 @@ ok(
 );
 
 ok(
-    CashfreeGateway::hasTerminalFailure([['payment_status' => 'USER_DROPPED']]),
-    'Terminal failure detected'
+    !CashfreeGateway::hasHardGatewayFailure([['payment_status' => 'USER_DROPPED']]),
+    'USER_DROPPED is not treated as hard gateway failure'
+);
+ok(
+    CashfreeGateway::hasHardGatewayFailure([['payment_status' => 'FAILED']]),
+    'FAILED is hard gateway failure'
 );
 
 ok(

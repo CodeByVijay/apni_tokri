@@ -15,7 +15,14 @@ if (!CustomerService::isLoggedIn()) {
 $id = isset($_GET['id']) && is_string($_GET['id']) ? trim($_GET['id']) : '';
 $order = null;
 if ($id !== '' && CommerceGateway::useDatabase() && CustomerAuth::id() !== null) {
-    $order = OrderRepository::forCustomerDetail($id, CustomerAuth::id());
+    $custId = (int) CustomerAuth::id();
+    $orderRow = PaymentRepository::orderByNumberForCustomer($id, $custId);
+    if ($orderRow !== null
+        && PaymentService::customerCanRetryStorefrontPayment($orderRow)
+        && PaymentGatewayConfig::activeGateway() === 'cashfree') {
+        PaymentService::syncCashfreeOrderPayment($id, $custId);
+    }
+    $order = OrderRepository::forCustomerDetail($id, $custId);
 }
 if ($order === null && $id !== '' && AppEnvironment::allowsSessionDemoCommerce()) {
     $order = DemoCustomer::order($id);
@@ -330,6 +337,16 @@ require APNI_TOKRI_ROOT . '/includes/partials/customer-order-cancel.php';
                     </dl>
                     <?php if (count($payments) > 1): ?>
                         <p class="text-xs at-muted mt-3"><?= (int) count($payments) ?> payment attempts on this order.</p>
+                    <?php endif; ?>
+                    <?php
+                    $orderRowForRetry = CommerceGateway::useDatabase() && CustomerAuth::id() !== null
+                        ? OrderFulfillmentService::orderRowForCustomer($displayId, CustomerAuth::id())
+                        : null;
+                    if ($orderRowForRetry !== null && PaymentService::customerCanRetryStorefrontPayment($orderRowForRetry)):
+                        ?>
+                        <p class="mt-4">
+                            <a class="at-btn at-btn--primary at-btn--sm at-focusable" href="<?= Security::escape(url_base()) ?>/payment.php?order=<?= rawurlencode($displayId) ?><?= (string) ($orderRowForRetry['payment_status'] ?? '') === 'failed' ? '&amp;retry=1' : '' ?>">Retry payment</a>
+                        </p>
                     <?php endif; ?>
                 <?php elseif ($paySummary !== null): ?>
                     <dl class="at-order-detail__dl mt-3">

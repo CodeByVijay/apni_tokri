@@ -11,6 +11,34 @@ $order = $orderId > 0 && Install::isSchemaReady() ? AdminOrderService::findById(
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $order !== null) {
     Csrf::requireValid();
+    $postAction = isset($_POST['action']) && is_string($_POST['action']) ? $_POST['action'] : '';
+    if ($postAction === 'refresh_cashfree_payment') {
+        $adminId = AdminAuth::id();
+        if ($adminId === null) {
+            admin_flash_set('Admin session required.', 'error');
+        } else {
+            $refresh = PaymentService::adminRefreshCashfreePayment((string) $order['order_number'], (int) $adminId);
+            $msg = (string) ($refresh['message'] ?? '');
+            if ($msg === '' && ($refresh['state'] ?? '') === 'confirmed') {
+                $msg = !empty($refresh['idempotent'])
+                    ? 'Payment already marked paid (no duplicate fulfilment).'
+                    : 'Payment confirmed from Cashfree.';
+            } elseif ($msg === '' && ($refresh['state'] ?? '') === 'pending') {
+                $msg = 'Cashfree still shows pending — customer can retry payment.';
+            } elseif ($msg === '' && ($refresh['state'] ?? '') === 'failed') {
+                $msg = 'Cashfree reports a failed payment; order updated.';
+            } elseif ($msg === '' && ($refresh['state'] ?? '') === 'noop') {
+                $msg = 'No Cashfree attempts to reconcile.';
+            } elseif ($msg === '' && ($refresh['state'] ?? '') === 'reconciliation') {
+                $msg = 'Payment captured at gateway but fulfilment needs manual review.';
+            } elseif ($msg === '') {
+                $msg = 'Could not refresh payment status.';
+            }
+            admin_flash_set($msg, !empty($refresh['ok']) ? 'success' : 'error');
+        }
+        header('Location: ' . url_base() . '/admin/orders/view.php?id=' . $orderId, true, 302);
+        exit;
+    }
     $result = AdminOrderService::updateStatus(
         $orderId,
         (string) ($_POST['status'] ?? ''),
@@ -116,8 +144,30 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
         </div></div>
 
         <?php if (($order['payments'] ?? []) !== []): ?>
+        <?php
+        $hasCashfreeAttempt = false;
+        foreach ($order['payments'] as $payRow) {
+            if ((string) ($payRow['gateway'] ?? '') === 'cashfree') {
+                $hasCashfreeAttempt = true;
+                break;
+            }
+        }
+        $canRefreshCashfree = $hasCashfreeAttempt
+            && (string) ($order['payment_status'] ?? '') !== 'paid'
+            && CashfreeGateway::isConfigured();
+        ?>
         <div class="at-card"><div class="at-card__body">
-            <h3 class="font-bold mb-2">Payment attempts</h3>
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                <h3 class="font-bold">Payment attempts</h3>
+                <?php if ($canRefreshCashfree): ?>
+                    <form method="post" class="inline">
+                        <?= Csrf::field() ?>
+                        <input type="hidden" name="action" value="refresh_cashfree_payment">
+                        <button type="submit" class="at-btn at-btn--secondary at-btn--sm at-focusable">Refresh payment status</button>
+                    </form>
+                <?php endif; ?>
+            </div>
+            <p class="text-xs at-muted mb-2">Re-queries Cashfree server-side (live/sandbox per gateway settings). Does not expose credentials.</p>
             <div class="at-admin-table-wrap">
                 <table class="at-admin-table at-admin-table--dense">
                     <thead><tr>

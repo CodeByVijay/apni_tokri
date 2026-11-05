@@ -202,17 +202,67 @@ final class CashfreeGateway
      */
     public static function hasTerminalFailure(array $payments): bool
     {
+        return self::hasHardGatewayFailure($payments);
+    }
+
+    /** Definitive gateway failures (not USER_DROPPED — customer may retry). */
+    public static function hasHardGatewayFailure(array $payments): bool
+    {
         foreach ($payments as $payment) {
             if (!is_array($payment)) {
                 continue;
             }
             $status = strtoupper((string) ($payment['payment_status'] ?? ''));
-            if (in_array($status, ['FAILED', 'USER_DROPPED', 'VOID', 'CANCELLED'], true)) {
+            if (in_array($status, ['FAILED', 'VOID', 'CANCELLED'], true)) {
                 return true;
             }
         }
 
         return false;
+    }
+
+    /** @param list<array<string, mixed>> $payments */
+    public static function hasRetryableCashfreeActivity(array $payments): bool
+    {
+        foreach ($payments as $payment) {
+            if (!is_array($payment)) {
+                continue;
+            }
+            $status = strtoupper((string) ($payment['payment_status'] ?? ''));
+            if (in_array($status, ['PENDING', 'ACTIVE', 'INITIATED', 'USER_DROPPED', ''], true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param list<array<string, mixed>> $gatewayPayments
+     * @return array{
+     *   success: array<string, mixed>|null,
+     *   should_mark_order_failed: bool,
+     *   retryable: bool
+     * }
+     */
+    public static function analyzeGatewayPayments(array $gatewayPayments): array
+    {
+        $success = self::findSuccessfulCapturedPayment($gatewayPayments);
+        if ($success !== null) {
+            return [
+                'success' => $success,
+                'should_mark_order_failed' => false,
+                'retryable' => false,
+            ];
+        }
+        $retryable = self::hasRetryableCashfreeActivity($gatewayPayments);
+        $hardFail = self::hasHardGatewayFailure($gatewayPayments);
+
+        return [
+            'success' => null,
+            'should_mark_order_failed' => !$retryable && $hardFail,
+            'retryable' => $retryable || (!$hardFail && $gatewayPayments === []),
+        ];
     }
 
     public static function verifyWebhookSignature(string $rawBody, string $signature, string $timestamp): bool
