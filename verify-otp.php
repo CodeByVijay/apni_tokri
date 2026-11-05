@@ -18,6 +18,7 @@ if (Install::isSchemaReady()) {
 }
 
 $error = '';
+$verifyPageTestOtp = OtpSmsService::fixedTestOtpForVerifyPageDisplay();
 if (AppEnvironment::allowsDebugOtpDisplay() && !empty($_SESSION['otp_debug_plain'])) {
     unset($_SESSION['otp_debug_plain']);
 }
@@ -72,13 +73,15 @@ layout_public_start([
         </div>
         <div>
             <h1 class="at-h1">Verify your number</h1>
-            <p class="mt-2 at-muted">Code sent to <strong class="text-[var(--at-ink)]">+91 <?= Security::escape($mobile) ?></strong>
-                <?php if (!Install::isSchemaReady() && !AppEnvironment::isProduction()): ?>
-                    <span class="at-badge at-badge--neutral">Demo code 123456</span>
-                <?php elseif (OtpSmsService::operationMode() === OtpSmsService::MODE_TEST): ?>
-                    <span class="at-badge at-badge--neutral">Test mode — no real SMS sent</span>
-                <?php endif; ?>
-            </p>
+            <p class="mt-2 at-muted">Code sent to <strong class="text-[var(--at-ink)]">+91 <?= Security::escape($mobile) ?></strong></p>
+            <?php if ($verifyPageTestOtp !== null): ?>
+                <div class="at-otp-test-hint mt-3" role="note">
+                    <p class="at-otp-test-hint__code">Test OTP: <?= Security::escape($verifyPageTestOtp) ?></p>
+                    <p class="at-otp-test-hint__sub">Development testing only</p>
+                </div>
+            <?php elseif (Install::isSchemaReady() && OtpSmsService::operationMode() === OtpSmsService::MODE_TEST): ?>
+                <p class="mt-2"><span class="at-badge at-badge--neutral">Test mode — no real SMS sent</span></p>
+            <?php endif; ?>
             <?php if ($error !== ''): ?>
                 <div class="at-alert at-alert--error mt-4" role="alert"><?= at_icon('info', 'w-5 h-5 flex-shrink-0') ?><span><?= Security::escape($error) ?></span></div>
             <?php endif; ?>

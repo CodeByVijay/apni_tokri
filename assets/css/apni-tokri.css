@@ -3033,6 +3033,28 @@ body.at-gallery-lightbox-open {
   box-shadow: 0 0 0 4px rgba(245, 166, 35, 0.3);
 }
 
+/* verify-otp: fixed test OTP hint (local/development + SMS test mode only) */
+.at-otp-test-hint {
+  margin-top: 0.75rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: var(--at-radius-md, 0.5rem);
+  border: 1px dashed var(--at-yellow-dark);
+  background: rgba(245, 166, 35, 0.12);
+  max-width: 16rem;
+}
+.at-otp-test-hint__code {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--at-yellow-ink);
+}
+.at-otp-test-hint__sub {
+  margin: 0.25rem 0 0;
+  font-size: 0.75rem;
+  color: var(--at-ink-2);
+}
+
 /* Six-box OTP input (verify-otp) */
 .at-otp {
   display: grid;

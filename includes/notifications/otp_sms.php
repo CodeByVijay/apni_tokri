@@ -63,6 +63,26 @@ final class OtpSmsService
         return (string) random_int(100000, 999999);
     }
 
+    /**
+     * Fixed test OTP for verify-otp.php UI only (local/development + effective test mode + configured 6-digit code).
+     * Never returns a value in production or when verification would not use the fixed test OTP.
+     */
+    public static function fixedTestOtpForVerifyPageDisplay(): ?string
+    {
+        if (!AppEnvironment::isDevelopment() || AppEnvironment::isProduction()) {
+            return null;
+        }
+        if (self::operationMode() !== self::MODE_TEST) {
+            return null;
+        }
+        $fixed = preg_replace('/\D+/', '', (string) (AppSettings::get('sms.test.fixed_otp', '') ?? '')) ?? '';
+        if (!preg_match('/^\d{6}$/', $fixed)) {
+            return null;
+        }
+
+        return $fixed;
+    }
+
     public static function sendLoginOtp(string $mobile, string $otpPlain, int $ttlSeconds): array
     {
         $mobile = Validation::normalizeMobileIndia($mobile) ?? '';
