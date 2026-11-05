@@ -15,6 +15,11 @@
     return last > 0 ? path.substring(0, last) : '';
   }
 
+  /** Extensionless cart AJAX paths (avoid .php 302 redirects that drop POST bodies). */
+  function cartAjaxUrl(route) {
+    return baseUrl() + '/ajax/cart/' + route;
+  }
+
   function formatMoney(amount) {
     var n = Number(amount) || 0;
     return '₹' + Math.round(n).toLocaleString('en-IN');
@@ -33,7 +38,7 @@
   window.ApniTokriCart = {
     add: function (productSlug, variantId, qty, done) {
       $.ajax({
-        url: baseUrl() + '/ajax/cart/add.php',
+        url: cartAjaxUrl('add'),
         method: 'POST',
         dataType: 'json',
         data: {
@@ -159,6 +164,62 @@
   }
 
   var couponBusy = false;
+  var qtyBusy = false;
+
+  function applyCartMutationResponse($row, res) {
+    if (!res || !res.success || !res.data) return;
+    var totals = res.data.totals || null;
+    refreshSummary(totals);
+    if (typeof res.data.offers_html === 'string') {
+      replaceOffers(res.data.offers_html);
+    }
+    if (res.data.count !== undefined) {
+      updateHeaderCount(res.data.count);
+    }
+    if ($row && $row.length) {
+      var qty = parseInt($row.find('.js-cart-qty').val(), 10) || 1;
+      var unit = parseFloat($row.data('unit-price')) || 0;
+      $row.find('[data-cart-line-total]').text(formatMoney(unit * qty));
+    }
+  }
+
+  function postCartLine(action, lineKey, extra, $row, prevQty) {
+    if (qtyBusy) return;
+    qtyBusy = true;
+    var $qty = $row.find('.js-cart-qty');
+    $qty.prop('disabled', true);
+    $row.find('[data-qty-step], .js-cart-remove').prop('disabled', true);
+
+    $.ajax({
+      url: cartAjaxUrl(action),
+      method: 'POST',
+      dataType: 'json',
+      data: $.extend({ _csrf_token: csrfToken(), line_key: lineKey }, extra || {})
+    }).done(function (res) {
+      if (res.success) {
+        if (action === 'remove' && (!res.data || res.data.count === 0)) {
+          location.reload();
+          return;
+        }
+        applyCartMutationResponse($row, res);
+      } else {
+        var errMsg = res.error && res.error.message ? res.error.message : 'Update failed';
+        if (prevQty !== undefined && $qty.length) {
+          $qty.val(prevQty);
+        }
+        toast(errMsg, 'error');
+      }
+    }).fail(function (xhr) {
+      if (prevQty !== undefined && $qty.length) {
+        $qty.val(prevQty);
+      }
+      toast(parseAjaxError(xhr, 'Update failed'), 'error');
+    }).always(function () {
+      qtyBusy = false;
+      $qty.prop('disabled', false);
+      $row.find('[data-qty-step], .js-cart-remove').prop('disabled', false);
+    });
+  }
 
   function setOffersBusy(busy) {
     $('[data-at-offers] [data-at-offer-apply], [data-at-offers] [data-at-offer-remove]')
@@ -192,7 +253,7 @@
     showCouponFeedback('', false);
 
     $.ajax({
-      url: baseUrl() + '/ajax/cart/coupon.php',
+      url: cartAjaxUrl('coupon'),
       method: 'POST',
       dataType: 'json',
       data: $.extend({ _csrf_token: csrfToken() }, payload)
@@ -231,31 +292,19 @@
   }
 
   $(function () {
+    $('.js-cart-qty').on('focus', function () {
+      $(this).data('prev-qty', $(this).val());
+    });
     $('.js-cart-qty').on('change', function () {
       var $row = $(this).closest('[data-line-key]');
-      $.post(baseUrl() + '/ajax/cart/update.php', {
-        _csrf_token: csrfToken(),
-        line_key: $row.data('line-key'),
-        qty: $(this).val()
-      }, function (res) {
-        if (res.success) {
-          location.reload();
-        } else {
-          toast(res.error && res.error.message ? res.error.message : 'Update failed', 'error');
-        }
-      }, 'json').fail(function (xhr) {
-        toast(parseAjaxError(xhr, 'Update failed'), 'error');
-      });
+      var prevQty = $(this).data('prev-qty');
+      postCartLine('update', $row.data('line-key'), { qty: $(this).val() }, $row, prevQty);
+      $(this).data('prev-qty', $(this).val());
     });
 
     $('.js-cart-remove').on('click', function () {
-      var key = $(this).closest('[data-line-key]').data('line-key');
-      $.post(baseUrl() + '/ajax/cart/remove.php', {
-        _csrf_token: csrfToken(),
-        line_key: key
-      }, function () {
-        location.reload();
-      }, 'json');
+      var $row = $(this).closest('[data-line-key]');
+      postCartLine('remove', $row.data('line-key'), {}, $row);
     });
 
     $('#at-coupon-form').on('submit', function (e) {

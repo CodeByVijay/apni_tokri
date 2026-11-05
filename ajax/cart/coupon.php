@@ -16,17 +16,4 @@ if (!$result['ok']) {
 }
 
 $totals = $result['totals'] ?? DemoCart::totals();
-$data = ['totals' => $totals];
-try {
-    $offers = CouponOfferService::forCurrentCart($totals);
-    ob_start();
-    require APNI_TOKRI_ROOT . '/includes/partials/cart-offers.php';
-    $data['offers_html'] = (string) ob_get_clean();
-} catch (Throwable $e) {
-    if (ob_get_level() > 0) {
-        ob_end_clean();
-    }
-    error_log('cart coupon offers refresh: ' . get_class($e));
-}
-
-Ajax::success($data, $result['message'] ?? 'Coupon applied.');
+Ajax::success(CouponOfferService::cartAjaxPayload($totals), $result['message'] ?? 'Coupon applied.');

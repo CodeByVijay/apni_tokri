@@ -60,30 +60,53 @@ final class CartService
             return ['ok' => false, 'message' => 'Please enter a coupon code.'];
         }
         if (AppEnvironment::usePersistedStorefront()) {
-            $cartId = self::resolveCartId(true);
-            $lines = self::pricingLines($cartId);
-            if ($lines === []) {
-                return ['ok' => false, 'message' => 'Cart is empty.'];
-            }
-            $offer = PromotionService::bestAutomaticOffer($lines, CustomerAuth::id());
-            $check = CouponService::validateForCart(
-                $normalized,
-                $lines,
-                CustomerAuth::id(),
-                (float) ($offer['discount'] ?? 0),
-                !empty($offer['stack_with_coupons'])
-            );
-            if (!$check['ok']) {
-                return ['ok' => false, 'message' => $check['message'] ?? 'Invalid coupon.'];
-            }
-            Install::ensureConnection();
-            Database::pdo()->prepare('UPDATE carts SET coupon_code = ?, updated_at = NOW() WHERE id = ?')
-                ->execute([$normalized, $cartId]);
-
-            return ['ok' => true, 'message' => 'Coupon applied.', 'totals' => self::totals()];
+            return self::applyCouponDb($normalized);
         }
 
         return SessionCartBackend::applyCoupon($normalized);
+    }
+
+    /** @return array{ok: bool, message?: string, totals?: array<string, mixed>} */
+    private static function applyCouponDb(string $normalized): array
+    {
+        Install::ensureConnection();
+        $cartId = self::resolveCartId(true);
+        if ($cartId === 0) {
+            return ['ok' => false, 'message' => 'Cart is empty.'];
+        }
+        $lockKey = 'at_cart_coupon_' . $cartId;
+
+        return Database::transaction(static function () use ($normalized, $cartId, $lockKey): array {
+            $pdo = Database::pdo();
+            $lockStmt = $pdo->query('SELECT GET_LOCK(' . $pdo->quote($lockKey) . ', 10)');
+            if ((int) ($lockStmt ? $lockStmt->fetchColumn() : 0) !== 1) {
+                return ['ok' => false, 'message' => 'Cart is busy. Please try again.'];
+            }
+            try {
+                $pdo->prepare('SELECT id FROM carts WHERE id = ? FOR UPDATE')->execute([$cartId]);
+                $lines = self::pricingLines($cartId);
+                if ($lines === []) {
+                    return ['ok' => false, 'message' => 'Cart is empty.'];
+                }
+                $offer = PromotionService::bestAutomaticOffer($lines, CustomerAuth::id());
+                $check = CouponService::validateForCart(
+                    $normalized,
+                    $lines,
+                    CustomerAuth::id(),
+                    (float) ($offer['discount'] ?? 0),
+                    !empty($offer['stack_with_coupons'])
+                );
+                if (!$check['ok']) {
+                    return ['ok' => false, 'message' => $check['message'] ?? 'Invalid coupon.'];
+                }
+                $pdo->prepare('UPDATE carts SET coupon_code = ?, updated_at = NOW() WHERE id = ?')
+                    ->execute([$normalized, $cartId]);
+
+                return ['ok' => true, 'message' => 'Coupon applied.', 'totals' => self::totals()];
+            } finally {
+                $pdo->query('SELECT RELEASE_LOCK(' . $pdo->quote($lockKey) . ')');
+            }
+        });
     }
 
     /** @return list<array<string, mixed>> */
@@ -683,6 +706,27 @@ final class SessionCartBackend
         if ($code === '') {
             return ['ok' => false, 'message' => 'Please enter a coupon code.'];
         }
+        $sid = session_id();
+        if ($sid === '') {
+            return self::applyCouponUnlocked($code);
+        }
+        Install::ensureConnection();
+        $pdo = Database::pdo();
+        $lockKey = 'at_cart_coupon_sess_' . $sid;
+        $lockStmt = $pdo->query('SELECT GET_LOCK(' . $pdo->quote($lockKey) . ', 10)');
+        if ((int) ($lockStmt ? $lockStmt->fetchColumn() : 0) !== 1) {
+            return ['ok' => false, 'message' => 'Cart is busy. Please try again.'];
+        }
+        try {
+            return self::applyCouponUnlocked($code);
+        } finally {
+            $pdo->query('SELECT RELEASE_LOCK(' . $pdo->quote($lockKey) . ')');
+        }
+    }
+
+    /** @return array{ok: bool, message?: string, totals?: array<string, mixed>} */
+    private static function applyCouponUnlocked(string $code): array
+    {
         $state = self::state();
         if ($state['items'] === []) {
             return ['ok' => false, 'message' => 'Cart is empty.'];

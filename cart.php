@@ -60,7 +60,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
 
             <ul class="grid gap-3">
                 <?php foreach ($items as $item): ?>
-                    <li class="at-line-item" data-line-key="<?= Security::escape((string) $item['line_key']) ?>">
+                    <li class="at-line-item" data-line-key="<?= Security::escape((string) $item['line_key']) ?>" data-unit-price="<?= Security::escape((string) (float) $item['unit_price']) ?>">
                         <a href="<?= Security::escape(url_base()) ?>/product.php?slug=<?= rawurlencode((string) $item['product_slug']) ?>" class="at-line-item__img at-focusable" tabindex="-1" aria-hidden="true">
                             <?php if (!empty($item['image'])): ?><img src="<?= Security::escape((string) $item['image']) ?>" alt="" loading="lazy"><?php endif; ?>
                         </a>
@@ -81,7 +81,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
                                 <button type="button" class="text-sm font-semibold text-[var(--at-danger)] hover:underline js-cart-remove at-focusable flex items-center gap-1"><?= at_icon('trash', 'w-4 h-4') ?>Remove</button>
                             </div>
                         </div>
-                        <p class="font-extrabold text-lg col-start-2 sm:col-start-auto sm:text-right">
+                        <p class="font-extrabold text-lg col-start-2 sm:col-start-auto sm:text-right" data-cart-line-total>
                             <?= Security::escape(catalogue_format_price((float) $item['unit_price'] * (int) $item['qty'])) ?>
                         </p>
                     </li>

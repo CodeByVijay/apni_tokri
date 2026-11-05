@@ -15,8 +15,10 @@
     RewriteRule ^database/ - [F,L,NC]
     RewriteRule ^scripts(/|$) - [F,L,NC]
 
-    # Redirect direct .php requests to extensionless URLs
+    # Redirect direct .php requests to extensionless URLs (GET/HEAD only).
+    # POST must not redirect — clients often re-issue as GET and break CSRF/AJAX/logout.
     # Use 302 initially; change to 301 after successful testing
+    RewriteCond %{REQUEST_METHOD} !POST
     RewriteCond %{THE_REQUEST} \s/+(.+?)\.php(?:[\s?]) [NC]
     RewriteRule ^(.+?)\.php$ /$1 [R=302,L,NE]
 

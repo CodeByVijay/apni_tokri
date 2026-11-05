@@ -210,6 +210,7 @@ final class CouponAdminService
                 'starts_at' => $starts,
                 'ends_at' => $ends,
                 'is_active' => !empty($post['is_active']) ? 1 : 0,
+                'storefront_visible' => !empty($post['storefront_visible']) ? 1 : 0,
             ],
             'customer_ids' => $customerIds,
             'category_ids' => $categoryIds,

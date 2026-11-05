@@ -11,11 +11,16 @@ final class Security
     }
 
     /** @param array<string, scalar|null> $headers */
-    public static function sendSecurityHeaders(bool $isHttps = false): void
+    public static function sendSecurityHeaders(bool $isHttps = false, bool $noStore = false): void
     {
         header('X-Content-Type-Options: nosniff');
         header('X-Frame-Options: SAMEORIGIN');
         header('Referrer-Policy: strict-origin-when-cross-origin');
+
+        if ($noStore) {
+            header('Cache-Control: no-store, no-cache, must-revalidate');
+            header('Pragma: no-cache');
+        }
 
         if ($isHttps) {
             header('Strict-Transport-Security: max-age=31536000; includeSubDomains');

@@ -47,7 +47,7 @@ $_acItems = [
             <?php foreach ($_acItems as $key => $it): ?>
                 <a href="<?= Security::escape($_acBase . $it[0]) ?>" class="at-focusable <?= $accountActive === $key ? 'is-active' : '' ?>" <?= $accountActive === $key ? 'aria-current="page"' : '' ?>><?= at_icon($it[2]) ?><?= Security::escape($it[1]) ?></a>
             <?php endforeach; ?>
-            <form method="post" action="<?= Security::escape($_acBase) ?>/logout.php" class="at-account-nav__logout">
+            <form method="post" action="<?= Security::escape($_acBase) ?>/logout" class="at-account-nav__logout">
                 <?= Csrf::field() ?>
                 <button type="submit" class="at-focusable"><?= at_icon('logout') ?>Logout</button>
             </form>

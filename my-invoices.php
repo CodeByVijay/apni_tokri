@@ -5,7 +5,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/includes/bootstrap.php';
 require_once APNI_TOKRI_ROOT . '/includes/catalogue/helpers.php';
 
-Security::sendSecurityHeaders(Security::isHttps());
+Security::sendSecurityHeaders(Security::isHttps(), true);
 
 if (!CustomerService::isLoggedIn() || CustomerAuth::id() === null) {
     header('Location: ' . url_base() . '/login.php?next=' . rawurlencode($_SERVER['REQUEST_URI'] ?? ''), true, 302);

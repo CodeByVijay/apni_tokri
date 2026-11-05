@@ -45,7 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $f = [
     'code' => '', 'internal_name' => '', 'discount_type' => 'percent', 'discount_value' => '10',
     'min_cart_value' => '', 'max_discount' => '', 'usage_limit' => '', 'per_customer_limit' => '1',
-    'priority' => '0', 'starts_at' => '', 'ends_at' => '', 'is_active' => 1, 'stackable_with_offers' => 0,
+    'priority' => '0', 'starts_at' => '', 'ends_at' => '', 'is_active' => 1, 'storefront_visible' => 1, 'stackable_with_offers' => 0,
     'eligibility_mode' => CouponAdminService::MODE_ALL, 'customer_mode' => CouponAdminService::CUSTOMERS_ALL,
     'first_order_also' => 0, 'category_ids' => [], 'product_ids' => [], 'customer_ids' => [],
 ];
@@ -60,6 +60,7 @@ if ($posted !== null) {
         $f[$k] = trim((string) ($posted[$k] ?? ''));
     }
     $f['is_active'] = !empty($posted['is_active']) ? 1 : 0;
+    $f['storefront_visible'] = !empty($posted['storefront_visible']) ? 1 : 0;
     $f['stackable_with_offers'] = !empty($posted['stackable_with_offers']) ? 1 : 0;
     $f['first_order_also'] = !empty($posted['first_order_also']) ? 1 : 0;
     foreach (['category_ids', 'product_ids', 'customer_ids'] as $k) {
@@ -79,6 +80,7 @@ if ($posted !== null) {
     $f['starts_at'] = $toLocal($coupon['starts_at'] ?? null);
     $f['ends_at'] = $toLocal($coupon['ends_at'] ?? null);
     $f['is_active'] = (int) $coupon['is_active'];
+    $f['storefront_visible'] = isset($coupon['storefront_visible']) ? (int) $coupon['storefront_visible'] : 1;
     $f['stackable_with_offers'] = (int) ($coupon['stackable_with_offers'] ?? 0);
     $f['category_ids'] = CouponRepository::categoryIds($id);
     $f['product_ids'] = CouponRepository::productIds($id);
@@ -322,6 +324,10 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
                 <label class="flex gap-2 text-sm items-start md:col-span-2">
                     <input type="checkbox" name="is_active" value="1"<?= !empty($f['is_active']) ? ' checked' : '' ?>>
                     <span><strong>Active</strong><span class="at-field-help block">Untick to switch the coupon off without deleting it.</span></span>
+                </label>
+                <label class="flex gap-2 text-sm items-start md:col-span-2">
+                    <input type="checkbox" name="storefront_visible" value="1"<?= !empty($f['storefront_visible']) ? ' checked' : '' ?>>
+                    <span><strong>Show in cart “Available Offers”</strong><span class="at-field-help block">When off, customers can still enter the code manually but the coupon will not appear in the offers carousel.</span></span>
                 </label>
             </div>
         </div>

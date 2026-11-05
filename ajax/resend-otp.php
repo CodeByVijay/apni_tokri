@@ -28,14 +28,16 @@ try {
         'cooldown_seconds' => OtpResendCooldown::cooldownSeconds(),
     ], 'A new OTP has been sent.');
 } catch (OtpRequestException $e) {
-    if ($e->errorCode() === OtpSmsService::ERR_RESEND_COOLDOWN) {
+    if ($e->errorCode() === OtpSmsService::ERR_RESEND_COOLDOWN
+        || $e->errorCode() === OtpSmsService::ERR_RATE_LIMITED) {
         http_response_code(429);
         header('Content-Type: application/json; charset=utf-8');
         header('Cache-Control: no-store');
+        $code = $e->errorCode() === OtpSmsService::ERR_RESEND_COOLDOWN ? 'resend_cooldown' : 'rate_limited';
         echo json_encode([
             'success' => false,
             'error' => [
-                'code' => 'resend_cooldown',
+                'code' => $code,
                 'message' => $e->getMessage(),
             ],
             'data' => [

@@ -18,7 +18,8 @@ if (!$result['ok']) {
     Ajax::error($result['message']);
 }
 
-Ajax::success([
-    'count' => DemoCart::itemCount(),
-    'totals' => $result['totals'] ?? DemoCart::totals(),
-], 'Cart updated');
+$totals = $result['totals'] ?? DemoCart::totals();
+$data = CouponOfferService::cartAjaxPayload($totals);
+$data['count'] = DemoCart::itemCount();
+
+Ajax::success($data, 'Cart updated');

@@ -245,16 +245,41 @@ final class CouponRepository
      *
      * @return list<array<string, mixed>>
      */
-    public static function activeForStorefront(int $limit = 30): array
+    /**
+     * @param int|null $customerId when set, includes assigned private coupons for that customer
+     * @return list<array<string, mixed>>
+     */
+    public static function activeForStorefront(?int $customerId = null, int $limit = 30): array
     {
         Install::ensureConnection();
-        $stmt = Database::pdo()->prepare(
-            'SELECT * FROM coupons WHERE is_active = 1
-             AND (starts_at IS NULL OR starts_at <= NOW())
-             AND (ends_at IS NULL OR ends_at >= NOW())
-             ORDER BY priority DESC, id DESC LIMIT ?'
-        );
-        $stmt->bindValue(1, max(1, min(100, $limit)), PDO::PARAM_INT);
+        $pdo = Database::pdo();
+        $limit = max(1, min(100, $limit));
+        $visibleSql = CouponStorefront::hasStorefrontVisibleColumn() ? ' AND storefront_visible = 1' : '';
+        if ($customerId !== null && $customerId > 0) {
+            $sql = 'SELECT c.* FROM coupons c
+                WHERE c.is_active = 1
+                  AND (c.starts_at IS NULL OR c.starts_at <= NOW())
+                  AND (c.ends_at IS NULL OR c.ends_at >= NOW())' . $visibleSql . '
+                  AND (
+                    NOT EXISTS (SELECT 1 FROM customer_coupon_assignments a WHERE a.coupon_id = c.id)
+                    OR EXISTS (SELECT 1 FROM customer_coupon_assignments a2 WHERE a2.coupon_id = c.id AND a2.customer_id = ?)
+                  )
+                ORDER BY c.priority DESC, c.id DESC LIMIT ?';
+            $stmt = $pdo->prepare($sql);
+            $stmt->bindValue(1, $customerId, PDO::PARAM_INT);
+            $stmt->bindValue(2, $limit, PDO::PARAM_INT);
+            $stmt->execute();
+
+            return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        }
+        $sql = 'SELECT c.* FROM coupons c
+            WHERE c.is_active = 1
+              AND (c.starts_at IS NULL OR c.starts_at <= NOW())
+              AND (c.ends_at IS NULL OR c.ends_at >= NOW())' . $visibleSql . '
+              AND NOT EXISTS (SELECT 1 FROM customer_coupon_assignments a WHERE a.coupon_id = c.id)
+            ORDER BY c.priority DESC, c.id DESC LIMIT ?';
+        $stmt = $pdo->prepare($sql);
+        $stmt->bindValue(1, $limit, PDO::PARAM_INT);
         $stmt->execute();
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
@@ -378,6 +403,10 @@ final class CouponRepository
                 $data['is_active'],
             ]);
             $couponId = (int) $pdo->lastInsertId();
+        }
+        if (CouponStorefront::hasStorefrontVisibleColumn()) {
+            $pdo->prepare('UPDATE coupons SET storefront_visible = ? WHERE id = ?')
+                ->execute([(int) (!empty($data['storefront_visible']) ? 1 : 0), $couponId]);
         }
         self::syncLinks($pdo, 'customer_coupon_assignments', 'customer_id', $couponId, $customerIds);
         self::syncLinks($pdo, 'coupon_categories', 'category_id', $couponId, $categoryIds);

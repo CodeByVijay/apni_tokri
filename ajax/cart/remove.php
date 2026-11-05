@@ -12,7 +12,8 @@ Csrf::requireValid();
 
 $lineKey = isset($_POST['line_key']) && is_string($_POST['line_key']) ? trim($_POST['line_key']) : '';
 $result = DemoCart::remove($lineKey);
-Ajax::success([
-    'count' => DemoCart::itemCount(),
-    'totals' => $result['totals'] ?? DemoCart::totals(),
-], 'Item removed');
+$totals = $result['totals'] ?? DemoCart::totals();
+$data = CouponOfferService::cartAjaxPayload($totals);
+$data['count'] = DemoCart::itemCount();
+
+Ajax::success($data, 'Item removed');

@@ -274,10 +274,7 @@ final class CustomerAuth
             throw new OtpRequestException(OtpSmsService::ERR_SMS_DISABLED);
         }
 
-        $limitMsg = self::otpRateLimitMessage($mobile);
-        if ($limitMsg !== null) {
-            throw new OtpRequestException(OtpSmsService::ERR_RATE_LIMITED);
-        }
+        OtpRateLimit::assertWithinLimits($mobile);
 
         $pdo = Database::pdo();
         $lockKey = 'at_otp_issue_' . $mobile;
@@ -287,7 +284,10 @@ final class CustomerAuth
             throw new OtpRequestException(OtpSmsService::ERR_SERVER_ERROR);
         }
 
+        $attemptId = 0;
         try {
+            OtpRateLimit::assertWithinLimits($mobile);
+
             OtpResendCooldown::assertCanSend($mobile);
 
             $otp = OtpSmsService::generateOtpPlain();
@@ -302,39 +302,25 @@ final class CustomerAuth
             $send = OtpSmsService::sendLoginOtp($mobile, $otp, $ttlSeconds);
             if (empty($send['ok'])) {
                 $pdo->prepare('DELETE FROM customer_otp_attempts WHERE id = ?')->execute([$attemptId]);
+                $attemptId = 0;
                 throw new OtpRequestException((string) ($send['error'] ?? OtpSmsService::ERR_SERVER_ERROR));
             }
 
             OtpResendCooldown::recordSuccessfulSend($mobile);
 
             return ['mobile' => $mobile, 'expires_in' => $ttlSeconds];
+        } catch (Throwable $e) {
+            if ($attemptId > 0) {
+                try {
+                    $pdo->prepare('DELETE FROM customer_otp_attempts WHERE id = ?')->execute([$attemptId]);
+                } catch (Throwable $cleanup) {
+                    error_log('OTP attempt rollback failed: ' . $cleanup->getMessage());
+                }
+            }
+            throw $e;
         } finally {
             $pdo->query('SELECT RELEASE_LOCK(' . $pdo->quote($lockKey) . ')');
         }
-    }
-
-    private static function otpRateLimitMessage(string $mobile): ?string
-    {
-        $pdo = Database::pdo();
-        $stmt = $pdo->prepare(
-            'SELECT COUNT(*) FROM customer_otp_attempts WHERE mobile = ? AND created_at > DATE_SUB(NOW(), INTERVAL 15 MINUTE)'
-        );
-        $stmt->execute([$mobile]);
-        if ((int) $stmt->fetchColumn() >= 3) {
-            return 'Too many OTP requests for this number. Try again in 15 minutes.';
-        }
-        $ip = $_SERVER['REMOTE_ADDR'] ?? '';
-        if ($ip !== '') {
-            $ipStmt = $pdo->prepare(
-                'SELECT COUNT(*) FROM customer_otp_attempts WHERE ip_address = ? AND created_at > DATE_SUB(NOW(), INTERVAL 1 HOUR)'
-            );
-            $ipStmt->execute([$ip]);
-            if ((int) $ipStmt->fetchColumn() >= 10) {
-                return 'Too many OTP requests from this network. Please wait and try again.';
-            }
-        }
-
-        return null;
     }
 
     /** Saved name for a mobile from the server-side customer record ('' when none/unknown). */

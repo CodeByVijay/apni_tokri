@@ -10,6 +10,13 @@ if (!Install::isSchemaReady()) {
 }
 
 Install::ensureConnection();
+$pdo = Database::pdo();
+$pdo->exec(
+    "INSERT INTO coupons (code, internal_name, discount_type, discount_value, min_cart_value, is_active, stackable_with_offers)
+     VALUES ('WELCOME10', 'Test fixture', 'percent', 10, 100, 1, 1)
+     ON DUPLICATE KEY UPDATE discount_type = 'percent', discount_value = 10, min_cart_value = 100,
+     is_active = 1, stackable_with_offers = 1, ends_at = NULL"
+);
 $fail = 0;
 
 function assertOk(bool $ok, string $label): void

@@ -37,7 +37,10 @@ final class CouponOfferService
         $offerStacks = !empty($offer['stack_with_coupons']);
 
         $items = [];
-        foreach (CouponRepository::activeForStorefront() as $row) {
+        foreach (CouponRepository::activeForStorefront($customerId) as $row) {
+            if (!CouponStorefront::isDiscoverable($row, $customerId)) {
+                continue;
+            }
             $code = strtoupper((string) $row['code']);
             $check = CouponService::validate($code, $subtotal, $customerId, $lines, $offerDiscount, $offerStacks);
             $reason = $check['ok'] ? null : (string) ($check['reason'] ?? 'invalid');
@@ -208,5 +211,29 @@ final class CouponOfferService
             default:
                 return 'Not available for this cart';
         }
+    }
+
+    /**
+     * Totals plus refreshed offers HTML for cart AJAX responses.
+     *
+     * @param array<string, mixed> $totals
+     * @return array{totals: array<string, mixed>, offers_html?: string}
+     */
+    public static function cartAjaxPayload(array $totals): array
+    {
+        $data = ['totals' => $totals];
+        try {
+            $offers = self::forCurrentCart($totals);
+            ob_start();
+            require APNI_TOKRI_ROOT . '/includes/partials/cart-offers.php';
+            $data['offers_html'] = (string) ob_get_clean();
+        } catch (Throwable $e) {
+            if (ob_get_level() > 0) {
+                ob_end_clean();
+            }
+            error_log('cart offers refresh: ' . get_class($e));
+        }
+
+        return $data;
     }
 }

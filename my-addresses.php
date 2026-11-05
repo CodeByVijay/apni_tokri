@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/includes/bootstrap.php';
 
-Security::sendSecurityHeaders(Security::isHttps());
+Security::sendSecurityHeaders(Security::isHttps(), true);
 require APNI_TOKRI_ROOT . '/includes/partials/account-guard.php';
 require APNI_TOKRI_ROOT . '/includes/partials/address-summary.php';
 
