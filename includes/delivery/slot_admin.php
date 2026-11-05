@@ -84,6 +84,7 @@ final class DeliverySlotRepository
         return $row ?: null;
     }
 
+    /** All orders ever linked to this slot (slug lock / delete guards only — not capacity). */
     public static function orderReferenceCount(int $slotId): int
     {
         Install::ensureConnection();
@@ -91,6 +92,12 @@ final class DeliverySlotRepository
         $stmt->execute([$slotId]);
 
         return (int) $stmt->fetchColumn();
+    }
+
+    /** Orders currently consuming slot capacity (same rules as checkout). */
+    public static function capacityConsumingOrderCount(int $slotId): int
+    {
+        return DeliverySlotReservationService::countOrdersConsumingSlot($slotId);
     }
 
     /**

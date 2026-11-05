@@ -38,7 +38,7 @@ if ($row === null) {
     http_response_code(404);
     layout_public_start(['seo' => SeoResolver::notFound(), 'activeNav' => '']);
     $emptyTitle = 'Page not found';
-    $emptyMessage = 'This page is not available.';
+    $emptyMessage = 'No page exists for this address.';
     $emptyIcon = 'file';
     $emptyActionHref = url_base() . '/index.php';
     $emptyActionLabel = 'Home';
@@ -55,8 +55,8 @@ $visibility = (string) ($row['visibility'] ?? CmsPageService::VISIBILITY_PUBLIC)
 if ($status !== PublishStatus::PUBLISHED) {
     http_response_code(404);
     layout_public_start(['seo' => SeoResolver::notFound(), 'activeNav' => '']);
-    $emptyTitle = 'Page not found';
-    $emptyMessage = 'This page is not available.';
+    $emptyTitle = 'Page not published';
+    $emptyMessage = 'This page exists but is not published yet. Check back later or contact the store.';
     echo '<div class="at-container py-10">';
     require APNI_TOKRI_ROOT . '/includes/partials/empty-state.php';
     echo '</div>';

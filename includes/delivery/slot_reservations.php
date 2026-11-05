@@ -10,6 +10,9 @@ final class DeliverySlotReservationService
 
     public const DEFAULT_HOLD_MINUTES = 30;
 
+    /** Order statuses that never consume slot capacity (checkout + admin counts). */
+    public const CAPACITY_EXCLUDED_ORDER_STATUSES = ['cancelled'];
+
     public static function tableReady(): bool
     {
         if (!Install::isSchemaReady()) {
@@ -52,8 +55,51 @@ final class DeliverySlotReservationService
         $pdo = $pdo ?? Database::pdo();
         $pdo->prepare(
             "UPDATE delivery_slot_reservations SET status = ?, updated_at = NOW()
-             WHERE order_id = ? AND status = ?"
-        )->execute([self::STATUS_RELEASED, $orderId, self::STATUS_HELD]);
+             WHERE order_id = ? AND status IN (?, ?)"
+        )->execute([self::STATUS_RELEASED, $orderId, self::STATUS_HELD, self::STATUS_CONSUMED]);
+    }
+
+    /** SQL fragment: orders that consume capacity via confirmed payment. */
+    public static function paidOrderConsumesCapacitySql(string $orderAlias = 'o'): string
+    {
+        $excluded = implode(',', array_map(static function (string $s): string {
+            return "'" . str_replace("'", "''", $s) . "'";
+        }, self::CAPACITY_EXCLUDED_ORDER_STATUSES));
+
+        return $orderAlias . ".payment_status = 'paid' AND " . $orderAlias . ".status NOT IN (" . $excluded . ')';
+    }
+
+    /**
+     * Orders currently using this slot's capacity (all delivery dates): paid non-cancelled + active checkout holds.
+     */
+    public static function countOrdersConsumingSlot(int $slotId, ?PDO $pdo = null): int
+    {
+        if ($slotId <= 0) {
+            return 0;
+        }
+        Install::ensureConnection();
+        $pdo = $pdo ?? Database::pdo();
+        self::releaseExpiredHolds($pdo);
+
+        $paidSql = 'SELECT COUNT(*) FROM orders o WHERE o.delivery_slot_id = ? AND ' . self::paidOrderConsumesCapacitySql('o');
+        $paid = $pdo->prepare($paidSql);
+        $paid->execute([$slotId]);
+        $count = (int) $paid->fetchColumn();
+
+        if (!self::tableReady()) {
+            return $count;
+        }
+
+        $holdSql = "SELECT COUNT(DISTINCT r.order_id) FROM delivery_slot_reservations r
+             INNER JOIN orders o ON o.id = r.order_id
+             WHERE r.delivery_slot_id = ? AND r.status = ? AND r.expires_at > NOW()
+             AND o.delivery_slot_id = ?
+             AND NOT (" . self::paidOrderConsumesCapacitySql('o') . ')';
+        $holds = $pdo->prepare($holdSql);
+        $holds->execute([$slotId, self::STATUS_HELD, $slotId]);
+        $count += (int) $holds->fetchColumn();
+
+        return $count;
     }
 
     public static function consumeForOrder(int $orderId, ?PDO $pdo = null): void
@@ -150,9 +196,9 @@ final class DeliverySlotReservationService
     public static function usedUnits(PDO $pdo, int $slotId, string $deliveryDate, ?int $excludeOrderId = null): int
     {
         $paid = $pdo->prepare(
-            "SELECT COUNT(*) FROM orders o
+            'SELECT COUNT(*) FROM orders o
              WHERE o.delivery_slot_id = ? AND o.delivery_date = ?
-             AND o.payment_status = 'paid' AND o.status NOT IN ('cancelled')"
+             AND ' . self::paidOrderConsumesCapacitySql('o')
         );
         $paid->execute([$slotId, $deliveryDate]);
         $used = (int) $paid->fetchColumn();
@@ -186,9 +232,9 @@ final class DeliverySlotReservationService
         $cap = (int) ($capStmt->fetchColumn() ?: 0);
 
         $paidStmt = $pdo->prepare(
-            "SELECT COUNT(*) FROM orders o
+            'SELECT COUNT(*) FROM orders o
              WHERE o.delivery_slot_id = ? AND o.delivery_date = ?
-             AND o.payment_status = 'paid' AND o.status NOT IN ('cancelled')"
+             AND ' . self::paidOrderConsumesCapacitySql('o')
         );
         $paidStmt->execute([$slotId, $deliveryDate]);
         $paid = (int) $paidStmt->fetchColumn();
@@ -204,10 +250,13 @@ final class DeliverySlotReservationService
             $holdStmt->execute([$slotId, $deliveryDate, self::STATUS_HELD]);
             $holds = (int) $holdStmt->fetchColumn();
 
+            $excluded = implode(',', array_map(static function (string $s): string {
+                return "'" . str_replace("'", "''", $s) . "'";
+            }, self::CAPACITY_EXCLUDED_ORDER_STATUSES));
             $orphanStmt = $pdo->prepare(
                 "SELECT COUNT(*) FROM orders o
                  WHERE o.delivery_slot_id = ? AND o.delivery_date = ?
-                 AND o.payment_status = 'pending' AND o.status NOT IN ('cancelled')
+                 AND o.payment_status = 'pending' AND o.status NOT IN (" . $excluded . ")
                  AND NOT EXISTS (
                    SELECT 1 FROM delivery_slot_reservations r
                    WHERE r.order_id = o.id AND r.status = ? AND r.expires_at > NOW()

@@ -58,6 +58,16 @@ final class CmsPageService
         return $links;
     }
 
+    /** Storefront URL for a published public CMS page, or null if unavailable. */
+    public static function publicPageUrl(string $slug): ?string
+    {
+        if (self::publishedPublicBySlug($slug) === null) {
+            return null;
+        }
+
+        return url_base() . '/page.php?slug=' . rawurlencode($slug);
+    }
+
     /** @return array<string, mixed>|null Published public page for storefront */
     public static function publishedPublicBySlug(string $slug): ?array
     {

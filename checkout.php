@@ -285,9 +285,17 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
                 <span class="text-sm"><strong>Pay online</strong><br><span class="at-muted">UPI, cards and netbanking preview — use the demo buttons below.</span></span>
             </div>
             <?php endif; ?>
+            <?php
+            $checkoutSubTermsUrl = CmsPageService::publicPageUrl('subscription-terms');
+            $checkoutRefundUrl = CmsPageService::publicPageUrl('refund-policy');
+            $checkoutShippingUrl = CmsPageService::publicPageUrl('shipping-policy');
+            ?>
             <label class="flex items-start gap-3 mt-4 text-sm">
                 <input type="checkbox" form="checkout-form" name="terms" value="1" required class="mt-0.5">
-                <span>I agree to the <a class="underline font-semibold" href="<?= Security::escape(url_base()) ?>/page.php?slug=refund-policy">refund</a>, <a class="underline font-semibold" href="<?= Security::escape(url_base()) ?>/page.php?slug=shipping-policy">delivery</a> and <a class="underline font-semibold" href="<?= Security::escape(url_base()) ?>/page.php?slug=subscription-terms">subscription</a> terms.</span>
+                <span>I agree to the
+                    <?php if ($checkoutRefundUrl !== null): ?><a class="underline font-semibold" href="<?= Security::escape($checkoutRefundUrl) ?>">refund</a><?php else: ?>refund<?php endif; ?>,
+                    <?php if ($checkoutShippingUrl !== null): ?><a class="underline font-semibold" href="<?= Security::escape($checkoutShippingUrl) ?>">delivery</a><?php else: ?>delivery<?php endif; ?>
+                    and <?php if ($checkoutSubTermsUrl !== null): ?><a class="underline font-semibold" href="<?= Security::escape($checkoutSubTermsUrl) ?>">subscription</a><?php else: ?>subscription<?php endif; ?> terms.</span>
             </label>
         </section>
 

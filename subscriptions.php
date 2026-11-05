@@ -56,6 +56,10 @@ layout_public_start([
         </div>
     <?php endif; ?>
 
-    <p class="mt-6 text-sm at-muted">Read the <a class="underline text-[var(--at-green)] font-semibold" href="<?= Security::escape($base) ?>/page.php?slug=subscription-terms">subscription terms</a> before paying.</p>
+    <?php
+    $cmsSubTermsSuffix = 'before paying.';
+    $cmsSubTermsClass = 'mt-6 text-sm at-muted';
+    require APNI_TOKRI_ROOT . '/includes/partials/cms-subscription-terms-link.php';
+    ?>
 </div>
 <?php layout_public_end(); ?>

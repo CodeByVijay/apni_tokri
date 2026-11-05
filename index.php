@@ -187,7 +187,10 @@ foreach ($rails as $rail) {
             <?php endforeach; ?>
         </div>
         <?php endif; ?>
-        <p class="mt-4 text-sm at-muted">Read the <a class="underline text-[var(--at-green)] font-semibold" href="<?= Security::escape($base) ?>/page.php?slug=subscription-terms">subscription terms</a> before subscribing.</p>
+        <?php
+        $cmsSubTermsSuffix = 'before subscribing.';
+        require APNI_TOKRI_ROOT . '/includes/partials/cms-subscription-terms-link.php';
+        ?>
     </div>
 </section>
 
