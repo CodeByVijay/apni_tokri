@@ -40,6 +40,27 @@ final class PaymentGatewayConfig
     }
 
     /**
+     * Value stored on payment rows (metadata_json.payment_environment) at initiation/capture.
+     *
+     * @return 'production'|'sandbox'|'test'|'simulate'
+     */
+    public static function recordedPaymentEnvironment(string $gateway): string
+    {
+        $gateway = strtolower(trim($gateway));
+        if ($gateway === 'simulate') {
+            return 'simulate';
+        }
+        if ($gateway === 'razorpay' && str_starts_with(RazorpayGateway::keyId(), 'rzp_test_')) {
+            return 'test';
+        }
+        if ($gateway === 'cashfree' && self::usesSandboxPayments()) {
+            return 'sandbox';
+        }
+
+        return 'production';
+    }
+
+    /**
      * Cashfree PG API base URL for orders/refunds (no network I/O).
      *
      * @throws RuntimeException when production has stored test mode enabled (fail closed)

@@ -243,7 +243,7 @@ final class AdminOrderService
         if ($orderId <= 0 || !Install::isSchemaReady()) {
             return ['ok' => false, 'message' => 'Order not found.'];
         }
-        $status = trim($status);
+        $status = strtolower(trim($status));
         if ($status === '' || !in_array($status, self::adminUpdatableStatuses(), true)) {
             return ['ok' => false, 'message' => 'Choose a valid order status.'];
         }

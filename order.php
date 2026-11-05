@@ -9,12 +9,29 @@ Security::sendSecurityHeaders(Security::isHttps());
 
 $id = isset($_GET['id']) && is_string($_GET['id']) ? trim($_GET['id']) : '';
 $order = null;
+$loadedFromDatabase = false;
+
 if ($id !== '' && CustomerService::isLoggedIn()) {
-    $order = CustomerService::order($id);
+    if (AppEnvironment::usePersistedStorefront() && CustomerAuth::check() && CommerceGateway::useDatabase()) {
+        $dbOrder = OrderRepository::forCustomerByNumber($id, (int) CustomerAuth::id());
+        if ($dbOrder !== null) {
+            $order = $dbOrder;
+            $loadedFromDatabase = true;
+        }
+    }
+    if ($order === null) {
+        $order = CustomerService::order($id);
+        $loadedFromDatabase = false;
+    }
 }
 if ($order === null && $id !== '' && AppEnvironment::allowsSessionDemoCommerce()) {
     $order = DemoCustomer::order($id);
+    $loadedFromDatabase = false;
 }
+
+$orderEnvironmentBadge = $order !== null
+    ? OrderPaymentEnvironmentBadge::forOrderConfirmation($id, $loadedFromDatabase)
+    : null;
 
 layout_public_start([
     'pageTitle' => 'Order confirmed — Apni Tokri',
@@ -36,12 +53,16 @@ if ($order === null): ?>
 <?php else:
     $totals = $order['totals'] ?? [];
     $slotLabels = ['morning' => 'Today, 9 AM – 12 PM', 'afternoon' => 'Today, 3 PM – 6 PM', 'tomorrow' => 'Tomorrow morning'];
+    $displayNumber = (string) ($order['id'] ?? $id);
     ?>
     <div class="at-container py-10 md:py-16 max-w-2xl">
         <div class="text-center">
             <span class="inline-flex w-16 h-16 rounded-full bg-[var(--at-success-bg)] text-[var(--at-success)] items-center justify-center"><?= at_icon('check', 'w-8 h-8') ?></span>
             <h1 class="at-h1 mt-4">Thank you — order confirmed</h1>
-            <p class="mt-2 at-muted">Order <span class="font-mono font-bold text-[var(--at-ink)]"><?= Security::escape($id) ?></span> (demo)</p>
+            <p class="mt-2 at-muted">
+                Order <span class="font-mono font-bold text-[var(--at-ink)]"><?= Security::escape($displayNumber) ?></span>
+                <?php require APNI_TOKRI_ROOT . '/includes/partials/order-environment-badge.php'; ?>
+            </p>
         </div>
         <div class="at-card mt-8">
             <div class="at-card__body">
@@ -50,7 +71,7 @@ if ($order === null): ?>
                     <div><dt>Delivery slot</dt><dd><?= Security::escape($slotLabels[(string) ($order['slot'] ?? '')] ?? (string) ($order['slot'] ?? '')) ?></dd></div>
                 </dl>
                 <div class="flex flex-col sm:flex-row gap-3 mt-5">
-                    <a href="<?= Security::escape(url_base()) ?>/order-details.php?id=<?= rawurlencode($id) ?>" class="at-btn at-btn--primary at-focusable flex-1">Track this order</a>
+                    <a href="<?= Security::escape(url_base()) ?>/order-details.php?id=<?= rawurlencode($displayNumber) ?>" class="at-btn at-btn--primary at-focusable flex-1">Track this order</a>
                     <a href="<?= Security::escape(url_base()) ?>/index.php" class="at-btn at-btn--secondary at-focusable flex-1">Keep shopping</a>
                 </div>
             </div>

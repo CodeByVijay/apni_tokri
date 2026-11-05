@@ -291,6 +291,61 @@ final class NotificationQueueService
     }
 
     /**
+     * Claim and process a single pending job by idempotency key (does not touch other queue rows).
+     *
+     * @return array{ok: bool, processed?: bool, duplicate?: bool, error?: string, permanent?: bool}
+     */
+    public static function claimAndProcessByIdempotencyKey(string $channel, string $idempotencyKey): array
+    {
+        if (!self::tableReady() || $idempotencyKey === '' || !in_array($channel, ['email', 'sms', 'in_app'], true)) {
+            return ['ok' => false, 'error' => 'invalid_request'];
+        }
+
+        try {
+            $jobId = Database::transaction(static function () use ($channel, $idempotencyKey): int {
+                $pdo = Database::pdo();
+                $stmt = $pdo->prepare(
+                    'SELECT id FROM notification_queue
+                     WHERE channel = ? AND idempotency_key = ? AND status = ?
+                       AND (scheduled_at IS NULL OR scheduled_at <= NOW())
+                       AND (next_retry_at IS NULL OR next_retry_at <= NOW())
+                     LIMIT 1 FOR UPDATE'
+                );
+                $stmt->execute([$channel, $idempotencyKey, self::STATUS_PENDING]);
+                $row = $stmt->fetch(PDO::FETCH_ASSOC);
+                if (!$row) {
+                    return 0;
+                }
+                $id = (int) $row['id'];
+                $token = Security::randomToken(16);
+                $expires = date('Y-m-d H:i:s', time() + self::recommendedLeaseSeconds());
+                $upd = $pdo->prepare(
+                    'UPDATE notification_queue SET status = ?, lease_token = ?, lease_expires_at = ?, processing_started_at = NOW()
+                     WHERE id = ? AND status = ?'
+                );
+                $upd->execute([self::STATUS_PROCESSING, $token, $expires, $id, self::STATUS_PENDING]);
+                if ($upd->rowCount() !== 1) {
+                    return 0;
+                }
+
+                return $id;
+            });
+
+            if ($jobId <= 0) {
+                return ['ok' => true, 'processed' => false, 'duplicate' => true];
+            }
+
+            $result = self::processJob($jobId);
+
+            return array_merge(['processed' => !empty($result['ok'])], $result);
+        } catch (Throwable $e) {
+            error_log('NotificationQueueService::claimAndProcessByIdempotencyKey');
+
+            return ['ok' => false, 'error' => 'claim_failed'];
+        }
+    }
+
+    /**
      * @return array{ok: bool, permanent?: bool, error?: string}
      */
     public static function processJob(int $jobId): array

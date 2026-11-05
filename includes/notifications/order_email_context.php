@@ -23,11 +23,18 @@ final class OrderEmailContext
 
     public static function shouldNotifyStatusTransition(string $from, string $to): bool
     {
+        $from = strtolower(trim($from));
+        $to = strtolower(trim($to));
         if ($from === $to) {
             return false;
         }
 
         return in_array($to, self::notifiableOrderStatuses(), true);
+    }
+
+    public static function normalizeOrderStatus(string $status): string
+    {
+        return strtolower(trim($status));
     }
 
     public static function gatewayDisplayName(string $gateway): string

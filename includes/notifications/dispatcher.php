@@ -85,12 +85,22 @@ final class NotificationDispatcher
         if (!NotificationQueueService::tableReady() || $orderId <= 0) {
             return;
         }
+        $fromStatus = OrderEmailContext::normalizeOrderStatus($fromStatus);
+        $toStatus = OrderEmailContext::normalizeOrderStatus($toStatus);
         if (!OrderEmailContext::shouldNotifyStatusTransition($fromStatus, $toStatus)) {
+            return;
+        }
+        $templateKey = 'order.status.email';
+        if (!NotificationTemplateRepository::ensureActiveEmailTemplate($templateKey)) {
+            error_log('NotificationDispatcher::orderStatusChanged missing template ' . $templateKey);
+
             return;
         }
         try {
             $recipient = OrderEmailContext::resolveRecipientForOrderId($orderId);
             if ($recipient === null) {
+                error_log('NotificationDispatcher::orderStatusChanged no valid recipient for order_id=' . $orderId);
+
                 return;
             }
             $payload = OrderEmailContext::enrichOrderPayload(
@@ -104,15 +114,30 @@ final class NotificationDispatcher
                 ],
                 OrderEmailContext::latestPaymentForOrder($orderId)
             );
-            NotificationQueueService::enqueue(
+            $idempotencyKey = 'order.status:order:' . $orderId . ':' . $toStatus . ':email';
+            $enq = NotificationQueueService::enqueue(
                 'order.status',
                 'email',
                 $recipient['email'],
                 $recipient['recipient_ref'],
-                'order.status.email',
+                $templateKey,
                 $payload,
-                'order.status:order:' . $orderId . ':' . $toStatus . ':email'
+                $idempotencyKey
             );
+            if (empty($enq['ok'])) {
+                error_log('NotificationDispatcher::orderStatusChanged enqueue failed order_id=' . $orderId);
+
+                return;
+            }
+            if (!empty($enq['created'])) {
+                $send = NotificationQueueService::claimAndProcessByIdempotencyKey('email', $idempotencyKey);
+                if (empty($send['ok'])) {
+                    error_log(
+                        'NotificationDispatcher::orderStatusChanged delivery not completed order_id='
+                        . $orderId . ' error=' . (string) ($send['error'] ?? 'unknown')
+                    );
+                }
+            }
         } catch (Throwable $e) {
             error_log('NotificationDispatcher::orderStatusChanged');
         }

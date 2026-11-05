@@ -90,6 +90,7 @@ require_once APNI_TOKRI_ROOT . '/includes/notifications/customer_email_layout.ph
 require_once APNI_TOKRI_ROOT . '/includes/notifications/order_email_context.php';
 require_once APNI_TOKRI_ROOT . '/includes/notifications/template_admin_service.php';
 require_once APNI_TOKRI_ROOT . '/includes/notifications/template_renderer.php';
+require_once APNI_TOKRI_ROOT . '/includes/payment/order_environment_badge.php';
 require_once APNI_TOKRI_ROOT . '/includes/notifications/queue_service.php';
 require_once APNI_TOKRI_ROOT . '/includes/notifications/dispatcher.php';
 require_once APNI_TOKRI_ROOT . '/includes/notifications/admin_notifications.php';

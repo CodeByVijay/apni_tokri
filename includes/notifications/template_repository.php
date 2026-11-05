@@ -73,4 +73,54 @@ final class NotificationTemplateRepository
 
         return $stmt->rowCount() > 0;
     }
+
+    /**
+     * Insert factory default when a system template row is missing (e.g. migration 1.30 not applied yet).
+     */
+    public static function ensureFromDefaults(string $templateKey): bool
+    {
+        if (!self::tableReady() || $templateKey === '') {
+            return false;
+        }
+        if (self::findByKeyAny($templateKey) !== null) {
+            return true;
+        }
+        $def = NotificationTemplateDefaults::forKey($templateKey);
+        if ($def === null || ($def['channel'] ?? '') !== 'email') {
+            return false;
+        }
+        try {
+            Install::ensureConnection();
+            $stmt = Database::pdo()->prepare(
+                'INSERT INTO notification_templates
+                 (template_key, event_type, channel, subject, body_html, body_text, is_active)
+                 VALUES (?, ?, ?, ?, ?, ?, 1)'
+            );
+            $stmt->execute([
+                $templateKey,
+                $def['event_type'],
+                'email',
+                $def['subject'],
+                $def['body_html'],
+                $def['body_text'],
+            ]);
+
+            return true;
+        } catch (Throwable $e) {
+            error_log('NotificationTemplateRepository::ensureFromDefaults');
+
+            return false;
+        }
+    }
+
+    /** True when an active template exists (may seed from defaults if missing). */
+    public static function ensureActiveEmailTemplate(string $templateKey): bool
+    {
+        $row = self::findByKeyAny($templateKey);
+        if ($row !== null) {
+            return !empty($row['is_active']);
+        }
+
+        return self::ensureFromDefaults($templateKey);
+    }
 }

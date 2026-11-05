@@ -215,10 +215,14 @@ final class PaymentService
 
         $idempotency = self::nextIdempotencyKey($orderNumber);
         $pdo = Database::pdo();
+        $envMeta = json_encode(
+            ['payment_environment' => PaymentGatewayConfig::recordedPaymentEnvironment($gateway)],
+            JSON_UNESCAPED_UNICODE
+        );
         $pdo->prepare(
-            'INSERT INTO payments (order_id, gateway, amount, currency, status, idempotency_key)
-             VALUES (?, ?, ?, ?, ?, ?)'
-        )->execute([$orderId, $gateway, round($amountInr, 2), 'INR', 'created', $idempotency]);
+            'INSERT INTO payments (order_id, gateway, amount, currency, status, idempotency_key, metadata_json)
+             VALUES (?, ?, ?, ?, ?, ?, ?)'
+        )->execute([$orderId, $gateway, round($amountInr, 2), 'INR', 'created', $idempotency, $envMeta]);
         $paymentId = (int) $pdo->lastInsertId();
 
         if ($gateway === 'simulate') {
@@ -888,6 +892,7 @@ final class PaymentService
                     'gateway' => $gateway,
                     'gateway_payment_id' => $gatewayPaymentId,
                     'gateway_order_id' => $gatewayOrderId,
+                    'payment_environment' => PaymentGatewayConfig::recordedPaymentEnvironment($gateway),
                 ];
                 if ($gatewayEventId !== null) {
                     $meta['gateway_event_id'] = $gatewayEventId;

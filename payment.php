@@ -108,6 +108,23 @@ $amount = (float) $order['grand_total'];
 $mode = is_array($checkout) ? (string) ($checkout['mode'] ?? 'simulate') : 'simulate';
 $cashfreeTestMode = PaymentGatewayConfig::usesSandboxPayments();
 $gatewayLabel = PaymentGatewayConfig::gatewayLabel($mode === 'simulate' ? 'simulate' : (string) PaymentGatewayConfig::activeGateway());
+$orderEnvironmentBadge = null;
+if (is_array($latestPayment) && $latestPayment !== []) {
+    $orderEnvironmentBadge = OrderPaymentEnvironmentBadge::badgeForPaymentRow($latestPayment);
+}
+if ($orderEnvironmentBadge === null && $mode === 'simulate') {
+    $orderEnvironmentBadge = OrderPaymentEnvironmentBadge::badgeForPaymentRow(['gateway' => 'simulate', 'metadata_json' => null]);
+}
+if ($orderEnvironmentBadge === null && $mode !== 'simulate') {
+    $gw = $mode === 'razorpay' || $mode === 'cashfree' ? $mode : (string) PaymentGatewayConfig::activeGateway();
+    $env = PaymentGatewayConfig::recordedPaymentEnvironment($gw);
+    if ($env !== 'production') {
+        $orderEnvironmentBadge = OrderPaymentEnvironmentBadge::badgeForPaymentRow([
+            'gateway' => $gw,
+            'metadata_json' => json_encode(['payment_environment' => $env]),
+        ]);
+    }
+}
 $payReference = is_array($checkout) ? (string) ($checkout['reference_id'] ?? '') : '';
 $canRetry = $error !== '' && (string) ($order['payment_status'] ?? '') !== 'paid';
 
@@ -124,7 +141,7 @@ if ($mode === 'razorpay'): ?>
 ?>
 <div class="at-container py-8 md:py-12 max-w-lg at-payment-page">
     <h1 class="at-h1">Complete payment</h1>
-    <p class="at-muted mt-1">Order <span class="font-mono font-bold"><?= Security::escape($orderNumber) ?></span></p>
+    <p class="at-muted mt-1">Order <span class="font-mono font-bold"><?= Security::escape($orderNumber) ?></span><?php require APNI_TOKRI_ROOT . '/includes/partials/order-environment-badge.php'; ?></p>
 
     <?php if ($error !== ''): ?>
         <div class="at-alert at-alert--error mt-4" role="alert">
@@ -143,9 +160,7 @@ if ($mode === 'razorpay'): ?>
             <div class="at-checkout-pay__card">
                 <div class="at-checkout-pay__row">
                     <span class="at-checkout-pay__label">Payment gateway</span>
-                    <span class="at-checkout-pay__value"><?= Security::escape($gatewayLabel) ?>
-                        <?php if ($cashfreeTestMode && $mode !== 'simulate'): ?><span class="at-badge">Test</span><?php endif; ?>
-                    </span>
+                    <span class="at-checkout-pay__value"><?= Security::escape($gatewayLabel) ?></span>
                 </div>
                 <div class="at-checkout-pay__row">
                     <span class="at-checkout-pay__label">Amount payable</span>
