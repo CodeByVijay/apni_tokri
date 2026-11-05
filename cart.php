@@ -29,7 +29,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
     </div>
 </div>
 
-<div class="at-container py-6 md:py-8">
+<div class="at-container py-6 md:py-8 <?= $items !== [] ? 'at-cart-page--sticky' : '' ?>">
 <?php if ($items === []): ?>
     <?php
     $emptyTitle = 'Your cart is empty';
@@ -44,8 +44,8 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
     $toFree = (float) ($totals['amount_to_free_delivery'] ?? 0);
     $freePct = $toFree > 0 ? max(4, min(100, (int) round((1 - $toFree / $freeThreshold) * 100))) : 100;
     ?>
-    <div class="grid lg:grid-cols-[1fr_24rem] gap-6 lg:gap-10 items-start">
-        <div>
+    <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_24rem] gap-6 lg:gap-10 items-start">
+        <div class="min-w-0">
             <div class="at-card at-card--flat mb-4">
                 <div class="at-card__body !py-4">
                     <?php if ($toFree > 0): ?>
@@ -88,7 +88,19 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
                 <?php endforeach; ?>
             </ul>
 
-            <form id="at-coupon-form" class="at-card at-card--flat mt-6">
+            <div class="mt-6" data-at-offers-wrap>
+                <?php
+                try {
+                    $offers = CouponOfferService::forCurrentCart($totals);
+                } catch (Throwable $e) {
+                    error_log('cart offers: ' . get_class($e));
+                    $offers = [];
+                }
+                require APNI_TOKRI_ROOT . '/includes/partials/cart-offers.php';
+                ?>
+            </div>
+
+            <form id="at-coupon-form" class="at-card at-card--flat mt-3">
                 <div class="at-card__body !py-4">
                     <?= Csrf::field() ?>
                     <label class="at-label flex items-center gap-2" for="coupon_code"><?= at_icon('tag', 'w-4 h-4 text-[var(--at-green)]') ?>Have a coupon?</label>
@@ -112,6 +124,13 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
             <a href="<?= Security::escape(url_base()) ?>/checkout.php" class="at-btn at-btn--primary at-btn--lg at-btn--block at-focusable mt-4">Proceed to checkout <?= at_icon('arrow-right', 'w-5 h-5') ?></a>
             <a href="<?= Security::escape(url_base()) ?>/index.php" class="at-btn at-btn--ghost at-btn--block at-focusable mt-2">Continue shopping</a>
         </aside>
+    </div>
+    <div class="at-cart-sticky" data-at-cart-sticky>
+        <div class="min-w-0">
+            <p class="text-xs at-muted leading-tight">Total</p>
+            <p class="font-extrabold text-lg leading-tight" data-cart-total><?= Security::escape(catalogue_format_price((float) $totals['total'])) ?></p>
+        </div>
+        <a href="<?= Security::escape(url_base()) ?>/checkout.php" class="at-btn at-btn--primary at-focusable at-cart-sticky__cta">Checkout <?= at_icon('arrow-right', 'w-5 h-5') ?></a>
     </div>
 <?php endif; ?>
 </div>

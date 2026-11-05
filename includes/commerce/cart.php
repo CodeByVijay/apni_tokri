@@ -96,6 +96,22 @@ final class CartService
         return SessionCartBackend::items();
     }
 
+    /**
+     * Pricing lines for the current cart (same shape used by PricingService / CouponService).
+     *
+     * @return list<array<string, mixed>>
+     */
+    public static function currentPricingLines(): array
+    {
+        if (AppEnvironment::usePersistedStorefront()) {
+            $cartId = self::resolveCartId(false);
+
+            return $cartId > 0 ? self::pricingLines($cartId) : [];
+        }
+
+        return SessionCartBackend::pricingLines();
+    }
+
     public static function itemCount(): int
     {
         $n = 0;
@@ -698,6 +714,25 @@ final class SessionCartBackend
     public static function items(): array
     {
         return array_values(self::state()['items']);
+    }
+
+    /** @return list<array<string, mixed>> */
+    public static function pricingLines(): array
+    {
+        $lines = [];
+        foreach (self::items() as $item) {
+            $lines[] = [
+                'qty' => $item['qty'],
+                'unit_price' => $item['unit_price'],
+                'regular_price' => $item['regular_price'] ?? $item['unit_price'],
+                'on_sale' => $item['on_sale'] ?? false,
+                'product_id' => (int) ($item['product_id'] ?? 0),
+                'category_id' => (int) ($item['category_id'] ?? 0),
+                'variant_id' => (int) ($item['variant_id'] ?? 0),
+            ];
+        }
+
+        return $lines;
     }
 
     public static function itemCount(): int

@@ -1,17 +1,32 @@
-# Apni Tokri — basic hardening (adjust for your host)
+
+# Apni Tokri — basic hardening
 
 <IfModule mod_rewrite.c>
     RewriteEngine On
+
+    # Sitemap and robots
     RewriteRule ^sitemap\.xml$ sitemap.php [L]
     RewriteRule ^sitemap-([0-9]+)\.xml$ sitemap.php?part=$1 [L,QSA]
     RewriteRule ^robots\.txt$ robots.php [L]
-    # Block direct web access to includes and storage (when DocumentRoot is project root)
-    RewriteRule ^includes/ - [F,L]
-    RewriteRule ^storage/ - [F,L]
-    RewriteRule ^database/ - [F,L]
+
+    # Block direct web access to sensitive directories
+    RewriteRule ^includes/ - [F,L,NC]
+    RewriteRule ^storage/ - [F,L,NC]
+    RewriteRule ^database/ - [F,L,NC]
     RewriteRule ^scripts(/|$) - [F,L,NC]
+
+    # Redirect direct .php requests to extensionless URLs
+    # Use 302 initially; change to 301 after successful testing
+    RewriteCond %{THE_REQUEST} \s/+(.+?)\.php(?:[\s?]) [NC]
+    RewriteRule ^(.+?)\.php$ /$1 [R=302,L,NE]
+
+    # Internally rewrite extensionless URLs to existing PHP files
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME}.php -f
+    RewriteRule ^(.+?)/?$ $1.php [END]
+
 </IfModule>
 
-# Upload PHP deny rules: configure in Apache vhost when needed (DirectoryMatch is not valid in .htaccess on all hosts).
-
+# Disable directory listing
 Options -Indexes

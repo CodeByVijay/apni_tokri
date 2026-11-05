@@ -239,6 +239,27 @@ final class CouponRepository
         ];
     }
 
+    /**
+     * Coupons that are active and inside their date window (candidates for storefront discovery).
+     * Per-customer visibility and eligibility are decided by CouponService, not here.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public static function activeForStorefront(int $limit = 30): array
+    {
+        Install::ensureConnection();
+        $stmt = Database::pdo()->prepare(
+            'SELECT * FROM coupons WHERE is_active = 1
+             AND (starts_at IS NULL OR starts_at <= NOW())
+             AND (ends_at IS NULL OR ends_at >= NOW())
+             ORDER BY priority DESC, id DESC LIMIT ?'
+        );
+        $stmt->bindValue(1, max(1, min(100, $limit)), PDO::PARAM_INT);
+        $stmt->execute();
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
     /** @return array<string, mixed>|null */
     public static function find(int $id): ?array
     {

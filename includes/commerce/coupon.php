@@ -25,7 +25,7 @@ final class CouponService
 
     /**
      * @param list<array<string, mixed>>|null $lines
-     * @return array{ok: bool, message?: string, discount?: float, code?: string|null}
+     * @return array{ok: bool, message?: string, reason?: string, shortfall?: float, discount?: float, code?: string|null}
      */
     public static function validate(
         ?string $code,
@@ -45,7 +45,7 @@ final class CouponService
         }
 
         if ($offerDiscount > 0 && !$offerStacksWithCoupons) {
-            return ['ok' => false, 'message' => 'This coupon cannot be combined with the active automatic offer.'];
+            return ['ok' => false, 'reason' => 'offer_conflict', 'message' => 'This coupon cannot be combined with the active automatic offer.'];
         }
 
         Install::ensureConnection();
@@ -58,28 +58,28 @@ final class CouponService
         $stmt->execute([$code]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$row) {
-            return ['ok' => false, 'message' => 'Invalid or expired coupon.'];
+            return ['ok' => false, 'reason' => 'invalid', 'message' => 'Invalid or expired coupon.'];
         }
 
         $couponId = (int) $row['id'];
         if (!self::customerMayUseCoupon($couponId, $customerId)) {
-            return ['ok' => false, 'message' => 'This coupon is not assigned to your account.'];
+            return ['ok' => false, 'reason' => 'not_assigned', 'message' => 'This coupon is not assigned to your account.'];
         }
         if (!empty($row['first_order_only'])) {
             if ($customerId === null) {
-                return ['ok' => false, 'message' => 'Please log in to use this first-order coupon.'];
+                return ['ok' => false, 'reason' => 'login_required', 'message' => 'Please log in to use this first-order coupon.'];
             }
             if (!PromotionService::isFirstPaidOrderCustomer($customerId)) {
-                return ['ok' => false, 'message' => 'This coupon is valid on your first order only.'];
+                return ['ok' => false, 'reason' => 'first_order_only', 'message' => 'This coupon is valid on your first order only.'];
             }
         }
         if ($row['usage_limit'] !== null && (int) $row['used_count'] >= (int) $row['usage_limit']) {
-            return ['ok' => false, 'message' => 'This coupon has reached its usage limit.'];
+            return ['ok' => false, 'reason' => 'usage_limit', 'message' => 'This coupon has reached its usage limit.'];
         }
         if ($customerId !== null && $row['per_customer_limit'] !== null) {
             $usedByCustomer = self::customerUsageCount($couponId, $customerId);
             if ($usedByCustomer >= (int) $row['per_customer_limit']) {
-                return ['ok' => false, 'message' => 'You have already used this coupon the maximum number of times.'];
+                return ['ok' => false, 'reason' => 'per_customer_limit', 'message' => 'You have already used this coupon the maximum number of times.'];
             }
         }
 
@@ -87,7 +87,7 @@ final class CouponService
             ? self::eligibleSubtotalForCoupon($couponId, $lines)
             : $subtotal;
         if ($eligibleSubtotal <= 0) {
-            return ['ok' => false, 'message' => 'Coupon does not apply to items in your cart.'];
+            return ['ok' => false, 'reason' => 'not_applicable', 'message' => 'Coupon does not apply to items in your cart.'];
         }
 
         // Minimum applies to the ELIGIBLE subtotal (items the coupon can discount).
@@ -95,18 +95,18 @@ final class CouponService
         $min = $row['min_cart_value'] !== null ? (float) $row['min_cart_value'] : 0.0;
         if ($eligibleSubtotal < $min) {
             $scoped = $lines !== null && abs($eligibleSubtotal - $subtotal) > 0.009;
-            return ['ok' => false, 'message' => 'Minimum ' . ($scoped ? 'eligible items value' : 'cart value')
+            return ['ok' => false, 'reason' => 'min_cart', 'shortfall' => round($min - $eligibleSubtotal, 2), 'message' => 'Minimum ' . ($scoped ? 'eligible items value' : 'cart value')
                 . ' for this coupon is ₹' . number_format($min, 0) . '.'];
         }
 
         if ($offerDiscount > 0 && empty($row['stackable_with_offers'])) {
-            return ['ok' => false, 'message' => 'This coupon cannot be combined with automatic offers.'];
+            return ['ok' => false, 'reason' => 'offer_conflict', 'message' => 'This coupon cannot be combined with automatic offers.'];
         }
 
         $couponBase = max(0, $eligibleSubtotal - ($offerStacksWithCoupons ? $offerDiscount * ($eligibleSubtotal / max($subtotal, 0.01)) : 0));
         $discount = self::discountAmount($row, $couponBase);
         if ($discount <= 0) {
-            return ['ok' => false, 'message' => 'Coupon does not apply to this cart.'];
+            return ['ok' => false, 'reason' => 'no_discount', 'message' => 'Coupon does not apply to this cart.'];
         }
 
         return ['ok' => true, 'discount' => round($discount, 2), 'code' => $code];
