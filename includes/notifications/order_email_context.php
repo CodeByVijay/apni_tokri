@@ -128,15 +128,14 @@ final class OrderEmailContext
     public static function enrichOrderPayload(int $orderId, array $base, ?array $paymentRow = null): array
     {
         $orderNumber = (string) ($base['order_number'] ?? '');
-        $baseUrl = url_base();
         $out = $base;
         $out['site_name'] = trim((string) (AppSettings::get('app.name', 'Apni Tokri') ?? 'Apni Tokri'));
         if ($out['site_name'] === '') {
             $out['site_name'] = 'Apni Tokri';
         }
-        $out['order_url'] = $baseUrl . '/order-details.php?id=' . rawurlencode((string) $orderId);
-        $out['payment_retry_url'] = $baseUrl . '/payment.php?order=' . rawurlencode($orderNumber);
-        $out['orders_url'] = $baseUrl . '/my-orders.php';
+        $out['order_url'] = self::customerOrderDetailUrl($orderNumber);
+        $out['payment_retry_url'] = self::customerPaymentRetryUrl($orderNumber);
+        $out['orders_url'] = self::customerOrdersListUrl();
 
         if ($paymentRow === null) {
             $paymentRow = self::latestPaymentForOrder($orderId);
@@ -194,5 +193,28 @@ final class OrderEmailContext
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
         return $row ?: null;
+    }
+
+    /** Absolute storefront URL for order details (uses app.base_url, not Host header). */
+    public static function customerOrderDetailUrl(string $orderNumber): string
+    {
+        $orderNumber = trim($orderNumber);
+        if ($orderNumber === '') {
+            return self::customerOrdersListUrl();
+        }
+
+        return SeoUrl::absolute('/order-details.php?id=' . rawurlencode($orderNumber));
+    }
+
+    public static function customerPaymentRetryUrl(string $orderNumber): string
+    {
+        $orderNumber = trim($orderNumber);
+
+        return SeoUrl::absolute('/payment.php?order=' . rawurlencode($orderNumber));
+    }
+
+    public static function customerOrdersListUrl(): string
+    {
+        return SeoUrl::absolute('/my-orders.php');
     }
 }

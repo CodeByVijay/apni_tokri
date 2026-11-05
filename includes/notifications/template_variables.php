@@ -36,17 +36,17 @@ final class NotificationTemplateVariables
     /** @return array<string, string> */
     public static function samplePreviewPayload(string $eventType): array
     {
-        $base = url_base();
+        $sampleOrder = 'AT-SAMPLE-001';
         $payload = [
             'customer_name' => 'Sample Customer',
             'site_name' => trim((string) (AppSettings::get('app.name', 'Apni Tokri') ?? 'Apni Tokri')) ?: 'Apni Tokri',
-            'order_number' => 'AT-SAMPLE-001',
+            'order_number' => $sampleOrder,
             'amount' => '499.00',
             'gateway_name' => 'Cashfree',
             'payment_reference' => 'cf_sample_pay_12345',
-            'payment_retry_url' => $base . '/payment.php?order=AT-SAMPLE-001',
-            'order_url' => $base . '/order-details.php?id=1',
-            'orders_url' => $base . '/my-orders.php',
+            'payment_retry_url' => OrderEmailContext::customerPaymentRetryUrl($sampleOrder),
+            'order_url' => OrderEmailContext::customerOrderDetailUrl($sampleOrder),
+            'orders_url' => OrderEmailContext::customerOrdersListUrl(),
             'paid_at' => date('Y-m-d H:i:s'),
             'event_date' => date('d M Y, h:i A'),
             'status_label' => 'Out for delivery',
