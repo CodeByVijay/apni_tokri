@@ -16,7 +16,10 @@ final class CustomerService
     /** @return array<string, string> */
     public static function profile(): array
     {
-        if (AppEnvironment::usePersistedStorefront() && CustomerAuth::check()) {
+        if (AppEnvironment::usePersistedStorefront()) {
+            if (!CustomerAuth::check()) {
+                return [];
+            }
             Install::ensureConnection();
             $stmt = Database::pdo()->prepare('SELECT id, mobile, name FROM customers WHERE id = ? LIMIT 1');
             $stmt->execute([CustomerAuth::id()]);
@@ -57,7 +60,10 @@ final class CustomerService
     /** @return list<array<string, string>> */
     public static function addresses(): array
     {
-        if (AppEnvironment::usePersistedStorefront() && CustomerAuth::check()) {
+        if (AppEnvironment::usePersistedStorefront()) {
+            if (!CustomerAuth::check()) {
+                return [];
+            }
             Install::ensureConnection();
             $stmt = Database::pdo()->prepare(
                 'SELECT id, label, line1, line2, city, pincode, is_default FROM customer_addresses WHERE customer_id = ? AND archived_at IS NULL ORDER BY is_default DESC, id'
@@ -96,7 +102,10 @@ final class CustomerService
             return ['ok' => false, 'message' => 'We do not deliver to this pincode yet. Indore area only (demo rules).'];
         }
 
-        if (AppEnvironment::usePersistedStorefront() && CustomerAuth::check()) {
+        if (AppEnvironment::usePersistedStorefront()) {
+            if (!CustomerAuth::check()) {
+                return ['ok' => false, 'message' => 'Please log in to save a delivery address.'];
+            }
             Install::ensureConnection();
             $pdo = Database::pdo();
             $pdo->prepare(
@@ -210,6 +219,9 @@ final class SessionCustomerBackend
     /** @return list<array<string, string>> */
     public static function addresses(): array
     {
+        if (!AppEnvironment::allowsSessionDemoCommerce()) {
+            return [];
+        }
         if (!isset($_SESSION[self::ADDRESSES]) || !is_array($_SESSION[self::ADDRESSES])) {
             $_SESSION[self::ADDRESSES] = [
                 [

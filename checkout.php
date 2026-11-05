@@ -26,7 +26,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     Csrf::requireValid();
     $action = isset($_POST['action']) && is_string($_POST['action']) ? $_POST['action'] : '';
 
-    $dbAddressMode = CommerceGateway::useDatabase() && CustomerAuth::check() && CustomerAuth::id() !== null;
+    $persistedCheckout = AppEnvironment::usePersistedStorefront();
+    $dbAddressMode = $persistedCheckout && CustomerAuth::check() && CustomerAuth::id() !== null;
 
     if (($action === 'add_address' || $action === 'update_address') && $dbAddressMode) {
         // Same validation and persistence as my-addresses.php (AddressInput via CustomerAccountService).
@@ -46,6 +47,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $addrFormOpenMode = $action === 'update_address' ? 'update' : 'add';
         $addrFormOpenId = $editAddressId;
     } elseif ($action === 'add_address') {
+        if (AppEnvironment::usePersistedStorefront()) {
+            $_SESSION['checkout_return'] = url_base() . '/checkout.php';
+            header('Location: ' . url_base() . '/login.php', true, 302);
+            exit;
+        }
         // Demo/session mode (no database): legacy single-line form.
         $line1 = isset($_POST['line1']) && is_string($_POST['line1']) ? trim($_POST['line1']) : '';
         $pin = isset($_POST['pincode']) && is_string($_POST['pincode']) ? trim($_POST['pincode']) : '';
@@ -81,17 +87,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $loggedIn = CustomerService::isLoggedIn();
-$dbAddresses = CommerceGateway::useDatabase() && $loggedIn && CustomerAuth::id() !== null;
-$addressRows = $dbAddresses ? CustomerAccountService::listAddresses((int) CustomerAuth::id()) : [];
-$addresses = $dbAddresses ? array_map(static function (array $r): array {
-    return ['id' => (string) $r['id']] + $r;
-}, $addressRows) : CustomerService::addresses();
+$persistedCheckout = AppEnvironment::usePersistedStorefront();
+$dbAddressMode = $persistedCheckout && $loggedIn && CustomerAuth::id() !== null;
+$addressRows = $dbAddressMode ? CustomerAccountService::listAddresses((int) CustomerAuth::id()) : [];
+if ($dbAddressMode) {
+    $addresses = array_map(static function (array $r): array {
+        return ['id' => (string) $r['id']] + $r;
+    }, $addressRows);
+} elseif ($persistedCheckout) {
+    $addresses = [];
+} else {
+    $addresses = CustomerService::addresses();
+}
 $addrFormErrors = $addrFormErrors ?? [];
 $addrFormOpenMode = $addrFormOpenMode ?? '';
 $addrFormOpenId = $addrFormOpenId ?? 0;
-$addrProfile = $dbAddresses ? (CustomerAccountService::profile((int) CustomerAuth::id()) ?? []) : [];
+$addrProfile = $dbAddressMode ? (CustomerAccountService::profile((int) CustomerAuth::id()) ?? []) : [];
 $addrFormValues = isset($addrPostValues) ? $addrPostValues : AddressInput::blankFormValues($addrProfile);
-if ($dbAddresses && $addrFormOpenMode === '' && $_SERVER['REQUEST_METHOD'] === 'GET') {
+if ($dbAddressMode && $addrFormOpenMode === '' && $_SERVER['REQUEST_METHOD'] === 'GET') {
     if (isset($_GET['address']) && is_string($_GET['address']) && ctype_digit($_GET['address'])) {
         $selectedAddressId = $_GET['address'];
     }
@@ -105,7 +118,10 @@ if ($dbAddresses && $addrFormOpenMode === '' && $_SERVER['REQUEST_METHOD'] === '
         }
     }
 }
-$checkoutSlots = DeliveryConfig::slotsEnabled() ? DeliverySlotService::availableForCheckout() : [];
+$canShowDeliverySlots = $loggedIn && $addresses !== [];
+$checkoutSlots = DeliveryConfig::slotsEnabled() && $canShowDeliverySlots
+    ? DeliverySlotService::availableForCheckout()
+    : [];
 $defaultSlotSlug = DeliveryConfig::slotsEnabled()
     ? ($checkoutSlots !== [] ? (string) ($checkoutSlots[0]['slug'] ?? '') : null)
     : 'auto';
@@ -134,7 +150,7 @@ layout_public_start([
     'pageTitle' => 'Checkout — Apni Tokri',
     'activeNav' => 'cart',
     'showBottomNav' => false,
-    'loadAddressMap' => $dbAddresses,
+    'loadAddressMap' => $dbAddressMode,
 ]);
 require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
 ?>
@@ -167,11 +183,13 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
 
         <section class="at-checkout-block">
             <div class="at-checkout-block__head"><span class="at-checkout-block__num">2</span><h2 class="at-h3">Delivery address</h2></div>
-            <p class="text-xs at-muted -mt-2 mb-3">Serviceability for Indore is checked before payment (Stage 8).<?php if ($loggedIn && CommerceGateway::useDatabase()): ?> <a href="<?= Security::escape(url_base()) ?>/my-addresses.php" class="underline">Manage saved addresses</a><?php endif; ?></p>
-            <?php if ($loggedIn && $addresses === []): ?>
+            <p class="text-xs at-muted -mt-2 mb-3">Serviceability for Indore is checked before payment (Stage 8).<?php if ($loggedIn && $persistedCheckout): ?> <a href="<?= Security::escape(url_base()) ?>/my-addresses.php" class="underline">Manage saved addresses</a><?php endif; ?></p>
+            <?php if ($persistedCheckout && !$loggedIn): ?>
+                <p class="text-sm at-muted">Log in with your mobile OTP to add and choose a delivery address.</p>
+            <?php elseif ($loggedIn && $addresses === []): ?>
                 <p class="text-sm at-muted">Add a delivery address below to continue.</p>
             <?php endif; ?>
-            <?php if ($dbAddresses): require_once APNI_TOKRI_ROOT . '/includes/partials/address-summary.php'; ?>
+            <?php if ($dbAddressMode): require_once APNI_TOKRI_ROOT . '/includes/partials/address-summary.php'; ?>
                 <?php if ($addresses !== []): ?>
                     <div class="grid gap-3" role="radiogroup" aria-label="Saved delivery addresses">
                         <?php foreach ($addressRows as $addr): $isSel = (string) $addr['id'] === $selectedAddressId; $pinOk = AddressInput::hasPin($addr); ?>
@@ -214,7 +232,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
                         </div>
                     </details>
                 <?php endif; ?>
-            <?php else: ?>
+            <?php elseif (!$persistedCheckout): ?>
             <form method="post" class="grid gap-3">
                 <?= Csrf::field() ?>
                 <input type="hidden" name="action" value="add_address">
@@ -238,12 +256,17 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
 
         <section class="at-checkout-block">
             <div class="at-checkout-block__head"><span class="at-checkout-block__num">3</span><h2 class="at-h3">Delivery slot</h2></div>
-            <?php if (DeliveryConfig::slotsEnabled()):
+            <?php if ($persistedCheckout && !$loggedIn): ?>
+                <p class="text-sm at-muted">Log in and choose a delivery address to see available slots.</p>
+            <?php elseif (DeliveryConfig::slotsEnabled()):
                 ?>
                 <p class="text-sm at-muted -mt-2 mb-3">Capacity is re-checked when you pay (<?= Security::escape(DeliveryConfig::timezone()) ?>).</p>
-                <?php if ($checkoutSlots === []): ?>
+                <?php if ($loggedIn && $addresses === []): ?>
+                    <p class="text-sm at-muted">Add a delivery address above to choose a slot.</p>
+                <?php endif; ?>
+                <?php if ($canShowDeliverySlots && $checkoutSlots === []): ?>
                     <p class="at-alert at-alert--warning text-sm">No slots available right now. Try again later or contact support.</p>
-                <?php else: ?>
+                <?php elseif ($canShowDeliverySlots): ?>
                     <div class="grid sm:grid-cols-3 gap-3">
                         <?php foreach ($checkoutSlots as $i => $s): ?>
                             <label class="at-option">
@@ -306,7 +329,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
             <?php if (!$loggedIn): ?><p class="at-alert at-alert--warning mb-3 text-sm"><?= at_icon('lock', 'w-5 h-5 flex-shrink-0') ?><span>Log in with your mobile number to enable payment.</span></p><?php endif; ?>
             <?php
             $canPay = $loggedIn && $addresses !== [];
-            $slotsOk = !DeliveryConfig::slotsEnabled() || DeliverySlotService::availableForCheckout() !== [];
+            $slotsOk = !DeliveryConfig::slotsEnabled() || ($canShowDeliverySlots && $checkoutSlots !== []);
             ?>
             <div class="flex flex-col sm:flex-row gap-3">
                 <?php if (CommerceGateway::useDatabase()): ?>
@@ -336,7 +359,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
         <p class="text-xs at-muted flex gap-2"><?= at_icon('shield', 'w-4 h-4 flex-shrink-0') ?>Delivery fee uses your address pincode and eligible cart value — recalculated on the server at payment.</p>
     </aside>
 </div>
-<?php if ($dbAddresses): ?>
+<?php if ($dbAddressMode): ?>
 <script>
 (function () {
     // Keep "Edit selected address" / "Change delivery location" pointed at the checked card.

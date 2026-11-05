@@ -10,6 +10,9 @@ final class DeliverySlotService
         if (!DeliveryConfig::slotsEnabled()) {
             return [];
         }
+        if (AppEnvironment::usePersistedStorefront() && !CustomerAuth::check()) {
+            return [];
+        }
         if (!Install::isSchemaReady()) {
             return self::fallbackSlots();
         }
