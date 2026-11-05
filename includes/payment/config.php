@@ -14,9 +14,61 @@ final class PaymentGatewayConfig
         return $g;
     }
 
-    public static function isTestMode(): bool
+    /** Persisted admin setting (payment.test_mode in settings table). */
+    public static function storedTestModeEnabled(): bool
     {
         return (AppSettings::get('payment.test_mode', '1') ?? '1') !== '0';
+    }
+
+    /** @deprecated Prefer storedTestModeEnabled() or usesSandboxPayments() for clarity. */
+    public static function isTestMode(): bool
+    {
+        return self::storedTestModeEnabled();
+    }
+
+    /**
+     * Whether outbound payment API calls should use sandbox hosts.
+     * Never true on production (checkout is blocked separately when stored test mode is on).
+     */
+    public static function usesSandboxPayments(): bool
+    {
+        if (AppEnvironment::isProduction()) {
+            return false;
+        }
+
+        return self::storedTestModeEnabled();
+    }
+
+    /**
+     * Cashfree PG API base URL for orders/refunds (no network I/O).
+     *
+     * @throws RuntimeException when production has stored test mode enabled (fail closed)
+     */
+    public static function cashfreePgApiBase(): string
+    {
+        if (AppEnvironment::isProduction()) {
+            if (self::storedTestModeEnabled()) {
+                throw new RuntimeException(
+                    'Cashfree API is unavailable while payment test/sandbox mode is enabled on production.'
+                );
+            }
+
+            return 'https://api.cashfree.com/pg';
+        }
+
+        return self::usesSandboxPayments()
+            ? 'https://sandbox.cashfree.com/pg'
+            : 'https://api.cashfree.com/pg';
+    }
+
+    /** Admin status line for Cashfree API host (reflects stored mode on production). */
+    public static function cashfreeApiHostLabel(): string
+    {
+        if (AppEnvironment::isProduction() && self::storedTestModeEnabled()) {
+            return 'sandbox (stored test mode — checkout blocked on production)';
+        }
+
+        return self::usesSandboxPayments() ? 'sandbox' : 'production';
     }
 
     public static function useSimulatedCheckout(): bool
@@ -103,7 +155,7 @@ final class PaymentGatewayConfig
                 return false;
             }
 
-            return self::isTestMode() ? $isTestKey : $isLiveKey;
+            return self::usesSandboxPayments() ? $isTestKey : $isLiveKey;
         }
 
         return true;

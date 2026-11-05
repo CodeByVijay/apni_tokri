@@ -6,9 +6,7 @@ final class CashfreeGateway
 {
     private static function baseUrl(): string
     {
-        return PaymentGatewayConfig::isTestMode()
-            ? 'https://sandbox.cashfree.com/pg'
-            : 'https://api.cashfree.com/pg';
+        return PaymentGatewayConfig::cashfreePgApiBase();
     }
 
     public static function isEnabled(): bool
@@ -234,10 +232,7 @@ final class CashfreeGateway
 
     public static function ordersRefundApiPath(string $merchantOrderId): string
     {
-        $base = PaymentGatewayConfig::isTestMode()
-            ? 'https://sandbox.cashfree.com/pg'
-            : 'https://api.cashfree.com/pg';
-
-        return $base . '/orders/' . rawurlencode($merchantOrderId) . '/refunds';
+        return PaymentGatewayConfig::cashfreePgApiBase()
+            . '/orders/' . rawurlencode($merchantOrderId) . '/refunds';
     }
 }

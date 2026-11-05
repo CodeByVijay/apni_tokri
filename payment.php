@@ -106,7 +106,7 @@ if ($checkout === null || !is_array($checkout)) {
 
 $amount = (float) $order['grand_total'];
 $mode = is_array($checkout) ? (string) ($checkout['mode'] ?? 'simulate') : 'simulate';
-$cashfreeTestMode = PaymentGatewayConfig::isTestMode();
+$cashfreeTestMode = PaymentGatewayConfig::usesSandboxPayments();
 $gatewayLabel = PaymentGatewayConfig::gatewayLabel($mode === 'simulate' ? 'simulate' : (string) PaymentGatewayConfig::activeGateway());
 $payReference = is_array($checkout) ? (string) ($checkout['reference_id'] ?? '') : '';
 $canRetry = $error !== '' && (string) ($order['payment_status'] ?? '') !== 'paid';

@@ -101,11 +101,13 @@ foreach ($cmsFooterLinks as $cmsFooterLink) {
                     <span class="block sm:inline sm:ml-2">FSSAI Lic. No. <?= Security::escape($fssai) ?></span>
                 <?php endif; ?>
             </span>
+            <?php if (AppEnvironment::allowsStorefrontDevelopmentLinks()): ?>
             <span>
                 <a href="<?= Security::escape($base) ?>/styleguide.php" class="at-focusable">Design system</a>
                 <span class="mx-2">·</span>
                 <a href="<?= Security::escape($base) ?>/health-check.php" class="at-focusable">Health check</a>
             </span>
+            <?php endif; ?>
         </div>
     </div>
 </footer>

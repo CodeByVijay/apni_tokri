@@ -137,7 +137,7 @@ final class AppEnvironment
         if (PaymentGatewayConfig::activeGateway() === 'simulate') {
             return ['ok' => false, 'message' => 'Simulated payments are disabled in production. Configure Razorpay or Cashfree.'];
         }
-        if (PaymentGatewayConfig::isTestMode()) {
+        if (PaymentGatewayConfig::storedTestModeEnabled()) {
             return [
                 'ok' => false,
                 'message' => 'Payment sandbox/test mode is enabled. On production, turn off Test/Sandbox mode and use live Cashfree credentials, or run checkout on a staging environment for sandbox testing.',
@@ -160,5 +160,25 @@ final class AppEnvironment
     public static function allowsSimulatedPaymentEndpoint(): bool
     {
         return !self::isProduction();
+    }
+
+    /** Footer links to styleguide / health-check (local, dev, staging only). */
+    public static function allowsStorefrontDevelopmentLinks(): bool
+    {
+        return !self::isProduction();
+    }
+
+    /**
+     * Block styleguide and detailed health-check HTML in production (use ajax/ping.php for liveness).
+     */
+    public static function denyProductionDevelopmentSurface(): void
+    {
+        if (!self::isProduction()) {
+            return;
+        }
+        http_response_code(404);
+        header('Content-Type: text/plain; charset=UTF-8');
+        echo 'Not found';
+        exit;
     }
 }

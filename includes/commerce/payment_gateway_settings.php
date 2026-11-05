@@ -47,7 +47,7 @@ final class PaymentGatewaySettingsService
     public static function gatewayStatusSummary(): array
     {
         $active = PaymentGatewayConfig::activeGateway();
-        $testMode = PaymentGatewayConfig::isTestMode();
+        $testMode = PaymentGatewayConfig::storedTestModeEnabled();
         $rzDiag = PaymentGatewayDiagnosticState::adminView('razorpay');
         $cfDiag = PaymentGatewayDiagnosticState::adminView('cashfree');
 
@@ -90,13 +90,13 @@ final class PaymentGatewaySettingsService
             if ($requested === 'simulate') {
                 return ['ok' => false, 'message' => 'Simulated checkout cannot be enabled in production.'];
             }
-            if (array_key_exists('test_mode', $post) && !empty($post['test_mode'])) {
+            if (array_key_exists('test_mode', $post) && (string) $post['test_mode'] === '1') {
                 return ['ok' => false, 'message' => 'Payment test mode must stay off in production.'];
             }
         }
 
         if (array_key_exists('test_mode', $post)) {
-            AppSettings::set('payment.test_mode', !empty($post['test_mode']) ? '1' : '0');
+            AppSettings::set('payment.test_mode', (string) $post['test_mode'] === '1' ? '1' : '0');
         }
         if (array_key_exists('razorpay_enabled', $post)) {
             AppSettings::set('razorpay.enabled', !empty($post['razorpay_enabled']) ? '1' : '0');

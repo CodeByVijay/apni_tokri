@@ -24,7 +24,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $active = AppSettings::get('payment.active_gateway', 'simulate') ?? 'simulate';
-$testMode = (AppSettings::get('payment.test_mode', '1') ?? '1') !== '0';
+$testMode = PaymentGatewayConfig::storedTestModeEnabled();
+$isProdEnv = AppEnvironment::isProduction();
 $rzpEnabled = (AppSettings::get('razorpay.enabled', '0') ?? '0') === '1';
 $cfEnabled = (AppSettings::get('cashfree.enabled', '0') ?? '0') === '1';
 $rzpKeyId = AppSettings::get('razorpay.key_id', '') ?? '';
@@ -76,7 +77,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/settings-nav.php';
             <li class="p-3 rounded border border-neutral-200 sm:col-span-2">
                 <strong>Cashfree</strong>
                 <?= !empty($gwStatus['cashfree']['enabled']) ? 'Enabled' : 'Disabled' ?>
-                · API host: <?= PaymentGatewayConfig::isTestMode() ? 'sandbox' : 'production' ?>
+                · API host: <?= Security::escape(PaymentGatewayConfig::cashfreeApiHostLabel()) ?>
                 <span class="block at-muted">App ID <?= !empty($gwStatus['cashfree']['app_id_set']) ? 'set' : 'missing' ?> · Secret <?= !empty($gwStatus['cashfree']['secret_set']) ? 'saved (encrypted)' : 'missing' ?></span>
                 <?= $renderGwDiag($gwStatus['cashfree']['diagnostic'] ?? []) ?>
             </li>
@@ -102,6 +103,15 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/settings-nav.php';
                 <option value="cashfree" <?= $active === 'cashfree' ? 'selected' : '' ?>>Cashfree</option>
             </select>
         </div>
+        <?php if ($isProdEnv && $testMode): ?>
+        <p class="text-sm p-3 rounded border border-[var(--at-yellow-ink)] bg-[var(--at-yellow-bg)]">
+            Payment test/sandbox mode is still enabled in settings. Checkout is blocked on production until you turn it off and save live credentials.
+        </p>
+        <?php endif; ?>
+        <?php if ($isProdEnv): ?>
+        <p class="text-xs at-muted">Test/sandbox mode cannot be enabled on production. Uncheck below and save to use live Cashfree/Razorpay APIs.</p>
+        <?php endif; ?>
+        <input type="hidden" name="test_mode" value="0">
         <label class="flex gap-2 text-sm"><input type="checkbox" name="test_mode" value="1" <?= $testMode ? 'checked' : '' ?>> Test / sandbox mode</label>
 
         <hr class="border-neutral-200">
