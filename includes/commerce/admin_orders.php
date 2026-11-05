@@ -302,6 +302,10 @@ final class AdminOrderService
             }
         }
 
+        if ($previous !== $status && $status === OrderStatus::DELIVERED) {
+            InvoiceEmailService::trySendWhenOrderDelivered($orderId);
+        }
+
         if ($previous !== $status) {
             NotificationDispatcher::orderStatusChanged($orderId, $previous, $status);
         }

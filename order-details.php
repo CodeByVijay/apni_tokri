@@ -403,7 +403,11 @@ require APNI_TOKRI_ROOT . '/includes/partials/customer-order-cancel.php';
         <section class="at-card" id="invoice">
             <div class="at-card__body text-sm">
                 <h2 class="at-h3">Invoice</h2>
-                <?php if (!empty($invoiceSync['invoice'])): $inv = $invoiceSync['invoice']; ?>
+                <?php
+                $invoicePortalOpen = isset($row) && is_array($row) && InvoiceService::customerPortalReleased((int) $row['id']);
+                if (!empty($invoiceSync['invoice']) && $invoicePortalOpen):
+                    $inv = $invoiceSync['invoice'];
+                    ?>
                     <p class="mt-2"><strong><?= Security::escape((string) $inv['invoice_number']) ?></strong></p>
                     <p class="at-muted">Retail invoice · <?= Security::escape(InvoiceFormat::date((string) $inv['invoice_date'])) ?></p>
                     <p class="mt-3 flex flex-wrap gap-2">
@@ -419,6 +423,8 @@ require APNI_TOKRI_ROOT . '/includes/partials/customer-order-cancel.php';
                             </p>
                         </div>
                     <?php endforeach; ?>
+                <?php elseif (!empty($invoiceSync['invoice']) && !$invoicePortalOpen): ?>
+                    <p class="at-muted mt-2">Your invoice will be available once your order is delivered.</p>
                 <?php elseif ($invoiceSync !== null && !empty($invoiceSync['eligible'])): ?>
                     <p class="at-muted mt-2">Your invoice is being prepared. Please check back in a moment.</p>
                 <?php else: ?>

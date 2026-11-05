@@ -253,6 +253,9 @@ final class DeliveryAssignmentService
             }
         }
 
+        $becameDelivered = $newStatus === DeliveryStatus::DELIVERED && $current !== DeliveryStatus::DELIVERED;
+        $orderIdForInvoice = (int) ($row['order_id'] ?? 0);
+
         try {
             Database::transaction(static function () use (
                 $pdo,
@@ -341,6 +344,10 @@ final class DeliveryAssignmentService
         }
 
         DeliveryCustomerNotifyService::afterStatusChange($deliveryId, $newStatus);
+
+        if ($becameDelivered && $orderIdForInvoice > 0) {
+            InvoiceEmailService::trySendWhenOrderDelivered($orderIdForInvoice);
+        }
 
         return ['ok' => true];
     }

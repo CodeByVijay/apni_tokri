@@ -88,10 +88,12 @@ final class InvoiceQuery
     /** @return list<array<string, mixed>> */
     public static function forCustomer(int $customerId, int $page = 1, int $perPage = 20): array
     {
+        $deliveredSql = InvoiceService::sqlOrderDeliveryProven('o');
         $st = Database::pdo()->prepare(
-            'SELECT i.id, i.public_ref, i.invoice_number, i.document_type, i.invoice_date, i.grand_total, o.order_number
+            'SELECT i.id, i.public_ref, i.invoice_number, i.document_type, i.invoice_date, i.grand_total, o.order_number, o.status AS order_status
              FROM invoices i JOIN orders o ON o.id = i.order_id
-             WHERE i.customer_id = ? ORDER BY i.invoice_date DESC, i.id DESC LIMIT ' . (int) $perPage . ' OFFSET ' . (max(0, $page - 1) * (int) $perPage)
+             WHERE i.customer_id = ? AND ' . $deliveredSql . '
+             ORDER BY i.invoice_date DESC, i.id DESC LIMIT ' . (int) $perPage . ' OFFSET ' . (max(0, $page - 1) * (int) $perPage)
         );
         $st->execute([$customerId]);
 
@@ -100,7 +102,11 @@ final class InvoiceQuery
 
     public static function countForCustomer(int $customerId): int
     {
-        $st = Database::pdo()->prepare('SELECT COUNT(*) FROM invoices WHERE customer_id = ?');
+        $deliveredSql = InvoiceService::sqlOrderDeliveryProven('o');
+        $st = Database::pdo()->prepare(
+            'SELECT COUNT(*) FROM invoices i JOIN orders o ON o.id = i.order_id
+             WHERE i.customer_id = ? AND ' . $deliveredSql
+        );
         $st->execute([$customerId]);
 
         return (int) $st->fetchColumn();
@@ -121,8 +127,10 @@ final class InvoiceQuery
             return [];
         }
         $in = implode(',', array_fill(0, count($orderIds), '?'));
+        $deliveredSql = InvoiceService::sqlOrderDeliveryProven('o');
         $st = Database::pdo()->prepare(
-            "SELECT order_id, public_ref FROM invoices WHERE customer_id = ? AND document_type = 'retail_invoice' AND order_id IN ($in)"
+            "SELECT i.order_id, i.public_ref FROM invoices i JOIN orders o ON o.id = i.order_id
+             WHERE i.customer_id = ? AND i.document_type = 'retail_invoice' AND $deliveredSql AND i.order_id IN ($in)"
         );
         $st->execute(array_merge([$customerId], $orderIds));
         $out = [];
@@ -146,9 +154,10 @@ final class InvoiceQuery
             return [];
         }
         $in = implode(',', array_fill(0, count($orderNumbers), '?'));
+        $deliveredSql = InvoiceService::sqlOrderDeliveryProven('o');
         $st = Database::pdo()->prepare(
             "SELECT o.order_number, i.public_ref FROM invoices i JOIN orders o ON o.id = i.order_id
-             WHERE i.customer_id = ? AND i.document_type = 'retail_invoice' AND o.order_number IN ($in)"
+             WHERE i.customer_id = ? AND i.document_type = 'retail_invoice' AND $deliveredSql AND o.order_number IN ($in)"
         );
         $st->execute(array_merge([$customerId], $orderNumbers));
         $out = [];

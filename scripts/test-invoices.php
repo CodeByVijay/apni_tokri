@@ -388,12 +388,13 @@ InvoiceEmailService::$transport = static function () use (&$sent) {
 
     return ['ok' => true];
 };
-// auto email dedupe
+// auto email on delivery (dedupe per order)
 AppSettings::set('invoice.auto_email', '1');
+$pdo->prepare('UPDATE orders SET status = ? WHERE id = ?')->execute([OrderStatus::DELIVERED, $oC]);
 $before = count($sent);
-$a1 = InvoiceEmailService::sendAuto((int) $rc['invoice']['id']);
-$a2 = InvoiceEmailService::sendAuto((int) $rc['invoice']['id']);
-t($a1['ok'] && !$a2['ok'] && count($sent) === $before + 1, 'Automatic email sent once only');
+$d1 = InvoiceEmailService::sendWhenOrderDelivered($oC);
+$d2 = InvoiceEmailService::sendWhenOrderDelivered($oC);
+t($d1['ok'] && !$d2['ok'] && count($sent) === $before + 1, 'Delivered-order automatic email sent once only');
 AppSettings::set('invoice.auto_email', '0');
 t(!InvoiceEmailService::sendAuto((int) $inv1['id'])['ok'], 'Auto email off => not sent');
 // no email address
@@ -454,8 +455,9 @@ t(InvoiceQuery::adminSearch(['sort' => 'id; DROP TABLE invoices', 'dir' => 'x'])
 t(InvoiceQuery::adminSearch(['q' => "%' OR '1'='1"])['total'] === 0, 'Search input is parameterised / wildcard-escaped');
 $pg = InvoiceQuery::adminSearch(['customer' => 'ZT Customer ' . $tok, 'page' => 9999]);
 t($pg['page'] === $pg['pages'], 'Out-of-range page clamps');
+$pdo->prepare('UPDATE orders SET status = ? WHERE id = ?')->execute([OrderStatus::DELIVERED, (int) $inv1['order_id']]);
 $refs = InvoiceQuery::refsForOrderNumbers([$snap1['order']['number']], $cid);
-t(isset($refs[$snap1['order']['number']]) && InvoiceQuery::refsForOrderNumbers([$snap1['order']['number']], $otherCid) === [], 'my-orders invoice indicator is ownership-scoped');
+t(isset($refs[$snap1['order']['number']]) && InvoiceQuery::refsForOrderNumbers([$snap1['order']['number']], $otherCid) === [], 'my-orders invoice indicator is ownership-scoped after delivery');
 
 // 16. Static / RBAC / security source checks
 $root = APNI_TOKRI_ROOT;
@@ -470,7 +472,7 @@ t(strpos($adminOrdersSvc, 'InvoiceService::syncForOrder') !== false, 'Admin orde
 t(strpos((string) file_get_contents("$root/admin/settings/invoices.php"), "denyIfCannot('settings')") !== false, 'Invoice settings page requires settings permission');
 t(strpos((string) file_get_contents("$root/admin/invoices/view.php"), 'Csrf::requireValid()') !== false, 'Admin email action is CSRF-protected');
 $dl = (string) file_get_contents("$root/invoice-download.php");
-t(strpos($dl, 'isLoggedIn') !== false && strpos($dl, 'forCustomer') !== false, 'Customer download checks login + ownership');
+t(strpos($dl, 'isLoggedIn') !== false && strpos($dl, 'forCustomerPortal') !== false, 'Customer download checks login + ownership + delivery release');
 foreach (['invoice-download.php', 'invoice-view.php', 'my-invoices.php', 'order-details.php'] as $f) {
     t(strpos((string) file_get_contents("$root/$f"), 'pdf_path') === false, "$f never references raw pdf_path");
 }

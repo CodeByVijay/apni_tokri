@@ -19,7 +19,7 @@ if (!CustomerService::isLoggedIn() || CustomerAuth::id() === null) {
 }
 $ref = isset($_GET['ref']) && is_string($_GET['ref']) ? trim($_GET['ref']) : '';
 // Same response for "not found" and "not yours" so references cannot be probed.
-$inv = $ref !== '' ? InvoiceService::forCustomer($ref, (int) CustomerAuth::id()) : null;
+$inv = $ref !== '' ? InvoiceService::forCustomerPortal($ref, (int) CustomerAuth::id()) : null;
 if ($inv === null) {
     $deny(404, 'Invoice not found.');
 }

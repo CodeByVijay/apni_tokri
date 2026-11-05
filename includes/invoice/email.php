@@ -53,6 +53,57 @@ final class InvoiceEmailService
         return self::send($invoiceId, 'auto', null, 'auto:' . $invoiceId);
     }
 
+    /**
+     * Customer automatic invoice email — only after order delivery (idempotent per order).
+     *
+     * @return array{ok: bool, error?: string, message: string}
+     */
+    public static function sendWhenOrderDelivered(int $orderId): array
+    {
+        if ($orderId <= 0) {
+            return ['ok' => false, 'error' => 'invalid', 'message' => 'Invalid order.'];
+        }
+        if (!InvoiceSettings::emailEnabled() || !InvoiceSettings::autoEmail()) {
+            return ['ok' => false, 'error' => 'disabled', 'message' => 'Automatic invoice email is off.'];
+        }
+        if (!InvoiceService::orderDeliveryProven($orderId)) {
+            return ['ok' => false, 'error' => 'not_delivered', 'message' => 'Order has not been delivered yet.'];
+        }
+        $sync = InvoiceService::syncForOrder($orderId);
+        $inv = $sync['invoice'] ?? null;
+        if ($inv === null || empty($inv['id'])) {
+            error_log('InvoiceEmailService::sendWhenOrderDelivered: no invoice for order ' . $orderId);
+
+            return ['ok' => false, 'error' => 'no_invoice', 'message' => 'Invoice is not available for this order yet.'];
+        }
+        $read = InvoiceStorage::read($inv);
+        if (!$read['ok']) {
+            error_log('InvoiceEmailService::sendWhenOrderDelivered: PDF missing for invoice ' . (int) $inv['id']);
+
+            return ['ok' => false, 'error' => 'pdf_missing', 'message' => 'Invoice PDF is not ready.'];
+        }
+
+        return self::send((int) $inv['id'], 'auto', null, self::deliveredEmailAutoKey($orderId));
+    }
+
+    public static function deliveredEmailAutoKey(int $orderId): string
+    {
+        return 'invoice.delivered:order:' . $orderId . ':email';
+    }
+
+    /** Idempotent customer invoice email after delivery; never throws (order status or delivery row). */
+    public static function trySendWhenOrderDelivered(int $orderId): void
+    {
+        if ($orderId <= 0) {
+            return;
+        }
+        try {
+            self::sendWhenOrderDelivered($orderId);
+        } catch (Throwable $e) {
+            error_log('InvoiceEmailService::trySendWhenOrderDelivered: ' . get_class($e));
+        }
+    }
+
     /** @return array{ok: bool, error?: string, message: string} */
     public static function sendFromAdmin(int $invoiceId, int $adminId): array
     {

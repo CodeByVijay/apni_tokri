@@ -24,7 +24,7 @@ if (CommerceGateway::useDatabase()) {
 layout_public_start(['pageTitle' => 'My invoices — Apni Tokri', 'activeNav' => 'account']);
 $accountActive = 'invoices';
 $accountTitle = 'My invoices';
-$accountSub = 'Download invoices and credit notes for your paid orders.';
+$accountSub = 'Download invoices and credit notes for delivered orders.';
 require APNI_TOKRI_ROOT . '/includes/partials/account-shell-start.php';
 
 if ($rows === []):

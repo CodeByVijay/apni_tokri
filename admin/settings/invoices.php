@@ -121,7 +121,7 @@ $logoPath = InvoiceSettings::logoPath();
     <div class="at-card lg:col-span-2"><div class="at-card__body space-y-3">
         <h3 class="font-bold">Email</h3>
         <?= $check('enable_email', 'Allow emailing invoices to customers', 'Uses the SMTP settings.') ?>
-        <?= $check('auto_email', 'Email automatically when an invoice is generated', 'Each invoice is emailed at most once automatically.') ?>
+        <?= $check('auto_email', 'Email automatically when an order is delivered', 'Each order invoice is emailed at most once after delivery.') ?>
         <?= $check('admin_resend', 'Allow admins to resend invoice emails') ?>
     </div></div>
 

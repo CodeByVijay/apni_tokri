@@ -116,6 +116,73 @@ final class InvoiceService
         return $inv;
     }
 
+    /** Whether the customer portal may view/download invoice documents for this order. */
+    public static function customerPortalReleased(int $orderId): bool
+    {
+        return self::orderDeliveryProven($orderId);
+    }
+
+    /**
+     * True only when the order was actually delivered (not merely refunded).
+     * Refunded / partially_refunded release access only if delivery is proven via status, history, or delivery row.
+     */
+    public static function orderDeliveryProven(int $orderId): bool
+    {
+        if ($orderId <= 0) {
+            return false;
+        }
+        $pdo = Database::pdo();
+        $st = $pdo->prepare('SELECT status FROM orders WHERE id = ? LIMIT 1');
+        $st->execute([$orderId]);
+        $status = (string) ($st->fetchColumn() ?: '');
+        if ($status === OrderStatus::DELIVERED) {
+            return true;
+        }
+        $hist = $pdo->prepare(
+            'SELECT 1 FROM order_status_history WHERE order_id = ? AND status = ? LIMIT 1'
+        );
+        $hist->execute([$orderId, OrderStatus::DELIVERED]);
+        if ($hist->fetchColumn()) {
+            return true;
+        }
+        $del = $pdo->prepare(
+            "SELECT 1 FROM deliveries WHERE order_id = ? AND (status = ? OR delivered_at IS NOT NULL) LIMIT 1"
+        );
+        $del->execute([$orderId, DeliveryStatus::DELIVERED]);
+        if ($del->fetchColumn()) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /** SQL AND-clause fragment; order row must be aliased as $orderAlias (default o). */
+    public static function sqlOrderDeliveryProven(string $orderAlias = 'o'): string
+    {
+        $delivered = OrderStatus::DELIVERED;
+        $delStatus = DeliveryStatus::DELIVERED;
+
+        return '(' . $orderAlias . '.status = \'' . $delivered . '\''
+            . ' OR EXISTS (SELECT 1 FROM order_status_history h WHERE h.order_id = ' . $orderAlias . '.id AND h.status = \'' . $delivered . '\')'
+            . ' OR EXISTS (SELECT 1 FROM deliveries d WHERE d.order_id = ' . $orderAlias . '.id AND (d.status = \'' . $delStatus . '\' OR d.delivered_at IS NOT NULL))'
+            . ')';
+    }
+
+    /** Customer portal: ownership plus delivery release (admin paths use forCustomer/byId). */
+    /** @return array<string, mixed>|null */
+    public static function forCustomerPortal(string $ref, int $customerId): ?array
+    {
+        $inv = self::forCustomer($ref, $customerId);
+        if ($inv === null) {
+            return null;
+        }
+        if (!self::customerPortalReleased((int) $inv['order_id'])) {
+            return null;
+        }
+
+        return $inv;
+    }
+
     /** @return array<string, mixed> */
     public static function snapshot(array $invoice): array
     {
@@ -205,9 +272,6 @@ final class InvoiceService
                 $r = self::ensureForOrder($orderId);
                 if ($r['ok']) {
                     $inv = $r['invoice'];
-                    if (!empty($r['created']) && InvoiceSettings::autoEmail()) {
-                        InvoiceEmailService::sendAuto((int) $inv['id']);
-                    }
                 } else {
                     $out['eligible'] = !in_array((string) ($r['error'] ?? ''), ['status', 'payment', 'amount', 'customer', 'no_capture', 'subscription', 'not_found'], true);
                     $out['message'] = (string) ($r['message'] ?? '');
@@ -425,9 +489,6 @@ final class InvoiceService
             $r = self::ensureForOrder((int) $oid);
             if ($r['ok'] && !empty($r['created'])) {
                 $res['created']++;
-                if (InvoiceSettings::autoEmail()) {
-                    InvoiceEmailService::sendAuto((int) $r['invoice']['id']);
-                }
             } elseif ($r['ok']) {
                 $res['skipped']++;
             } elseif (($r['error'] ?? '') === 'generation_failed') {

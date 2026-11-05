@@ -12,7 +12,7 @@ if (!CustomerService::isLoggedIn() || CustomerAuth::id() === null) {
     exit;
 }
 $ref = isset($_GET['ref']) && is_string($_GET['ref']) ? trim($_GET['ref']) : '';
-$inv = $ref !== '' ? InvoiceService::forCustomer($ref, (int) CustomerAuth::id()) : null;
+$inv = $ref !== '' ? InvoiceService::forCustomerPortal($ref, (int) CustomerAuth::id()) : null;
 
 layout_public_start(['pageTitle' => 'Invoice — Apni Tokri', 'activeNav' => 'account']);
 $accountActive = 'invoices';
