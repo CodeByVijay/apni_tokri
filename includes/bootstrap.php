@@ -199,6 +199,7 @@ require_once APNI_TOKRI_ROOT . '/includes/error_handler.php';
 
 /** @var array<string, mixed> $config */
 $config = require APNI_TOKRI_ROOT . '/includes/config.php';
+$config = InstallWizardService::withRequestDerivedAppUrls($config);
 
 App::setConfig($config);
 AppErrorHandler::register($config);

@@ -357,8 +357,8 @@ final class InstallWizardService
         }
 
         $cfg = self::normalizeDbInput($db);
-        $urlPath = self::detectUrlPath();
-        $baseUrl = self::detectBaseUrl($urlPath);
+        $urlPath = self::requestDerivedUrlPath();
+        $baseUrl = self::requestDerivedBaseUrl($urlPath);
         $content = self::renderConfigPhp($cfg, $masterKeyPath, $invoicesPath, $productionEnv, $baseUrl, $urlPath);
         $dir = dirname($path);
         if (!is_dir($dir)) {
@@ -495,7 +495,11 @@ final class InstallWizardService
         ];
     }
 
-    private static function detectUrlPath(): string
+    /**
+     * Web path prefix from the current HTTP request (no config.local.php required).
+     * Used by the install wizard and by bootstrap before the first config is written.
+     */
+    public static function requestDerivedUrlPath(): string
     {
         $script = (string) ($_SERVER['SCRIPT_NAME'] ?? '/index.php');
         $dir = str_replace('\\', '/', dirname($script));
@@ -506,18 +510,43 @@ final class InstallWizardService
         return rtrim(rawurldecode($dir), '/');
     }
 
-    private static function detectBaseUrl(string $urlPath): string
+    /** Absolute site base URL for the current HTTP request (scheme + host + url path). */
+    public static function requestDerivedBaseUrl(?string $urlPath = null): string
     {
+        $path = $urlPath ?? self::requestDerivedUrlPath();
         $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-            || (isset($_SERVER['SERVER_PORT']) && (int) $_SERVER['SERVER_PORT'] === 443);
+            || (isset($_SERVER['SERVER_PORT']) && (int) $_SERVER['SERVER_PORT'] === 443)
+            || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower((string) $_SERVER['HTTP_X_FORWARDED_PROTO']) === 'https');
         $scheme = $https ? 'https' : 'http';
         $host = (string) ($_SERVER['HTTP_HOST'] ?? 'localhost');
         $base = $scheme . '://' . $host;
-        if ($urlPath !== '') {
-            $base .= $urlPath;
+        if ($path !== '') {
+            $base .= $path;
         }
 
         return $base;
+    }
+
+    /**
+     * Override example localhost url_path/base_url so assets and links work before config.local.php exists.
+     *
+     * @param array<string, mixed> $config
+     * @return array<string, mixed>
+     */
+    public static function withRequestDerivedAppUrls(array $config): array
+    {
+        if (Install::hasLocalConfig()) {
+            return $config;
+        }
+        $urlPath = self::requestDerivedUrlPath();
+        $baseUrl = self::requestDerivedBaseUrl($urlPath);
+        if (!isset($config['app']) || !is_array($config['app'])) {
+            $config['app'] = [];
+        }
+        $config['app']['url_path'] = $urlPath;
+        $config['app']['base_url'] = $baseUrl;
+
+        return $config;
     }
 
     /**
