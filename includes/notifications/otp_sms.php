@@ -9,16 +9,24 @@ final class OtpRequestException extends RuntimeException
 {
     /** @var string */
     private $errorCode;
+    /** @var int */
+    private $remainingSeconds;
 
-    public function __construct(string $errorCode, ?string $customerMessage = null)
+    public function __construct(string $errorCode, ?string $customerMessage = null, int $remainingSeconds = 0)
     {
         $this->errorCode = $errorCode;
+        $this->remainingSeconds = max(0, $remainingSeconds);
         parent::__construct($customerMessage ?? OtpSmsService::publicErrorMessage($errorCode));
     }
 
     public function errorCode(): string
     {
         return $this->errorCode;
+    }
+
+    public function remainingSeconds(): int
+    {
+        return $this->remainingSeconds;
     }
 }
 
@@ -36,6 +44,7 @@ final class OtpSmsService
     public const ERR_SMS_PROVIDER_REJECTED = 'SMS_PROVIDER_REJECTED';
     public const ERR_SERVER_ERROR = 'SERVER_ERROR';
     public const ERR_SMS_TEST_NOT_ALLOWED = 'SMS_TEST_NOT_ALLOWED';
+    public const ERR_RESEND_COOLDOWN = 'RESEND_COOLDOWN';
 
     public static function operationMode(): string
     {
@@ -216,6 +225,8 @@ final class OtpSmsService
                 return 'Login using OTP is temporarily unavailable. Please try again later.';
             case self::ERR_SERVER_ERROR:
                 return 'Something went wrong while requesting your OTP. Please try again.';
+            case self::ERR_RESEND_COOLDOWN:
+                return 'Please wait before requesting another OTP.';
             default:
                 if (strpos(strtolower($errorCode), 'too many otp') !== false) {
                     return self::publicErrorMessage(self::ERR_RATE_LIMITED);

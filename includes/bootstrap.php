@@ -77,6 +77,7 @@ require_once APNI_TOKRI_ROOT . '/includes/notifications/sms_settings.php';
 require_once APNI_TOKRI_ROOT . '/includes/notifications/sms_gateway.php';
 require_once APNI_TOKRI_ROOT . '/includes/notifications/startmessaging_sms.php';
 require_once APNI_TOKRI_ROOT . '/includes/notifications/otp_sms.php';
+require_once APNI_TOKRI_ROOT . '/includes/notifications/otp_resend_cooldown.php';
 require_once APNI_TOKRI_ROOT . '/includes/notifications/smtp_settings.php';
 require_once APNI_TOKRI_ROOT . '/includes/notifications/smtp_mailer.php';
 require_once APNI_TOKRI_ROOT . '/includes/notifications/sms_http_policy.php';

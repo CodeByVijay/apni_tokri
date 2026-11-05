@@ -18,24 +18,47 @@ if (Install::isSchemaReady()) {
 }
 
 $error = '';
+$resendNotice = '';
 $verifyPageTestOtp = OtpSmsService::fixedTestOtpForVerifyPageDisplay();
+$resendRemaining = Install::isSchemaReady() ? OtpResendCooldown::remainingSeconds($mobile) : 0;
+$resendUntil = $resendRemaining > 0 ? time() + $resendRemaining : 0;
 if (AppEnvironment::allowsDebugOtpDisplay() && !empty($_SESSION['otp_debug_plain'])) {
     unset($_SESSION['otp_debug_plain']);
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     Csrf::requireValid();
+    if (!empty($_POST['resend_otp']) && Install::isSchemaReady()) {
+        try {
+            CustomerAuth::issueOtp($mobile);
+            $resendNotice = 'A new OTP has been sent.';
+            $resendRemaining = OtpResendCooldown::remainingSeconds($mobile);
+            $resendUntil = $resendRemaining > 0 ? time() + $resendRemaining : 0;
+        } catch (OtpRequestException $e) {
+            $error = $e->getMessage();
+            $resendRemaining = $e->errorCode() === OtpSmsService::ERR_RESEND_COOLDOWN
+                ? $e->remainingSeconds()
+                : OtpResendCooldown::remainingSeconds($mobile);
+            $resendUntil = $resendRemaining > 0 ? time() + $resendRemaining : 0;
+        } catch (Throwable $e) {
+            error_log('verify-otp resend: ' . get_class($e));
+            $error = OtpSmsService::publicErrorMessage(OtpSmsService::ERR_SERVER_ERROR);
+        }
+    }
     $otp = isset($_POST['otp']) && is_string($_POST['otp']) ? preg_replace('/\D+/', '', $_POST['otp']) : '';
     $name = isset($_POST['name']) && is_string($_POST['name']) ? trim($_POST['name']) : '';
     if ($savedName !== '') {
         // Existing customer: the server-side name is authoritative; ignore any submitted value.
         $name = '';
     }
-    if (strlen($otp) !== 6) {
+    if (!empty($_POST['resend_otp'])) {
+        // Resend-only submit; skip OTP verification on this request.
+    } elseif (strlen($otp) !== 6) {
         $error = 'Enter the 6-digit OTP.';
     } elseif (Install::isSchemaReady()) {
         if (CustomerAuth::verifyOtp($mobile, $otp, $name !== '' ? $name : null)) {
             unset($_SESSION['otp_pending_mobile']);
+            OtpResendCooldown::clear();
             $return = $_SESSION['checkout_return'] ?? url_base() . '/my-account.php';
             unset($_SESSION['checkout_return']);
             header('Location: ' . $return, true, 302);
@@ -82,6 +105,9 @@ layout_public_start([
             <?php elseif (Install::isSchemaReady() && OtpSmsService::operationMode() === OtpSmsService::MODE_TEST): ?>
                 <p class="mt-2"><span class="at-badge at-badge--neutral">Test mode — no real SMS sent</span></p>
             <?php endif; ?>
+            <?php if ($resendNotice !== ''): ?>
+                <div class="at-alert mt-4" role="status"><?= Security::escape($resendNotice) ?></div>
+            <?php endif; ?>
             <?php if ($error !== ''): ?>
                 <div class="at-alert at-alert--error mt-4" role="alert"><?= at_icon('info', 'w-5 h-5 flex-shrink-0') ?><span><?= Security::escape($error) ?></span></div>
             <?php endif; ?>
@@ -114,12 +140,42 @@ layout_public_start([
                         </div>
                     <?php endif; ?>
                     <button type="submit" class="at-btn at-btn--primary at-btn--lg at-btn--block at-focusable">Verify &amp; continue</button>
-                    <p class="text-xs at-muted flex gap-2"><?= at_icon('lock', 'w-4 h-4 flex-shrink-0') ?>The code expires in 5 minutes. Need a new one? Go back and request again.</p>
-                    <a href="<?= Security::escape(url_base()) ?>/login.php" class="at-btn at-btn--ghost at-btn--sm at-focusable self-center">Use a different number / resend OTP</a>
+                    <p class="text-xs at-muted flex gap-2"><?= at_icon('lock', 'w-4 h-4 flex-shrink-0') ?>The code expires in 5 minutes.</p>
+                    <?php if (Install::isSchemaReady()): ?>
+                        <div
+                            id="otp-resend-wrap"
+                            class="flex flex-col items-center gap-2"
+                            data-resend-until="<?= (int) $resendUntil ?>"
+                            data-resend-url="<?= Security::escape(url_base()) ?>/ajax/resend-otp.php"
+                            data-csrf-token="<?= Security::escape(Csrf::token()) ?>"
+                        >
+                            <button
+                                type="button"
+                                class="at-btn at-btn--ghost at-btn--sm at-focusable"
+                                data-otp-resend
+                                <?= $resendRemaining > 0 ? 'disabled aria-disabled="true"' : '' ?>
+                            ><?= $resendRemaining > 0
+                                ? Security::escape(OtpResendCooldown::formatResendLabel($resendRemaining))
+                                : 'Resend OTP' ?></button>
+                            <p class="text-xs at-muted hidden" data-otp-resend-status role="status" aria-live="polite"></p>
+                            <noscript>
+                                <button type="submit" name="resend_otp" value="1" class="at-btn at-btn--ghost at-btn--sm" <?= $resendRemaining > 0 ? 'disabled' : '' ?>>Resend OTP</button>
+                            </noscript>
+                        </div>
+                    <?php endif; ?>
+                    <a href="<?= Security::escape(url_base()) ?>/login.php" class="at-btn at-btn--ghost at-btn--sm at-focusable self-center">Use a different number</a>
                 </div>
             </form>
         </div>
     </div>
 </div>
 <script src="<?= Security::escape(asset_url('assets/js/otp-input.js')) ?>"></script>
+<script src="<?= Security::escape(asset_url('assets/js/otp-resend.js')) ?>"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  if (window.AtOtpResend) {
+    window.AtOtpResend.init(document.getElementById('otp-resend-wrap'));
+  }
+});
+</script>
 <?php layout_public_end(); ?>

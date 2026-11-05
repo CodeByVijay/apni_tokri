@@ -173,7 +173,7 @@ final class CustomerService
         }
         SessionCustomerBackend::logout();
         // Customer-scoped session state only; admin session keys are intentionally untouched.
-        foreach (['otp_pending_mobile', 'otp_debug_plain', 'otp_demo_code', 'checkout_return', 'checkout_nonce', 'delivery_check_pin'] as $k) {
+        foreach (['otp_pending_mobile', 'otp_debug_plain', 'otp_demo_code', 'otp_resend_cooldown', 'checkout_return', 'checkout_nonce', 'delivery_check_pin'] as $k) {
             unset($_SESSION[$k]);
         }
     }

@@ -279,22 +279,38 @@ final class CustomerAuth
             throw new OtpRequestException(OtpSmsService::ERR_RATE_LIMITED);
         }
 
-        $otp = OtpSmsService::generateOtpPlain();
-        $hash = password_hash($otp, PASSWORD_DEFAULT);
-        $ip = $_SERVER['REMOTE_ADDR'] ?? null;
-        $stmt = Database::pdo()->prepare(
-            'INSERT INTO customer_otp_attempts (mobile, otp_hash, expires_at, ip_address) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL ? SECOND), ?)'
-        );
-        $stmt->execute([$mobile, $hash, $ttlSeconds, $ip]);
-        $attemptId = (int) Database::pdo()->lastInsertId();
-
-        $send = OtpSmsService::sendLoginOtp($mobile, $otp, $ttlSeconds);
-        if (empty($send['ok'])) {
-            Database::pdo()->prepare('DELETE FROM customer_otp_attempts WHERE id = ?')->execute([$attemptId]);
-            throw new OtpRequestException((string) ($send['error'] ?? OtpSmsService::ERR_SERVER_ERROR));
+        $pdo = Database::pdo();
+        $lockKey = 'at_otp_issue_' . $mobile;
+        $lockStmt = $pdo->query('SELECT GET_LOCK(' . $pdo->quote($lockKey) . ', 10)');
+        $gotLock = (int) ($lockStmt ? $lockStmt->fetchColumn() : 0);
+        if ($gotLock !== 1) {
+            throw new OtpRequestException(OtpSmsService::ERR_SERVER_ERROR);
         }
 
-        return ['mobile' => $mobile, 'expires_in' => $ttlSeconds];
+        try {
+            OtpResendCooldown::assertCanSend($mobile);
+
+            $otp = OtpSmsService::generateOtpPlain();
+            $hash = password_hash($otp, PASSWORD_DEFAULT);
+            $ip = $_SERVER['REMOTE_ADDR'] ?? null;
+            $stmt = $pdo->prepare(
+                'INSERT INTO customer_otp_attempts (mobile, otp_hash, expires_at, ip_address) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL ? SECOND), ?)'
+            );
+            $stmt->execute([$mobile, $hash, $ttlSeconds, $ip]);
+            $attemptId = (int) $pdo->lastInsertId();
+
+            $send = OtpSmsService::sendLoginOtp($mobile, $otp, $ttlSeconds);
+            if (empty($send['ok'])) {
+                $pdo->prepare('DELETE FROM customer_otp_attempts WHERE id = ?')->execute([$attemptId]);
+                throw new OtpRequestException((string) ($send['error'] ?? OtpSmsService::ERR_SERVER_ERROR));
+            }
+
+            OtpResendCooldown::recordSuccessfulSend($mobile);
+
+            return ['mobile' => $mobile, 'expires_in' => $ttlSeconds];
+        } finally {
+            $pdo->query('SELECT RELEASE_LOCK(' . $pdo->quote($lockKey) . ')');
+        }
     }
 
     private static function otpRateLimitMessage(string $mobile): ?string

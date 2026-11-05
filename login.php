@@ -17,6 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             $issued = CustomerAuth::issueOtp($normalized);
             $_SESSION['otp_pending_mobile'] = $issued['mobile'];
+            // Cooldown recorded in issueOtp after successful send.
             header('Location: ' . url_base() . '/verify-otp.php', true, 302);
             exit;
         } catch (OtpRequestException $e) {
@@ -30,6 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         $_SESSION['otp_pending_mobile'] = $normalized;
         $_SESSION['otp_demo_code'] = '123456';
+        OtpResendCooldown::recordSuccessfulSend($normalized);
         header('Location: ' . url_base() . '/verify-otp.php', true, 302);
         exit;
     }

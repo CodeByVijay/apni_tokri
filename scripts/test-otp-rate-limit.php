@@ -15,6 +15,7 @@ $pdo->prepare('DELETE FROM customer_otp_attempts WHERE mobile = ?')->execute(['9
 AppSettings::set('sms.operation_mode', OtpSmsService::MODE_TEST);
 AppSettings::set('sms.test.fixed_otp', '112233');
 AppSettings::resetCache();
+OtpResendCooldown::$bypassForTests = true;
 
 $mobile = '9876500001';
 $failures = 0;
