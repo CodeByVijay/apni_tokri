@@ -252,9 +252,17 @@ final class DeliveryContext
     }
 
     /**
-     * @return array{pin: string, serviceable: bool, zone: array<string, mixed>|null, message: string, distance_km: float|null}
+     * @return array{
+     *   pin: string,
+     *   serviceable: bool,
+     *   zone: array<string, mixed>|null,
+     *   message: string,
+     *   distance_km: float|null,
+     *   requires_map_pin?: bool,
+     *   message_detail?: string
+     * }
      */
-    public static function forPin(?string $pincode): array
+    public static function forPin(?string $pincode, ?float $latitude = null, ?float $longitude = null): array
     {
         $pin = preg_replace('/\D+/', '', (string) $pincode) ?? '';
         if (!preg_match('/^\d{6}$/', $pin)) {
@@ -264,9 +272,10 @@ final class DeliveryContext
                 'zone' => null,
                 'message' => 'Enter a valid 6-digit pincode.',
                 'distance_km' => null,
+                'requires_map_pin' => false,
             ];
         }
 
-        return DeliveryService::evaluatePincode($pin);
+        return DeliveryService::evaluatePincode($pin, $latitude, $longitude);
     }
 }

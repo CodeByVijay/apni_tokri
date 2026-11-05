@@ -103,7 +103,8 @@ final class DeliveryZoneResolver
      *   message: string,
      *   distance_km: float|null,
      *   distance_source: string|null,
-     *   requires_map_pin: bool
+     *   requires_map_pin: bool,
+     *   message_detail?: string
      * }
      */
     public static function resolve(string $pin, ?float $customerLat, ?float $customerLon): array
@@ -153,7 +154,9 @@ final class DeliveryZoneResolver
         if ($candidates === []) {
             if (!$hasCoords && self::anyActiveDistanceBand()) {
                 $base['requires_map_pin'] = true;
-                $base['message'] = 'Select your delivery location on the map so we can confirm distance-based delivery.';
+                $copy = DeliveryCustomerMessages::mapPinRequired();
+                $base['message'] = $copy['message'];
+                $base['message_detail'] = $copy['message_detail'];
 
                 return $base;
             }

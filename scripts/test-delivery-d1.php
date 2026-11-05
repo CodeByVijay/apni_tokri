@@ -74,6 +74,11 @@ assertTrue($onlyBand['serviceable'] && (int) ($onlyBand['zone']['id'] ?? 0) === 
 
 $noCoordsBand = DeliveryZoneResolver::resolve('110001', null, null);
 assertTrue(!$noCoordsBand['serviceable'] && !empty($noCoordsBand['requires_map_pin']), 'distance band requires map pin when coords missing');
+assertTrue(
+    str_contains((string) ($noCoordsBand['message'] ?? ''), 'Your pincode is valid')
+    && str_contains((string) ($noCoordsBand['message_detail'] ?? ''), 'pincode alone'),
+    'map-pin message explains pincode vs distance'
+);
 
 $pdo->prepare('DELETE FROM delivery_zones WHERE id = ?')->execute([$idA]);
 AppSettings::set('delivery.zone_resolution_mode', $prevMode ?? 'pincode_legacy');

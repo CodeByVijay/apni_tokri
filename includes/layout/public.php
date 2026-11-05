@@ -27,6 +27,9 @@ function layout_public_start(array $vars): void
     if (!isset($cartCount)) {
         $cartCount = DemoCart::itemCount();
     }
+    if (!isset($loadAddressMap) && DeliveryPolicies::isDistanceHybridEnabled()) {
+        $loadAddressMap = true;
+    }
     require APNI_TOKRI_ROOT . '/includes/layout/head-public.php';
     require APNI_TOKRI_ROOT . '/includes/layout/header-public.php';
     $mainClass = 'at-main--with-bottom-nav flex-1';

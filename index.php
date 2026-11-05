@@ -48,6 +48,7 @@ $categoryHints = [
                 <p class="at-pin-result__msg text-sm"></p>
                 <div class="at-pin-result__actions mt-2 flex flex-wrap gap-2">
                     <a href="<?= Security::escape($primaryCategoryUrl) ?>" class="at-btn at-btn--primary at-btn--sm at-focusable" data-pin-continue>Continue shopping</a>
+                    <button type="button" class="at-btn at-btn--secondary at-btn--sm at-focusable hidden" data-pin-map-select>Select delivery location on map</button>
                     <button type="button" class="at-btn at-btn--secondary at-btn--sm at-focusable" data-pin-change>Change pincode</button>
                 </div>
             </div>

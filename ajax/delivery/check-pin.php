@@ -10,14 +10,25 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 Csrf::requireValid();
 
 $pin = isset($_POST['pincode']) && is_string($_POST['pincode']) ? $_POST['pincode'] : '';
-$result = DeliveryContext::forPin($pin);
+$latRaw = isset($_POST['latitude']) && is_string($_POST['latitude']) ? $_POST['latitude'] : '';
+$lngRaw = isset($_POST['longitude']) && is_string($_POST['longitude']) ? $_POST['longitude'] : '';
+$coords = AddressInput::parseCoordinates($latRaw, $lngRaw);
+if ($coords['error'] !== null) {
+    Ajax::error($coords['error']);
+}
+$result = DeliveryContext::forPin($pin, $coords['lat'], $coords['lng']);
 if ($result['serviceable']) {
     DeliveryContext::setPin($result['pin']);
 }
 
-Ajax::success([
+$requiresMap = !empty($result['requires_map_pin']);
+$data = [
     'serviceable' => $result['serviceable'],
+    'requires_map_pin' => $requiresMap,
     'message' => $result['message'],
+    'message_detail' => $requiresMap ? (string) ($result['message_detail'] ?? DeliveryCustomerMessages::mapPinRequiredDetail()) : null,
     'zone' => $result['zone']['name'] ?? null,
     'totals' => CartService::itemCount() > 0 ? CartService::totals() : null,
-], $result['message']);
+];
+
+Ajax::success($data, $result['message']);

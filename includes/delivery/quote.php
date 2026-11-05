@@ -51,7 +51,7 @@ final class DeliveryQuoteService
             if (!empty($zoneEval['requires_map_pin']) && !$hasCoords) {
                 return self::fail(
                     'coordinates_required',
-                    'Select your delivery location on the map so we can confirm distance-based delivery.'
+                    DeliveryCustomerMessages::mapPinRequiredHeadline()
                 );
             }
 

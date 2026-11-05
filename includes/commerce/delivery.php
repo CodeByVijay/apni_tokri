@@ -4,13 +4,23 @@ declare(strict_types=1);
 
 final class DeliveryService
 {
-    /** @return array{pin: string, serviceable: bool, zone: array<string, mixed>|null, message: string, distance_km: float|null} */
-    public static function evaluatePincode(string $pin): array
+    /**
+     * @return array{
+     *   pin: string,
+     *   serviceable: bool,
+     *   zone: array<string, mixed>|null,
+     *   message: string,
+     *   distance_km: float|null,
+     *   requires_map_pin?: bool,
+     *   message_detail?: string
+     * }
+     */
+    public static function evaluatePincode(string $pin, ?float $customerLat = null, ?float $customerLon = null): array
     {
         if (Install::isSchemaReady()
             && (AppSettings::get('delivery.zone_resolution_mode', 'pincode_legacy') ?? 'pincode_legacy') === 'distance_hybrid') {
-            $r = DeliveryZoneResolver::resolve($pin, null, null);
-            unset($r['distance_source'], $r['requires_map_pin']);
+            $r = DeliveryZoneResolver::resolve($pin, $customerLat, $customerLon);
+            unset($r['distance_source']);
 
             return $r;
         }

@@ -4575,6 +4575,7 @@ body.at-gallery-lightbox-open {
 .at-addr-gps__btn.is-busy .at-addr-spinner, .at-addr-spinner.is-visible { display: inline-block; }
 @keyframes at-addr-spin { to { transform: rotate(360deg); } }
 .at-addr-mapwrap { position: relative; isolation: isolate; z-index: 0; border: 1px solid var(--at-line); border-radius: var(--at-radius); overflow: hidden; background: var(--at-cream-2); }
+.at-delivery-mapwrap .at-addr-map { height: clamp(11rem, 38vh, 17rem); }
 .at-addr-map { width: 100%; height: clamp(15rem, 52vh, 26rem); max-width: 100%; touch-action: pan-x pan-y; }
 .at-addr-map__loading {
   position: absolute; inset: 0; z-index: 800; display: flex; align-items: center; justify-content: center; gap: 0.5rem;
