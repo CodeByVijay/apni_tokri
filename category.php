@@ -7,7 +7,14 @@ require_once APNI_TOKRI_ROOT . '/includes/catalogue/helpers.php';
 
 Security::sendSecurityHeaders(Security::isHttps());
 
-$slug = isset($_GET['slug']) && is_string($_GET['slug']) ? trim($_GET['slug']) : 'vegetables';
+$slug = isset($_GET['slug']) && is_string($_GET['slug']) ? trim($_GET['slug']) : '';
+if ($slug === '') {
+    $primary = catalogue_primary_category_url();
+    if (strpos($primary, '/category.php?') !== false) {
+        header('Location: ' . $primary, true, 302);
+        exit;
+    }
+}
 $sort = isset($_GET['sort']) && is_string($_GET['sort']) ? $_GET['sort'] : 'relevance';
 $availability = isset($_GET['availability']) && is_string($_GET['availability']) ? $_GET['availability'] : 'all';
 $demoLoading = StorefrontDesignPreview::allowsLoadingPreview()

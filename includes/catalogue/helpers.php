@@ -36,6 +36,44 @@ function catalogue_cart_coupon_applied(array $totals): bool
 }
 
 /**
+ * Homepage / category tile image URL (DB cover → legacy slug map → neutral placeholder).
+ *
+ * @param array<string, mixed> $cat
+ */
+function catalogue_category_tile_image(array $cat): string
+{
+    $path = isset($cat['image_path']) ? trim((string) $cat['image_path']) : '';
+    if ($path !== '') {
+        return asset_url(ltrim($path, '/'));
+    }
+
+    static $map = [
+        'vegetables' => 'p-tomato-2.jpg',
+        'fruits' => 'p-apple.jpg',
+        'cut' => 'p-salad.jpg',
+        'pickles' => 'p-pickle.jpg',
+    ];
+    $slug = isset($cat['slug']) ? (string) $cat['slug'] : '';
+    if ($slug !== '' && isset($map[$slug])) {
+        return asset_url('assets/images/demo/' . $map[$slug]);
+    }
+
+    return asset_url('assets/images/demo/placeholder-category.svg');
+}
+
+/**
+ * Accessible alt text for a category tile image.
+ *
+ * @param array<string, mixed> $cat
+ */
+function catalogue_category_tile_image_alt(array $cat): string
+{
+    $name = isset($cat['name']) ? trim((string) $cat['name']) : '';
+
+    return $name !== '' ? $name : 'Category';
+}
+
+/**
  * @param array<string, mixed> $variant
  * @return array{display: float, regular: float, on_sale: bool}
  */
@@ -138,6 +176,92 @@ function catalogue_product_url(array $product): string
 function catalogue_category_url(array $category): string
 {
     return url_base() . '/category.php?slug=' . rawurlencode((string) $category['slug']);
+}
+
+/**
+ * Published storefront category by slug (ignores show_on_homepage; excludes hidden/unpublished).
+ *
+ * @return array<string, mixed>|null
+ */
+function catalogue_public_category(string $slug): ?array
+{
+    $slug = trim($slug);
+    if ($slug === '') {
+        return null;
+    }
+    $cat = demo_catalogue()->category($slug);
+
+    return $cat !== null ? $cat : null;
+}
+
+/** Category page URL when slug is publicly visible; null otherwise. */
+function catalogue_category_url_for_slug(string $slug): ?string
+{
+    $cat = catalogue_public_category($slug);
+
+    return $cat !== null ? catalogue_category_url($cat) : null;
+}
+
+/**
+ * First published category slug for hero CTAs: homepage tiles, then nav, then any published.
+ */
+function catalogue_primary_category_slug(): ?string
+{
+    $home = catalogue_homepage_categories();
+    if ($home !== []) {
+        return (string) $home[0]['slug'];
+    }
+    $tree = catalogue_nav_tree();
+    if ($tree !== []) {
+        return (string) $tree[0]['slug'];
+    }
+    foreach (demo_catalogue()->categories() as $c) {
+        return (string) $c['slug'];
+    }
+
+    return null;
+}
+
+/** Storefront URL for primary shopping CTA (real DB slug, not demo placeholders). */
+function catalogue_primary_category_url(): string
+{
+    $slug = catalogue_primary_category_slug();
+    if ($slug !== null && $slug !== '') {
+        return url_base() . '/category.php?slug=' . rawurlencode($slug);
+    }
+
+    return url_base() . '/search.php';
+}
+
+/**
+ * Merge in-stock catalogue products for slugs that resolve to published categories (skips missing slugs).
+ *
+ * @param list<string> $slugs
+ * @return list<array<string, mixed>>
+ */
+function catalogue_products_in_public_categories(array $slugs): array
+{
+    $out = [];
+    foreach ($slugs as $slug) {
+        if (catalogue_public_category((string) $slug) === null) {
+            continue;
+        }
+        $out = array_merge($out, demo_catalogue()->productsInCategory((string) $slug));
+    }
+
+    return $out;
+}
+
+/** First slug in list that is a published category (for section “view all” links). */
+function catalogue_first_public_category_slug(array $slugs): ?string
+{
+    foreach ($slugs as $slug) {
+        if (catalogue_public_category((string) $slug) !== null) {
+            return (string) $slug;
+        }
+    }
+
+    return null;
 }
 
 /** Public navigation tree: top-level categories with nested 'children' (hidden/ancestor-hidden excluded). */

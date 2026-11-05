@@ -19,12 +19,8 @@ layout_public_start([
 ]);
 require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
 
-$categoryImages = [
-    'vegetables' => 'p-tomato-2.jpg',
-    'fruits' => 'p-apple.jpg',
-    'cut' => 'p-salad.jpg',
-    'pickles' => 'p-pickle.jpg',
-];
+$primaryCategoryUrl = catalogue_primary_category_url();
+
 $categoryHints = [
     'vegetables' => 'Daily staples',
     'fruits' => 'Seasonal picks',
@@ -51,13 +47,13 @@ $categoryHints = [
                 <p class="at-pin-result__status"></p>
                 <p class="at-pin-result__msg text-sm"></p>
                 <div class="at-pin-result__actions mt-2 flex flex-wrap gap-2">
-                    <a href="<?= Security::escape($base) ?>/category.php?slug=vegetables" class="at-btn at-btn--primary at-btn--sm at-focusable" data-pin-continue>Continue shopping</a>
+                    <a href="<?= Security::escape($primaryCategoryUrl) ?>" class="at-btn at-btn--primary at-btn--sm at-focusable" data-pin-continue>Continue shopping</a>
                     <button type="button" class="at-btn at-btn--secondary at-btn--sm at-focusable" data-pin-change>Change pincode</button>
                 </div>
             </div>
 
             <div class="mt-5 flex flex-wrap gap-3">
-                <a href="<?= Security::escape($base) ?>/category.php?slug=vegetables" class="at-btn at-btn--accent at-btn--lg at-focusable">Shop fresh vegetables <?= at_icon('arrow-right', 'w-5 h-5') ?></a>
+                <a href="<?= Security::escape($primaryCategoryUrl) ?>" class="at-btn at-btn--accent at-btn--lg at-focusable">Shop fresh vegetables <?= at_icon('arrow-right', 'w-5 h-5') ?></a>
                 <a href="<?= Security::escape($base) ?>/my-subscriptions.php" class="at-btn at-btn--secondary at-btn--lg at-focusable">See subscriptions</a>
             </div>
         </div>
@@ -95,7 +91,7 @@ $categoryHints = [
                 $count = count($catalogue->productsInCategory((string) $cat['slug']));
                 ?>
                 <a href="<?= Security::escape(catalogue_category_url($cat)) ?>" class="at-category-tile at-focusable">
-                    <img src="<?= Security::escape(asset_url('assets/images/demo/' . ($categoryImages[$cat['slug']] ?? 'p-tomato-1.jpg'))) ?>" alt="" loading="lazy">
+                    <img src="<?= Security::escape(catalogue_category_tile_image($cat)) ?>" alt="<?= Security::escape(catalogue_category_tile_image_alt($cat)) ?>" loading="lazy">
                     <span class="at-category-tile__label">
                         <strong><?= Security::escape($name) ?></strong>
                         <span><?= Security::escape($categoryHints[$cat['slug']] ?? '') ?> · <?= (int) $count ?> items</span>
@@ -138,15 +134,19 @@ if ($products !== []) {
 <?php
 // Rails are grouped so each shelf is visually full with the small demo catalogue.
 $rails = [
-    ['Fresh vegetables & fruits', 'Daily staples and seasonal picks', 'vegetables', array_merge($catalogue->productsInCategory('vegetables'), $catalogue->productsInCategory('fruits'))],
-    ['Ready-cut & pantry', 'Save prep time; stock up on favourites', 'cut', array_merge($catalogue->productsInCategory('cut'), $catalogue->productsInCategory('pickles'))],
+    ['Fresh vegetables & fruits', 'Daily staples and seasonal picks', ['vegetables', 'fruits']],
+    ['Ready-cut & pantry', 'Save prep time; stock up on favourites', ['cut', 'pickles']],
 ];
 foreach ($rails as $rail) {
     $sectionTitle = $rail[0];
     $sectionSubtitle = $rail[1];
-    $sectionHref = $base . '/category.php?slug=' . rawurlencode($rail[2]);
+    $railSlugs = $rail[2];
+    $linkSlug = catalogue_first_public_category_slug($railSlugs);
+    $sectionHref = $linkSlug !== null
+        ? $base . '/category.php?slug=' . rawurlencode($linkSlug)
+        : $primaryCategoryUrl;
     $sectionLinkLabel = 'View all';
-    $products = catalogue_home_eligible_products($rail[3], 5);
+    $products = catalogue_home_eligible_products(catalogue_products_in_public_categories($railSlugs), 5);
     if ($products === []) {
         continue;
     }

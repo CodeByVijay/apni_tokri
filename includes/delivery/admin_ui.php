@@ -49,6 +49,24 @@ final class DeliveryAdminUi
         return ($s === '' ? '0' : $s) . ' km';
     }
 
+    /** MySQL TIME or HH:MM → 12-hour clock (e.g. 8:30 AM). */
+    public static function formatClockTime12h(string $time): string
+    {
+        $time = trim($time);
+        if ($time === '') {
+            return '—';
+        }
+        if (preg_match('/^\d{1,2}:\d{2}$/', $time)) {
+            $time .= ':00';
+        }
+        $ts = strtotime('1970-01-01 ' . $time);
+        if ($ts === false) {
+            return $time;
+        }
+
+        return date('g:i A', $ts);
+    }
+
     /** "Pincodes starting with 4520" / "0 km up to 5 km" for a zone row. */
     public static function coverage(array $zone): string
     {

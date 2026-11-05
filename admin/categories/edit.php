@@ -28,10 +28,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'meta_description' => $_POST['meta_description'] ?? '',
         ]);
         if ($result['ok']) {
-            CatalogueGateway::reset();
-            admin_flash_set('Category saved.');
-            header('Location: ' . url_base() . '/admin/categories/edit.php?id=' . (int) $result['id'], true, 302);
-            exit;
+            $savedId = (int) $result['id'];
+            $cover = CategoryCoverImage::applyAdminPost($savedId, $_POST, $_FILES);
+            if (empty($cover['ok'])) {
+                $errors = ['form' => $cover['message'] ?? 'Cover image could not be saved.'];
+                $category = CategoryRepository::find($savedId);
+            } else {
+                CatalogueGateway::reset();
+                admin_flash_set('Category saved.');
+                header('Location: ' . url_base() . '/admin/categories/edit.php?id=' . $savedId, true, 302);
+                exit;
+            }
         }
         $errors = $result['errors'] ?? ['form' => $result['message'] ?? 'Save failed.'];
     } else {
@@ -51,6 +58,7 @@ $defaults = [
     'status' => 'published',
     'meta_title' => '',
     'meta_description' => '',
+    'image_path' => '',
 ];
 if ($category) {
     $defaults = array_merge($defaults, $category);
@@ -67,7 +75,7 @@ if ($errors !== []) {
     echo '<div class="at-alert at-alert--error mb-4">' . Security::escape(implode(' ', $errors)) . '</div>';
 }
 ?>
-<form method="post" class="at-admin-card max-w-2xl" data-at-admin-slug data-slug-api="<?= Security::escape(url_base()) ?>/admin/ajax/slug-from-name.php">
+<form method="post" enctype="multipart/form-data" class="at-admin-card max-w-2xl" data-at-admin-slug data-slug-api="<?= Security::escape(url_base()) ?>/admin/ajax/slug-from-name.php">
     <div class="at-admin-card__body space-y-3">
         <?= Csrf::field() ?>
         <?php if ($category): ?><input type="hidden" name="id" value="<?= (int) $category['id'] ?>"><?php endif; ?>
@@ -123,6 +131,26 @@ if ($errors !== []) {
         <label class="flex items-center gap-2 text-sm">
             <input type="checkbox" name="show_on_homepage" value="1"<?= !empty($defaults['show_on_homepage']) ? ' checked' : '' ?>> Show on homepage
         </label>
+        <div class="pt-2 border-t border-neutral-200">
+            <h3 class="font-bold text-sm mb-2">Cover image (homepage tile)</h3>
+            <?php
+            $coverPath = trim((string) ($defaults['image_path'] ?? ''));
+            if ($coverPath !== ''):
+                ?>
+                <div class="mb-3">
+                    <img src="<?= Security::escape(asset_url(ltrim($coverPath, '/'))) ?>" alt="" class="max-h-32 rounded-lg border border-neutral-200" width="160" height="120" loading="lazy">
+                    <p class="text-xs at-muted mt-1">Current: <?= Security::escape($coverPath) ?></p>
+                </div>
+                <label class="flex items-center gap-2 text-sm mb-2">
+                    <input type="checkbox" name="remove_cover_image" value="1"> Remove current cover image
+                </label>
+            <?php endif; ?>
+            <div>
+                <label class="at-label" for="cover_image"><?= $coverPath !== '' ? 'Replace cover image' : 'Upload cover image' ?></label>
+                <input id="cover_image" name="cover_image" type="file" accept="image/jpeg,image/png,image/webp,image/gif" class="at-input at-focusable">
+                <p class="text-xs at-muted mt-1">JPEG, PNG, WebP or GIF · max 5 MB. Used on the homepage category tile when set.</p>
+            </div>
+        </div>
         <div class="flex gap-3 pt-2">
             <button type="submit" class="at-btn at-btn--primary at-focusable">Save category</button>
             <a href="<?= Security::escape(url_base()) ?>/admin/categories/index.php" class="at-btn at-btn--ghost at-focusable">Back</a>

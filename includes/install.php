@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 final class Install
 {
-    public const SCHEMA_VERSION = '1.28.0-subscription-credit-lifecycle';
+    public const SCHEMA_VERSION = '1.29.0-category-tile-images';
 
     /** Seeded bootstrap admin (fresh SQL import). Detection uses password hash only — never expose the plain password. */
     public const SEED_ADMIN_EMAIL = 'admin@apnitokri.local';

@@ -220,10 +220,10 @@ if ($errors !== []): ?>
     </div>
     <div class="at-admin-table-wrap">
         <table class="at-admin-table">
-            <thead><tr><th>Name</th><th>Slug</th><th>Window</th><th class="is-num">Cap</th><th class="is-num">Orders</th><th>Active</th><th class="is-actions">Actions</th></tr></thead>
+            <thead><tr><th>Name</th><th>Slug</th><th>Window</th><th>Legacy cutoff</th><th class="is-num">Cap</th><th class="is-num">Orders</th><th>Active</th><th class="is-actions">Actions</th></tr></thead>
             <tbody>
             <?php if ($slotList['rows'] === []): ?>
-                <tr><td colspan="7" class="text-sm at-muted">No slots match your search.</td></tr>
+                <tr><td colspan="8" class="text-sm at-muted">No slots match your search.</td></tr>
             <?php endif; ?>
             <?php foreach ($slotList['rows'] as $s):
                 $sid = (int) $s['id'];
@@ -233,7 +233,8 @@ if ($errors !== []): ?>
                 <tr>
                     <td><?= Security::escape($label) ?></td>
                     <td><?= Security::escape((string) $s['slug']) ?></td>
-                    <td><?= Security::escape((string) $s['window_label']) ?> · <?= Security::escape(substr((string) $s['start_time'], 0, 5)) ?>–<?= Security::escape(substr((string) $s['end_time'], 0, 5)) ?></td>
+                    <td><?= Security::escape((string) $s['window_label']) ?> · <?= Security::escape(DeliveryAdminUi::formatClockTime12h((string) ($s['start_time'] ?? ''))) ?>–<?= Security::escape(DeliveryAdminUi::formatClockTime12h((string) ($s['end_time'] ?? ''))) ?></td>
+                    <td><?= Security::escape(DeliveryAdminUi::formatClockTime12h((string) ($s['cutoff_time'] ?? ''))) ?><span class="at-muted text-xs block">Asia/Kolkata</span></td>
                     <td class="is-num"><?= (int) $s['capacity'] ?></td>
                     <td class="is-num"><?= DeliverySlotRepository::orderReferenceCount($sid) ?></td>
                     <td><?= admin_status_badge(!empty($s['is_active']) ? 'active' : 'inactive', !empty($s['is_active']) ? 'Active' : 'Inactive') ?></td>

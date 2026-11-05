@@ -62,6 +62,7 @@ function production_migration_sequence(): array
         'database/migrations/1.26.0_product_types.sql',
         'database/migrations/1.27.0_subscription_basket_generation_notes.sql',
         'database/migrations/1.28.0_subscription_credit_lifecycle.sql',
+        'database/migrations/1.29.0_category_tile_images.sql',
     ];
 }
 

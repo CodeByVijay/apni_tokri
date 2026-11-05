@@ -194,7 +194,8 @@ final class HomepageTrustRenderer
             <article class="at-quote !bg-[var(--at-green-50)] border-dashed">
                 <h3 class="at-h3">Real stories, when customers share them</h3>
                 <p class="mt-2 text-sm at-muted">We publish only approved testimonials with recorded consent. Product reviews on each item come from delivered orders.</p>
-                <a href="<?= Security::escape($base) ?>/category.php?slug=vegetables" class="at-btn at-btn--secondary at-btn--sm at-focusable mt-4">Start shopping</a>
+                <?php require_once APNI_TOKRI_ROOT . '/includes/catalogue/helpers.php'; ?>
+                <a href="<?= Security::escape(catalogue_primary_category_url()) ?>" class="at-btn at-btn--secondary at-btn--sm at-focusable mt-4">Start shopping</a>
             </article>
         </div>
         <?php endif; ?>

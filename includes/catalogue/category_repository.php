@@ -437,6 +437,9 @@ final class CategoryRepository
             'slug' => (string) $row['slug'],
             'name' => (string) $row['name'],
             'description' => (string) ($row['description'] ?? ''),
+            'image_path' => isset($row['image_path']) && $row['image_path'] !== null && $row['image_path'] !== ''
+                ? (string) $row['image_path']
+                : '',
             'icon' => '',
             'parent_id' => isset($row['parent_id']) && $row['parent_id'] !== null && $row['parent_id'] !== '' ? (int) $row['parent_id'] : null,
             'show_on_homepage' => (bool) ($row['show_on_homepage'] ?? false),

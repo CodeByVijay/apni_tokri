@@ -58,6 +58,7 @@ require_once APNI_TOKRI_ROOT . '/includes/upload.php';
 require_once APNI_TOKRI_ROOT . '/includes/demo/catalogue.php';
 require_once APNI_TOKRI_ROOT . '/includes/catalogue/slug.php';
 require_once APNI_TOKRI_ROOT . '/includes/catalogue/category_repository.php';
+require_once APNI_TOKRI_ROOT . '/includes/catalogue/category_cover_image.php';
 require_once APNI_TOKRI_ROOT . '/includes/catalogue/product_repository.php';
 require_once APNI_TOKRI_ROOT . '/includes/catalogue/product_sku.php';
 require_once APNI_TOKRI_ROOT . '/includes/catalogue/product_type_repository.php';
