@@ -321,6 +321,21 @@ final class CustomerAuth
         return null;
     }
 
+    /** Saved name for a mobile from the server-side customer record ('' when none/unknown). */
+    public static function savedNameForMobile(string $mobile): string
+    {
+        $mobile = Validation::normalizeMobileIndia($mobile) ?? '';
+        if ($mobile === '') {
+            return '';
+        }
+        Install::ensureConnection();
+        $stmt = Database::pdo()->prepare('SELECT name FROM customers WHERE mobile = ? LIMIT 1');
+        $stmt->execute([$mobile]);
+        $v = $stmt->fetchColumn();
+
+        return is_string($v) ? trim($v) : '';
+    }
+
     public static function verifyOtp(string $mobile, string $otp, ?string $name = null, int $maxAttempts = 5): bool
     {
         Install::ensureConnection();
@@ -350,16 +365,19 @@ final class CustomerAuth
             return false;
         }
 
-        $cust = Database::pdo()->prepare('SELECT id FROM customers WHERE mobile = ? LIMIT 1');
+        $cust = Database::pdo()->prepare('SELECT id, name FROM customers WHERE mobile = ? LIMIT 1');
         $cust->execute([$mobile]);
-        $customerId = $cust->fetchColumn();
+        $custRow = $cust->fetch(PDO::FETCH_ASSOC);
+        $customerId = $custRow ? $custRow['id'] : null;
+        $savedName = $custRow ? trim((string) ($custRow['name'] ?? '')) : '';
         if (!$customerId) {
             $ins = Database::pdo()->prepare('INSERT INTO customers (mobile) VALUES (?)');
             $ins->execute([$mobile]);
             $customerId = Database::pdo()->lastInsertId();
         }
         $customerId = (int) $customerId;
-        if ($name !== null && trim($name) !== '') {
+        // A saved name is never overwritten here; profile page is the place to change it.
+        if ($savedName === '' && $name !== null && trim($name) !== '') {
             Database::pdo()->prepare('UPDATE customers SET name = ?, updated_at = NOW() WHERE id = ?')
                 ->execute([trim($name), $customerId]);
         }

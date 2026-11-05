@@ -12,6 +12,11 @@ if (!is_string($mobile) || $mobile === '') {
     exit;
 }
 
+$savedName = '';
+if (Install::isSchemaReady()) {
+    $savedName = CustomerAuth::savedNameForMobile($mobile);
+}
+
 $error = '';
 if (AppEnvironment::allowsDebugOtpDisplay() && !empty($_SESSION['otp_debug_plain'])) {
     unset($_SESSION['otp_debug_plain']);
@@ -21,6 +26,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     Csrf::requireValid();
     $otp = isset($_POST['otp']) && is_string($_POST['otp']) ? preg_replace('/\D+/', '', $_POST['otp']) : '';
     $name = isset($_POST['name']) && is_string($_POST['name']) ? trim($_POST['name']) : '';
+    if ($savedName !== '') {
+        // Existing customer: the server-side name is authoritative; ignore any submitted value.
+        $name = '';
+    }
     if (strlen($otp) !== 6) {
         $error = 'Enter the 6-digit OTP.';
     } elseif (Install::isSchemaReady()) {
@@ -77,14 +86,30 @@ layout_public_start([
                 <div class="at-card__body grid gap-4">
                     <?= Csrf::field() ?>
                     <div>
-                        <label class="at-label" for="otp">6-digit OTP</label>
-                        <input id="otp" name="otp" type="text" class="at-input at-focusable text-center text-2xl font-bold tracking-[0.5em]" maxlength="6" inputmode="numeric" pattern="[0-9]{6}" autocomplete="one-time-code" placeholder="••••••" required aria-describedby="otp-hint">
+                        <label class="at-label" id="otp-label" for="otp-d1">6-digit OTP</label>
+                        <input id="otp" name="otp" type="hidden" value="">
+                        <div class="at-otp" role="group" aria-labelledby="otp-label">
+                            <?php for ($i = 1; $i <= 6; $i++): ?>
+                                <input id="otp-d<?= $i ?>" data-otp-box type="text" class="at-input at-focusable at-otp__box"
+                                    inputmode="numeric" pattern="[0-9]*" autocomplete="<?= $i === 1 ? 'one-time-code' : 'off' ?>"
+                                    aria-label="Digit <?= $i ?> of 6" aria-describedby="otp-hint" enterkeyhint="<?= $i === 6 ? 'done' : 'next' ?>"
+                                    autocapitalize="off" spellcheck="false">
+                            <?php endfor; ?>
+                        </div>
                         <p id="otp-hint" class="at-field-error hidden" role="alert">Enter the 6-digit OTP.</p>
                     </div>
-                    <div>
-                        <label class="at-label" for="name">Your name <span class="at-muted font-normal">(optional)</span></label>
-                        <input id="name" name="name" type="text" class="at-input at-focusable" autocomplete="name" maxlength="120">
-                    </div>
+                    <?php if ($savedName !== ''): ?>
+                        <div>
+                            <label class="at-label" for="name">Your name</label>
+                            <input id="name" type="text" class="at-input at-focusable" value="<?= Security::escape($savedName) ?>" readonly disabled aria-readonly="true">
+                            <p class="text-xs at-muted mt-1">You can change your name later from your profile.</p>
+                        </div>
+                    <?php else: ?>
+                        <div>
+                            <label class="at-label" for="name">Your name <span class="at-muted font-normal">(optional)</span></label>
+                            <input id="name" name="name" type="text" class="at-input at-focusable" autocomplete="name" maxlength="120">
+                        </div>
+                    <?php endif; ?>
                     <button type="submit" class="at-btn at-btn--primary at-btn--lg at-btn--block at-focusable">Verify &amp; continue</button>
                     <p class="text-xs at-muted flex gap-2"><?= at_icon('lock', 'w-4 h-4 flex-shrink-0') ?>The code expires in 5 minutes. Need a new one? Go back and request again.</p>
                     <a href="<?= Security::escape(url_base()) ?>/login.php" class="at-btn at-btn--ghost at-btn--sm at-focusable self-center">Use a different number / resend OTP</a>
@@ -93,4 +118,5 @@ layout_public_start([
         </div>
     </div>
 </div>
+<script src="<?= Security::escape(asset_url('assets/js/otp-input.js')) ?>"></script>
 <?php layout_public_end(); ?>

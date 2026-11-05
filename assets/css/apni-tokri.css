@@ -3033,6 +3033,206 @@ body.at-gallery-lightbox-open {
   box-shadow: 0 0 0 4px rgba(245, 166, 35, 0.3);
 }
 
+/* Six-box OTP input (verify-otp) */
+.at-otp {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.5rem;
+  max-width: 22rem;
+}
+.at-otp__box {
+  width: 100%;
+  min-width: 0;
+  padding-left: 0;
+  padding-right: 0;
+  text-align: center;
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.at-otp__box:focus {
+  border-color: var(--at-green);
+  box-shadow: 0 0 0 3px rgba(36, 92, 58, 0.25);
+}
+@media (max-width: 380px) {
+  .at-otp {
+    gap: 0.35rem;
+  }
+  .at-otp__box {
+    font-size: 1.25rem;
+  }
+}
+
+/* Horizontal order stepper (order-details) */
+.at-stepper {
+  min-width: 0;
+}
+.at-stepper__summary {
+  display: none;
+  margin-bottom: 0.75rem;
+}
+.at-stepper__summary-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.at-stepper__summary-label {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--at-green-dark);
+  overflow-wrap: anywhere;
+}
+.at-stepper__summary-label.is-bad {
+  color: var(--at-danger);
+}
+.at-stepper__summary-count {
+  flex: none;
+  font-size: 0.75rem;
+  color: var(--at-ink-2);
+}
+.at-stepper__summary-time {
+  margin-top: 0.35rem;
+  font-size: 0.75rem;
+  color: var(--at-ink-2);
+}
+.at-stepper__bar {
+  margin-top: 0.5rem;
+  height: 0.4rem;
+  border-radius: 999px;
+  background: var(--at-line);
+  overflow: hidden;
+}
+.at-stepper__bar-fill {
+  display: block;
+  height: 100%;
+  background: var(--at-green);
+  border-radius: 999px;
+}
+.at-stepper__bar-fill.is-bad {
+  background: var(--at-danger);
+}
+.at-stepper__scroll {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  padding-bottom: 0.5rem;
+  max-width: 100%;
+}
+.at-stepper__list {
+  display: flex;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-width: max-content;
+  width: 100%;
+}
+.at-stepper__step {
+  position: relative;
+  flex: 1 0 7.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 0 0.35rem;
+  min-width: 0;
+}
+/* Connector from previous step; filled only when this step is reached (done/current/bad). */
+.at-stepper__step::before {
+  content: "";
+  position: absolute;
+  top: 0.8rem;
+  right: 50%;
+  width: 100%;
+  height: 2px;
+  background: var(--at-line);
+  z-index: 0;
+}
+.at-stepper__step:first-child::before {
+  display: none;
+}
+.at-stepper__step.is-done::before,
+.at-stepper__step.is-current::before {
+  background: var(--at-green);
+}
+.at-stepper__step.is-bad::before {
+  background: var(--at-danger);
+}
+.at-stepper__dot {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid var(--at-line-strong);
+  color: #fff;
+}
+.at-stepper__step.is-done .at-stepper__dot {
+  background: var(--at-green);
+  border-color: var(--at-green);
+}
+.at-stepper__step.is-current .at-stepper__dot {
+  border-color: var(--at-yellow-dark);
+  box-shadow: 0 0 0 4px rgba(245, 166, 35, 0.3);
+}
+.at-stepper__step.is-current .at-stepper__dot::after {
+  content: "";
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--at-yellow-dark);
+}
+.at-stepper__step.is-bad .at-stepper__dot {
+  background: var(--at-danger);
+  border-color: var(--at-danger);
+}
+.at-stepper__label {
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--at-ink-2);
+  overflow-wrap: anywhere;
+  hyphens: auto;
+}
+.at-stepper__step.is-done .at-stepper__label,
+.at-stepper__step.is-current .at-stepper__label {
+  color: var(--at-green-dark);
+}
+.at-stepper__step.is-current .at-stepper__label {
+  color: var(--at-yellow-ink);
+}
+.at-stepper__step.is-bad .at-stepper__label {
+  color: var(--at-danger);
+}
+.at-stepper__step.is-upcoming .at-stepper__label {
+  font-weight: 500;
+  opacity: 0.7;
+}
+.at-stepper__time {
+  margin-top: 0.2rem;
+  font-size: 0.7rem;
+  line-height: 1.25;
+  color: var(--at-ink-2);
+}
+@media (max-width: 639px) {
+  .at-stepper__summary {
+    display: block;
+  }
+  .at-stepper__step {
+    flex-basis: 6.5rem;
+  }
+  .at-stepper__time {
+    display: none;
+  }
+  .at-stepper__step.is-current .at-stepper__time {
+    display: block;
+  }
+}
+
 /* --------------------------------------------------------- 14 FOOTER */
 .at-footer {
   background: var(--at-green-deep);

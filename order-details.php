@@ -210,16 +210,9 @@ require APNI_TOKRI_ROOT . '/includes/partials/customer-order-cancel.php';
 <section class="at-card at-order-detail__timeline">
     <div class="at-card__body">
         <h2 class="at-h3">Order tracking</h2>
-        <ol class="at-timeline mt-4">
-            <?php foreach ($timeline as $i => $step): ?>
-                <li class="<?= !empty($step['done']) ? 'is-done' : ($i === $firstNotDone ? 'is-current' : '') ?>">
-                    <strong class="text-sm"><?= Security::escape((string) ($step['status'] ?? '')) ?></strong>
-                    <?php if (!empty($step['at'])): ?>
-                        <span class="block text-xs at-muted"><?= Security::escape(customer_format_datetime((string) $step['at'])) ?></span>
-                    <?php endif; ?>
-                </li>
-            <?php endforeach; ?>
-        </ol>
+        <div class="mt-4">
+            <?php require APNI_TOKRI_ROOT . '/includes/partials/order-stepper.php'; ?>
+        </div>
     </div>
 </section>
 
