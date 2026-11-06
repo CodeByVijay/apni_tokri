@@ -22,6 +22,10 @@
     RewriteCond %{THE_REQUEST} \s/+(.+?)\.php(?:[\s?]) [NC]
     RewriteRule ^(.+?)\.php$ /$1 [R=302,L,NE]
 
+    # Delivery settings: real directory admin/settings/delivery/ otherwise maps here with no index;
+    # send the extensionless path to the PHP entry so directory listing is not required.
+    RewriteRule ^admin/settings/delivery/?$ admin/settings/delivery.php [END]
+
     # Internally rewrite extensionless URLs to existing PHP files
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteCond %{REQUEST_FILENAME} !-f
