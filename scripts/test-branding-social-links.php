@@ -45,16 +45,16 @@ foreach (BrandingSocialLinks::allSettingKeys() as $key) {
 AppSettings::resetCache();
 ok(BrandingSocialLinks::visibleFooterLinks() === [], 'No social links when all unset');
 
-$ig = 'https://www.instagram.com/apnitokri/';
+$ig = 'https://www.instagram.com/veggietokri/';
 AppSettings::set(BrandingSocialLinks::KEY_INSTAGRAM, $ig);
 AppSettings::resetCache();
 $links = BrandingSocialLinks::visibleFooterLinks();
 ok(count($links) === 1 && $links[0]['id'] === 'instagram', 'Instagram alone shows one icon');
-ok(str_contains($links[0]['url'], 'instagram.com/apnitokri'), 'Instagram URL normalized');
+ok(str_contains($links[0]['url'], 'instagram.com/veggietokri'), 'Instagram URL normalized');
 
-AppSettings::set(BrandingSocialLinks::KEY_FACEBOOK, 'https://www.facebook.com/apnitokri');
-AppSettings::set(BrandingSocialLinks::KEY_YOUTUBE, 'https://www.youtube.com/@apnitokri');
-AppSettings::set(BrandingSocialLinks::KEY_X, 'https://twitter.com/apnitokri');
+AppSettings::set(BrandingSocialLinks::KEY_FACEBOOK, 'https://www.facebook.com/veggietokri');
+AppSettings::set(BrandingSocialLinks::KEY_YOUTUBE, 'https://www.youtube.com/@veggietokri');
+AppSettings::set(BrandingSocialLinks::KEY_X, 'https://twitter.com/veggietokri');
 AppSettings::set(BrandingSocialLinks::KEY_WHATSAPP, '+919876543210');
 AppSettings::resetCache();
 ok(count(BrandingSocialLinks::visibleFooterLinks()) === 5, 'All five platforms visible when configured');
