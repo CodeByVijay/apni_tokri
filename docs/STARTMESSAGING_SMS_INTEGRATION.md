@@ -23,7 +23,7 @@ Implementation: `StartMessagingSmsService` + `StartMessagingSmsGateway` (OTP-onl
 5. **Sender ID**: leave empty for StartMessaging (optional).
 6. Under **Message templates → otp**, set **DLT / template ID** to your StartMessaging dashboard **template ID** (required for live OTP).
 7. Enable template variables to match your template:
-   - **appName** — maps to app name (e.g. Apni Tokri).
+   - **appName** — maps to app name (e.g. Veggie Tokri).
    - **expiry** — OTP validity in minutes (from OTP TTL).
 8. **HTTP provider response contract** is hidden for StartMessaging (not used).
 

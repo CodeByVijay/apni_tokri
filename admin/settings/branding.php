@@ -78,7 +78,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/settings-nav.php';
                 <div>
                     <label class="at-label" for="tagline">Website tagline</label>
                     <input id="tagline" name="tagline" class="at-input at-focusable" maxlength="160"
-                           value="<?= Security::escape($form['tagline']) ?>" placeholder="Har Ghar Ki Taazgi">
+                           value="<?= Security::escape($form['tagline']) ?>" placeholder="Freshness, Ready for Your Kitchen.">
                     <?php if (isset($errors['tagline'])): ?><p class="text-xs text-red-600 mt-1"><?= Security::escape($errors['tagline']) ?></p><?php endif; ?>
                 </div>
                 <div>
@@ -109,7 +109,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/settings-nav.php';
             <div>
                 <label class="at-label" for="footer_brand_description">Footer brand description</label>
                 <textarea id="footer_brand_description" name="footer_brand_description" class="at-textarea at-focusable" maxlength="500" rows="3"><?= Security::escape($form['footer_brand_description']) ?></textarea>
-                <p class="text-xs at-muted mt-1">This description appears below the Apni Tokri logo in the website footer.</p>
+                <p class="text-xs at-muted mt-1">This description appears below the Veggie Tokri logo in the website footer.</p>
                 <?php if (isset($errors['footer_brand_description'])): ?><p class="text-xs text-red-600 mt-1"><?= Security::escape($errors['footer_brand_description']) ?></p><?php endif; ?>
             </div>
         </div>

@@ -1,4 +1,4 @@
--- Apni Tokri schema 1.2.0 — cart coupon, order checkout fields, seed coupons (Stage 7)
+-- Veggie Tokri schema 1.2.0 — cart coupon, order checkout fields, seed coupons (Stage 7)
 
 SET NAMES utf8mb4;
 

@@ -14,7 +14,7 @@ if (!CustomerService::isLoggedIn()) {
 
 $customerId = CustomerAuth::id();
 if ($customerId === null || !CommerceGateway::useDatabase()) {
-    layout_public_start(['pageTitle' => 'My refunds — Apni Tokri', 'activeNav' => 'account']);
+    layout_public_start(['pageTitle' => 'My refunds — Veggie Tokri', 'activeNav' => 'account']);
     echo '<div class="at-container py-10"><p>Refund status requires a signed-in account with live orders.</p></div>';
     layout_public_end();
     exit;
@@ -22,7 +22,7 @@ if ($customerId === null || !CommerceGateway::useDatabase()) {
 
 $refunds = RefundRequestService::listForCustomer($customerId);
 
-layout_public_start(['pageTitle' => 'My refunds — Apni Tokri', 'activeNav' => 'account']);
+layout_public_start(['pageTitle' => 'My refunds — Veggie Tokri', 'activeNav' => 'account']);
 $accountActive = 'refunds';
 $accountTitle = 'My refunds';
 $accountSub = 'Track refund requests and payment refund progress for your orders.';

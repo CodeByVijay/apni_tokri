@@ -1,5 +1,5 @@
 /**
- * Apni Tokri — UI behaviours (jQuery): nav, modals, toast, qty stepper, search suggestions
+ * Veggie Tokri — UI behaviours (jQuery): nav, modals, toast, qty stepper, search suggestions
  */
 (function ($) {
   'use strict';
@@ -166,6 +166,10 @@
   }
   window.ApniTokri = window.ApniTokri || {};
   window.ApniTokri.toast = toast;
+  window.VeggieTokri = window.VeggieTokri || window.ApniTokri;
+  if (!window.VeggieTokri.toast) {
+    window.VeggieTokri.toast = toast;
+  }
 
   /* ---------- Quantity stepper buttons ---------- */
   function initQtySteppers() {
@@ -434,8 +438,9 @@
         }
         if (source === 'modal') showModalFeedback(data, false);
         showHero(pin, ok ? 'ok' : 'bad', data);
-        if (window.ApniTokri && window.ApniTokri.toast && data.message) {
-          window.ApniTokri.toast(data.message, ok ? 'success' : (data.requires_map_pin ? 'info' : 'error'));
+        var uiToast = (window.VeggieTokri && window.VeggieTokri.toast) ? window.VeggieTokri : window.ApniTokri;
+        if (uiToast && uiToast.toast && data.message) {
+          uiToast.toast(data.message, ok ? 'success' : (data.requires_map_pin ? 'info' : 'error'));
         }
       }).fail(function () {
         var m = 'Could not check pincode. Try again.';
@@ -552,7 +557,7 @@
         key: $b.data('key-id'),
         amount: $b.data('amount'),
         currency: 'INR',
-        name: 'Apni Tokri',
+        name: 'Veggie Tokri',
         order_id: $b.data('order-id'),
         prefill: { name: $b.data('customer-name'), contact: $b.data('customer-mobile') },
         handler: function (response) {

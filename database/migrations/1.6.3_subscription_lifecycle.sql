@@ -1,4 +1,4 @@
--- Apni Tokri schema 1.6.3 — skip/pause, auto-confirm idempotency, notifications (Stage 11 Phase D)
+-- Veggie Tokri schema 1.6.3 — skip/pause, auto-confirm idempotency, notifications (Stage 11 Phase D)
 
 SET NAMES utf8mb4;
 SET time_zone = '+05:30';

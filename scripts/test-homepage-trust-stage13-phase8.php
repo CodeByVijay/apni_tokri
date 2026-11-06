@@ -52,7 +52,7 @@ AppSettings::set(HomepageTrustService::SETTING_KEY, json_encode([
         return $s;
     }, HomepageTrustService::defaultConfig()['sections']),
 ], JSON_UNESCAPED_UNICODE));
-ok(!str_contains(stage13_p8_render_home_trust(), 'AT-HP8 Custom Why Heading') && !str_contains(stage13_p8_render_home_trust(), 'Why Apni Tokri'), 'Disabled section does not render');
+ok(!str_contains(stage13_p8_render_home_trust(), 'AT-HP8 Custom Why Heading') && !str_contains(stage13_p8_render_home_trust(), 'Why Veggie Tokri'), 'Disabled section does not render');
 
 stage13_p8_cleanup($pdo);
 AppSettings::set(HomepageTrustService::SETTING_KEY, json_encode([

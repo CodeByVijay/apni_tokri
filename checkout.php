@@ -147,7 +147,7 @@ $paymentGatewayBlockedMessage = $paymentGatewayReady
     : (string) ($paymentLiveReady['message'] ?? 'Payment gateway is not ready. Check Settings → Payment gateways.');
 
 layout_public_start([
-    'pageTitle' => 'Checkout — Apni Tokri',
+    'pageTitle' => 'Checkout — Veggie Tokri',
     'activeNav' => 'cart',
     'showBottomNav' => false,
     'loadAddressMap' => $dbAddressMode,

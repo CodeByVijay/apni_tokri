@@ -1,4 +1,4 @@
-# Apni Tokri — comprehensive security audit (pre-staging)
+# Veggie Tokri — comprehensive security audit (pre-staging)
 
 **Date:** 2026-11-03 (Asia/Kolkata)  
 **Type:** Audit-first — **no broad remediation** performed in this task  

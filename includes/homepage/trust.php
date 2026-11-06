@@ -180,7 +180,7 @@ final class HomepageTrustService
                 'placement' => 'after_subscriptions',
                 'enabled' => true,
                 'sort' => $sort,
-                'heading' => 'Why Apni Tokri',
+                'heading' => 'Why Veggie Tokri',
                 'subtitle' => 'Honest basics, done properly.',
                 'items' => [
                     ['icon' => 'receipt', 'title' => 'Transparent pricing', 'body' => 'Item price, delivery fee and discounts are itemised before you pay.'],
@@ -206,7 +206,7 @@ final class HomepageTrustService
                     'Packaged foods show ingredients and allergens as per the label',
                 ],
                 'image_path' => 'assets/images/demo/about-packing.jpg',
-                'cta_label' => 'About Apni Tokri',
+                'cta_label' => 'About Veggie Tokri',
                 'cta_href' => '/page.php?slug=about-us',
             ];
         }

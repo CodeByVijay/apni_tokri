@@ -286,8 +286,9 @@
   }
 
   function toast(msg, type) {
-    if (window.ApniTokri && window.ApniTokri.toast) {
-      window.ApniTokri.toast(msg, type);
+    var ui = (window.VeggieTokri && window.VeggieTokri.toast) ? window.VeggieTokri : window.ApniTokri;
+    if (ui && ui.toast) {
+      ui.toast(msg, type);
     }
   }
 
@@ -313,8 +314,9 @@
         toast('Select a variant first.', 'error');
         return;
       }
-      if (window.ApniTokriCart) {
-        window.ApniTokriCart.add(slug, variantId, qty, function (err, res) {
+      var cartApi = window.VeggieTokriCart || window.ApniTokriCart;
+      if (cartApi) {
+        cartApi.add(slug, variantId, qty, function (err, res) {
           if (err) {
             toast(err.message, 'error');
           } else {
@@ -335,11 +337,11 @@
       var slug = $form.data('product-slug');
       var $variant = $form.find('input[name=variant_id]:checked');
       if (!$variant.length) $variant = $form.find('input[name=variant_id]').first();
-      if (!window.ApniTokriCart || !slug) {
+      if (!(window.VeggieTokriCart || window.ApniTokriCart) || !slug) {
         toast('Demo: checkout flow.');
         return;
       }
-      window.ApniTokriCart.add(slug, $variant.val(), parseInt($('#qty').val(), 10) || 1, function (err) {
+      (window.VeggieTokriCart || window.ApniTokriCart).add(slug, $variant.val(), parseInt($('#qty').val(), 10) || 1, function (err) {
         if (!err) window.location.href = $form.data('checkout-url');
         else toast(err.message, 'error');
       });

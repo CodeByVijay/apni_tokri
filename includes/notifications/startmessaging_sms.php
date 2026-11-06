@@ -51,7 +51,7 @@ final class StartMessagingSmsService
         $templateId = trim(AppSettings::get('sms.dlt.otp', '') ?? '');
         $variables = ['otp' => $otpPlain];
         if (self::includeAppNameVariable()) {
-            $variables['appName'] = trim((string) (App::config()['app']['name'] ?? 'Apni Tokri'));
+            $variables['appName'] = trim((string) (App::config()['app']['name'] ?? 'Veggie Tokri'));
         }
         if (self::includeExpiryVariable()) {
             $variables['expiry'] = (string) max(1, (int) ceil($ttlSeconds / 60));

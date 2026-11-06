@@ -13,7 +13,7 @@ if (!CustomerService::isLoggedIn()) {
 }
 $customerId = (int) CustomerAuth::id();
 if ($customerId <= 0 || !CommerceGateway::useDatabase()) {
-    layout_public_start(['pageTitle' => 'My account — Apni Tokri', 'activeNav' => 'account']);
+    layout_public_start(['pageTitle' => 'My account — Veggie Tokri', 'activeNav' => 'account']);
     echo '<div class="at-container py-10"><p>This page needs a signed-in account backed by the database.</p></div>';
     layout_public_end();
     exit;

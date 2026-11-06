@@ -1,4 +1,4 @@
--- Apni Tokri schema 1.6.5 — Stage 11 production hardening
+-- Veggie Tokri schema 1.6.5 — Stage 11 production hardening
 
 SET NAMES utf8mb4;
 SET time_zone = '+05:30';

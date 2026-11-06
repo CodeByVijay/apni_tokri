@@ -1,5 +1,5 @@
 /*
- * Apni Tokri — delivery address form + Leaflet/OpenStreetMap pin picker.
+ * Veggie Tokri — delivery address form + Leaflet/OpenStreetMap pin picker.
  * No API key. Tile provider comes from window.AT_MAP_CONFIG (PHP MapConfig). Server-side validation is the source of truth.
  * Requires jQuery and Leaflet (assets/vendor/leaflet). Loaded only on address-related pages.
  */

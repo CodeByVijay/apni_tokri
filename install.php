@@ -74,12 +74,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 layout_public_start([
-    'pageTitle' => 'Install Apni Tokri',
+    'pageTitle' => 'Install Veggie Tokri',
     'showBottomNav' => false,
 ]);
 ?>
 <div class="max-w-3xl mx-auto px-4 py-8">
-    <h1 class="text-2xl font-bold text-brand-green">Apni Tokri installation</h1>
+    <h1 class="text-2xl font-bold text-brand-green">Veggie Tokri installation</h1>
     <p class="mt-2 text-sm text-neutral-600">Guided setup for shared hosting. Use an <strong>empty</strong> MySQL database. Credentials and encryption keys are stored on the server only — never shown in the browser after submit.</p>
 
     <?php if ($error !== ''): ?>
@@ -147,7 +147,7 @@ layout_public_start([
             <label class="flex gap-2 text-sm"><input type="checkbox" name="production_env" value="1" <?= !empty($_POST['production_env']) ? 'checked' : '' ?>> Production environment (disables demo commerce and enforces stricter payment rules)</label>
         </section>
 
-        <button type="submit" name="action" value="install" class="at-btn at-btn--primary at-focusable" <?= InstallWizardService::requirementsMet() ? '' : 'disabled' ?>>Install Apni Tokri</button>
+        <button type="submit" name="action" value="install" class="at-btn at-btn--primary at-focusable" <?= InstallWizardService::requirementsMet() ? '' : 'disabled' ?>>Install Veggie Tokri</button>
         <p class="text-xs at-muted">Imports <?= Security::escape(basename(InstallWizardService::productionSqlPath())) ?> once, writes config.local.php (0640), and locks the installer.</p>
     </form>
 </div>

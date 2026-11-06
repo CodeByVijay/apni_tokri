@@ -25,7 +25,7 @@ $queryBase = array_filter([
 
 admin_layout_start(['pageTitle' => 'Deliveries', 'activeAdminNav' => 'deliveries']);
 $pageHeading = 'Delivery management';
-$pageDescription = 'Manual courier booking (Porter, Rapido, etc.) — record status here after booking outside Apni Tokri.';
+$pageDescription = 'Manual courier booking (Porter, Rapido, etc.) — record status here after booking outside Veggie Tokri.';
 require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
 
 $filters = ['active_only' => $filterStatus === ''];

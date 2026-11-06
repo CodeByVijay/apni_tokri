@@ -1,4 +1,4 @@
--- Apni Tokri — Stage 13 Phase 1 (CMS foundation, versions, FAQ indexes)
+-- Veggie Tokri — Stage 13 Phase 1 (CMS foundation, versions, FAQ indexes)
 -- Safe to re-run (conditional ADD COLUMN / CREATE IF NOT EXISTS).
 -- Depends on: cms_pages, faq_categories, faqs (database.sql / 1.7.0+).
 -- Rollback: database/migrations/rollback/1.9.0_stage13_cms_foundation_rollback.sql

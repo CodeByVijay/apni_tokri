@@ -191,7 +191,7 @@ $r1b = InvoiceService::ensureForOrder($o1, ['prefix' => $prefix]);
 t($r1b['ok'] && empty($r1b['created']) && (int) $r1b['invoice']['id'] === (int) $inv1['id'], 'Second ensureForOrder is idempotent');
 t((int) $pdo->query("SELECT COUNT(*) FROM invoices WHERE order_id = $o1")->fetchColumn() === 1, 'Only one invoice row per order');
 $bytes = pdfText((string) $read['bytes']);
-t(strpos($bytes, '(Apni Tokri) Tj') !== false && strpos($bytes, 'Fresh Tomatoes') !== false, 'PDF content streams decode and contain brand + items');
+t(strpos($bytes, '(Veggie Tokri) Tj') !== false && strpos($bytes, 'Fresh Tomatoes') !== false, 'PDF content streams decode and contain brand + items');
 foreach (['GSTIN', 'CGST', 'SGST', 'IGST', 'Unregistered'] as $bad) {
     t(stripos($bytes, $bad) === false, "PDF contains no \"$bad\"");
 }
@@ -358,7 +358,7 @@ AppSettings::set('invoice.admin_resend', '1');
 AppSettings::set('invoice.auto_email', '0');
 $e1 = InvoiceEmailService::sendFromAdmin((int) $inv1['id'], 1);
 t($e1['ok'] && count($sent) === 1, 'Admin send succeeds through (mock) transport');
-t(strpos($sent[0]['subject'], 'Your Apni Tokri Invoice') === 0 && strpos($sent[0]['subject'], $snap1['order']['number']) !== false, 'Subject: ' . $sent[0]['subject']);
+t(strpos($sent[0]['subject'], 'Your Veggie Tokri Invoice') === 0 && strpos($sent[0]['subject'], $snap1['order']['number']) !== false, 'Subject: ' . $sent[0]['subject']);
 t($sent[0]['att'][0]['mime'] === 'application/pdf' && strncmp($sent[0]['att'][0]['content'], '%PDF-', 5) === 0, 'PDF attached');
 t(strpos($sent[0]['html'], '<script') === false && strpos($sent[0]['html'], 'invoice-view.php?ref=' . $inv1['public_ref']) !== false, 'Email has secure portal link and no raw markup');
 t(strpos($sent[0]['html'], (string) $inv1['pdf_path']) === false, 'Email never exposes PDF storage path');

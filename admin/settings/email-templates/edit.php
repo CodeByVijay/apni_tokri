@@ -188,7 +188,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/settings-nav.php';
                 <input type="hidden" name="subject" id="test-subject-sync" value="">
                 <input type="hidden" name="body_html" id="test-body-sync" value="">
                 <h3 class="font-bold text-sm">Send test email</h3>
-                <p class="text-xs at-muted">Uses SMTP settings. Subject is prefixed with [Apni Tokri test].</p>
+                <p class="text-xs at-muted">Uses SMTP settings. Subject is prefixed with [Veggie Tokri test].</p>
                 <label class="at-label" for="test_recipient">Recipient</label>
                 <input type="email" id="test_recipient" name="test_recipient" class="at-input at-focusable w-full" required
                        value="<?= Security::escape($form['test_recipient']) ?>" placeholder="you@example.com">

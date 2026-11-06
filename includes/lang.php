@@ -12,8 +12,8 @@ final class Lang
 
     /** @var array<string, array<string, string>> */
     private static $strings = [
-        'brand_name' => ['en' => 'Apni Tokri', 'hi' => 'अपनी टोकरी'],
-        'tagline' => ['en' => 'Har Ghar Ki Taazgi', 'hi' => 'हर घर की ताज़गी'],
+        'brand_name' => ['en' => 'Veggie Tokri', 'hi' => 'वेजी टोकरी'],
+        'tagline' => ['en' => 'Freshness, Ready for Your Kitchen.', 'hi' => 'ताज़गी, आपकी रसोई के लिए तैयार।'],
         'nav_home' => ['en' => 'Home', 'hi' => 'होम'],
         'nav_categories' => ['en' => 'Categories', 'hi' => 'श्रेणियाँ'],
         'nav_faqs' => ['en' => 'FAQs', 'hi' => 'सवाल-जवाब'],
@@ -27,7 +27,7 @@ final class Lang
         'menu_open' => ['en' => 'Open menu', 'hi' => 'मेनू खोलें'],
         'menu_close' => ['en' => 'Close menu', 'hi' => 'मेनू बंद करें'],
         'skip_to_content' => ['en' => 'Skip to main content', 'hi' => 'मुख्य सामग्री पर जाएँ'],
-        'footer_about' => ['en' => 'About Apni Tokri', 'hi' => 'अपनी टोकरी के बारे में'],
+        'footer_about' => ['en' => 'About Veggie Tokri', 'hi' => 'वेजी टोकरी के बारे में'],
         'footer_policies' => ['en' => 'Policies', 'hi' => 'नीतियाँ'],
         'footer_support' => ['en' => 'Support', 'hi' => 'सहायता'],
         'need_help' => ['en' => 'Need help?', 'hi' => 'मदद चाहिए?'],

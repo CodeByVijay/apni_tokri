@@ -14,7 +14,7 @@ if (!CustomerService::isLoggedIn() || CustomerAuth::id() === null) {
 $ref = isset($_GET['ref']) && is_string($_GET['ref']) ? trim($_GET['ref']) : '';
 $inv = $ref !== '' ? InvoiceService::forCustomerPortal($ref, (int) CustomerAuth::id()) : null;
 
-layout_public_start(['pageTitle' => 'Invoice — Apni Tokri', 'activeNav' => 'account']);
+layout_public_start(['pageTitle' => 'Invoice — Veggie Tokri', 'activeNav' => 'account']);
 $accountActive = 'invoices';
 $accountTitle = $inv !== null ? ($inv['document_type'] === 'credit_note' ? 'Credit note' : 'Invoice') . ' ' . $inv['invoice_number'] : 'Invoice';
 $accountSub = null;

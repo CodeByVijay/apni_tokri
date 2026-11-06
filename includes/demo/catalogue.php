@@ -180,7 +180,7 @@ final class DemoCatalogue
     public function faqs(int $limit = 0): array
     {
         $faqs = [
-            ['q' => 'Apni Tokri kya hai?', 'a' => 'Apni Tokri Indore ke liye fresh fruits, vegetables aur rozmarra ke food products ka online store hai.', 'cat' => 'general'],
+            ['q' => 'Veggie Tokri kya hai?', 'a' => 'Veggie Tokri Indore ke liye fresh fruits, vegetables aur rozmarra ke food products ka online store hai.', 'cat' => 'general'],
             ['q' => 'Kya Indore mein delivery available hai?', 'a' => 'Haan, launch phase mein select Indore areas ke liye delivery configure ki jayegi. Address se pehle serviceability check karein.', 'cat' => 'delivery'],
             ['q' => 'Delivery charges kaise calculate hote hain?', 'a' => 'Cart total, delivery zone aur active offers ke basis par fee checkout se pehle clearly dikhayi jayegi.', 'cat' => 'delivery'],
             ['q' => 'Product ka weight/variant kaise select karein?', 'a' => 'Product page par available weights/sizes list honge. Price aur stock selected variant ke hisaab se update hoga.', 'cat' => 'products'],

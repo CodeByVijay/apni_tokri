@@ -30,10 +30,10 @@ layout_auth_start('Change password');
 $logo = Security::escape(asset_url('assets/images/logo.svg'));
 ?>
 <div class="auth-shell">
-    <aside class="auth-brand" aria-label="Apni Tokri">
+    <aside class="auth-brand" aria-label="Veggie Tokri">
         <a class="auth-brand__logo" href="<?= Security::escape(url_base()) ?>/index.php">
             <img src="<?= $logo ?>" alt="" width="46" height="46">
-            <span class="auth-brand__name">Apni Tokri<small>Admin console</small></span>
+            <span class="auth-brand__name">Veggie Tokri<small>Admin console</small></span>
         </a>
         <div class="auth-brand__copy">
             <h2>Secure your admin account</h2>

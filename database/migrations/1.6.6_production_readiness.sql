@@ -1,4 +1,4 @@
--- Apni Tokri schema 1.6.6 — refund timestamps, recovery audit
+-- Veggie Tokri schema 1.6.6 — refund timestamps, recovery audit
 
 SET NAMES utf8mb4;
 SET time_zone = '+05:30';

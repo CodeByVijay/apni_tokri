@@ -109,7 +109,7 @@ $logoPath = InvoiceSettings::logoPath();
 
     <div class="at-card"><div class="at-card__body space-y-4">
         <h3 class="font-bold">Content</h3>
-        <?= $text('footer', 'Footer message', 'Thank you for shopping with Apni Tokri.', 300) ?>
+        <?= $text('footer', 'Footer message', 'Thank you for shopping with Veggie Tokri.', 300) ?>
         <?= $text('return_url', 'Return / refund policy URL', '', 191) ?>
         <?= $text('terms_url', 'Terms & conditions URL', '', 191) ?>
         <?= $check('show_sku', 'Show SKU on items') ?>

@@ -103,7 +103,7 @@ php scripts/test-subscription-stage11-phase-d.php
 php cron/subscription_auto_confirm_baskets.php
 ```
 
-Example crontab: `*/10 * * * * php /path/to/Apni Tokri/cron/subscription_auto_confirm_baskets.php`
+Example crontab: `*/10 * * * * php /path/to/Veggie Tokri/cron/subscription_auto_confirm_baskets.php`
 
 Features: auto-confirm after selection deadline, customer skip/carry-forward, pause/resume, admin basket override with customer notification (`customer_notifications`).
 
@@ -121,7 +121,7 @@ php scripts/test-subscription-stage11.php
 php cron/subscription_generate_deliveries.php
 ```
 
-Example crontab: `5,20,35,50 * * * * php /path/to/Apni Tokri/cron/subscription_generate_deliveries.php`
+Example crontab: `5,20,35,50 * * * * php /path/to/Veggie Tokri/cron/subscription_generate_deliveries.php`
 
 ### Inventory reservation (basket confirm → fulfilment)
 

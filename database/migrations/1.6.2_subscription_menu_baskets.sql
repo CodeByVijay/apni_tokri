@@ -1,4 +1,4 @@
--- Apni Tokri schema 1.6.2 — menu planner, suggested/custom baskets (Stage 11 Phase C)
+-- Veggie Tokri schema 1.6.2 — menu planner, suggested/custom baskets (Stage 11 Phase C)
 
 SET NAMES utf8mb4;
 SET time_zone = '+05:30';

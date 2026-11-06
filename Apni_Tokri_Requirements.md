@@ -1,8 +1,8 @@
-# Apni Tokri – Complete E-commerce Website Requirements & Stage-wise Development Plan
+# Veggie Tokri – Complete E-commerce Website Requirements & Stage-wise Development Plan
 
 **Document type:** Product Requirements Document (PRD) + Technical Implementation Specification  
-**Working brand:** Apni Tokri (proposed; final trademark/legal clearance pending)  
-**Suggested tagline:** Har Ghar Ki Taazgi  
+**Working brand:** Veggie Tokri (proposed; final trademark/legal clearance pending)  
+**Suggested tagline:** Freshness, Ready for Your Kitchen.  
 **Initial market:** Indore, Madhya Pradesh, India  
 **Technology:** Core PHP + MySQL + HTML + Tailwind CSS CDN + jQuery + AJAX  
 **Development approach:** Cursor Composer 2.5, stage-wise implementation  
@@ -133,8 +133,8 @@ Requirements:
 
 ## 3.1 Working brand
 
-Working name: **Apni Tokri**  
-Suggested tagline: **Har Ghar Ki Taazgi**
+Working name: **Veggie Tokri**  
+Suggested tagline: **Freshness, Ready for Your Kitchen.**
 
 Trademark and domain clearance are not confirmed. Treat the name as a working candidate until proper trademark similarity searches and professional legal review are completed. Domain availability does not establish trademark rights.
 
@@ -239,7 +239,7 @@ Use clean URLs with rewrite rules where hosting supports them. Retain safe fallb
 
 ## 5.3 Footer
 
-- About Apni Tokri.
+- About Veggie Tokri.
 - FAQs.
 - Contact and WhatsApp support.
 - Delivery information.
@@ -274,7 +274,7 @@ Homepage must be database-driven. Admin can add, edit, reorder, enable/disable a
 13. Trending products, if based on real data.
 14. Subscription packages.
 15. How It Works.
-16. Why Choose Apni Tokri.
+16. Why Choose Veggie Tokri.
 17. Quality and packing information.
 18. Genuine approved customer reviews/testimonials.
 19. FAQs preview (top 5–6 questions with View All FAQs).
@@ -322,7 +322,7 @@ Do not claim “organic”, “chemical-free”, “farm fresh”, “same-day d
 
 The About Us page should explain:
 
-1. What Apni Tokri is.
+1. What Veggie Tokri is.
 2. Why the business was started.
 3. What customer problem it aims to solve in Indore.
 4. Product categories offered.
@@ -334,7 +334,7 @@ The About Us page should explain:
 
 Suggested initial copy (must be reviewed against actual business operations):
 
-“Apni Tokri ka maksad hai Indore ke gharon tak fresh fruits, vegetables aur rozmarra ke food products ko aasani se pahunchana. Hum chahte hain ki aapko apni daily shopping ke liye baar-baar alag-alag jagah na jaana pade. Fresh vegetables aur fruits se lekar pickles, papad aur chutneys tak, aapki zaroorat ki cheezein ek hi jagah mil sakein. Hamari priority convenient shopping, transparent pricing, proper packing aur responsive customer support dena hai.”
+“Veggie Tokri ka maksad hai Indore ke gharon tak fresh fruits, vegetables aur rozmarra ke food products ko aasani se pahunchana. Hum chahte hain ki aapko apni daily shopping ke liye baar-baar alag-alag jagah na jaana pade. Fresh vegetables aur fruits se lekar pickles, papad aur chutneys tak, aapki zaroorat ki cheezein ek hi jagah mil sakein. Hamari priority convenient shopping, transparent pricing, proper packing aur responsive customer support dena hai.”
 
 Admin can edit content, images, sections and publish status.
 
@@ -353,7 +353,7 @@ Admin can edit content, images, sections and publish status.
 
 Example questions:
 
-- Apni Tokri kya hai?
+- Veggie Tokri kya hai?
 - Kya Indore mein delivery available hai?
 - Delivery area kaise check karein?
 - Product availability kaise check karein?
@@ -1063,7 +1063,7 @@ The subscription calendar must be **responsive and usable on mobile and desktop*
 
 ## 17.11 Smart Subscription Calendar & Flexible Daily Basket
 
-**Product decision (final):** Apni Tokri subscriptions centre on a **customer-facing day-wise calendar**. Customers are **not** required to visit the site every day to choose vegetables; the business provides **automatic suggested daily baskets**, with **optional** customization before a deadline.
+**Product decision (final):** Veggie Tokri subscriptions centre on a **customer-facing day-wise calendar**. Customers are **not** required to visit the site every day to choose vegetables; the business provides **automatic suggested daily baskets**, with **optional** customization before a deadline.
 
 ### 17.11.1 Plans and calendar
 
@@ -1853,7 +1853,7 @@ Acceptance:
 ## Stage 1 – Brand and design system
 
 Deliverables:
-- Apni Tokri working-brand UI.
+- Veggie Tokri working-brand UI.
 - Logo placeholder that can be replaced.
 - Color/font/spacing system.
 - Header/footer.
@@ -2524,7 +2524,7 @@ Use these rules at the start of every stage:
 ## 29.1 Suggested prompt for each stage
 
 ```text
-We are building Apni Tokri, a local food e-commerce website for Indore.
+We are building Veggie Tokri, a local food e-commerce website for Indore.
 
 Follow the project requirements document exactly.
 

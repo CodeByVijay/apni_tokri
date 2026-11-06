@@ -55,10 +55,10 @@ layout_auth_start('Sign in');
 $logo = Security::escape(asset_url('assets/images/logo.svg'));
 ?>
 <div class="auth-shell">
-    <aside class="auth-brand" aria-label="Apni Tokri">
+    <aside class="auth-brand" aria-label="Veggie Tokri">
         <a class="auth-brand__logo" href="<?= Security::escape(url_base()) ?>/index.php">
             <img src="<?= $logo ?>" alt="" width="46" height="46">
-            <span class="auth-brand__name">Apni Tokri<small>Admin console</small></span>
+            <span class="auth-brand__name">Veggie Tokri<small>Admin console</small></span>
         </a>
         <div class="auth-brand__copy">
             <h2>Fresh groceries, managed with ease.</h2>
@@ -80,13 +80,13 @@ $logo = Security::escape(asset_url('assets/images/logo.svg'));
             <circle cx="205" cy="98" r="19" fill="#7bc47f"/><path d="M205 80c0-8 5-12 10-14" stroke="#2d7048" stroke-width="5" stroke-linecap="round"/>
             <path d="M100 160h120M104 188h112" stroke="#133421" stroke-opacity=".25" stroke-width="6" stroke-linecap="round"/>
         </svg>
-        <p class="auth-brand__foot">&copy; <?= date('Y') ?> Apni Tokri. Authorised staff only.</p>
+        <p class="auth-brand__foot">&copy; <?= date('Y') ?> Veggie Tokri. Authorised staff only.</p>
     </aside>
 
     <main class="auth-main">
         <div class="auth-card">
             <div class="auth-card__mobile-logo">
-                <img src="<?= $logo ?>" alt="" width="36" height="36"><span>Apni Tokri Admin</span>
+                <img src="<?= $logo ?>" alt="" width="36" height="36"><span>Veggie Tokri Admin</span>
             </div>
             <h1>Admin sign in</h1>
             <p class="auth-card__lead">Welcome back. Sign in to manage your store.</p>

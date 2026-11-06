@@ -1,4 +1,4 @@
-# Apni Tokri — project progress
+# Veggie Tokri — project progress
 
 Authoritative stage status for implementation. Requirements detail: [Apni_Tokri_Requirements.md](./Apni_Tokri_Requirements.md). Database upgrades: [database/README.md](./database/README.md).
 

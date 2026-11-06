@@ -154,7 +154,7 @@ if ($parsed['csrf'] === null) {
     ok($loginPost['code'] === 302 && ($expectChangePw || str_contains($loginDest, 'dashboard.php')), 'Valid admin login redirects to dashboard or mandatory password change');
 
     $authed = httpRequest('GET', $base . ($expectChangePw ? '/admin/change-password.php' : '/admin/dashboard.php'), [], $jar);
-    ok($authed['code'] === 200 && str_contains($authed['body'], 'Apni Tokri'), 'Authenticated admin reaches post-login destination');
+    ok($authed['code'] === 200 && str_contains($authed['body'], 'Veggie Tokri'), 'Authenticated admin reaches post-login destination');
 
     if ($expectChangePw) {
         $dashBypass = httpRequest('GET', $base . '/admin/dashboard.php', [], $jar);

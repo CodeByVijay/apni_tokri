@@ -32,7 +32,7 @@ $logo = Security::escape(asset_url('assets/images/logo.svg'));
     <main class="auth-main auth-main--solo">
         <div class="auth-card">
             <div class="auth-card__mobile-logo">
-                <img src="<?= $logo ?>" alt="" width="36" height="36"><span>Apni Tokri Admin</span>
+                <img src="<?= $logo ?>" alt="" width="36" height="36"><span>Veggie Tokri Admin</span>
             </div>
             <h1>Forgot password</h1>
             <p class="auth-card__lead">Enter your staff email. If an account exists, we will send reset instructions.</p>

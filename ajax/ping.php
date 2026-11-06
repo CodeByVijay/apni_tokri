@@ -17,6 +17,6 @@ if (Install::isApplicationInstalled() && !AdminAuth::check()) {
 }
 
 Ajax::success([
-    'app' => (string) (App::config()['app']['name'] ?? 'Apni Tokri'),
+    'app' => (string) (App::config()['app']['name'] ?? 'Veggie Tokri'),
     'status' => 'ok',
 ], 'OK');

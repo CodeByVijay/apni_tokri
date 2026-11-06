@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /**
- * Branded HTML wrapper for customer notification emails (Apni Tokri).
+ * Branded HTML wrapper for customer notification emails (Veggie Tokri).
  */
 final class CustomerEmailLayout
 {
@@ -16,9 +16,9 @@ final class CustomerEmailLayout
         if ($innerHtml === '') {
             return '';
         }
-        $site = trim((string) (AppSettings::get('app.name', 'Apni Tokri') ?? 'Apni Tokri'));
+        $site = trim((string) (AppSettings::get('app.name', 'Veggie Tokri') ?? 'Veggie Tokri'));
         if ($site === '') {
-            $site = 'Apni Tokri';
+            $site = 'Veggie Tokri';
         }
         $year = date('Y');
         $siteEsc = Security::escape($site);

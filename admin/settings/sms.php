@@ -146,7 +146,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/settings-nav.php';
                     <input id="sms_api_url" name="api_url" class="at-input at-focusable" autocomplete="off"
                            placeholder="https://api.startmessaging.com"
                            value="<?= Security::escape($form['api_url']) ?>">
-                    <p id="sms_api_url_hint" class="text-xs at-muted mt-1 hidden">Base URL only; Apni Tokri calls <code>POST /otp/send</code> automatically.</p>
+                    <p id="sms_api_url_hint" class="text-xs at-muted mt-1 hidden">Base URL only; Veggie Tokri calls <code>POST /otp/send</code> automatically.</p>
                     <?php if (isset($errors['api_url'])): ?><p class="text-xs text-red-600"><?= Security::escape($errors['api_url']) ?></p><?php endif; ?>
                 </div>
                 <div>

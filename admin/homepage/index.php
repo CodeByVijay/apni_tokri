@@ -63,7 +63,7 @@ if (!$useDb): ?>
 
     <?php $why = $byId['why_features'] ?? []; ?>
     <fieldset class="at-card"><div class="at-card__body space-y-3">
-        <legend class="font-semibold text-lg">Why Apni Tokri</legend>
+        <legend class="font-semibold text-lg">Why Veggie Tokri</legend>
         <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="enabled_why_features" value="1" <?= !empty($why['enabled']) ? 'checked' : '' ?>> Enabled</label>
         <label class="text-sm">Sort order <input type="number" name="sort_why_features" class="at-input w-20" value="<?= (int) ($why['sort'] ?? 20) ?>"></label>
         <input type="text" name="why_heading" class="at-input at-input--block" placeholder="Heading" value="<?= Security::escape((string) ($why['heading'] ?? '')) ?>">

@@ -27,7 +27,7 @@ if ($sub !== null) {
     $sub = CustomerSubscriptionRepository::findByNumberForCustomer($subNumber, $customerId);
 }
 if ($sub === null) {
-    layout_public_start(['pageTitle' => 'Subscription details — Apni Tokri', 'activeNav' => 'account']);
+    layout_public_start(['pageTitle' => 'Subscription details — Veggie Tokri', 'activeNav' => 'account']);
     $emptyTitle = 'Subscription not found';
     $emptyMessage = 'We could not find this subscription on your account.';
     $emptyActionHref = $base . '/my-subscriptions.php';
@@ -120,7 +120,7 @@ if ($isActive) {
     }
 }
 
-layout_public_start(['pageTitle' => 'Subscription details — Apni Tokri', 'activeNav' => 'account']);
+layout_public_start(['pageTitle' => 'Subscription details — Veggie Tokri', 'activeNav' => 'account']);
 $accountActive = 'subscriptions';
 $accountTitle = $name;
 $accountSub = 'Daily allowance ' . catalogue_format_price($allowance) . ' · ' . $subNumber;

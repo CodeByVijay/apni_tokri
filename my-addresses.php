@@ -82,7 +82,7 @@ foreach ($addresses as $a) {
 }
 
 layout_public_start([
-    'pageTitle' => 'My addresses — Apni Tokri',
+    'pageTitle' => 'My addresses — Veggie Tokri',
     'activeNav' => 'account',
     'loadAddressMap' => $showForm || $anyPin,
 ]);

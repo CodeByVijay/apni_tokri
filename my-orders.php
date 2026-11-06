@@ -35,7 +35,7 @@ if (!$usingDemoOrders && $orders !== [] && CustomerAuth::id() !== null) {
     }
 }
 
-layout_public_start(['pageTitle' => 'My orders — Apni Tokri', 'activeNav' => 'account']);
+layout_public_start(['pageTitle' => 'My orders — Veggie Tokri', 'activeNav' => 'account']);
 $accountActive = 'orders';
 $accountTitle = 'My orders';
 $accountSub = 'Track deliveries, request refunds and review what you bought.';

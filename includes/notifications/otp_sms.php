@@ -167,7 +167,7 @@ final class OtpSmsService
             $minutes = max(1, (int) ceil($ttlSeconds / 60));
             $template = trim(AppSettings::get('sms.template.otp', '') ?? '');
             if ($template === '') {
-                $template = 'Your Apni Tokri login code is {otp}. Valid for {minutes} minutes. Do not share it.';
+                $template = 'Your Veggie Tokri login code is {otp}. Valid for {minutes} minutes. Do not share it.';
             }
             $message = str_replace(
                 ['{otp}', '{minutes}'],

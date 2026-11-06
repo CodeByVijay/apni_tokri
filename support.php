@@ -40,7 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $base = url_base();
 $linkedOrder = $orderId !== '' ? $orderId : '';
 
-layout_public_start(['pageTitle' => 'Support — Apni Tokri', 'activeNav' => 'account']);
+layout_public_start(['pageTitle' => 'Support — Veggie Tokri', 'activeNav' => 'account']);
 $accountActive = 'support';
 $accountTitle = 'Support';
 $accountSub = 'Tell us what happened — we’ll get back to you. WhatsApp and phone are configured in admin.';

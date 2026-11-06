@@ -1,4 +1,4 @@
--- Apni Tokri schema 1.31.0 — coupon storefront visibility (Available Offers discovery)
+-- Veggie Tokri schema 1.31.0 — coupon storefront visibility (Available Offers discovery)
 
 SET NAMES utf8mb4;
 SET time_zone = '+05:30';

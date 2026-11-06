@@ -169,7 +169,7 @@ final class NotificationTemplateAdminService
             return ['ok' => false, 'message' => (string) ($preview['message'] ?? 'Preview failed.')];
         }
 
-        $subject = '[Apni Tokri test] ' . (string) ($preview['subject'] ?? 'Template test');
+        $subject = '[Veggie Tokri test] ' . (string) ($preview['subject'] ?? 'Template test');
         $text = (string) ($preview['text'] ?? '');
         $html = (string) ($preview['html'] ?? '');
         if ($text === '' && $html === '') {

@@ -18,7 +18,7 @@ final class BrandingSettings
     public const KEY_LOGO_ALT = 'branding.logo_alt';
     public const KEY_FOOTER_BRAND_DESCRIPTION = 'branding.footer_brand_description';
 
-    public const DEFAULT_FOOTER_BRAND_DESCRIPTION = 'Har Ghar Ki Taazgi — fresh vegetables, fruits, ready-cut produce and pantry favourites for Indore homes.';
+    public const DEFAULT_FOOTER_BRAND_DESCRIPTION = 'Freshness, Ready for Your Kitchen — fresh vegetables, fruits, ready-cut produce and pantry favourites for Indore homes.';
 
     public const DEFAULT_LOGO = 'assets/images/logo.svg';
     public const UPLOAD_SUBDIR = 'branding';
@@ -57,7 +57,7 @@ final class BrandingSettings
         }
         $cfg = trim((string) (App::config()['app']['name'] ?? ''));
 
-        return $cfg !== '' ? $cfg : 'Apni Tokri';
+        return $cfg !== '' ? $cfg : 'Veggie Tokri';
     }
 
     public static function tagline(): string
@@ -67,10 +67,10 @@ final class BrandingSettings
             return $custom;
         }
         if (Lang::locale() === 'hi') {
-            return 'हर घर की ताज़गी';
+            return 'ताज़गी, आपकी रसोई के लिए तैयार।';
         }
 
-        return 'Har Ghar Ki Taazgi';
+        return 'Freshness, Ready for Your Kitchen.';
     }
 
     public static function logoAlt(): string

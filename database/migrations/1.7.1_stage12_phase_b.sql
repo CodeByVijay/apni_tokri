@@ -1,4 +1,4 @@
--- Apni Tokri schema 1.7.1 — Stage 12 Phase B (refund webhooks, support attachments, subscription refund links)
+-- Veggie Tokri schema 1.7.1 — Stage 12 Phase B (refund webhooks, support attachments, subscription refund links)
 
 SET NAMES utf8mb4;
 SET time_zone = '+05:30';

@@ -129,9 +129,9 @@ final class OrderEmailContext
     {
         $orderNumber = (string) ($base['order_number'] ?? '');
         $out = $base;
-        $out['site_name'] = trim((string) (AppSettings::get('app.name', 'Apni Tokri') ?? 'Apni Tokri'));
+        $out['site_name'] = trim((string) (AppSettings::get('app.name', 'Veggie Tokri') ?? 'Veggie Tokri'));
         if ($out['site_name'] === '') {
-            $out['site_name'] = 'Apni Tokri';
+            $out['site_name'] = 'Veggie Tokri';
         }
         $out['order_url'] = self::customerOrderDetailUrl($orderNumber);
         $out['payment_retry_url'] = self::customerPaymentRetryUrl($orderNumber);

@@ -34,7 +34,7 @@ $orderEnvironmentBadge = $order !== null
     : null;
 
 layout_public_start([
-    'pageTitle' => 'Order confirmed — Apni Tokri',
+    'pageTitle' => 'Order confirmed — Veggie Tokri',
     'activeNav' => 'account',
     'showBottomNav' => false,
 ]);

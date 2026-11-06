@@ -62,10 +62,12 @@
       });
     }
   };
+  window.VeggieTokriCart = window.VeggieTokriCart || window.ApniTokriCart;
 
   function toast(msg, type) {
-    if (window.ApniTokri && window.ApniTokri.toast) {
-      window.ApniTokri.toast(msg, type);
+    var ui = (window.VeggieTokri && window.VeggieTokri.toast) ? window.VeggieTokri : window.ApniTokri;
+    if (ui && ui.toast) {
+      ui.toast(msg, type);
     }
   }
 

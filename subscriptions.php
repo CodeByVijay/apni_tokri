@@ -17,7 +17,7 @@ $base = url_base();
 $plans = SubscriptionCheckoutService::activeStorefrontPlanCards();
 
 layout_public_start([
-    'pageTitle' => 'Subscription plans — Apni Tokri',
+    'pageTitle' => 'Subscription plans — Veggie Tokri',
     'activeNav' => 'home',
 ]);
 ?>

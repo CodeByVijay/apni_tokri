@@ -1,4 +1,4 @@
-# Apni Tokri — Coding Conventions (Stage 0)
+# Veggie Tokri — Coding Conventions (Stage 0)
 
 ## Language and runtime
 

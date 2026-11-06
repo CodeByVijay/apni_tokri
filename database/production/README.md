@@ -1,4 +1,4 @@
-# Apni Tokri — production database installer
+# Veggie Tokri — production database installer
 
 Single-file schema installer for a **fresh, empty** MySQL database. It replaces the manual sequence of `database/database.sql` plus every forward migration, for **new production hosts only**.
 

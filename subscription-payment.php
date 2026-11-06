@@ -31,7 +31,7 @@ if ($customerId === null) {
 
 $sub = CustomerSubscriptionRepository::findByNumberForCustomer($subNumber, $customerId);
 if ($sub === null) {
-    layout_public_start(['pageTitle' => 'Subscription payment — Apni Tokri', 'activeNav' => 'account']);
+    layout_public_start(['pageTitle' => 'Subscription payment — Veggie Tokri', 'activeNav' => 'account']);
     $emptyTitle = 'Subscription not found';
     $emptyMessage = 'This payment link is invalid.';
     $emptyActionHref = $base . '/subscriptions.php';
@@ -71,7 +71,7 @@ $mode = is_array($checkout) ? (string) ($checkout['mode'] ?? 'simulate') : 'simu
 $failed = isset($_GET['failed']);
 
 layout_public_start([
-    'pageTitle' => 'Pay for subscription — Apni Tokri',
+    'pageTitle' => 'Pay for subscription — Veggie Tokri',
     'activeNav' => 'account',
     'showBottomNav' => false,
 ]);

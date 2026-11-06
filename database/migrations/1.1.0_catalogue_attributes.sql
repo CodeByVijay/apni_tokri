@@ -1,4 +1,4 @@
--- Apni Tokri schema 1.1.0 — product attributes & related products (Stage 6)
+-- Veggie Tokri schema 1.1.0 — product attributes & related products (Stage 6)
 -- mysql -u USER -p apni_tokri < database/migrations/1.1.0_catalogue_attributes.sql
 
 SET NAMES utf8mb4;

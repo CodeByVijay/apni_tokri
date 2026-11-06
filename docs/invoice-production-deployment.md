@@ -1,6 +1,6 @@
 # Invoice system — production deployment (security)
 
-This document covers **hosting configuration** for Apni Tokri invoice PDFs and encryption. The application enforces path rules when `app.env` is `production` (see `InvoiceProductionSecurity`).
+This document covers **hosting configuration** for Veggie Tokri invoice PDFs and encryption. The application enforces path rules when `app.env` is `production` (see `InvoiceProductionSecurity`).
 
 ## Required configuration (`config.local.php`)
 

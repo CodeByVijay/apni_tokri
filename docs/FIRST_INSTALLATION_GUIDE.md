@@ -1,4 +1,4 @@
-# Apni Tokri — first-time installation guide
+# Veggie Tokri — first-time installation guide
 
 ## Who this is for
 
@@ -6,7 +6,7 @@ Non-technical operators deploying on **shared hosting / cPanel** without editing
 
 ## Before you start
 
-1. Upload the Apni Tokri project to your hosting (often `public_html` or a subfolder).
+1. Upload the Veggie Tokri project to your hosting (often `public_html` or a subfolder).
 2. In cPanel → **MySQL® Databases**, create:
    - A new **empty** database (no existing tables).
    - A database user with **ALL PRIVILEGES** on that database only.
@@ -22,7 +22,7 @@ Non-technical operators deploying on **shared hosting / cPanel** without editing
    - `…/apni-tokri-private/invoices/` (0750)
 5. Set your **administrator email and password** (not the factory seed password).
 6. Enable **Production environment** on live sites.
-7. Click **Install Apni Tokri**.
+7. Click **Install Veggie Tokri**.
 
 On success you are redirected to **Admin login**. The wizard writes `includes/config.local.php` (mode **0640**) and `storage/install.lock`, and **install.php returns 404** afterward.
 

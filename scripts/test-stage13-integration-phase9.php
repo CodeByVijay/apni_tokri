@@ -142,7 +142,7 @@ foreach ($config['sections'] as &$sec) {
 unset($sec);
 AppSettings::set(HomepageTrustService::SETTING_KEY, json_encode($config, JSON_UNESCAPED_UNICODE));
 $html = HomepageTrustRenderer::renderAll(url_base(), demo_catalogue());
-ok(!str_contains($html, 'Why Apni Tokri') && str_contains($html, 'at-trust'), 'Disabled trust section hidden; others remain');
+ok(!str_contains($html, 'Why Veggie Tokri') && str_contains($html, 'at-trust'), 'Disabled trust section hidden; others remain');
 
 $pdo->prepare(
     "INSERT INTO testimonials (customer_display_name, body, status, consent_recorded_at, featured, sort_order) VALUES ('AT-INT13 OK', 'Good.', ?, NOW(), 1, 0)"

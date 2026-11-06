@@ -106,7 +106,7 @@ final class InvoiceSettings
         $f = self::formState();
 
         return [
-            'footer' => $f['footer'] !== '' ? $f['footer'] : 'Thank you for shopping with Apni Tokri.',
+            'footer' => $f['footer'] !== '' ? $f['footer'] : 'Thank you for shopping with Veggie Tokri.',
             'return_url' => $f['return_url'] !== '' ? $f['return_url'] : App::baseUrl() . '/page.php?slug=refund-policy',
             'terms_url' => $f['terms_url'] !== '' ? $f['terms_url'] : App::baseUrl() . '/page.php?slug=terms',
             'show_sku' => $f['show_sku'] === '1',

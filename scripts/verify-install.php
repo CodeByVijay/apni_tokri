@@ -9,7 +9,7 @@ declare(strict_types=1);
 require_once dirname(__DIR__) . '/includes/bootstrap.php';
 
 $report = Install::statusReport();
-echo "Apni Tokri install verification\n";
+echo "Veggie Tokri install verification\n";
 echo str_repeat('-', 40) . "\n";
 foreach ($report as $key => $value) {
     if (is_array($value)) {

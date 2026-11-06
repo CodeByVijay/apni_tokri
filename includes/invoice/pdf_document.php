@@ -433,7 +433,7 @@ final class PdfDocument
         }
         $objs[2] = '<< /Type /Pages /Kids [' . implode(' ', $pageRefs) . '] /Count ' . count($pageRefs) . ' >>';
         $infoNo = $next++;
-        $objs[$infoNo] = '<< /Title (' . self::esc(self::enc($this->title)) . ') /Producer (Apni Tokri Invoice Engine) /CreationDate (D:' . $this->createdAt . ') >>';
+        $objs[$infoNo] = '<< /Title (' . self::esc(self::enc($this->title)) . ') /Producer (Veggie Tokri Invoice Engine) /CreationDate (D:' . $this->createdAt . ') >>';
         ksort($objs);
 
         $out = "%PDF-1.4\n%\xE2\xE3\xCF\xD3\n";

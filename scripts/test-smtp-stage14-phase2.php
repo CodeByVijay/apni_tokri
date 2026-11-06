@@ -106,7 +106,7 @@ $saveBlank = SmtpSettingsService::saveFromRequest([
     'auth_enabled' => '1',
     'username' => 'mailer',
     'from_email' => 'noreply@example.test',
-    'from_name' => 'Apni Tokri',
+    'from_name' => 'Veggie Tokri',
     'timeout_seconds' => '15',
     'password' => '',
 ]);

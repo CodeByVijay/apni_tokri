@@ -39,7 +39,7 @@ final class NotificationTemplateVariables
         $sampleOrder = 'AT-SAMPLE-001';
         $payload = [
             'customer_name' => 'Sample Customer',
-            'site_name' => trim((string) (AppSettings::get('app.name', 'Apni Tokri') ?? 'Apni Tokri')) ?: 'Apni Tokri',
+            'site_name' => trim((string) (AppSettings::get('app.name', 'Veggie Tokri') ?? 'Veggie Tokri')) ?: 'Veggie Tokri',
             'order_number' => $sampleOrder,
             'amount' => '499.00',
             'gateway_name' => 'Cashfree',

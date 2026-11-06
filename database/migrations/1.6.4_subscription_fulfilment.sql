@@ -1,4 +1,4 @@
--- Apni Tokri schema 1.6.4 — subscription fulfilment, substitutions, reservations (Stage 11 Phase E)
+-- Veggie Tokri schema 1.6.4 — subscription fulfilment, substitutions, reservations (Stage 11 Phase E)
 
 SET NAMES utf8mb4;
 SET time_zone = '+05:30';

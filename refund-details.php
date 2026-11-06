@@ -22,7 +22,7 @@ if ($customerId === null || !CommerceGateway::useDatabase() || $requestNumber ==
 
 $req = RefundRequestService::byNumberForCustomer($requestNumber, $customerId);
 if ($req === null) {
-    layout_public_start(['pageTitle' => 'Refund — Apni Tokri', 'activeNav' => 'account']);
+    layout_public_start(['pageTitle' => 'Refund — Veggie Tokri', 'activeNav' => 'account']);
     $emptyTitle = 'Refund request not found';
     $emptyMessage = 'This refund does not belong to your account.';
     $emptyActionHref = url_base() . '/my-refunds.php';
@@ -39,7 +39,7 @@ $amount = RefundRequestService::displayAmountInr($req);
 $gatewayStatus = RefundRequestService::latestGatewayStatusForRequest($requestId);
 $reasonLabels = RefundRequestService::reasonLabels();
 
-layout_public_start(['pageTitle' => 'Refund ' . $requestNumber . ' — Apni Tokri', 'activeNav' => 'account']);
+layout_public_start(['pageTitle' => 'Refund ' . $requestNumber . ' — Veggie Tokri', 'activeNav' => 'account']);
 $accountActive = 'refunds';
 $accountTitle = (string) $req['request_number'];
 $accountSub = 'Refund request for order ' . (string) $req['order_number'];

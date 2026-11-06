@@ -12,7 +12,7 @@ $preserved = $cartCount > 0 || !empty($_SESSION['payment_failed_demo']);
 unset($_SESSION['payment_failed_demo']);
 
 layout_public_start([
-    'pageTitle' => 'Payment failed — Apni Tokri',
+    'pageTitle' => 'Payment failed — Veggie Tokri',
     'activeNav' => 'cart',
     'showBottomNav' => false,
 ]);

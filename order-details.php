@@ -29,7 +29,7 @@ if ($order === null && $id !== '' && AppEnvironment::allowsSessionDemoCommerce()
 }
 
 if ($order === null) {
-    layout_public_start(['pageTitle' => 'Order — Apni Tokri', 'activeNav' => 'account']);
+    layout_public_start(['pageTitle' => 'Order — Veggie Tokri', 'activeNav' => 'account']);
     $emptyTitle = 'Order not found';
     $emptyMessage = 'Check the link or view all orders.';
     $emptyActionHref = url_base() . '/my-orders.php';
@@ -152,7 +152,7 @@ $placedAt = (string) ($overview['placed_at'] ?? $order['created_at'] ?? '');
 $orderStatus = (string) ($overview['status_public'] ?? $order['status'] ?? '');
 $paymentStatusLabel = (string) ($overview['payment_status_label'] ?? '');
 
-layout_public_start(['pageTitle' => 'Order ' . $displayId . ' — Apni Tokri', 'activeNav' => 'account']);
+layout_public_start(['pageTitle' => 'Order ' . $displayId . ' — Veggie Tokri', 'activeNav' => 'account']);
 $accountActive = 'orders';
 $accountTitle = 'Order ' . $displayId;
 $accountSub = $placedAt !== '' ? 'Placed ' . customer_format_datetime($placedAt) : null;

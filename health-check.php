@@ -63,7 +63,7 @@ foreach ($checks as $c) {
     }
 }
 
-layout_public_start(['pageTitle' => 'Health check — Apni Tokri', 'showBottomNav' => false]);
+layout_public_start(['pageTitle' => 'Health check — Veggie Tokri', 'showBottomNav' => false]);
 ?>
 <div class="max-w-2xl mx-auto px-4 py-8">
     <h1 class="text-2xl font-bold text-brand-green">Installation health check</h1>

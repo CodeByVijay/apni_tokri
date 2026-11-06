@@ -1,4 +1,4 @@
-# Apni Tokri
+# Veggie Tokri
 
 Local food and grocery e-commerce for Indore — **Core PHP**, **MySQL**, **Tailwind CDN**, **jQuery**.
 
@@ -40,7 +40,7 @@ Then open `health-check.php` and confirm **PHP 8.2+** is green.
 
 ## Local setup (Stage 0)
 
-1. Clone or copy project files to your web root (e.g. `/var/www/html/Apni Tokri`).
+1. Clone or copy project files to your web root (e.g. `/var/www/html/Veggie Tokri`).
 
 2. Copy configuration:
    ```bash
@@ -96,4 +96,4 @@ See [CODING_CONVENTIONS.md](./CODING_CONVENTIONS.md).
 
 ## License
 
-Proprietary — Apni Tokri business project.
+Proprietary — Veggie Tokri business project.

@@ -1,4 +1,4 @@
--- Apni Tokri schema 1.8.0-d2-hardening — D2 production hardening (depends on 1.8.0-d2)
+-- Veggie Tokri schema 1.8.0-d2-hardening — D2 production hardening (depends on 1.8.0-d2)
 -- Before applying: resolve duplicate reservations —
 --   SELECT order_id, COUNT(*) AS c FROM delivery_slot_reservations WHERE order_id IS NOT NULL GROUP BY order_id HAVING c > 1;
 -- Rollback: database/migrations/rollback/1.8.0_d2_hardening_rollback.sql

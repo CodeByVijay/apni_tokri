@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /**
- * Shared status and enum-like constants for Apni Tokri.
+ * Shared status and enum-like constants for Veggie Tokri.
  * Extend in later stages; keep values stable for DB and API contracts.
  */
 

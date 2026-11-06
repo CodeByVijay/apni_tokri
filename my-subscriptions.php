@@ -21,7 +21,7 @@ if ($customerId !== null && CommerceGateway::useDatabase() && Install::isSchemaR
 }
 $subs = $subList['rows'];
 
-layout_public_start(['pageTitle' => 'My subscriptions — Apni Tokri', 'activeNav' => 'account']);
+layout_public_start(['pageTitle' => 'My subscriptions — Veggie Tokri', 'activeNav' => 'account']);
 $accountActive = 'subscriptions';
 $accountTitle = 'My subscriptions';
 $accountSub = 'Prepaid plans, with every skip and remaining delivery visible.';

@@ -1,6 +1,6 @@
 # cPanel — notification queue cron
 
-Apni Tokri processes the notification queue via a **PHP CLI** script. This document is for typical **shared cPanel** hosting (5-minute cron, limited CPU/memory). It has **not** been verified on every host; run the checks below on **your** account before relying on production cron.
+Veggie Tokri processes the notification queue via a **PHP CLI** script. This document is for typical **shared cPanel** hosting (5-minute cron, limited CPU/memory). It has **not** been verified on every host; run the checks below on **your** account before relying on production cron.
 
 ## PHP CLI requirement
 
@@ -30,7 +30,7 @@ Use the path that responds to `php -v` — do not assume a single global path.
 
 ## 2. Verify CLI PHP version
 
-Apni Tokri targets **PHP 8.2+** (see project README / install notes). Match the version your site uses in cPanel **MultiPHP** when possible:
+Veggie Tokri targets **PHP 8.2+** (see project README / install notes). Match the version your site uses in cPanel **MultiPHP** when possible:
 
 ```bash
 php -v

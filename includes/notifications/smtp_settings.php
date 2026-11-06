@@ -173,7 +173,7 @@ final class SmtpSettingsService
 
         $mailer = new SmtpMailer();
         $site = SeoUrl::siteName();
-        $subject = 'Apni Tokri SMTP test — ' . $site;
+        $subject = 'Veggie Tokri SMTP test — ' . $site;
         $text = "This is a test message from {$site}.\n\nIf you received this email, SMTP is configured correctly.\n";
         $result = $mailer->send($recipient, $subject, $text, null);
         if (!empty($result['ok'])) {

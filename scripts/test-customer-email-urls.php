@@ -34,27 +34,27 @@ function withBaseUrl(string $baseUrl, string $urlPath, callable $fn): void
     }
 }
 
-withBaseUrl('https://apnitokri.in', '', static function (): void {
+withBaseUrl('https://veggietokri.com', '', static function (): void {
     $order = 'AT-261105-FE25FF';
     $detail = OrderEmailContext::customerOrderDetailUrl($order);
-    okU(str_starts_with($detail, 'https://apnitokri.in/'), 'Production order_url uses canonical base');
+    okU(str_starts_with($detail, 'https://veggietokri.com/'), 'Production order_url uses canonical base');
     okU(str_contains($detail, 'order-details.php?id=' . rawurlencode($order)), 'order_url uses order number query');
     okU(!str_contains($detail, 'order-details.php?id=6'), 'order_url does not use numeric internal id');
 
     $pay = OrderEmailContext::customerPaymentRetryUrl($order);
-    okU(str_starts_with($pay, 'https://apnitokri.in/payment.php?order='), 'Production payment_retry_url');
+    okU(str_starts_with($pay, 'https://veggietokri.com/payment.php?order='), 'Production payment_retry_url');
 
     $list = OrderEmailContext::customerOrdersListUrl();
-    okU($list === 'https://apnitokri.in/my-orders.php', 'Production orders_url');
+    okU($list === 'https://veggietokri.com/my-orders.php', 'Production orders_url');
 
     $payload = OrderEmailContext::enrichOrderPayload(6, [
         'order_number' => $order,
         'amount' => '1.00',
         'customer_name' => 'Test',
     ], null);
-    okU(str_starts_with((string) ($payload['order_url'] ?? ''), 'https://apnitokri.in/'), 'enrichOrderPayload order_url absolute');
-    okU(str_starts_with((string) ($payload['payment_retry_url'] ?? ''), 'https://apnitokri.in/'), 'enrichOrderPayload payment_retry_url absolute');
-    okU(str_starts_with((string) ($payload['orders_url'] ?? ''), 'https://apnitokri.in/'), 'enrichOrderPayload orders_url absolute');
+    okU(str_starts_with((string) ($payload['order_url'] ?? ''), 'https://veggietokri.com/'), 'enrichOrderPayload order_url absolute');
+    okU(str_starts_with((string) ($payload['payment_retry_url'] ?? ''), 'https://veggietokri.com/'), 'enrichOrderPayload payment_retry_url absolute');
+    okU(str_starts_with((string) ($payload['orders_url'] ?? ''), 'https://veggietokri.com/'), 'enrichOrderPayload orders_url absolute');
 
     foreach (['order.placed', 'payment.success', 'payment.failed', 'order.status'] as $event) {
         $sample = NotificationTemplateVariables::samplePreviewPayload($event);
@@ -62,12 +62,12 @@ withBaseUrl('https://apnitokri.in', '', static function (): void {
             if (!isset($sample[$key]) || $sample[$key] === '') {
                 continue;
             }
-            okU(str_starts_with((string) $sample[$key], 'https://apnitokri.in/'), "Preview {$event} {$key} absolute");
+            okU(str_starts_with((string) $sample[$key], 'https://veggietokri.com/'), "Preview {$event} {$key} absolute");
         }
     }
 });
 
-withBaseUrl('http://localhost/Apni%20Tokri', '/Apni Tokri', static function (): void {
+withBaseUrl('http://localhost/Apni%20Tokri', '/Apni_Tokri', static function (): void {
     $order = 'AT-DEV-001';
     $detail = OrderEmailContext::customerOrderDetailUrl($order);
     okU(str_starts_with($detail, 'http://localhost/'), 'Local dev order_url preserves configured base');

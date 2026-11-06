@@ -248,7 +248,7 @@ final class SmsSettingsService
         } else {
             $adapter = SmsGatewayFactory::adapter();
             $sender = trim(AppSettings::get(self::KEY_SENDER_ID, '') ?? '');
-            $message = 'Apni Tokri SMS test message. If you received this, SMS settings are working.';
+            $message = 'Veggie Tokri SMS test message. If you received this, SMS settings are working.';
             $result = $adapter->send($mobile, $message, $sender, null);
         }
         SmsDiagnosticsService::recordFromGateway(

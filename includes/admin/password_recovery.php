@@ -95,7 +95,7 @@ final class AdminPasswordRecovery
         )->execute([(int) $user['id'], $hash, $ttl, AdminLoginSecurity::clientIp()]);
 
         $resetUrl = url_to('/admin/reset-password.php?token=' . rawurlencode($plain));
-        $subject = 'Reset your Apni Tokri admin password';
+        $subject = 'Reset your Veggie Tokri admin password';
         $text = "Hello " . ($user['name'] ?? '') . ",\n\n"
             . "Use this link to reset your password (valid for " . (int) ($ttl / 60) . " minutes):\n"
             . $resetUrl . "\n\n"

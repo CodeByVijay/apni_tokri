@@ -1,4 +1,4 @@
--- Apni Tokri schema 1.5.0 — offers & coupons (Stage 10)
+-- Veggie Tokri schema 1.5.0 — offers & coupons (Stage 10)
 
 SET NAMES utf8mb4;
 SET time_zone = '+05:30';

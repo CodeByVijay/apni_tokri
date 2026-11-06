@@ -27,7 +27,7 @@ if ($customerId !== null && AppEnvironment::usePersistedStorefront()) {
 }
 
 layout_public_start([
-    'pageTitle' => 'My account — Apni Tokri',
+    'pageTitle' => 'My account — Veggie Tokri',
     'activeNav' => 'account',
 ]);
 $accountActive = 'overview';

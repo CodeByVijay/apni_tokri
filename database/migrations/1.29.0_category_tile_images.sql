@@ -1,4 +1,4 @@
--- Apni Tokri schema 1.29.0 — category tile cover images (homepage visibility column already in base schema)
+-- Veggie Tokri schema 1.29.0 — category tile cover images (homepage visibility column already in base schema)
 
 SET NAMES utf8mb4;
 SET time_zone = '+05:30';

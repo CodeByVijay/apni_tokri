@@ -1,4 +1,4 @@
--- Apni Tokri schema 1.8.0-d2 — Delivery D2: slot reservations & provider slugs (depends on 1.8.0)
+-- Veggie Tokri schema 1.8.0-d2 — Delivery D2: slot reservations & provider slugs (depends on 1.8.0)
 -- Rollback: database/migrations/rollback/1.8.0_d2_rollback.sql
 
 SET NAMES utf8mb4;

@@ -23,7 +23,7 @@ if ($customerId === null || !CommerceGateway::useDatabase() || $ticketNumber ===
 
 $ticket = SupportTicketService::byNumberForCustomer($ticketNumber, $customerId);
 if ($ticket === null) {
-    layout_public_start(['pageTitle' => 'Ticket — Apni Tokri', 'activeNav' => 'account']);
+    layout_public_start(['pageTitle' => 'Ticket — Veggie Tokri', 'activeNav' => 'account']);
     $emptyTitle = 'Ticket not found';
     $emptyMessage = 'This ticket does not belong to your account.';
     $emptyActionHref = url_base() . '/my-support.php';
@@ -104,7 +104,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/account-shell-start.php';
                 ?>
                 <div class="at-thread-msg <?= $isTeam ? 'at-thread-msg--team' : 'at-thread-msg--customer' ?>">
                     <div class="at-thread-msg__head">
-                        <span><?= $isTeam ? 'Apni Tokri support' : 'You' ?></span>
+                        <span><?= $isTeam ? 'Veggie Tokri support' : 'You' ?></span>
                         <time datetime="<?= Security::escape((string) $m['created_at']) ?>"><?= Security::escape(customer_format_datetime((string) $m['created_at'])) ?></time>
                     </div>
                     <div class="at-thread-msg__body"><?= nl2br(Security::escape((string) $m['message'])) ?></div>

@@ -12,7 +12,7 @@ $totals = DemoCart::totals();
 $loadCartJs = true;
 
 layout_public_start([
-    'pageTitle' => 'Cart — Apni Tokri',
+    'pageTitle' => 'Cart — Veggie Tokri',
     'activeNav' => 'cart',
 ]);
 require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';

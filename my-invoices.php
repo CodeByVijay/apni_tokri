@@ -21,7 +21,7 @@ if (CommerceGateway::useDatabase()) {
     $total = InvoiceQuery::countForCustomer($cid);
 }
 
-layout_public_start(['pageTitle' => 'My invoices — Apni Tokri', 'activeNav' => 'account']);
+layout_public_start(['pageTitle' => 'My invoices — Veggie Tokri', 'activeNav' => 'account']);
 $accountActive = 'invoices';
 $accountTitle = 'My invoices';
 $accountSub = 'Download invoices and credit notes for delivered orders.';

@@ -1,4 +1,4 @@
--- Apni Tokri — Stage 12 Phase C.3 Step 4 (Cashfree webhook processing lease)
+-- Veggie Tokri — Stage 12 Phase C.3 Step 4 (Cashfree webhook processing lease)
 -- Safe to re-run (conditional ADD COLUMN).
 -- Depends on: payment_webhook_events (1.4.0+). Apply on installs at 1.8.0-stage12-c2-1 or later.
 -- Rollback: database/migrations/rollback/1.8.0_stage12_c3_webhook_lease_rollback.sql

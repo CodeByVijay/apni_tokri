@@ -20,7 +20,7 @@ function layout_public_start(array $vars): void
     extract($vars, EXTR_SKIP);
     if (!isset($seo) || !$seo instanceof SeoMetadata) {
         $seo = SeoMetadata::fromLegacy(
-            (string) ($pageTitle ?? 'Apni Tokri'),
+            (string) ($pageTitle ?? 'Veggie Tokri'),
             isset($metaDescription) && is_string($metaDescription) ? $metaDescription : null
         );
     }

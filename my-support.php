@@ -13,7 +13,7 @@ if (!CustomerService::isLoggedIn()) {
 
 $customerId = CustomerAuth::id();
 if ($customerId === null || !CommerceGateway::useDatabase()) {
-    layout_public_start(['pageTitle' => 'Support — Apni Tokri', 'activeNav' => 'account']);
+    layout_public_start(['pageTitle' => 'Support — Veggie Tokri', 'activeNav' => 'account']);
     echo '<div class="at-container py-10"><p>Support inbox requires a signed-in account with live orders.</p></div>';
     layout_public_end();
     exit;
@@ -27,7 +27,7 @@ $tickets = SupportTicketService::listForCustomer(
     $catFilter !== '' ? $catFilter : null
 );
 
-layout_public_start(['pageTitle' => 'My support tickets — Apni Tokri', 'activeNav' => 'account']);
+layout_public_start(['pageTitle' => 'My support tickets — Veggie Tokri', 'activeNav' => 'account']);
 $accountActive = 'support';
 $accountTitle = 'Support tickets';
 $accountSub = 'Track replies and continue conversations with our team.';

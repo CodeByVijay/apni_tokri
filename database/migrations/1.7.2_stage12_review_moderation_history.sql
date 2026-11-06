@@ -1,4 +1,4 @@
--- Apni Tokri — Stage 12 Phase C.2.1 (review moderation audit history)
+-- Veggie Tokri — Stage 12 Phase C.2.1 (review moderation audit history)
 -- Safe to re-run (CREATE IF NOT EXISTS).
 -- Depends on: product_reviews (1.7.0+). Apply on installs already at 1.8.0-d5-subscription or later.
 -- Rollback: database/migrations/rollback/1.7.2_stage12_review_moderation_history_rollback.sql

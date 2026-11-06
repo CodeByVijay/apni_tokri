@@ -1,4 +1,4 @@
--- Apni Tokri schema 1.3.0 — delivery engine (Stage 8)
+-- Veggie Tokri schema 1.3.0 — delivery engine (Stage 8)
 
 SET NAMES utf8mb4;
 SET time_zone = '+05:30';
@@ -15,7 +15,7 @@ ALTER TABLE `orders`
 
 CREATE TABLE IF NOT EXISTS `delivery_store` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `name` VARCHAR(191) NOT NULL DEFAULT 'Apni Tokri — Indore',
+  `name` VARCHAR(191) NOT NULL DEFAULT 'Veggie Tokri — Indore',
   `latitude` DECIMAL(10,7) NOT NULL,
   `longitude` DECIMAL(10,7) NOT NULL,
   `max_radius_km` DECIMAL(8,2) NOT NULL DEFAULT 12.00,
@@ -87,7 +87,7 @@ CREATE TABLE IF NOT EXISTS `delivery_status_history` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 INSERT INTO `delivery_store` (`id`, `name`, `latitude`, `longitude`, `max_radius_km`, `slots_enabled`)
-VALUES (1, 'Apni Tokri — Vijay Nagar, Indore', 22.7196000, 75.8577000, 12.00, 1)
+VALUES (1, 'Veggie Tokri — Vijay Nagar, Indore', 22.7196000, 75.8577000, 12.00, 1)
 ON DUPLICATE KEY UPDATE `name` = VALUES(`name`);
 
 INSERT INTO `delivery_zones` (`name`, `match_type`, `match_value`, `flat_fee`, `free_above`, `sort_order`) VALUES

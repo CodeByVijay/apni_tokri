@@ -1,4 +1,4 @@
--- Apni Tokri schema 1.8.0 — Delivery enhancement: zones, slot columns (slot UI in D2), variant weight
+-- Veggie Tokri schema 1.8.0 — Delivery enhancement: zones, slot columns (slot UI in D2), variant weight
 -- Depends on: 1.7.1
 -- Rollback: see database/migrations/rollback/1.8.0_rollback.sql (manual; restore setting delivery.zone_resolution_mode)
 

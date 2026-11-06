@@ -12,7 +12,7 @@ function render_stub_page(array $opts): void
     require_once dirname(__DIR__) . '/includes/bootstrap.php';
     Security::sendSecurityHeaders(Security::isHttps());
     layout_public_start([
-        'pageTitle' => $opts['title'] . ' — Apni Tokri',
+        'pageTitle' => $opts['title'] . ' — Veggie Tokri',
         'activeNav' => $opts['activeNav'] ?? '',
     ]);
     echo '<div class="at-container py-12 md:py-20"><div class="at-empty">';

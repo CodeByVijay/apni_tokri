@@ -1,4 +1,4 @@
--- Apni Tokri schema 1.4.0 — payment gateways (Stage 9)
+-- Veggie Tokri schema 1.4.0 — payment gateways (Stage 9)
 
 SET NAMES utf8mb4;
 SET time_zone = '+05:30';

@@ -40,7 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-layout_public_start(['pageTitle' => 'Submit review — Apni Tokri', 'activeNav' => 'account']);
+layout_public_start(['pageTitle' => 'Submit review — Veggie Tokri', 'activeNav' => 'account']);
 $accountActive = 'reviews';
 $accountTitle = 'Write a review';
 $accountSub = 'Reviews come from delivered orders only and appear after approval — good or critical.';

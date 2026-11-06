@@ -45,7 +45,7 @@ if ($planId > 0 && Install::isSchemaReady()) {
 }
 
 if ($card === null) {
-    layout_public_start(['pageTitle' => 'Subscribe — Apni Tokri', 'activeNav' => 'home']);
+    layout_public_start(['pageTitle' => 'Subscribe — Veggie Tokri', 'activeNav' => 'home']);
     $emptyTitle = 'Plan not available';
     $emptyMessage = 'This subscription plan is inactive or does not exist.';
     $emptyActionHref = $base . '/subscriptions.php';
@@ -58,7 +58,7 @@ if ($card === null) {
 $skipPolicy = json_decode((string) ($planRow['skip_pause_policy_json'] ?? '{}'), true) ?: [];
 $price = (float) $card['price'];
 
-layout_public_start(['pageTitle' => 'Subscribe — ' . $card['name'] . ' — Apni Tokri', 'activeNav' => 'home']);
+layout_public_start(['pageTitle' => 'Subscribe — ' . $card['name'] . ' — Veggie Tokri', 'activeNav' => 'home']);
 ?>
 <div class="at-container py-8 md:py-12 max-w-xl">
     <a href="<?= Security::escape($base) ?>/subscriptions.php" class="text-sm font-semibold text-[var(--at-green)]">← All plans</a>

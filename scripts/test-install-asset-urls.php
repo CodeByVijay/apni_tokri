@@ -27,23 +27,23 @@ function ok(bool $c, string $m): void
 }
 
 $example = require dirname(__DIR__) . '/includes/config.example.php';
-ok(str_contains((string) ($example['app']['url_path'] ?? ''), 'Apni'), 'config.example still documents subfolder default (unchanged)');
+ok(($example['app']['url_path'] ?? 'x') === '', 'config.example documents root-site default (empty url_path)');
 
 $_SERVER['SCRIPT_NAME'] = '/install.php';
 $_SERVER['HTTPS'] = 'on';
-$_SERVER['HTTP_HOST'] = 'apnitokri.in';
+$_SERVER['HTTP_HOST'] = 'veggietokri.com';
 $_SERVER['SERVER_PORT'] = '443';
 
 ok(InstallWizardService::requestDerivedUrlPath() === '', 'root install: empty url_path from SCRIPT_NAME');
 ok(
-    InstallWizardService::requestDerivedBaseUrl('') === 'https://apnitokri.in',
+    InstallWizardService::requestDerivedBaseUrl('') === 'https://veggietokri.com',
     'root install: HTTPS base_url from request'
 );
 
 if (!Install::hasLocalConfig()) {
     $merged = InstallWizardService::withRequestDerivedAppUrls($example);
     ok(($merged['app']['url_path'] ?? 'x') === '', 'withRequestDerivedAppUrls: empty url_path without local config');
-    ok(($merged['app']['base_url'] ?? '') === 'https://apnitokri.in', 'withRequestDerivedAppUrls: base_url from request');
+    ok(($merged['app']['base_url'] ?? '') === 'https://veggietokri.com', 'withRequestDerivedAppUrls: base_url from request');
 
     App::setConfig($merged);
     $css = asset_url('assets/css/apni-tokri.css');

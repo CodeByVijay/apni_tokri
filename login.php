@@ -38,7 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 layout_public_start([
-    'pageTitle' => 'Login — Apni Tokri',
+    'pageTitle' => 'Login — Veggie Tokri',
     'activeNav' => 'account',
     'showBottomNav' => false,
 ]);
@@ -48,7 +48,7 @@ layout_public_start([
         <div class="hidden md:block rounded-[var(--at-radius-lg)] overflow-hidden aspect-[4/5] relative">
             <img src="<?= Security::escape(asset_url('assets/images/demo/p-tomato-2.jpg')) ?>" alt="" class="w-full h-full object-cover">
             <div class="absolute inset-x-0 bottom-0 p-6 text-white" style="background:linear-gradient(180deg,transparent,rgba(19,52,33,.9))">
-                <p class="at-display !text-white text-2xl">Har Ghar Ki Taazgi</p>
+                <p class="at-display !text-white text-2xl">Freshness, Ready for Your Kitchen.</p>
                 <p class="text-sm opacity-90 mt-1">Log in to track orders, manage subscriptions and reorder in a tap.</p>
             </div>
         </div>

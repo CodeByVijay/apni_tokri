@@ -1,4 +1,4 @@
--- Apni Tokri schema 1.8.0-d3-manual — D3 manual courier + delivery SMS logs (depends on 1.8.0-d2-hardening)
+-- Veggie Tokri schema 1.8.0-d3-manual — D3 manual courier + delivery SMS logs (depends on 1.8.0-d2-hardening)
 -- Rollback: database/migrations/rollback/1.8.0_d3_manual_delivery_rollback.sql
 
 SET NAMES utf8mb4;
@@ -72,10 +72,10 @@ INSERT INTO `settings` (`setting_key`, `setting_value`, `is_encrypted`) VALUES
   ('sms.enabled', '0', 0),
   ('sms.provider', 'simulate', 0),
   ('sms.sender_id', '', 0),
-  ('sms.template.order_confirmed', 'Your Apni Tokri order {order_number} is confirmed. Thank you!', 0),
-  ('sms.template.ready', 'Your Apni Tokri order {order_number} is packed and ready for dispatch.', 0),
-  ('sms.template.dispatched', 'Your Apni Tokri order {order_number} has been dispatched.', 0),
-  ('sms.template.delivered', 'Your Apni Tokri order {order_number} was delivered. Enjoy!', 0),
+  ('sms.template.order_confirmed', 'Your Veggie Tokri order {order_number} is confirmed. Thank you!', 0),
+  ('sms.template.ready', 'Your Veggie Tokri order {order_number} is packed and ready for dispatch.', 0),
+  ('sms.template.dispatched', 'Your Veggie Tokri order {order_number} has been dispatched.', 0),
+  ('sms.template.delivered', 'Your Veggie Tokri order {order_number} was delivered. Enjoy!', 0),
   ('sms.template.failed', 'We could not complete delivery for order {order_number}. Our team will contact you.', 0)
 ON DUPLICATE KEY UPDATE `setting_value` = VALUES(`setting_value`);
 

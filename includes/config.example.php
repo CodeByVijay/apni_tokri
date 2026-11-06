@@ -12,8 +12,8 @@ declare(strict_types=1);
 
 return [
     'app' => [
-        'name' => 'Apni Tokri',
-        'tagline' => 'Har Ghar Ki Taazgi',
+        'name' => 'Veggie Tokri',
+        'tagline' => 'Freshness, Ready for Your Kitchen.',
         /**
          * Environment separation (use a different config.local.php per deploy):
          *   local | development | dev     — demo catalogue/cart when DB is empty; test scripts allowed
@@ -24,8 +24,10 @@ return [
         'env' => 'local',
         'debug' => true,
         'timezone' => 'Asia/Kolkata',
-        'base_url' => 'http://localhost/Apni%20Tokri',
-        'url_path' => '/Apni Tokri',
+        // Production: typically https://veggietokri.com with url_path '' (site at web root).
+        // Local dev: if the project folder is still named Apni_Tokri, use e.g. base_url http://localhost/Apni_Tokri and url_path /Apni_Tokri
+        'base_url' => 'https://veggietokri.com',
+        'url_path' => '',
     ],
 
     /**

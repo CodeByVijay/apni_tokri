@@ -31,7 +31,7 @@ if ($customerId === null) {
 
 $order = PaymentRepository::orderByNumberForCustomer($orderNumber, $customerId);
 if ($order === null) {
-    layout_public_start(['pageTitle' => 'Payment — Apni Tokri', 'activeNav' => 'cart']);
+    layout_public_start(['pageTitle' => 'Payment — Veggie Tokri', 'activeNav' => 'cart']);
     $emptyTitle = 'Order not found';
     $emptyMessage = 'This payment link is invalid.';
     $emptyActionHref = url_base() . '/my-orders.php';
@@ -129,7 +129,7 @@ $payReference = is_array($checkout) ? (string) ($checkout['reference_id'] ?? '')
 $canRetry = $error !== '' && (string) ($order['payment_status'] ?? '') !== 'paid';
 
 layout_public_start([
-    'pageTitle' => 'Pay for order — Apni Tokri',
+    'pageTitle' => 'Pay for order — Veggie Tokri',
     'activeNav' => 'cart',
     'showBottomNav' => false,
 ]);

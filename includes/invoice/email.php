@@ -214,12 +214,12 @@ final class InvoiceEmailService
     {
         $snap = InvoiceService::snapshot($invoice);
         $orderNo = (string) ($snap['order']['number'] ?? '');
-        $brand = (string) ($snap['seller']['brand_name'] ?? 'Apni Tokri');
+        $brand = (string) ($snap['seller']['brand_name'] ?? 'Veggie Tokri');
         $isCredit = ($invoice['document_type'] ?? '') === InvoiceSettings::DOC_CREDIT_NOTE;
         $docName = $isCredit ? 'credit note' : 'invoice';
         $subject = $isCredit
-            ? 'Your Apni Tokri Credit Note – Order #' . $orderNo
-            : 'Your Apni Tokri Invoice – Order #' . $orderNo;
+            ? 'Your Veggie Tokri Credit Note – Order #' . $orderNo
+            : 'Your Veggie Tokri Invoice – Order #' . $orderNo;
         $link = App::baseUrl() . '/invoice-view.php?ref=' . $invoice['public_ref'];
         $name = trim($customerName) !== '' ? trim($customerName) : 'there';
         $amount = InvoiceFormat::money((float) $invoice['grand_total']);

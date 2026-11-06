@@ -1,4 +1,4 @@
--- Apni Tokri — Stage 14 Phase 1 (RBAC role permission seeding)
+-- Veggie Tokri — Stage 14 Phase 1 (RBAC role permission seeding)
 -- Depends on: 1.9.0-stage13-cms-1 (admin_roles / admin_permissions populated)
 -- Idempotent: INSERT IGNORE only; does not remove custom role assignments.
 

@@ -1,4 +1,4 @@
--- Apni Tokri schema 1.28.0 — credit-based subscription lifecycle (pause dates, no calendar expiry)
+-- Veggie Tokri schema 1.28.0 — credit-based subscription lifecycle (pause dates, no calendar expiry)
 
 SET NAMES utf8mb4;
 SET time_zone = '+05:30';

@@ -1,4 +1,4 @@
--- Apni Tokri schema 1.6.1 — subscription checkout, payments, calendar days (Stage 11 Phase B)
+-- Veggie Tokri schema 1.6.1 — subscription checkout, payments, calendar days (Stage 11 Phase B)
 -- Idempotent: safe to re-run on partially applied databases.
 
 SET NAMES utf8mb4;

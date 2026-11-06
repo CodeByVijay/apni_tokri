@@ -12,8 +12,8 @@ declare(strict_types=1);
 
 return [
     'app' => [
-        'name' => 'Apni Tokri',
-        'tagline' => 'Har Ghar Ki Taazgi',
+        'name' => 'Veggie Tokri',
+        'tagline' => 'Freshness, Ready for Your Kitchen.',
         'env' => 'local', // local | staging | production
         'debug' => true,
         'timezone' => 'Asia/Kolkata',

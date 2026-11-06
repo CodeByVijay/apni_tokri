@@ -109,7 +109,7 @@ function layout_admin_start(array $vars): void
     echo '<aside class="at-admin-sidebar" aria-label="Admin navigation">';
     echo '<a href="' . Security::escape($base) . '/admin/dashboard.php" class="at-admin-sidebar__brand">';
     echo '<img src="' . Security::escape(asset_url('assets/images/logo.svg')) . '" alt="" width="38" height="38" class="rounded-lg">';
-    echo '<span><strong>Apni Tokri</strong><small>Admin</small></span></a>';
+    echo '<span><strong>Veggie Tokri</strong><small>Admin</small></span></a>';
     echo '<nav class="flex-1 pb-4">';
     $lastGroup = '';
     foreach ($items as $item) {

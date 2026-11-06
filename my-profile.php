@@ -32,7 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $errors = $res['errors'];
 }
 
-layout_public_start(['pageTitle' => 'My profile — Apni Tokri', 'activeNav' => 'account']);
+layout_public_start(['pageTitle' => 'My profile — Veggie Tokri', 'activeNav' => 'account']);
 $accountActive = 'profile';
 $accountTitle = 'My profile';
 $accountSub = 'Your name and contact details';

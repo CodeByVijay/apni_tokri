@@ -1,4 +1,4 @@
--- Apni Tokri schema 1.7.0 — reviews, testimonials, support, refunds (Stage 12)
+-- Veggie Tokri schema 1.7.0 — reviews, testimonials, support, refunds (Stage 12)
 
 SET NAMES utf8mb4;
 SET time_zone = '+05:30';

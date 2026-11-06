@@ -1,4 +1,4 @@
--- Apni Tokri — complete installation schema (Stage 5)
+-- Veggie Tokri — complete installation schema (Stage 5)
 -- MySQL 8+ / MariaDB 10.4+ with InnoDB
 --
 -- CREATE DATABASE apni_tokri CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
