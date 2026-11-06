@@ -26,6 +26,8 @@ final class ReportDateRange
         $this->startUtc = $start;
         $this->endUtc = $end;
         $this->label = $label;
+        $this->customFrom = $customFrom;
+        $this->customTo = $customTo;
     }
 
     /**
