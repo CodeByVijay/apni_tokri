@@ -77,36 +77,70 @@ final class NominatimReverseGeocoder
             return ['ok' => false, 'error' => 'No address details for this location.'];
         }
 
-        return self::mapAddress($addr);
+        if (App::isDebug()) {
+            $addrKeys = array_keys($addr);
+            sort($addrKeys);
+            error_log(
+                'nominatim_reverse: address keys=' . implode(',', $addrKeys)
+                . ' category=' . (string) ($json['category'] ?? '')
+                . ' type=' . (string) ($json['type'] ?? '')
+            );
+        }
+
+        return self::mapAddress($json);
     }
 
     /**
-     * @param array<string, mixed> $addr
+     * Map Nominatim `addressdetails` (see format=jsonv2) to checkout fields.
+     * Street = thoroughfare (+ house number when present). Area / locality only = neighbourhood-scale keys — never city+state.
+     *
+     * @param array<string, mixed> $json Top-level reverse JSON (must include `address`)
      * @return array<string, string|bool>
      */
-    private static function mapAddress(array $addr): array
+    private static function mapAddress(array $json): array
     {
-        $road = self::str($addr, ['road', 'pedestrian', 'path', 'footway', 'residential']);
-        $houseNum = self::str($addr, ['house_number']);
+        $addr = $json['address'] ?? null;
+        if (!is_array($addr)) {
+            return ['ok' => false, 'error' => 'No address details for this location.'];
+        }
+
+        $thoroughfareKeys = [
+            'road', 'residential', 'pedestrian', 'street', 'path', 'footway',
+            'highway', 'unclassified', 'primary', 'secondary', 'tertiary', 'living_street',
+            'service', 'track', 'cycleway', 'junction', 'square',
+        ];
+        $road = self::firstStr($addr, $thoroughfareKeys);
+        $houseNum = self::firstStr($addr, ['house_number']);
         $street = trim($houseNum !== '' && $road !== '' ? $houseNum . ', ' . $road : ($road !== '' ? $road : $houseNum));
 
-        $locality = self::str($addr, ['suburb', 'neighbourhood', 'quarter', 'village', 'hamlet', 'city_block']);
-        $city = self::str($addr, ['city', 'town', 'municipality', 'city_district', 'county']);
-        $state = self::str($addr, ['state', 'state_district']);
-        $country = self::str($addr, ['country']);
-        $postcode = preg_replace('/\D+/', '', self::str($addr, ['postcode'])) ?? '';
+        $localityKeys = [
+            'neighbourhood', 'suburb', 'quarter', 'locality', 'village', 'hamlet', 'city_block',
+        ];
+        $locality = self::firstStr($addr, $localityKeys);
 
-        $areaParts = [];
-        foreach ([$locality, $city, $state] as $p) {
-            $p = trim((string) $p);
-            if ($p === '') {
-                continue;
-            }
-            if (!in_array($p, $areaParts, true)) {
-                $areaParts[] = $p;
+        if ($locality === '') {
+            $adminFallbackKeys = ['county', 'state_district', 'district', 'municipality'];
+            foreach ($adminFallbackKeys as $k) {
+                $v = self::scalarStr($addr[$k] ?? null);
+                if ($v === '') {
+                    continue;
+                }
+                $citySoon = self::cityFromAddress($addr);
+                if ($citySoon !== '' && strcasecmp($v, $citySoon) === 0) {
+                    continue;
+                }
+                $locality = $v;
+                break;
             }
         }
-        $area = implode(', ', $areaParts);
+
+        $city = self::cityFromAddress($addr);
+        $state = self::firstStr($addr, ['state']);
+        $country = self::firstStr($addr, ['country']);
+        $postcodeRaw = self::firstStr($addr, ['postcode']);
+        $postcode = preg_replace('/\D+/', '', $postcodeRaw) ?? '';
+
+        $area = $locality;
 
         $out = [
             'ok' => true,
@@ -120,7 +154,7 @@ final class NominatimReverseGeocoder
             $out['pincode'] = $postcode;
         }
 
-        $hasAny = $street !== '' || $area !== '' || isset($out['pincode']) || $country !== '';
+        $hasAny = $street !== '' || $area !== '' || $city !== '' || $state !== '' || isset($out['pincode']) || $country !== '';
         if (!$hasAny) {
             return ['ok' => false, 'error' => 'No usable address fields for this location.'];
         }
@@ -130,17 +164,41 @@ final class NominatimReverseGeocoder
 
     /**
      * @param array<string, mixed> $addr
+     */
+    private static function cityFromAddress(array $addr): string
+    {
+        $c = self::firstStr($addr, ['city', 'town', 'municipality']);
+        if ($c !== '') {
+            return $c;
+        }
+
+        return self::firstStr($addr, ['city_district']);
+    }
+
+    /** @param mixed $v */
+    private static function scalarStr($v): string
+    {
+        if ($v === null || $v === '') {
+            return '';
+        }
+
+        return trim((string) $v);
+    }
+
+    /**
+     * @param array<string, mixed> $addr
      * @param list<string> $keys
      */
-    private static function str(array $addr, array $keys): string
+    private static function firstStr(array $addr, array $keys): string
     {
         foreach ($keys as $k) {
-            if (!isset($addr[$k])) {
+            if (!array_key_exists($k, $addr)) {
                 continue;
             }
-            $v = trim((string) $addr[$k]);
-
-            return $v;
+            $v = self::scalarStr($addr[$k]);
+            if ($v !== '') {
+                return $v;
+            }
         }
 
         return '';

@@ -202,7 +202,13 @@
           var addr = res.data.address;
           var filled = fillFromGeo(addr);
           if (filled) {
-            setMsg('Address fields updated from the map. Please verify house/building and landmark.', 'success');
+            var noRoad = !addr.street || String(addr.street).trim() === '';
+            setMsg(
+              noRoad
+                ? 'Area and pincode were updated from the map. No street name was returned for this spot — please type Street / Road and your building details.'
+                : 'Address fields updated from the map. Please verify house/building and landmark.',
+              'success'
+            );
           } else {
             setMsg('We could not add new address lines automatically — check street, area and pincode manually.', 'info');
           }
