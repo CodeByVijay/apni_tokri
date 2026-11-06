@@ -8,6 +8,7 @@
   if (!$ || !window.L) return;
 
   var CFG = window.AT_MAP_CONFIG || {};
+  var PHOTON = CFG.photon || {};
   var instances = [];
   var tileErrorShown = false;
 
@@ -90,12 +91,28 @@
     var $area = $form.find('[name="area"]');
     var $pin = $form.find('[name="pincode"]');
 
+    var $searchWrap = $form.find('[data-addr-search-wrap]');
+    var $searchIn = $form.find('[data-addr-search]');
+    var $searchList = $form.find('[data-addr-search-list]');
+    var $searchStatus = $form.find('[data-addr-search-status]');
+    var $searchBusy = $form.find('[data-addr-search-busy]');
+    var searchEnabled = PHOTON.enabled === true && $searchIn.length > 0;
+    if (!searchEnabled && $searchWrap.length) {
+      $searchWrap.prop('hidden', true);
+    }
+
     var map = null, marker = null, accuracyCircle = null, busyGps = false;
     var geocodeTimer = null;
     var geocodeSeq = 0;
     var geocodeInFlight = false;
     var checkInFlight = false;
     var lastCompletedGeocodeKey = '';
+    var searchSeq = 0;
+    var searchResults = [];
+    var searchActive = -1;
+    var minSearchChars = typeof PHOTON.minChars === 'number' ? PHOTON.minChars : 3;
+    var searchDebounceMs = typeof PHOTON.debounceMs === 'number' ? PHOTON.debounceMs : 400;
+    var searchDocNs = 'click.atAddrSearch_' + ($form.attr('id') || 'af');
 
     function setMsg(text, kind) {
       $msg.text(text || '').attr('data-kind', kind || 'info').prop('hidden', !text);
@@ -150,6 +167,123 @@
       }
       if (touched) showDetectedHint();
       return touched;
+    }
+
+    function setSearchStatus(text, kind) {
+      if (!$searchStatus.length) return;
+      if (!text) {
+        $searchStatus.text('').attr('data-kind', '').prop('hidden', true);
+        return;
+      }
+      $searchStatus.text(text).attr('data-kind', kind || 'info').prop('hidden', false);
+    }
+
+    function hideSearchList() {
+      searchActive = -1;
+      searchResults = [];
+      if ($searchList.length) {
+        $searchList.empty().prop('hidden', true);
+      }
+      if ($searchIn.length) {
+        $searchIn.removeAttr('aria-activedescendant').attr('aria-expanded', 'false');
+      }
+    }
+
+    function highlightSearchOption(idx) {
+      if (!$searchList.length) return;
+      $searchList.find('[role="option"]').removeClass('is-active').attr('aria-selected', 'false');
+      searchActive = idx;
+      var $opts = $searchList.find('[role="option"]');
+      var open = !$searchList.prop('hidden') && $opts.length > 0;
+      if (idx >= 0 && idx < $opts.length) {
+        var $o = $opts.eq(idx);
+        $o.addClass('is-active').attr('aria-selected', 'true');
+        var oid = $o.attr('id');
+        if (oid) $searchIn.attr('aria-activedescendant', oid);
+        $searchIn.attr('aria-expanded', 'true');
+      } else {
+        $searchIn.removeAttr('aria-activedescendant').attr('aria-expanded', open ? 'true' : 'false');
+      }
+    }
+
+    var runPhotonSearch = debounce(function () {
+      if (!searchEnabled) return;
+      var q = $.trim($searchIn.val() || '');
+      if (q.length < minSearchChars) {
+        hideSearchList();
+        setSearchStatus('', '');
+        if ($searchBusy.length) $searchBusy.prop('hidden', true);
+        return;
+      }
+      searchSeq += 1;
+      var seq = searchSeq;
+      if ($searchBusy.length) $searchBusy.prop('hidden', false);
+      setSearchStatus('', '');
+      $.ajax({
+        url: appBasePrefix() + '/ajax/address/photon-search',
+        method: 'POST',
+        dataType: 'json',
+        data: { _csrf_token: csrfToken(), q: q }
+      }).done(function (res) {
+        if (seq !== searchSeq) return;
+        if ($searchBusy.length) $searchBusy.prop('hidden', true);
+        if (!res || !res.success || !res.data) {
+          var em = (res && res.error && res.error.message) || 'Search could not complete.';
+          setSearchStatus(em, 'warn');
+          hideSearchList();
+          return;
+        }
+        var list = res.data.suggestions;
+        if (!list || !list.length) {
+          setSearchStatus('No matching places found. Try another spelling or tap the map.', 'info');
+          hideSearchList();
+          return;
+        }
+        searchResults = list;
+        setSearchStatus('', '');
+        $searchList.empty().prop('hidden', false);
+        $searchIn.attr('aria-expanded', 'true');
+        var uid = ($form.attr('id') || 'af') + '-addr-opt-';
+        $.each(list, function (i, s) {
+          var lat = Number(s.lat);
+          var lng = Number(s.lng);
+          var lab = (s.label != null) ? String(s.label) : '';
+          var det = (s.detail != null) ? String(s.detail) : '';
+          var id = uid + i;
+          var $li = $('<li role="option" tabindex="-1"></li>').attr('id', id)
+            .attr('data-idx', String(i))
+            .toggleClass('at-addr-search__item--sub', det !== '');
+          $li.append($('<span class="at-addr-search__item-main"></span>').text(lab));
+          if (det) $li.append($('<span class="at-addr-search__item-sub"></span>').text(det));
+          $searchList.append($li);
+        });
+        highlightSearchOption(-1);
+      }).fail(function (xhr) {
+        if (seq !== searchSeq) return;
+        if ($searchBusy.length) $searchBusy.prop('hidden', true);
+        hideSearchList();
+        var msg = 'Search failed. Try again or place the pin on the map.';
+        try {
+          var jr = xhr.responseJSON;
+          if (jr && jr.error && jr.error.message) msg = String(jr.error.message);
+        } catch (e) { /* ignore */ }
+        setSearchStatus(msg, xhr.status === 429 ? 'warn' : 'error');
+      });
+    }, searchDebounceMs);
+
+    function pickSearchSuggestion(index) {
+      if (!searchEnabled || index < 0 || index >= searchResults.length) return;
+      var s = searchResults[index];
+      var lat = Number(s.lat);
+      var lng = Number(s.lng);
+      if (!validCoord(lat, lng)) return;
+      hideSearchList();
+      setSearchStatus('', '');
+      if ($searchBusy.length) $searchBusy.prop('hidden', true);
+      placeMarker(lat, lng, { zoom: 17 });
+      clearAccuracyCircle();
+      $acc.prop('hidden', true).text('');
+      scheduleReverseGeocode(lat, lng, true);
     }
 
     function checkPinDelivery(lat, lng) {
@@ -234,6 +368,7 @@
 
     function placeMarker(lat, lng, opts) {
       opts = opts || {};
+      if (!map) buildMap();
       if (!validCoord(lat, lng)) {
         setMsg('That location is not valid. Please tap the map to place the pin.', 'error');
         return;
@@ -282,6 +417,12 @@
       window.clearTimeout(geocodeTimer);
       geocodeSeq += 1;
       lastCompletedGeocodeKey = '';
+      if (searchEnabled) {
+        searchSeq += 1;
+        hideSearchList();
+        setSearchStatus('', '');
+        if ($searchBusy.length) $searchBusy.prop('hidden', true);
+      }
       updateStatus();
     }
 
@@ -408,6 +549,52 @@
     }
 
     /* ---- events (bound once per form) ---- */
+    if (searchEnabled) {
+      $searchIn.on('input', function () {
+        var q = $.trim($searchIn.val() || '');
+        if (q.length < minSearchChars) {
+          searchSeq += 1;
+          hideSearchList();
+          setSearchStatus('', '');
+          if ($searchBusy.length) $searchBusy.prop('hidden', true);
+          return;
+        }
+        runPhotonSearch();
+      });
+      $searchIn.on('keydown', function (e) {
+        if (!$searchList.length || $searchList.prop('hidden')) return;
+        var max = searchResults.length - 1;
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          var nextDown = searchActive < 0 ? 0 : Math.min(max, searchActive + 1);
+          highlightSearchOption(nextDown);
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          var nextUp = searchActive <= 0 ? -1 : searchActive - 1;
+          highlightSearchOption(nextUp);
+        } else if (e.key === 'Enter') {
+          if (searchActive >= 0) {
+            e.preventDefault();
+            pickSearchSuggestion(searchActive);
+          }
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          hideSearchList();
+        }
+      });
+      $searchList.on('mousedown', '[role="option"]', function (e) {
+        e.preventDefault();
+        var idx = parseInt($(this).attr('data-idx'), 10);
+        if (!isNaN(idx)) pickSearchSuggestion(idx);
+      });
+      $(document).on(searchDocNs, function (e) {
+        if (!$searchWrap.length || $searchWrap.prop('hidden')) return;
+        var t = e.target;
+        if ($searchWrap[0] && $searchWrap[0].contains(t)) return;
+        hideSearchList();
+      });
+    }
+
     $btnGps.on('click', function (e) { e.preventDefault(); useCurrentLocation(); });
     $btnConfirm.on('click', function (e) {
       e.preventDefault();
@@ -445,6 +632,9 @@
       form: form,
       refresh: function () { if (map) map.invalidateSize(); },
       destroy: function () {
+        if (searchEnabled) {
+          $(document).off(searchDocNs);
+        }
         if (map) { map.remove(); map = null; marker = null; accuracyCircle = null; }
         $form.removeData('atAddrInit');
       }

@@ -4807,6 +4807,30 @@ body.at-gallery-lightbox-open {
   background: rgba(255, 248, 233, 0.85); font-weight: 600; color: var(--at-ink-2); pointer-events: none;
 }
 .at-addr-map__loading[hidden] { display: none; }
+/* Photon address search (checkout / my-addresses) */
+.at-addr-search { margin: 0 0 1rem; }
+.at-addr-search__field { position: relative; display: flex; align-items: center; gap: 0.5rem; }
+.at-addr-search__field .at-input { flex: 1 1 auto; min-width: 0; }
+.at-addr-search__spinner { flex-shrink: 0; }
+.at-addr-search__spinner[hidden] { display: none !important; }
+.at-addr-search__list {
+  list-style: none; margin: 0.35rem 0 0; padding: 0; max-height: 14rem; overflow-y: auto;
+  border: 1px solid var(--at-line); border-radius: var(--at-radius); background: #fff; box-shadow: 0 4px 14px rgba(0,0,0,0.06);
+  z-index: 900;
+}
+.at-addr-search__list[hidden] { display: none; }
+.at-addr-search__list [role="option"] {
+  padding: 0.55rem 0.75rem; cursor: pointer; border-bottom: 1px solid var(--at-line); font-size: 0.875rem; line-height: 1.35;
+}
+.at-addr-search__list [role="option"]:last-child { border-bottom: none; }
+.at-addr-search__list [role="option"]:hover, .at-addr-search__list [role="option"].is-active {
+  background: var(--at-green-50);
+}
+.at-addr-search__item-main { display: block; font-weight: 700; color: var(--at-ink); }
+.at-addr-search__item-sub { display: block; font-size: 0.8125rem; color: var(--at-ink-2); margin-top: 0.15rem; }
+.at-addr-search__status { margin: 0.35rem 0 0; font-size: 0.8125rem; line-height: 1.4; }
+.at-addr-search__status[data-kind="error"] { color: var(--at-danger); font-weight: 600; }
+.at-addr-search__status[data-kind="warn"] { color: var(--at-yellow-ink); font-weight: 600; }
 .at-addr-msg { margin: 0 0 0.6rem; padding: 0.6rem 0.8rem; border-radius: var(--at-radius); font-size: 0.875rem; line-height: 1.4; background: var(--at-info-bg); color: var(--at-info); }
 .at-addr-msg[data-kind="warn"] { background: var(--at-warning-bg); color: var(--at-yellow-ink); }
 .at-addr-msg[data-kind="error"] { background: var(--at-danger-bg); color: var(--at-danger); }

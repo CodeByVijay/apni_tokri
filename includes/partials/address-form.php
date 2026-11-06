@@ -80,6 +80,16 @@ $labelType = (string) ($vals['label_type'] ?? 'Home');
                 <?= at_icon('pin', 'w-5 h-5') ?><span data-label>Use my current location</span><span class="at-addr-spinner" aria-hidden="true"></span>
             </button>
         </div>
+        <div class="at-addr-search" data-addr-search-wrap>
+            <label class="at-label" for="<?= Security::escape($uid) ?>-addr-search">Search address or place</label>
+            <div class="at-addr-search__field">
+                <input id="<?= Security::escape($uid) ?>-addr-search" type="text" class="at-input at-focusable" data-addr-search role="combobox" autocomplete="off" autocapitalize="words" spellcheck="false" maxlength="200" placeholder="e.g. Vijay Nagar, Scheme 54, society or road name" aria-autocomplete="list" aria-expanded="false" aria-controls="<?= Security::escape($uid) ?>-addr-search-list">
+                <span class="at-addr-search__spinner at-addr-spinner" data-addr-search-busy aria-hidden="true" hidden></span>
+            </div>
+            <p class="at-addr-search__hint at-addr-hint text-sm">Suggestions use OpenStreetMap search (Photon). Results are biased toward Indore; accuracy varies — always verify on the map.</p>
+            <p class="at-addr-search__status" data-addr-search-status role="status" aria-live="polite" hidden></p>
+            <ul id="<?= Security::escape($uid) ?>-addr-search-list" class="at-addr-search__list" data-addr-search-list role="listbox" aria-label="Address suggestions" hidden></ul>
+        </div>
         <p class="at-addr-msg" data-addr-map-msg role="status" aria-live="polite" hidden></p>
         <div class="at-addr-mapwrap">
             <div class="at-addr-map" data-addr-map role="application" aria-label="Map for choosing your delivery location. Tap to place the pin or drag it."></div>

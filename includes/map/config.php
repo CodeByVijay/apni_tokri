@@ -69,6 +69,7 @@ final class MapConfig
     public static function clientConfig(): array
     {
         $s = self::settings();
+        $photon = self::photonClientConfig();
 
         return [
             'tileUrl' => $s['tile_url'],
@@ -77,7 +78,20 @@ final class MapConfig
             'center' => [$s['default_lat'], $s['default_lng']],
             'zoom' => $s['default_zoom'],
             'imagePath' => asset_url('assets/vendor/leaflet/images/'),
+            'photon' => $photon,
         ];
+    }
+
+    /**
+     * Photon forward-search settings for checkout map (no API keys).
+     *
+     * @return array<string, mixed>
+     */
+    private static function photonClientConfig(): array
+    {
+        require_once APNI_TOKRI_ROOT . '/includes/geocoding/photon_forward.php';
+
+        return PhotonForwardGeocoder::clientSnippet();
     }
 
     /** Public OpenStreetMap link for a point (used only in authenticated admin views). */

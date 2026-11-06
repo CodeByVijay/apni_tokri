@@ -83,6 +83,26 @@ return [
     //     'max_zoom' => 19,
     // ],
 
+    /**
+     * Address search (Photon) — server-side proxy at /ajax/address/photon-search. No API key.
+     * Public https://photon.komoot.io is for reasonable demo use; for production scale set base_url
+     * to your self-hosted Photon (https://github.com/komoot/photon) or Pelias instance.
+     */
+    // 'geocoding' => [
+    //     'photon' => [
+    //         'enabled' => true,
+    //         'base_url' => 'https://photon.komoot.io/api/',
+    //         'limit' => 7,
+    //         'lang' => 'en', // hi may work for some names; depends on OSM data
+    //         'bbox' => '75.45,22.45,76.15,22.92', // min_lon,min_lat,max_lon,max_lat (Indore vicinity)
+    //         'bias_lat' => 22.7196,
+    //         'bias_lon' => 75.8577,
+    //         'timeout_seconds' => 8,
+    //         'cache_ttl_seconds' => 120,
+    //         'max_requests_per_minute_per_ip' => 40, // applies to upstream calls after cache miss
+    //     ],
+    // ],
+
     'install' => [
         'expected_schema_version' => '1.10.0-stage14-rbac-1',
     ],
