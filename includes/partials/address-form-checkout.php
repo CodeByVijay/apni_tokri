@@ -23,7 +23,7 @@ $invalid = static function (string $k) use ($errs): string {
 };
 $labelType = (string) ($vals['label_type'] ?? 'Home');
 $acCfg = $addrAutocompleteClientConfig ?? AddressAutocompleteSettings::publicClientConfig();
-$acEnabled = !empty($acCfg['enabled']);
+$acSearchEnabled = !empty($acCfg['searchEnabled']);
 ?>
 <form method="post" action="<?= Security::escape((string) $addrFormAction) ?>" class="at-addr-form" data-at-address-form data-addr-checkout-autocomplete="1" id="<?= Security::escape($uid) ?>-form">
     <?= Csrf::field() ?>
@@ -65,11 +65,11 @@ $acEnabled = !empty($acCfg['enabled']);
     <section class="at-addr-step" data-addr-step="location" aria-labelledby="<?= Security::escape($uid) ?>-h-loc">
         <h3 class="at-addr-step__title" id="<?= Security::escape($uid) ?>-h-loc"><span class="at-addr-step__num">2</span>Find your location</h3>
         <p class="at-addr-hint">Search for your area or building. <strong>We save a map point for delivery routing</strong> — please verify the result and complete house/building details below.</p>
-        <?php if ($acEnabled): ?>
+        <?php if ($acSearchEnabled): ?>
         <div class="at-addr-search" data-addr-search-wrap>
             <label class="at-label" for="<?= Security::escape($uid) ?>-addr-ac-search">Search address</label>
             <div class="at-addr-search__field">
-                <input id="<?= Security::escape($uid) ?>-addr-ac-search" type="text" class="at-input at-focusable" data-addr-ac-search role="combobox" autocomplete="off" maxlength="200" placeholder="e.g. 317 Bajrang Nagar, Scheme 54, society name" aria-autocomplete="list" aria-expanded="false" aria-controls="<?= Security::escape($uid) ?>-addr-ac-list">
+                <input id="<?= Security::escape($uid) ?>-addr-ac-search" type="text" class="at-input at-focusable" data-addr-ac-search role="combobox" autocomplete="off" maxlength="200" placeholder="Search house, building, area or PIN code..." aria-autocomplete="list" aria-expanded="false" aria-controls="<?= Security::escape($uid) ?>-addr-ac-list">
                 <span class="at-addr-search__spinner at-addr-spinner" data-addr-ac-busy aria-hidden="true" hidden></span>
             </div>
             <p class="at-addr-search__hint at-addr-hint text-sm">Provider: <?= Security::escape((string) ($acCfg['provider'] ?? 'photon')) ?>. Results are biased toward Indore; verify before saving.</p>

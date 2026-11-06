@@ -115,12 +115,18 @@ final class AddressAutocompleteSettings
      */
     public static function publicClientConfig(): array
     {
+        $base = url_base();
+
         return [
             'enabled' => self::isEnabled(),
+            /** Separate from master toggle: map-free checkout always loads the script; search UI uses this. */
+            'searchEnabled' => self::isEnabled(),
             'provider' => self::provider(),
             'minChars' => 3,
             'debounceMs' => 400,
             'maxResults' => self::maxResults(),
+            'autocompleteSearchUrl' => $base . '/ajax/address/autocomplete-search.php',
+            'googlePlaceDetailsUrl' => $base . '/ajax/address/google-place-details.php',
         ];
     }
 }

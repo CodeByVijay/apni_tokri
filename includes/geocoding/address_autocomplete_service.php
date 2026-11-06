@@ -187,7 +187,11 @@ final class AddressAutocompleteService
         return ['ok' => true, 'address' => $norm];
     }
 
-    /** Connection test (admin): lightweight autocomplete. */
+    /**
+     * Connection test (admin): lightweight autocomplete.
+     *
+     * @return array{ok: bool, error?: string, diagnostic?: array<string, mixed>}
+     */
     public static function testGoogleConnection(?string $apiKeyOverride): array
     {
         $bias = AddressAutocompleteSettings::biasPoint();

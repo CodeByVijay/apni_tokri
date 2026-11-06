@@ -146,7 +146,8 @@ $paymentGatewayBlockedMessage = $paymentGatewayReady
     ? ''
     : (string) ($paymentLiveReady['message'] ?? 'Payment gateway is not ready. Check Settings → Payment gateways.');
 
-$checkoutAddrAutocomplete = $dbAddressMode && AddressAutocompleteSettings::isEnabled();
+/** Map-free address form whenever persisted checkout addresses are used; optional search when autocomplete is enabled in settings. */
+$checkoutAddrMapFree = $dbAddressMode;
 
 layout_public_start([
     'pageTitle' => 'Checkout — Veggie Tokri',
@@ -154,7 +155,7 @@ layout_public_start([
     'showBottomNav' => false,
     // Leaflet for "View location" on saved cards + delivery modal scripts; checkout form uses server autocomplete when enabled.
     'loadAddressMap' => $dbAddressMode,
-    'loadAddressAutocompleteJs' => $checkoutAddrAutocomplete,
+    'loadAddressAutocompleteJs' => $checkoutAddrMapFree,
 ]);
 require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
 ?>
@@ -231,7 +232,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
                             $addrFormAddAction = 'add_address';
                             $addrFormUpdateAction = 'update_address';
                             $addrFormUid = 'co';
-                            if ($checkoutAddrAutocomplete) {
+                            if ($checkoutAddrMapFree) {
                                 $addrAutocompleteClientConfig = AddressAutocompleteSettings::publicClientConfig();
                                 require APNI_TOKRI_ROOT . '/includes/partials/address-form-checkout.php';
                             } else {

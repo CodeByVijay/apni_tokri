@@ -107,8 +107,40 @@ final class AddressAutocompleteAdminSettings
         $err = (string) ($res['error'] ?? 'Request failed.');
         // Never echo API key material
         $err = preg_replace('/AIza[0-9A-Za-z_-]{10,}/', '[redacted]', $err) ?? $err;
+        if (isset($res['diagnostic']) && is_array($res['diagnostic'])) {
+            $d = self::formatDiagnosticFlashLine($res['diagnostic']);
+            if ($d !== '') {
+                $err .= ' | ' . $d;
+            }
+        }
 
         return ['ok' => false, 'message' => $err];
+    }
+
+    /**
+     * @param array<string, mixed> $diag
+     */
+    private static function formatDiagnosticFlashLine(array $diag): string
+    {
+        $http = isset($diag['http_status']) && is_numeric($diag['http_status']) ? (int) $diag['http_status'] : null;
+        $gs = isset($diag['google_status']) && is_string($diag['google_status']) ? trim($diag['google_status']) : '';
+        $cls = isset($diag['class']) && is_string($diag['class']) ? trim($diag['class']) : '';
+        $ep = isset($diag['endpoint']) && is_string($diag['endpoint']) ? trim($diag['endpoint']) : '';
+        $parts = [];
+        if ($http !== null) {
+            $parts[] = 'HTTP ' . $http;
+        }
+        if ($ep !== '') {
+            $parts[] = $ep;
+        }
+        if ($gs !== '') {
+            $parts[] = 'status=' . $gs;
+        }
+        if ($cls !== '') {
+            $parts[] = $cls;
+        }
+
+        return implode(' · ', array_filter($parts, static fn ($x) => $x !== ''));
     }
 
     public static function googleKeySaved(): bool

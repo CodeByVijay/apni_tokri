@@ -7,19 +7,27 @@
   if (!$) return;
 
   var CFG = window.AT_ADDRESS_AUTOCOMPLETE || {};
-  if (!CFG.enabled) return;
+  /** Script loads on map-free checkout even when admin disables search; only init when search is on. */
+  if (CFG.searchEnabled !== true && CFG.enabled !== true) {
+    return;
+  }
 
   function csrfToken() {
     var m = document.querySelector('meta[name="csrf-token"]');
     return m && m.getAttribute ? (m.getAttribute('content') || '') : '';
   }
 
-  function appBasePrefix() {
+  function ajaxUrl(key) {
+    var u = CFG[key];
+    if (u && typeof u === 'string' && u.indexOf('/ajax/address/') !== -1) {
+      return u;
+    }
     var path = window.location.pathname;
     var idx = path.indexOf('/ajax/');
     if (idx !== -1) return path.substring(0, idx);
     var last = path.lastIndexOf('/');
-    return last > 0 ? path.substring(0, last) : '';
+    var base = last > 0 ? path.substring(0, last) : '';
+    return base + (key === 'googlePlaceDetailsUrl' ? '/ajax/address/google-place-details.php' : '/ajax/address/autocomplete-search.php');
   }
 
   function debounce(fn, ms) {
@@ -56,6 +64,10 @@
     if ($form.data('atAddrAcInit')) return;
     $form.data('atAddrAcInit', true);
 
+    if (CFG.searchEnabled !== true && CFG.enabled !== true) {
+      return;
+    }
+
     var tok = sessionToken();
     var provider = CFG.provider || 'photon';
 
@@ -89,6 +101,10 @@
     function setMsg(text, kind) {
       if (!$msg.length) return;
       $msg.text(text || '').attr('data-kind', kind || 'info').prop('hidden', !text);
+    }
+
+    if (!$searchIn.length) {
+      return;
     }
 
     function showDetectedHint() {
@@ -165,7 +181,7 @@
       $searchBusy.prop('hidden', false);
       setStatus('', '');
       $.ajax({
-        url: appBasePrefix() + '/ajax/address/autocomplete-search',
+        url: ajaxUrl('autocompleteSearchUrl'),
         method: 'POST',
         dataType: 'json',
         data: { _csrf_token: csrfToken(), q: q, session_token: tok }
@@ -228,7 +244,7 @@
       if (s.provider === 'google' && s.needs_details) {
         setMsg('Loading address details…', 'info');
         $.ajax({
-          url: appBasePrefix() + '/ajax/address/google-place-details',
+          url: ajaxUrl('googlePlaceDetailsUrl'),
           method: 'POST',
           dataType: 'json',
           data: { _csrf_token: csrfToken(), place_id: s.place_id, session_token: tok }
