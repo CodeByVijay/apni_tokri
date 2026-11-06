@@ -92,14 +92,19 @@ return [
     //     'photon' => [
     //         'enabled' => true,
     //         'base_url' => 'https://photon.komoot.io/api/',
-    //         'limit' => 7,
+    //         'limit' => 7, // suggestions returned to the browser
+    //         'fetch_limit' => 15, // per Photon request (merge of two passes)
     //         'lang' => 'en', // hi may work for some names; depends on OSM data
     //         'bbox' => '75.45,22.45,76.15,22.92', // min_lon,min_lat,max_lon,max_lat (Indore vicinity)
     //         'bias_lat' => 22.7196,
     //         'bias_lon' => 75.8577,
+    //         'zoom' => 17, // location bias radius (Photon)
+    //         'location_bias_scale' => 0.38, // 0–1, balance prominence vs proximity
+    //         // Second pass: layered search (house/street/locality/…) with "Indore" appended when missing — disambiguates common names.
+    //         // 'second_pass_layers' => ['house', 'street', 'locality', 'district', 'city'],
     //         'timeout_seconds' => 8,
     //         'cache_ttl_seconds' => 120,
-    //         'max_requests_per_minute_per_ip' => 40, // applies to upstream calls after cache miss
+    //         'max_requests_per_minute_per_ip' => 40, // applies per upstream request after cache miss (up to 2 per search)
     //     ],
     // ],
 

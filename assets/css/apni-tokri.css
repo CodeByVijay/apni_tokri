@@ -4826,8 +4826,13 @@ body.at-gallery-lightbox-open {
 .at-addr-search__list [role="option"]:hover, .at-addr-search__list [role="option"].is-active {
   background: var(--at-green-50);
 }
-.at-addr-search__item-main { display: block; font-weight: 700; color: var(--at-ink); }
-.at-addr-search__item-sub { display: block; font-size: 0.8125rem; color: var(--at-ink-2); margin-top: 0.15rem; }
+.at-addr-search__item-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.35rem 0.6rem; }
+.at-addr-search__item-main { flex: 1 1 auto; font-weight: 700; color: var(--at-ink); min-width: 0; }
+.at-addr-search__item-cat { flex: 0 0 auto; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; padding: 0.12rem 0.45rem; border-radius: 999px; background: var(--at-cream-2); color: var(--at-muted); border: 1px solid var(--at-line); max-width: 100%; }
+.at-addr-search__item-sub { display: block; width: 100%; font-size: 0.8125rem; color: var(--at-ink-2); margin-top: 0.15rem; }
+.at-addr-search__item-note { display: block; width: 100%; font-size: 0.75rem; font-weight: 600; color: var(--at-yellow-ink); margin-top: 0.25rem; line-height: 1.35; }
+.at-addr-search__item--disabled, .at-addr-search__item--disabled * { cursor: default; pointer-events: none; opacity: 0.92; }
+.at-addr-search__item--disabled { background: var(--at-info-bg); }
 .at-addr-search__status { margin: 0.35rem 0 0; font-size: 0.8125rem; line-height: 1.4; }
 .at-addr-search__status[data-kind="error"] { color: var(--at-danger); font-weight: 600; }
 .at-addr-search__status[data-kind="warn"] { color: var(--at-yellow-ink); font-weight: 600; }

@@ -249,12 +249,21 @@
           var lng = Number(s.lng);
           var lab = (s.label != null) ? String(s.label) : '';
           var det = (s.detail != null) ? String(s.detail) : '';
+          var cat = (s.category != null) ? String(s.category) : '';
+          var note = (s.relevance_note != null) ? String(s.relevance_note) : '';
+          var dis = s.disabled === true || s.type === 'notice';
           var id = uid + i;
           var $li = $('<li role="option" tabindex="-1"></li>').attr('id', id)
             .attr('data-idx', String(i))
-            .toggleClass('at-addr-search__item--sub', det !== '');
-          $li.append($('<span class="at-addr-search__item-main"></span>').text(lab));
+            .toggleClass('at-addr-search__item--sub', det !== '' || cat !== '')
+            .toggleClass('at-addr-search__item--disabled', dis)
+            .attr('aria-disabled', dis ? 'true' : 'false');
+          var $row = $('<div class="at-addr-search__item-row"></div>');
+          $row.append($('<span class="at-addr-search__item-main"></span>').text(lab));
+          if (cat) $row.append($('<span class="at-addr-search__item-cat"></span>').text(cat));
+          $li.append($row);
           if (det) $li.append($('<span class="at-addr-search__item-sub"></span>').text(det));
+          if (note) $li.append($('<span class="at-addr-search__item-note"></span>').text(note));
           $searchList.append($li);
         });
         highlightSearchOption(-1);
@@ -274,6 +283,7 @@
     function pickSearchSuggestion(index) {
       if (!searchEnabled || index < 0 || index >= searchResults.length) return;
       var s = searchResults[index];
+      if (s.disabled === true || s.type === 'notice') return;
       var lat = Number(s.lat);
       var lng = Number(s.lng);
       if (!validCoord(lat, lng)) return;
@@ -283,7 +293,7 @@
       placeMarker(lat, lng, { zoom: 17 });
       clearAccuracyCircle();
       $acc.prop('hidden', true).text('');
-      scheduleReverseGeocode(lat, lng, true);
+      scheduleReverseGeocode(lat, lng, true, { fromSearch: true });
     }
 
     function checkPinDelivery(lat, lng) {
@@ -305,7 +315,8 @@
       });
     }
 
-    function scheduleReverseGeocode(lat, lng, immediate) {
+    function scheduleReverseGeocode(lat, lng, immediate, opts) {
+      opts = opts || {};
       if (!validCoord(lat, lng)) return;
       var key = coordKey(lat, lng);
       if (key === lastCompletedGeocodeKey && !immediate) return;
@@ -315,7 +326,7 @@
         geocodeSeq += 1;
         var seq = geocodeSeq;
         geocodeInFlight = true;
-        setMsg('Looking up address for this pin…', 'info');
+        setMsg(opts.fromSearch ? 'Filling address from selected location…' : 'Looking up address for this pin…', 'info');
         $.ajax({
           url: appBasePrefix() + '/ajax/address/reverse-geocode',
           method: 'POST',
@@ -337,14 +348,27 @@
           var filled = fillFromGeo(addr);
           if (filled) {
             var noRoad = !addr.street || String(addr.street).trim() === '';
-            setMsg(
-              noRoad
-                ? 'Area and pincode were updated from the map. No street name was returned for this spot — please type Street / Road and your building details.'
-                : 'Address fields updated from the map. Please verify house/building and landmark.',
-              'success'
-            );
+            if (opts.fromSearch) {
+              setMsg(
+                noRoad
+                  ? 'Location selected — please verify on the map. Area or pincode may have been filled; no street name was returned — type street/road if needed, move the pin to your entrance, then confirm.'
+                  : 'Location selected — please verify on the map. Some lines were filled from this point — adjust the pin, check house/building, then confirm.',
+                'info'
+              );
+            } else {
+              setMsg(
+                noRoad
+                  ? 'Area and pincode were updated from the map. No street name was returned for this spot — please type Street / Road and your building details.'
+                  : 'Address fields updated from the map. Please verify house/building and landmark.',
+                'success'
+              );
+            }
           } else {
-            setMsg('We could not add new address lines automatically — check street, area and pincode manually.', 'info');
+            if (opts.fromSearch) {
+              setMsg('Location selected — please verify on the map. Drag the pin to your building and complete your address, then confirm.', 'info');
+            } else {
+              setMsg('We could not add new address lines automatically — check street, area and pincode manually.', 'info');
+            }
           }
           $form.trigger('input');
           var plat = parseCoord($lat.val());

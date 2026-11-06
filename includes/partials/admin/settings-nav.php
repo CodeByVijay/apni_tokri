@@ -17,4 +17,5 @@ $base = url_base() . '/admin/settings';
     <a href="<?= Security::escape($base) ?>/sms.php" class="<?= $settingsTab === 'sms' ? 'is-active' : '' ?> at-focusable">SMS</a>
     <a href="<?= Security::escape($base) ?>/invoices.php" class="<?= $settingsTab === 'invoices' ? 'is-active' : '' ?> at-focusable">Invoices</a>
     <a href="<?= Security::escape($base) ?>/delivery.php" class="<?= $settingsTab === 'delivery' ? 'is-active' : '' ?> at-focusable">Delivery</a>
+    <a href="<?= Security::escape($base) ?>/map-geocoding.php" class="<?= $settingsTab === 'map_geocoding' ? 'is-active' : '' ?> at-focusable">Map &amp; Geocoding</a>
 </nav>

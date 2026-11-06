@@ -198,7 +198,7 @@ final class CustomerAccountService
                 $coords = $geoSame ? [$row['latitude'], $row['longitude']] : [null, null];
                 $confirmedAt = $geoSame && !empty($row['location_confirmed_at']) ? (string) $row['location_confirmed_at'] : null;
                 // Structured columns of the existing row are preserved when only legacy fields are edited.
-                foreach (['receiver_name', 'receiver_phone', 'alternate_phone', 'house_number', 'building_name', 'street', 'area', 'delivery_instructions'] as $k) {
+                foreach (['receiver_name', 'receiver_phone', 'alternate_phone', 'house_number', 'building_name', 'street', 'area', 'city', 'state', 'delivery_instructions'] as $k) {
                     $c[$k] = $row[$k] ?? null;
                 }
             }
@@ -212,12 +212,12 @@ final class CustomerAccountService
                 $pdo->prepare(
                     'UPDATE customer_addresses SET label = ?, receiver_name = ?, receiver_phone = ?, alternate_phone = ?,
                             house_number = ?, building_name = ?, street = ?, area = ?, landmark = ?, delivery_instructions = ?,
-                            line1 = ?, line2 = ?, pincode = ?, latitude = ?, longitude = ?, location_confirmed_at = ?
+                            line1 = ?, line2 = ?, city = ?, state = ?, pincode = ?, latitude = ?, longitude = ?, location_confirmed_at = ?
                      WHERE id = ? AND customer_id = ?'
                 )->execute([
                     $c['label'], $c['receiver_name'], $c['receiver_phone'], $c['alternate_phone'],
                     $c['house_number'], $c['building_name'], $c['street'], $c['area'], $c['landmark'], $c['delivery_instructions'],
-                    $c['line1'], $c['line2'] !== '' ? $c['line2'] : null, $c['pincode'],
+                    $c['line1'], $c['line2'] !== '' ? $c['line2'] : null, $c['city'] ?? 'Indore', $c['state'] ?? 'Madhya Pradesh', $c['pincode'],
                     $coords[0], $coords[1], $confirmedAt,
                     $addressId, $customerId,
                 ]);
@@ -358,7 +358,7 @@ final class CustomerAccountService
             $c['house_number'] ?? null, $c['building_name'] ?? null, $c['street'] ?? null, $c['area'] ?? null,
             $c['landmark'] ?? null, $c['delivery_instructions'] ?? null,
             $c['line1'], $c['line2'] !== '' ? $c['line2'] : null,
-            'Indore', 'Madhya Pradesh', $c['pincode'],
+            $c['city'] ?? 'Indore', $c['state'] ?? 'Madhya Pradesh', $c['pincode'],
             $coords[0] ?? null, $coords[1] ?? null, $confirmedAt, $isDefault ? 1 : 0,
         ]);
 

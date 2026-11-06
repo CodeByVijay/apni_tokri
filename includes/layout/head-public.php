@@ -44,6 +44,7 @@ $locale = Lang::locale();
     </script>
     <link rel="stylesheet" href="<?= Security::escape(asset_url('assets/css/apni-tokri.css')) ?>">
     <?php $GLOBALS['loadAddressMap'] = !empty($loadAddressMap); ?>
+    <?php $GLOBALS['loadAddressAutocompleteJs'] = !empty($loadAddressAutocompleteJs); ?>
     <?php if (!empty($loadAddressMap)): ?>
     <link rel="stylesheet" href="<?= Security::escape(asset_url('assets/vendor/leaflet/leaflet.css')) ?>">
     <?php endif; ?>

@@ -142,6 +142,10 @@ $loadCatalogueJs = !empty($loadCatalogueJs);
 <script>window.AT_MAP_CONFIG = <?= json_encode(MapConfig::clientConfig(), JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
 <script src="<?= Security::escape(asset_url('assets/js/address-map.js')) ?>"></script>
 <?php endif; ?>
+<?php if (!empty($GLOBALS['loadAddressAutocompleteJs'])): ?>
+<script>window.AT_ADDRESS_AUTOCOMPLETE = <?= json_encode(AddressAutocompleteSettings::publicClientConfig(), JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
+<script src="<?= Security::escape(asset_url('assets/js/address-autocomplete.js')) ?>"></script>
+<?php endif; ?>
 <?php if ($loadCatalogueJs): ?>
 <script src="<?= Security::escape(asset_url('assets/js/catalogue.js')) ?>"></script>
 <?php endif; ?>

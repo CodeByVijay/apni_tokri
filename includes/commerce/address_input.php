@@ -114,6 +114,22 @@ final class AddressInput
         $building = self::req($input, 'building_name', 150, 'building_name', 'Enter the building, apartment or society name.', $errors);
         $street = self::req($input, 'street', 150, 'street', 'Enter the street or road.', $errors);
         $area = self::req($input, 'area', 150, 'area', 'Enter the area or locality.', $errors);
+        $city = self::str($input, 'addr_city');
+        if ($city !== '') {
+            if (self::len($city) > 128 || self::unsafe($city)) {
+                $errors['addr_city'] = 'City must be up to 128 characters, without invalid symbols.';
+            }
+        } else {
+            $city = 'Indore';
+        }
+        $state = self::str($input, 'addr_state');
+        if ($state !== '') {
+            if (self::len($state) > 128 || self::unsafe($state)) {
+                $errors['addr_state'] = 'State must be up to 128 characters, without invalid symbols.';
+            }
+        } else {
+            $state = 'Madhya Pradesh';
+        }
         $landmark = self::opt($input, 'landmark', 191, 'landmark', 'Landmark', $errors);
         $instructions = self::opt($input, 'delivery_instructions', 500, 'delivery_instructions', 'Delivery instructions', $errors);
 
@@ -141,13 +157,14 @@ final class AddressInput
             }
         }
 
-        // Step B — map pin
+        // Step B — map pin (checkout may use autocomplete + coords without embedded map)
         $coords = self::parseCoordinates(self::str($input, 'latitude'), self::str($input, 'longitude'));
         if ($coords['error'] !== null) {
             $errors['location'] = $coords['error'];
         }
         $confirmedPin = self::str($input, 'location_confirmed') === '1';
-        if ($coords['error'] === null && $coords['lat'] !== null && !$confirmedPin) {
+        $checkoutAutocomplete = self::str($input, 'addr_checkout_autocomplete') === '1';
+        if ($coords['error'] === null && $coords['lat'] !== null && !$confirmedPin && !$checkoutAutocomplete) {
             $errors['location'] = 'Please confirm the pin location on the map (tap “Confirm this location”) or remove the pin.';
         }
 
@@ -175,6 +192,8 @@ final class AddressInput
                 'building_name' => $building,
                 'street' => $street,
                 'area' => $area,
+                'city' => $city,
+                'state' => $state,
                 'landmark' => $landmark !== '' ? $landmark : null,
                 'delivery_instructions' => $instructions !== '' ? $instructions : null,
                 'line1' => $line1,
@@ -182,7 +201,7 @@ final class AddressInput
                 'pincode' => $pin,
                 'latitude' => $coords['lat'],
                 'longitude' => $coords['lng'],
-                'location_confirmed' => $coords['lat'] !== null && $confirmedPin,
+                'location_confirmed' => $coords['lat'] !== null && ($confirmedPin || $checkoutAutocomplete),
             ]),
         ];
     }
@@ -237,6 +256,8 @@ final class AddressInput
             'building_name' => '',
             'street' => '',
             'area' => '',
+            'addr_city' => '',
+            'addr_state' => '',
             'pincode' => '',
             'landmark' => '',
             'delivery_instructions' => '',
@@ -245,6 +266,7 @@ final class AddressInput
             'location_confirmed' => '0',
             'address_confirmed' => '',
             'make_default' => '',
+            'addr_checkout_autocomplete' => '',
         ];
     }
 
@@ -269,6 +291,12 @@ final class AddressInput
             if (isset($row[$k]) && $row[$k] !== null && $row[$k] !== '') {
                 $v[$k] = (string) $row[$k];
             }
+        }
+        if (isset($row['city']) && $row['city'] !== null && (string) $row['city'] !== '') {
+            $v['addr_city'] = (string) $row['city'];
+        }
+        if (isset($row['state']) && $row['state'] !== null && (string) $row['state'] !== '') {
+            $v['addr_state'] = (string) $row['state'];
         }
         if (!$structured) {
             $v['street'] = (string) ($row['line1'] ?? '');
@@ -362,6 +390,8 @@ final class AddressInput
             'building_name' => null,
             'street' => null,
             'area' => null,
+            'city' => 'Indore',
+            'state' => 'Madhya Pradesh',
             'landmark' => null,
             'delivery_instructions' => null,
             'line1' => '',
