@@ -98,6 +98,7 @@ $labelType = (string) ($vals['label_type'] ?? 'Home');
     <!-- Step C -->
     <section class="at-addr-step" data-addr-step="details" aria-labelledby="<?= Security::escape($uid) ?>-h-details">
         <h3 class="at-addr-step__title" id="<?= Security::escape($uid) ?>-h-details"><span class="at-addr-step__num">3</span>Address details</h3>
+        <p class="at-addr-msg text-sm" data-addr-detected-hint hidden role="status">Address detected from your map location. Please verify and complete your address before continuing.</p>
         <div class="at-addr-grid">
             <div>
                 <label class="at-label" for="<?= Security::escape($uid) ?>-house">House / Flat / Door number <span class="at-req">*</span></label>

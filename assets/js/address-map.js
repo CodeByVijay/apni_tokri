@@ -53,6 +53,19 @@
     };
   }
 
+  function appBasePrefix() {
+    var path = window.location.pathname;
+    var idx = path.indexOf('/ajax/');
+    if (idx !== -1) return path.substring(0, idx);
+    var last = path.lastIndexOf('/');
+    return last > 0 ? path.substring(0, last) : '';
+  }
+
+  function csrfToken() {
+    var m = document.querySelector('meta[name="csrf-token"]');
+    return m && m.getAttribute ? (m.getAttribute('content') || '') : '';
+  }
+
   /* ---------------------------------------------------------------- picker */
 
   function initForm(form) {
@@ -72,8 +85,17 @@
     var $btnConfirm = $form.find('[data-addr-confirm-loc]');
     var $btnClear = $form.find('[data-addr-clear-pin]');
     var $preview = $form.find('[data-addr-preview]');
+    var $hintDetected = $form.find('[data-addr-detected-hint]');
+    var $street = $form.find('[name="street"]');
+    var $area = $form.find('[name="area"]');
+    var $pin = $form.find('[name="pincode"]');
 
     var map = null, marker = null, accuracyCircle = null, busyGps = false;
+    var geocodeTimer = null;
+    var geocodeSeq = 0;
+    var geocodeInFlight = false;
+    var checkInFlight = false;
+    var lastCompletedGeocodeKey = '';
 
     function setMsg(text, kind) {
       $msg.text(text || '').attr('data-kind', kind || 'info').prop('hidden', !text);
@@ -100,6 +122,110 @@
       $lng.val(lng.toFixed(7));
     }
 
+    function coordKey(lat, lng) {
+      return lat.toFixed(5) + ',' + lng.toFixed(5);
+    }
+
+    function showDetectedHint() {
+      if ($hintDetected.length) $hintDetected.prop('hidden', false);
+    }
+
+    function fillFromGeo(addr) {
+      addr = addr || {};
+      var touched = false;
+      if (addr.street && $.trim($street.val() || '') === '') {
+        $street.val(String(addr.street));
+        touched = true;
+      }
+      if (addr.area && $.trim($area.val() || '') === '') {
+        $area.val(String(addr.area));
+        touched = true;
+      }
+      if (addr.pincode && $.trim($pin.val() || '') === '') {
+        var pin = String(addr.pincode).replace(/\D/g, '');
+        if (pin.length === 6) {
+          $pin.val(pin);
+          touched = true;
+        }
+      }
+      if (touched) showDetectedHint();
+      return touched;
+    }
+
+    function checkPinDelivery(lat, lng) {
+      var pin = ($pin.val() || '').replace(/\D/g, '');
+      if (pin.length !== 6 || checkInFlight) return;
+      checkInFlight = true;
+      $.ajax({
+        url: appBasePrefix() + '/ajax/delivery/check-pin',
+        method: 'POST',
+        dataType: 'json',
+        data: {
+          _csrf_token: csrfToken(),
+          pincode: pin,
+          latitude: String(lat),
+          longitude: String(lng)
+        }
+      }).always(function () {
+        checkInFlight = false;
+      });
+    }
+
+    function scheduleReverseGeocode(lat, lng, immediate) {
+      if (!validCoord(lat, lng)) return;
+      var key = coordKey(lat, lng);
+      if (key === lastCompletedGeocodeKey && !immediate) return;
+      window.clearTimeout(geocodeTimer);
+      var run = function () {
+        if (geocodeInFlight) return;
+        geocodeSeq += 1;
+        var seq = geocodeSeq;
+        geocodeInFlight = true;
+        setMsg('Looking up address for this pin…', 'info');
+        $.ajax({
+          url: appBasePrefix() + '/ajax/address/reverse-geocode',
+          method: 'POST',
+          dataType: 'json',
+          data: {
+            _csrf_token: csrfToken(),
+            latitude: String(lat),
+            longitude: String(lng)
+          }
+        }).done(function (res) {
+          if (seq !== geocodeSeq) return;
+          if (!res || !res.success || !res.data || !res.data.address) {
+            var em = (res && res.error && res.error.message) || 'Could not auto-fill address for this location. You can type it manually.';
+            setMsg(em, 'warn');
+            return;
+          }
+          lastCompletedGeocodeKey = key;
+          var addr = res.data.address;
+          var filled = fillFromGeo(addr);
+          if (filled) {
+            setMsg('Address fields updated from the map. Please verify house/building and landmark.', 'success');
+          } else {
+            setMsg('We could not add new address lines automatically — check street, area and pincode manually.', 'info');
+          }
+          $form.trigger('input');
+          var plat = parseCoord($lat.val());
+          var plng = parseCoord($lng.val());
+          if (filled && validCoord(plat, plng)) {
+            checkPinDelivery(plat, plng);
+          }
+        }).fail(function () {
+          if (seq !== geocodeSeq) return;
+          setMsg('Address lookup failed. You can still enter your address manually.', 'warn');
+        }).always(function () {
+          geocodeInFlight = false;
+        });
+      };
+      if (immediate) {
+        run();
+      } else {
+        geocodeTimer = window.setTimeout(run, 450);
+      }
+    }
+
     function placeMarker(lat, lng, opts) {
       opts = opts || {};
       if (!validCoord(lat, lng)) {
@@ -117,6 +243,7 @@
           $conf.val('0');
           setMsg('', '');
           updateStatus();
+          scheduleReverseGeocode(p.lat, p.lng, false);
         });
         marker.addTo(map);
       } else {
@@ -146,6 +273,9 @@
       $conf.val('0');
       $acc.prop('hidden', true).text('');
       setMsg('', '');
+      window.clearTimeout(geocodeTimer);
+      geocodeSeq += 1;
+      lastCompletedGeocodeKey = '';
       updateStatus();
     }
 
@@ -167,6 +297,7 @@
         clearAccuracyCircle();
         $acc.prop('hidden', true).text('');
         setMsg('', '');
+        scheduleReverseGeocode(e.latlng.lat, e.latlng.lng, false);
       });
 
       if (hasStart) {
@@ -222,6 +353,7 @@
           $acc.text('Location accuracy: about ' + Math.round(acc) + ' m. GPS can be off by this much — move the pin to your exact building entrance.').prop('hidden', false);
         }
         setMsg('Location found. Please move the pin to your building entrance, then confirm it.', 'success');
+        scheduleReverseGeocode(lat, lng, true);
       }, function (err) {
         busyGps = false;
         $btnGps.prop('disabled', false).removeClass('is-busy').removeAttr('aria-busy');
