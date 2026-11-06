@@ -39,6 +39,26 @@ ok($form['support_whatsapp'] === '9123456789', 'Save WhatsApp normalized');
 ok($form['support_email'] === 'support@example.test', 'Save support email');
 ok($form['fssai_licence'] === '10012345678901', 'Save FSSAI');
 
+ok(BusinessSettings::websiteUrl() === BusinessSettings::DEFAULT_WEBSITE_URL, 'Default website URL when unset');
+BusinessSettings::saveFromPost(array_merge(BusinessSettings::adminFormState(), [
+    'website_url' => 'https://profile.example.test/',
+]));
+AppSettings::resetCache();
+ok(BusinessSettings::websiteUrl() === 'https://profile.example.test/', 'Save custom website URL');
+ok(InvoiceSettings::seller()['website'] === 'https://profile.example.test/', 'Invoice seller reads business website URL');
+
+$badUrl = BusinessSettings::saveFromPost(array_merge(BusinessSettings::adminFormState(), [
+    'website_url' => 'not-a-valid-url',
+]));
+AppSettings::resetCache();
+ok($badUrl['ok'] === false, 'Reject invalid website URL');
+
+BusinessSettings::saveFromPost(array_merge(BusinessSettings::adminFormState(), [
+    'website_url' => '',
+]));
+AppSettings::resetCache();
+ok(BusinessSettings::websiteUrl() === BusinessSettings::DEFAULT_WEBSITE_URL, 'Clear website uses default URL');
+
 ok(BusinessSettings::legalName() === 'Legal Store Pvt Ltd', 'Legal name from business store');
 ok(BrandingSettings::siteName() === ($origBrand !== '' ? $origBrand : BrandingSettings::siteName()), 'Branding site name unchanged by business save');
 

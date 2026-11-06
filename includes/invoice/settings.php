@@ -87,7 +87,7 @@ final class InvoiceSettings
             'pincode' => BusinessSettings::pincode(),
             'phone' => BusinessSettings::supportPhoneDisplay(),
             'email' => BusinessSettings::supportEmail(),
-            'website' => App::baseUrl(),
+            'website' => BusinessSettings::websiteUrl(),
             'fssai' => BusinessSettings::fssaiLicence(),
             'gstin' => null,
         ];

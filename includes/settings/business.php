@@ -10,11 +10,16 @@ declare(strict_types=1);
  * - Footer copyright, contact page, invoice legal line → {@see self::legalName()}.
  * - legalName() uses `business.legal_name`, then `business.store_name`, then branding site name.
  * - Invoices, emails and PDFs read seller identity via {@see InvoiceSettings::seller()} (no duplicate invoice.* identity keys).
+ * - Public website URL for invoices and similar: {@see self::websiteUrl()} (`business.website_url`), with default https://veggietokri.com when unset.
  */
 final class BusinessSettings
 {
+    /** Default customer-facing site URL when business.website_url is not set (canonical Veggie Tokri domain). */
+    public const DEFAULT_WEBSITE_URL = 'https://veggietokri.com';
+
     public const KEY_STORE_NAME = 'business.store_name';
     public const KEY_LEGAL_NAME = 'business.legal_name';
+    public const KEY_WEBSITE_URL = 'business.website_url';
     public const KEY_ADDRESS = 'business.address';
     public const KEY_CITY = 'business.city';
     public const KEY_STATE = 'business.state';
@@ -150,6 +155,26 @@ final class BusinessSettings
         return $v;
     }
 
+    /**
+     * Public website URL for invoices and business-facing display (not the app deployment URL).
+     * Falls back to {@see self::DEFAULT_WEBSITE_URL} when unset or cleared.
+     */
+    public static function websiteUrl(): string
+    {
+        $v = trim(AppSettings::get(self::KEY_WEBSITE_URL, '') ?? '');
+        if ($v !== '' && filter_var($v, FILTER_VALIDATE_URL) !== false && preg_match('#^https?://#i', $v) === 1) {
+            return $v;
+        }
+
+        return self::DEFAULT_WEBSITE_URL;
+    }
+
+    /** Raw stored value for the admin form (empty when not configured). */
+    public static function websiteUrlForForm(): string
+    {
+        return trim(AppSettings::get(self::KEY_WEBSITE_URL, '') ?? '');
+    }
+
     /** @return array<string, string> */
     public static function adminFormState(): array
     {
@@ -164,6 +189,7 @@ final class BusinessSettings
             'support_whatsapp' => trim(AppSettings::get(self::KEY_SUPPORT_WHATSAPP, '') ?? ''),
             'support_email' => trim(AppSettings::get(self::KEY_SUPPORT_EMAIL, '') ?? ''),
             'fssai_licence' => trim(AppSettings::get(self::KEY_FSSAI_LICENCE, '') ?? ''),
+            'website_url' => self::websiteUrlForForm(),
         ];
     }
 
@@ -199,6 +225,7 @@ final class BusinessSettings
         $copyIfEmpty(self::KEY_PINCODE, 'invoice.pincode');
         $copyIfEmpty(self::KEY_FSSAI_LICENCE, 'invoice.fssai');
         $copyIfEmpty(self::KEY_SUPPORT_EMAIL, 'invoice.email');
+        $copyIfEmpty(self::KEY_WEBSITE_URL, 'invoice.website_url');
 
         $legacyPhone = trim(AppSettings::get('invoice.phone', '') ?? '');
         if ($legacyPhone !== '' && trim(AppSettings::get(self::KEY_SUPPORT_PHONE, '') ?? '') === '') {
@@ -258,6 +285,7 @@ final class BusinessSettings
         $whatsapp = $state['support_whatsapp'];
         $email = $state['support_email'];
         $fssai = $state['fssai_licence'];
+        $websiteUrl = $state['website_url'];
 
         foreach (['store_name' => $storeName, 'legal_name' => $legalName] as $field => $val) {
             if ($val !== '' && mb_strlen($val) > 160) {
@@ -291,6 +319,11 @@ final class BusinessSettings
         if ($fssai !== '' && !preg_match('/^[A-Za-z0-9\-\/]+$/', $fssai)) {
             $errors['fssai_licence'] = 'FSSAI licence may only contain letters, numbers, hyphens and slashes.';
         }
+        if ($websiteUrl !== '') {
+            if (filter_var($websiteUrl, FILTER_VALIDATE_URL) === false || !preg_match('#^https?://#i', $websiteUrl)) {
+                $errors['website_url'] = 'Enter a full http(s) URL, or leave blank to use the default.';
+            }
+        }
 
         if ($errors !== []) {
             return ['ok' => false, 'message' => 'Fix the highlighted fields.', 'errors' => $errors];
@@ -306,6 +339,7 @@ final class BusinessSettings
         self::persistField(self::KEY_SUPPORT_WHATSAPP, $whatsapp !== '' ? (Validation::normalizeMobileIndia($whatsapp) ?? $whatsapp) : '');
         self::persistField(self::KEY_SUPPORT_EMAIL, $email);
         self::persistField(self::KEY_FSSAI_LICENCE, $fssai);
+        self::persistField(self::KEY_WEBSITE_URL, $websiteUrl);
 
         return ['ok' => true, 'message' => 'Business profile saved.'];
     }

@@ -124,6 +124,14 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/settings-nav.php';
                     <?php if (isset($errors['support_email'])): ?><p class="text-xs text-red-600 mt-1"><?= Security::escape($errors['support_email']) ?></p><?php endif; ?>
                 </div>
                 <div class="md:col-span-2">
+                    <label class="at-label" for="website_url">Website URL</label>
+                    <input id="website_url" name="website_url" type="url" class="at-input at-focusable" maxlength="500" inputmode="url"
+                           value="<?= Security::escape($form['website_url'] ?? '') ?>"
+                           placeholder="<?= Security::escape(BusinessSettings::DEFAULT_WEBSITE_URL) ?>">
+                    <p class="text-xs at-muted mt-1">Shown on new invoices and invoice settings. Leave blank to use the default (<span class="font-mono"><?= Security::escape(BusinessSettings::DEFAULT_WEBSITE_URL) ?></span>).</p>
+                    <?php if (isset($errors['website_url'])): ?><p class="text-xs text-red-600 mt-1"><?= Security::escape($errors['website_url']) ?></p><?php endif; ?>
+                </div>
+                <div class="md:col-span-2">
                     <label class="at-label" for="fssai_licence">FSSAI licence number</label>
                     <input id="fssai_licence" name="fssai_licence" class="at-input at-focusable" maxlength="64"
                            value="<?= Security::escape($form['fssai_licence']) ?>" placeholder="Shown in footer and on invoices when set">

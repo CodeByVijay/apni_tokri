@@ -40,12 +40,14 @@ BusinessSettings::saveFromPost(array_merge($backup['business'], [
     'support_phone' => '9876500111',
     'support_email' => 'billing@consolidated.test',
     'fssai_licence' => '12345678901234',
+    'website_url' => 'https://consolidated-site.example.test',
 ]));
 AppSettings::set(BrandingSettings::KEY_SITE_NAME, 'Consolidated Brand');
 AppSettings::resetCache();
 
 $seller = InvoiceSettings::seller();
 ok($seller['brand_name'] === 'Consolidated Brand', 'Invoice brand from website branding');
+ok($seller['website'] === 'https://consolidated-site.example.test', 'Invoice website from business profile');
 ok($seller['legal_name'] === 'Consolidated Store Pvt Ltd', 'Invoice legal from business profile');
 ok($seller['fssai'] === '12345678901234', 'Invoice FSSAI from business profile');
 ok($seller['phone'] === BusinessSettings::supportPhoneDisplay(), 'Invoice phone from business profile');
