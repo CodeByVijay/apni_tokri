@@ -129,6 +129,18 @@ final class DeliverySlotService
             return 'Choose a valid delivery slot.';
         }
 
+        $deliveryDay = (string) ($row['delivery_day'] ?? 'same_day');
+        if ($deliveryDay === 'same_day' && $deliveryDateYmd !== $today) {
+            return 'This delivery slot does not match the selected delivery date.';
+        }
+        if ($deliveryDay === 'next_day') {
+            $tomorrow = DeliveryConfig::now()->modify('+1 day')->format('Y-m-d');
+            // Allow calendar tomorrow and frozen date (e.g. prior evening’s “tomorrow” still valid after midnight).
+            if ($deliveryDateYmd !== $tomorrow && $deliveryDateYmd !== $today) {
+                return 'This delivery slot does not match the selected delivery date.';
+            }
+        }
+
         return self::assertBookable($row, $deliveryDateYmd);
     }
 
