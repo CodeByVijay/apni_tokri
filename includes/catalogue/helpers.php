@@ -83,7 +83,7 @@ function catalogue_variant_prices(array $variant): array
     $sale = isset($variant['sale_price']) && $variant['sale_price'] !== null
         ? (float) $variant['sale_price']
         : null;
-    $onSale = $sale !== null && $sale < $regular;
+    $onSale = $sale !== null && $sale > 0 && $sale < $regular;
 
     return [
         'display' => $onSale ? $sale : $regular,

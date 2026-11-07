@@ -250,6 +250,7 @@
 
     var $price = $('#at-product-price');
     var $regular = $('#at-product-price-regular');
+    var $saveBadge = $('#at-product-save-badge');
     var $stock = $('#at-product-stock-msg');
     var $add = $('#at-add-cart');
     var $buy = $('#at-buy-now');
@@ -374,10 +375,28 @@
       }
 
       $price.text('₹' + Math.round(price).toLocaleString('en-IN'));
-      if (onSale) {
+      var variantOnSale = onSale && regular > price && price > 0 && regular > 0;
+      if (variantOnSale) {
         $regular.removeClass('hidden').text('₹' + Math.round(regular).toLocaleString('en-IN'));
       } else {
-        $regular.addClass('hidden');
+        $regular.addClass('hidden').text('');
+      }
+      if ($saveBadge.length) {
+        if (variantOnSale) {
+          var saveAmt = regular - price;
+          var savePct = Math.round((saveAmt / regular) * 100);
+          $saveBadge
+            .removeClass('hidden')
+            .text(
+              'You save ₹' +
+                Math.round(saveAmt).toLocaleString('en-IN') +
+                ' (' +
+                savePct +
+                '%)'
+            );
+        } else {
+          $saveBadge.addClass('hidden').text('');
+        }
       }
 
       $stock.removeClass('at-stockline at-stockline--out text-[var(--at-success)]');

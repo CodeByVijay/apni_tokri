@@ -96,7 +96,7 @@ $pdpCartUrl = url_base() . '/cart.php';
                 <div class="flex items-end gap-3 flex-wrap">
                     <span class="at-price at-price--lg"><span class="at-price__now" id="at-product-price"><?= Security::escape(catalogue_format_price($prices['display'])) ?></span></span>
                     <span id="at-product-price-regular" class="text-lg at-muted line-through pb-1 <?= $prices['on_sale'] ? '' : 'hidden' ?>"><?= Security::escape(catalogue_format_price($prices['regular'])) ?></span>
-                    <?php if ($savePct > 0): ?><span class="at-badge at-badge--sale mb-1.5">You save <?= Security::escape(catalogue_format_price($saveAmt)) ?> (<?= (int) $savePct ?>%)</span><?php endif; ?>
+                    <span id="at-product-save-badge" class="at-badge at-badge--sale mb-1.5 <?= ($savePct > 0 && $prices['on_sale']) ? '' : 'hidden' ?>" aria-live="polite"><?php if ($savePct > 0 && $prices['on_sale']): ?>You save <?= Security::escape(catalogue_format_price($saveAmt)) ?> (<?= (int) $savePct ?>%)<?php endif; ?></span>
                 </div>
                 <p class="text-xs at-muted mt-1">Inclusive of all taxes. Delivery fee is shown in your cart before you pay.</p>
                 <p id="at-product-stock-msg" class="mt-3 text-sm"></p>
