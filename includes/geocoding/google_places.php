@@ -448,22 +448,37 @@ final class GooglePlacesGeocoder
             return isset($by[$type][0]) ? (string) $by[$type][0] : null;
         };
 
-        $streetNumber = $first($byType, 'street_number');
-        $route = $first($byType, 'route');
-        $street = trim(implode(', ', array_filter([$streetNumber, $route], static fn ($x) => $x !== null && $x !== '')));
-        if ($street === '') {
-            $street = null;
+        $pick = static function (array $by, array $types) use ($first): ?string {
+            foreach ($types as $type) {
+                $v = $first($by, $type);
+                if ($v !== null && trim($v) !== '') {
+                    return trim($v);
+                }
+            }
+
+            return null;
+        };
+
+        $route = $pick($byType, ['route']);
+        $locality = $pick($byType, ['locality']);
+        $area = $pick($byType, [
+            'sublocality_level_1',
+            'sublocality_level_2',
+            'sublocality',
+            'neighborhood',
+            'administrative_area_level_3',
+        ]);
+        if ($area !== null && $locality !== null && mb_strtolower($area) === mb_strtolower($locality)) {
+            $areaOnly = $pick($byType, ['sublocality_level_1', 'sublocality_level_2', 'sublocality', 'neighborhood']);
+            $area = $areaOnly ?? $area;
         }
-
-        $subLoc = $first($byType, 'sublocality_level_1') ?? $first($byType, 'sublocality');
-        $neigh = $first($byType, 'neighborhood');
-        $locality = $first($byType, 'locality');
-        $area = $subLoc ?? $neigh ?? $locality;
-
-        $city = $locality ?? $first($byType, 'administrative_area_level_2');
-        $state = $first($byType, 'administrative_area_level_1');
-        $postcode = $first($byType, 'postal_code');
-        $country = $first($byType, 'country');
+        $city = $locality ?? $pick($byType, ['administrative_area_level_2']);
+        if ($city !== null && $area !== null && mb_strtolower($city) === mb_strtolower($area)) {
+            $city = $locality ?? $pick($byType, ['administrative_area_level_2', 'administrative_area_level_3']);
+        }
+        $state = $pick($byType, ['administrative_area_level_1']);
+        $postcode = $pick($byType, ['postal_code']);
+        $country = $pick($byType, ['country']);
 
         $formatted = isset($result['formatted_address']) && is_string($result['formatted_address'])
             ? trim($result['formatted_address']) : null;
@@ -473,7 +488,7 @@ final class GooglePlacesGeocoder
         return [
             'place_id' => $placeId,
             'description' => $formatted,
-            'house_number' => $streetNumber,
+            'house_number' => null,
             'street' => ($route !== null && $route !== '') ? $route : null,
             'area' => ($area !== null && $area !== '') ? $area : null,
             'city' => ($city !== null && $city !== '') ? $city : null,

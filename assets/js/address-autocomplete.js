@@ -1,5 +1,5 @@
 /**
- * Checkout address autocomplete — server-side Google Places or Photon (admin-configured).
+ * Address autocomplete — server-side Google Places or Photon (admin-configured).
  * Never embed API keys; uses CSRF POST to /ajax/address/*.
  */
 (function ($, window, document) {
@@ -7,7 +7,6 @@
   if (!$) return;
 
   var CFG = window.AT_ADDRESS_AUTOCOMPLETE || {};
-  /** Script loads on map-free checkout even when admin disables search; only init when search is on. */
   if (CFG.searchEnabled !== true && CFG.enabled !== true) {
     return;
   }
@@ -59,7 +58,7 @@
     return h;
   }
 
-  function initCheckoutForm(form) {
+  function initAddressForm(form) {
     var $form = $(form);
     if ($form.data('atAddrAcInit')) return;
     $form.data('atAddrAcInit', true);
@@ -69,7 +68,6 @@
     }
 
     var tok = sessionToken();
-    var provider = CFG.provider || 'photon';
 
     var $searchIn = $form.find('[data-addr-ac-search]');
     var $searchList = $form.find('[data-addr-ac-list]');
@@ -80,15 +78,11 @@
     var $conf = $form.find('input[name="location_confirmed"]');
     var $msg = $form.find('[data-addr-map-msg]');
 
-    var $house = $form.find('[name="house_number"]');
-    var $building = $form.find('[name="building_name"]');
     var $street = $form.find('[name="street"]');
     var $area = $form.find('[name="area"]');
     var $city = $form.find('[name="addr_city"]');
     var $state = $form.find('[name="addr_state"]');
     var $pin = $form.find('[name="pincode"]');
-    var $landmark = $form.find('[name="landmark"]');
-    var $instr = $form.find('[name="delivery_instructions"]');
     var $hintDetected = $form.find('[data-addr-detected-hint]');
 
     var minChars = typeof CFG.minChars === 'number' ? CFG.minChars : 3;
@@ -97,39 +91,72 @@
     var seq = 0;
     var results = [];
     var active = -1;
+    var selectedPlaceQuery = null;
+    var detailsPending = false;
 
     function setMsg(text, kind) {
       if (!$msg.length) return;
       $msg.text(text || '').attr('data-kind', kind || 'info').prop('hidden', !text);
     }
 
+    function syncLabelType() {
+      var v = $form.find('input[name="label_type"]:checked').val() || 'Home';
+      $form.find('[data-addr-label-custom]').prop('hidden', v !== 'Other');
+      $form.find('.at-addr-type').removeClass('is-selected');
+      $form.find('input[name="label_type"]:checked').closest('.at-addr-type').addClass('is-selected');
+    }
+
+    $form.on('change', 'input[name="label_type"]', syncLabelType);
+    syncLabelType();
+
     if (!$searchIn.length) {
       return;
+    }
+
+    var $placeFields = $street.add($area).add($city).add($state).add($pin);
+
+    function clearCoords() {
+      $lat.val('');
+      $lng.val('');
+      $conf.val('0');
+    }
+
+    function clearPlaceDerivedFields() {
+      $placeFields.val('');
+      if ($hintDetected.length) $hintDetected.prop('hidden', true);
+    }
+
+    function clearPlaceSelection() {
+      selectedPlaceQuery = null;
+      clearCoords();
+      clearPlaceDerivedFields();
+      setMsg('');
     }
 
     function showDetectedHint() {
       if ($hintDetected.length) $hintDetected.prop('hidden', false);
     }
 
-    function setOnlyIfEmpty($el, val) {
-      if (!$el.length || val === null || val === undefined) return;
+    function setPlaceField($el, val) {
+      if (!$el.length) return;
+      if (val === null || val === undefined) return;
       var s = String(val).trim();
       if (s === '') return;
-      if ($.trim($el.val() || '') !== '') return;
       $el.val(s);
-      showDetectedHint();
     }
 
-    function fillFromNormalized(addr) {
+    function fillFromGooglePlace(addr) {
       addr = addr || {};
-      if (addr.house_number) setOnlyIfEmpty($house, addr.house_number);
-      if (addr.street) setOnlyIfEmpty($street, addr.street);
-      if (addr.area) setOnlyIfEmpty($area, addr.area);
-      if (addr.city) setOnlyIfEmpty($city, addr.city);
-      if (addr.state) setOnlyIfEmpty($state, addr.state);
+      setPlaceField($street, addr.street);
+      setPlaceField($area, addr.area);
+      setPlaceField($city, addr.city);
+      setPlaceField($state, addr.state);
       if (addr.postcode) {
         var p = String(addr.postcode).replace(/\D/g, '');
-        if (p.length === 6) setOnlyIfEmpty($pin, p);
+        if (p.length === 6) setPlaceField($pin, p);
+      }
+      if ($street.val() || $area.val() || $city.val() || $state.val() || $pin.val()) {
+        showDetectedHint();
       }
     }
 
@@ -208,8 +235,7 @@
           var main = (s.description != null) ? String(s.description) : '';
           var cat = (s.category != null) ? String(s.category) : '';
           var note = (s.relevance_note != null) ? String(s.relevance_note) : '';
-          var dis = s.disabled === true || s.needs_details === false && s.latitude === null && s.longitude === null && (s.provider === 'photon' ? false : false);
-          if (s.disabled === true) dis = true;
+          var dis = s.disabled === true;
           var id = uid + i;
           var $li = $('<li role="option" tabindex="-1"></li>').attr('id', id)
             .attr('data-idx', String(i))
@@ -241,6 +267,11 @@
       var s = results[index];
       if (s.disabled) return;
 
+      clearCoords();
+      setMsg('');
+      clearPlaceDerivedFields();
+      detailsPending = true;
+
       if (s.provider === 'google' && s.needs_details) {
         setMsg('Loading address details…', 'info');
         $.ajax({
@@ -249,23 +280,32 @@
           dataType: 'json',
           data: { _csrf_token: csrfToken(), place_id: s.place_id, session_token: tok }
         }).done(function (res) {
+          detailsPending = false;
           if (!res || !res.success || !res.data || !res.data.address) {
+            clearCoords();
             setMsg((res && res.error && res.error.message) || 'Could not load this place.', 'warn');
+            selectedPlaceQuery = null;
             return;
           }
           var a = res.data.address;
           var lat = parseCoord(a.latitude);
           var lng = parseCoord(a.longitude);
           if (!validCoord(lat, lng)) {
+            clearCoords();
             setMsg('This place has no coordinates. Choose another result.', 'warn');
+            selectedPlaceQuery = null;
             return;
           }
           writeCoords(lat, lng);
-          fillFromNormalized(a);
+          fillFromGooglePlace(a);
+          selectedPlaceQuery = $.trim($searchIn.val() || '');
           setMsg('Location selected — please verify all fields before saving.', 'info');
           $form.trigger('input');
           tok = sessionToken();
         }).fail(function (xhr) {
+          detailsPending = false;
+          clearCoords();
+          selectedPlaceQuery = null;
           var msg = 'Could not load place details.';
           try {
             var jr = xhr.responseJSON;
@@ -276,21 +316,27 @@
         return;
       }
 
-      // Photon (coords + partial fields on row)
       var plat = parseCoord(s.latitude);
       var plng = parseCoord(s.longitude);
+      detailsPending = false;
       if (!validCoord(plat, plng)) {
+        clearCoords();
         setMsg('This suggestion has no coordinates. Try another.', 'warn');
+        selectedPlaceQuery = null;
         return;
       }
       writeCoords(plat, plng);
-      fillFromNormalized(s);
+      fillFromGooglePlace(s);
+      selectedPlaceQuery = $.trim($searchIn.val() || '');
       setMsg('Location selected — please verify all fields before saving.', 'info');
       $form.trigger('input');
     }
 
     $searchIn.on('input', function () {
       var q = $.trim($searchIn.val() || '');
+      if (selectedPlaceQuery !== null && q !== selectedPlaceQuery) {
+        clearPlaceSelection();
+      }
       if (q.length < minChars) {
         seq += 1;
         hideList();
@@ -330,14 +376,11 @@
         hideList();
       }
     });
-
-    // Never overwrite manual typing in non-search fields
-    $building.add($landmark).add($instr).on('input', function () { /* no-op hook for clarity */ });
   }
 
   $(function () {
     $('[data-at-address-form][data-addr-checkout-autocomplete="1"]').each(function () {
-      initCheckoutForm(this);
+      initAddressForm(this);
     });
   });
 })(window.jQuery, window, document);

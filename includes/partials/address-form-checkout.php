@@ -69,37 +69,37 @@ $acCfg = $addrAutocompleteClientConfig ?? AddressAutocompleteSettings::publicCli
         <div class="at-addr-grid">
             <div>
                 <label class="at-label" for="<?= Security::escape($uid) ?>-house">House / Flat / Door number <span class="at-req">*</span></label>
-                <input id="<?= Security::escape($uid) ?>-house" name="house_number" class="at-input at-focusable" maxlength="100" required autocomplete="address-line1" value="<?= $v('house_number') ?>" placeholder="House No. 78, Flat 302"<?= $invalid('house_number') ?>>
+                <input id="<?= Security::escape($uid) ?>-house" name="house_number" class="at-input at-focusable" maxlength="100" required autocomplete="address-line1" value="<?= $v('house_number') ?>" placeholder="Flat, door or unit number"<?= $invalid('house_number') ?>>
                 <?= $err('house_number') ?>
             </div>
             <div>
                 <label class="at-label" for="<?= Security::escape($uid) ?>-building">Building / Apartment / Society <span class="at-req">*</span></label>
-                <input id="<?= Security::escape($uid) ?>-building" name="building_name" class="at-input at-focusable" maxlength="150" required autocomplete="address-line2" value="<?= $v('building_name') ?>" placeholder="Shree Residency"<?= $invalid('building_name') ?>>
+                <input id="<?= Security::escape($uid) ?>-building" name="building_name" class="at-input at-focusable" maxlength="150" required autocomplete="address-line2" value="<?= $v('building_name') ?>" placeholder="Building, apartment or society"<?= $invalid('building_name') ?>>
                 <?= $err('building_name') ?>
             </div>
             <div>
                 <label class="at-label" for="<?= Security::escape($uid) ?>-street">Street / Road <span class="at-req">*</span></label>
-                <input id="<?= Security::escape($uid) ?>-street" name="street" class="at-input at-focusable" maxlength="150" required value="<?= $v('street') ?>" placeholder="Scheme No. 78, Main Road"<?= $invalid('street') ?>>
+                <input id="<?= Security::escape($uid) ?>-street" name="street" class="at-input at-focusable" maxlength="150" required value="<?= $v('street') ?>" placeholder="Street or road"<?= $invalid('street') ?>>
                 <?= $err('street') ?>
             </div>
             <div>
                 <label class="at-label" for="<?= Security::escape($uid) ?>-area">Area / Locality <span class="at-req">*</span></label>
-                <input id="<?= Security::escape($uid) ?>-area" name="area" class="at-input at-focusable" maxlength="150" required value="<?= $v('area') ?>" placeholder="Vijay Nagar"<?= $invalid('area') ?>>
+                <input id="<?= Security::escape($uid) ?>-area" name="area" class="at-input at-focusable" maxlength="150" required value="<?= $v('area') ?>" placeholder="Area or locality"<?= $invalid('area') ?>>
                 <?= $err('area') ?>
             </div>
             <div>
                 <label class="at-label" for="<?= Security::escape($uid) ?>-city">City</label>
-                <input id="<?= Security::escape($uid) ?>-city" name="addr_city" class="at-input at-focusable" maxlength="128" value="<?= $v('addr_city') !== '' ? $v('addr_city') : Security::escape('Indore') ?>" placeholder="Indore"<?= $invalid('addr_city') ?>>
+                <input id="<?= Security::escape($uid) ?>-city" name="addr_city" class="at-input at-focusable" maxlength="128" value="<?= $v('addr_city') ?>" placeholder="City"<?= $invalid('addr_city') ?>>
                 <?= $err('addr_city') ?>
             </div>
             <div>
                 <label class="at-label" for="<?= Security::escape($uid) ?>-state">State</label>
-                <input id="<?= Security::escape($uid) ?>-state" name="addr_state" class="at-input at-focusable" maxlength="128" value="<?= $v('addr_state') !== '' ? $v('addr_state') : Security::escape('Madhya Pradesh') ?>" placeholder="Madhya Pradesh"<?= $invalid('addr_state') ?>>
+                <input id="<?= Security::escape($uid) ?>-state" name="addr_state" class="at-input at-focusable" maxlength="128" value="<?= $v('addr_state') ?>" placeholder="State"<?= $invalid('addr_state') ?>>
                 <?= $err('addr_state') ?>
             </div>
             <div>
                 <label class="at-label" for="<?= Security::escape($uid) ?>-pin">Pincode <span class="at-req">*</span></label>
-                <input id="<?= Security::escape($uid) ?>-pin" name="pincode" class="at-input at-focusable" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required autocomplete="postal-code" value="<?= $v('pincode') ?>" placeholder="452010"<?= $invalid('pincode') ?>>
+                <input id="<?= Security::escape($uid) ?>-pin" name="pincode" class="at-input at-focusable" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required autocomplete="postal-code" value="<?= $v('pincode') ?>" placeholder="6-digit PIN code"<?= $invalid('pincode') ?>>
                 <?= $err('pincode') ?>
             </div>
             <div>
