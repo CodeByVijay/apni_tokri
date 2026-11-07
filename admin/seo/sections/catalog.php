@@ -3,61 +3,219 @@
 declare(strict_types=1);
 
 $simple = SeoAdminCenter::isSimple();
-$filter = isset($_GET['seo_filter']) && is_string($_GET['seo_filter']) ? $_GET['seo_filter'] : 'missing_meta';
+$listQ = AdminServerList::searchFromRequest(isset($_GET['q']) && is_string($_GET['q']) ? $_GET['q'] : '');
+$seoFilter = SeoAdminCenter::normalizeProductSeoFilter(isset($_GET['seo_filter']) ? (string) $_GET['seo_filter'] : 'all');
+$statusFilter = SeoAdminCenter::normalizeProductStatusFilter(isset($_GET['status']) ? (string) $_GET['status'] : '');
 $listPage = AdminServerList::pageFromRequest(isset($_GET['page']) ? (int) $_GET['page'] : null);
-$listQ = AdminServerList::searchFromRequest(isset($_GET['q']) ? (string) $_GET['q'] : '');
-$listPerPage = 20;
-$productRows = [];
-$total = 0;
-if ($useDb && $filter !== 'all') {
-    $pdo = Database::pdo();
-    $where = ["p.status = 'published'"];
-    $params = [];
-    if ($listQ !== '') {
-        $like = '%' . AdminServerList::escapeLike($listQ) . '%';
-        $where[] = '(p.name LIKE ? OR p.slug LIKE ?)';
-        $params[] = $like;
-        $params[] = $like;
-    }
-    if ($filter === 'missing_title') {
-        $where[] = "TRIM(COALESCE(p.meta_title,'')) = ''";
-    } elseif ($filter === 'missing_desc') {
-        $where[] = "TRIM(COALESCE(p.meta_description,'')) = ''";
-    } elseif ($filter === 'missing_meta') {
-        $where[] = "(TRIM(COALESCE(p.meta_title,'')) = '' OR TRIM(COALESCE(p.meta_description,'')) = '')";
-    }
-    $whereSql = implode(' AND ', $where);
-    $countStmt = $pdo->prepare('SELECT COUNT(*) FROM products p WHERE ' . $whereSql);
-    $countStmt->execute($params);
-    $total = (int) $countStmt->fetchColumn();
-    $offset = ($listPage - 1) * $listPerPage;
-    $stmt = $pdo->prepare(
-        'SELECT p.id, p.name, p.slug, p.meta_title, p.meta_description FROM products p WHERE ' . $whereSql
-        . ' ORDER BY p.updated_at DESC LIMIT ' . (int) $listPerPage . ' OFFSET ' . (int) $offset
-    );
-    $stmt->execute($params);
-    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-        $editUrl = url_base() . '/admin/products/edit.php?id=' . (int) $row['id'] . '#seo';
-        $suggestTitle = SeoAdminCenter::applyTemplateTokens(SeoAdminCenter::template('product_title'), ['{product_name}' => (string) $row['name']]);
-        $productRows[] = [
-            'name' => (string) $row['name'],
-            'seo' => trim((string) ($row['meta_title'] ?? '')) !== '' ? 'Title set' : 'Missing title',
-            'desc' => trim((string) ($row['meta_description'] ?? '')) !== '' ? 'Desc set' : 'Missing description',
-            'suggest' => $simple ? 'Suggested: ' . $suggestTitle : $suggestTitle,
-            'actions' => '<a class="at-btn at-btn--sm at-btn--secondary at-focusable" href="' . Security::escape($editUrl) . '">Edit SEO</a>',
-        ];
+$listPerPage = AdminServerList::perPageFromRequest(isset($_GET['per_page']) ? (int) $_GET['per_page'] : null);
+$listPerPage = max(10, min(50, $listPerPage > 0 ? $listPerPage : 20));
+$catalogParams = array_filter([
+    'q' => $listQ !== '' ? $listQ : null,
+    'seo_filter' => $seoFilter !== 'all' ? $seoFilter : null,
+    'status' => $statusFilter !== '' ? $statusFilter : null,
+    'page' => $listPage > 1 ? $listPage : null,
+    'per_page' => $listPerPage !== 20 ? $listPerPage : null,
+], static fn ($v) => $v !== null && $v !== '');
+$stats = $useDb ? SeoAdminCenter::productSeoDashboardCounts() : [
+    'published' => 0, 'complete' => 0, 'missing_title' => 0, 'missing_description' => 0, 'needs_improvement' => 0,
+];
+$list = $useDb
+    ? SeoAdminCenter::searchProductSeoCatalog($listQ, $seoFilter, $statusFilter, $listPage, $listPerPage)
+    : ['rows' => [], 'total' => 0, 'page' => 1, 'per_page' => $listPerPage, 'total_pages' => 1];
+$editProductId = isset($_GET['product_id']) ? (int) $_GET['product_id'] : 0;
+$editProduct = null;
+if ($useDb && $editProductId > 0) {
+    $editProduct = ProductRepository::find($editProductId);
+    if ($editProduct === null) {
+        $editProductId = 0;
     }
 }
-$categories = $useDb ? CategoryRepository::searchForAdmin('', 'published', 1, 100, 'sort_order', 'asc')['rows'] ?? [] : [];
+$listAction = SeoAdminCenter::catalogSectionUrl([]);
+$filterOptions = [
+    'all' => 'All products',
+    'missing' => 'Missing SEO',
+    'complete' => 'Complete',
+    'needs_improvement' => 'Needs improvement',
+];
+$statusOptions = ['' => 'Any status', 'published' => 'Published', 'draft' => 'Draft', 'archived' => 'Archived'];
+$clearUrl = SeoAdminCenter::catalogSectionUrl([]);
 ?>
 <div class="grid gap-6">
+    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <?php
+        $statCards = [
+            ['label' => 'Published products', 'value' => (int) $stats['published'], 'hint' => 'Live in catalogue'],
+            ['label' => 'SEO complete', 'value' => (int) $stats['complete'], 'hint' => 'Title + description ready'],
+            ['label' => 'Missing title', 'value' => (int) $stats['missing_title'], 'hint' => 'No search title yet'],
+            ['label' => 'Missing description', 'value' => (int) $stats['missing_description'], 'hint' => 'No summary for Google'],
+            ['label' => 'Needs improvement', 'value' => (int) $stats['needs_improvement'], 'hint' => 'Partial or short text'],
+        ];
+        foreach ($statCards as $card): ?>
+            <div class="at-card">
+                <div class="at-card__body">
+                    <p class="text-xs at-muted"><?= Security::escape($card['label']) ?></p>
+                    <p class="text-2xl font-bold text-brand-green-800"><?= (int) $card['value'] ?></p>
+                    <p class="text-xs at-muted mt-1"><?= Security::escape($card['hint']) ?></p>
+                </div>
+            </div>
+        <?php endforeach; ?>
+    </div>
+
     <div class="at-card">
         <div class="at-card__body space-y-4">
-            <h3 class="font-bold">SEO templates</h3>
-            <p class="text-sm at-muted">Use placeholders: <code>{product_name}</code>, <code>{category_name}</code>, <code>{city}</code>, <code>{brand_name}</code></p>
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <h3 class="font-bold">Product SEO</h3>
+                <p class="text-sm at-muted"><?= (int) $list['total'] ?> result<?= (int) $list['total'] === 1 ? '' : 's' ?></p>
+            </div>
+
+            <form method="get" action="<?= Security::escape(url_base() . '/admin/seo/index.php') ?>" class="space-y-3">
+                <input type="hidden" name="section" value="catalog">
+                <div class="flex flex-col gap-3 md:flex-row md:items-end">
+                    <div class="flex-1 min-w-0">
+                        <label class="at-label" for="catalog-q">Search</label>
+                        <input id="catalog-q" name="q" class="at-input at-focusable w-full" value="<?= Security::escape($listQ) ?>"
+                               placeholder="Product name, SKU or slug">
+                    </div>
+                    <div class="w-full md:w-44">
+                        <label class="at-label" for="catalog-seo-filter">SEO filter</label>
+                        <select id="catalog-seo-filter" name="seo_filter" class="at-select at-focusable w-full">
+                            <?php foreach ($filterOptions as $key => $label): ?>
+                                <option value="<?= Security::escape($key) ?>"<?= $seoFilter === $key ? ' selected' : '' ?>><?= Security::escape($label) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="w-full md:w-40">
+                        <label class="at-label" for="catalog-status">Status</label>
+                        <select id="catalog-status" name="status" class="at-select at-focusable w-full">
+                            <?php foreach ($statusOptions as $key => $label): ?>
+                                <option value="<?= Security::escape($key) ?>"<?= $statusFilter === $key ? ' selected' : '' ?>><?= Security::escape($label) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <button type="submit" class="at-btn at-btn--primary at-focusable w-full md:w-auto">Apply</button>
+                    <a href="<?= Security::escape($clearUrl) ?>" class="at-btn at-btn--ghost at-focusable w-full md:w-auto text-center">Clear filters</a>
+                </div>
+            </form>
+
+            <?php if (!$useDb): ?>
+                <p class="text-sm at-muted">Connect the database to manage product SEO.</p>
+            <?php elseif ($list['rows'] === []): ?>
+                <div class="at-seo-catalog-empty text-center py-10 px-4 border border-dashed border-[var(--at-line)] rounded-lg">
+                    <p class="font-bold">No products found</p>
+                    <p class="text-sm at-muted mt-2 max-w-md mx-auto">
+                        <?php if ($listQ !== ''): ?>
+                            Nothing matches “<?= Security::escape($listQ) ?>” with the current filters.
+                            If you searched for a product that already has SEO filled in, try filter “All products”.
+                        <?php else: ?>
+                            No products match the selected filters.
+                        <?php endif; ?>
+                    </p>
+                    <a href="<?= Security::escape($clearUrl) ?>" class="at-btn at-btn--secondary at-focusable mt-4 inline-flex">Reset filters</a>
+                </div>
+            <?php else: ?>
+                <div class="at-seo-catalog-table-wrap hidden md:block">
+                    <table class="at-admin-table at-seo-catalog-table w-full">
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th>Title</th>
+                                <th>Description</th>
+                                <th>SEO health</th>
+                                <th class="is-actions"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($list['rows'] as $row):
+                                $health = $row['health'];
+                                $manageUrl = SeoAdminCenter::catalogSectionUrl(array_merge($catalogParams, ['product_id' => (int) $row['id']]));
+                                ?>
+                                <tr>
+                                    <td>
+                                        <div class="flex items-center gap-3 min-w-0">
+                                            <span class="at-seo-catalog-thumb shrink-0">
+                                                <?php if (($row['thumb_url'] ?? '') !== ''): ?>
+                                                    <img src="<?= Security::escape((string) $row['thumb_url']) ?>" alt="" loading="lazy">
+                                                <?php else: ?>
+                                                    <span class="at-seo-catalog-thumb--empty" aria-hidden="true"></span>
+                                                <?php endif; ?>
+                                            </span>
+                                            <span class="min-w-0">
+                                                <span class="font-bold block truncate"><?= Security::escape((string) $row['name']) ?></span>
+                                                <span class="text-xs font-mono at-muted"><?= Security::escape((string) $row['sku']) ?></span>
+                                            </span>
+                                        </div>
+                                    </td>
+                                    <td class="text-sm"><?= Security::escape((string) ($health['title_label'] ?? '')) ?></td>
+                                    <td class="text-sm"><?= Security::escape((string) ($health['desc_label'] ?? '')) ?></td>
+                                    <td><span class="at-status at-status--<?= Security::escape((string) ($health['variant'] ?? 'neutral')) ?>"><?= Security::escape((string) ($health['label'] ?? '')) ?></span></td>
+                                    <td class="is-actions">
+                                        <a href="<?= Security::escape($manageUrl) ?>" class="at-btn at-btn--sm at-btn--primary at-focusable">Manage SEO</a>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+
+                <ul class="at-seo-catalog-cards md:hidden grid gap-3 min-w-0">
+                    <?php foreach ($list['rows'] as $row):
+                        $health = $row['health'];
+                        $manageUrl = SeoAdminCenter::catalogSectionUrl(array_merge($catalogParams, ['product_id' => (int) $row['id']]));
+                        ?>
+                        <li class="at-card min-w-0">
+                            <div class="at-card__body flex gap-3 min-w-0">
+                                <span class="at-seo-catalog-thumb shrink-0">
+                                    <?php if (($row['thumb_url'] ?? '') !== ''): ?>
+                                        <img src="<?= Security::escape((string) $row['thumb_url']) ?>" alt="" loading="lazy">
+                                    <?php else: ?>
+                                        <span class="at-seo-catalog-thumb--empty" aria-hidden="true"></span>
+                                    <?php endif; ?>
+                                </span>
+                                <div class="min-w-0 flex-1 space-y-2">
+                                    <p class="font-bold truncate"><?= Security::escape((string) $row['name']) ?></p>
+                                    <p class="text-xs font-mono at-muted"><?= Security::escape((string) $row['sku']) ?></p>
+                                    <p class="text-xs at-muted"><?= Security::escape((string) ($health['title_label'] ?? '')) ?> · <?= Security::escape((string) ($health['desc_label'] ?? '')) ?></p>
+                                    <span class="at-status at-status--<?= Security::escape((string) ($health['variant'] ?? 'neutral')) ?>"><?= Security::escape((string) ($health['label'] ?? '')) ?></span>
+                                    <a href="<?= Security::escape($manageUrl) ?>" class="at-btn at-btn--sm at-btn--primary at-focusable w-full text-center">Manage SEO</a>
+                                </div>
+                            </div>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+
+                <?php
+                $pagerBase = array_filter([
+                    'section' => 'catalog',
+                    'q' => $listQ !== '' ? $listQ : null,
+                    'seo_filter' => $seoFilter !== 'all' ? $seoFilter : null,
+                    'status' => $statusFilter !== '' ? $statusFilter : null,
+                ]);
+                if ($list['total_pages'] > 1) {
+                    admin_list_pagination(
+                        (int) $list['page'],
+                        (int) $list['total'],
+                        (int) $list['per_page'],
+                        $pagerBase,
+                        url_base() . '/admin/seo/index.php',
+                        [10, 20, 50]
+                    );
+                }
+                ?>
+            <?php endif; ?>
+        </div>
+    </div>
+
+    <details class="at-card">
+        <summary class="at-card__body cursor-pointer font-bold at-focusable">SEO templates (products &amp; categories)</summary>
+        <div class="at-card__body border-t border-[var(--at-line)] space-y-3 pt-0">
+            <p class="text-sm at-muted">Placeholders: <code>{product_name}</code>, <code>{category_name}</code>, <code>{city}</code>, <code>{brand_name}</code></p>
             <form method="post" class="grid gap-3 md:grid-cols-2 max-w-4xl">
                 <?= Csrf::field() ?>
+                <input type="hidden" name="section" value="catalog">
                 <input type="hidden" name="seo_action" value="save_templates">
+                <?php foreach ($catalogParams as $hk => $hv): ?>
+                    <input type="hidden" name="<?= Security::escape((string) $hk) ?>" value="<?= Security::escape((string) $hv) ?>">
+                <?php endforeach; ?>
                 <div><label class="at-label">Product title template</label>
                     <input class="at-input at-focusable" name="product_title" value="<?= Security::escape(SeoAdminCenter::template('product_title')) ?>"></div>
                 <div><label class="at-label">Product description template</label>
@@ -69,67 +227,16 @@ $categories = $useDb ? CategoryRepository::searchForAdmin('', 'published', 1, 10
                 <div class="md:col-span-2"><button type="submit" class="at-btn at-btn--secondary at-focusable"<?= $useDb ? '' : ' disabled' ?>>Save templates</button></div>
             </form>
         </div>
-    </div>
+    </details>
 
-    <div class="at-card">
-        <div class="at-card__body space-y-3">
-            <h3 class="font-bold">Products</h3>
-            <form method="get" class="flex flex-wrap gap-2 items-end">
-                <input type="hidden" name="section" value="catalog">
-                <input type="hidden" name="seo_filter" value="<?= Security::escape($filter) ?>">
-                <input class="at-input at-focusable" name="q" value="<?= Security::escape($listQ) ?>" placeholder="Search products…">
-                <button type="submit" class="at-btn at-btn--secondary at-focusable">Search</button>
-            </form>
-            <p class="text-sm">
-                <a href="?section=catalog&seo_filter=missing_meta" class="at-focusable">Need SEO</a> ·
-                <a href="?section=catalog&seo_filter=missing_title" class="at-focusable">Missing titles</a> ·
-                <a href="?section=catalog&seo_filter=all" class="at-focusable">All published</a>
-            </p>
-            <?php
-            if ($filter === 'all') {
-                $result = ProductRepository::searchForAdmin($listQ, '', 'published', $listPage, $listPerPage);
-                $productRows = [];
-                foreach ($result['rows'] as $row) {
-                    $editUrl = url_base() . '/admin/products/edit.php?id=' . (int) $row['id'] . '#seo';
-                    $productRows[] = [
-                        'name' => (string) ($row['name'] ?? ''),
-                        'seo' => trim((string) ($row['meta_title'] ?? '')) !== '' ? 'Title set' : 'Missing',
-                        'desc' => trim((string) ($row['meta_description'] ?? '')) !== '' ? 'OK' : 'Missing',
-                        'suggest' => '—',
-                        'actions' => '<a class="at-btn at-btn--sm at-btn--secondary at-focusable" href="' . Security::escape($editUrl) . '">Edit</a>',
-                    ];
-                }
-                $total = (int) ($result['total'] ?? 0);
-            }
-            $columns = [
-                ['label' => 'Product', 'key' => 'name'],
-                ['label' => 'Title', 'key' => 'seo'],
-                ['label' => 'Description', 'key' => 'desc'],
-                ['label' => 'Suggestion', 'key' => 'suggest'],
-                ['label' => '', 'key' => 'actions', 'raw' => true, 'align' => 'actions'],
-            ];
-            require APNI_TOKRI_ROOT . '/includes/partials/admin/data-table.php';
-            ?>
-            <p class="text-xs at-muted">For bulk apply, select products on the products list and use templates from Advanced mode below.</p>
-            <?php if ($useDb && !SeoAdminCenter::isSimple()): ?>
-            <form method="post" class="space-y-2 border-t border-[var(--at-line)] pt-3">
-                <?= Csrf::field() ?>
-                <input type="hidden" name="seo_action" value="bulk_apply_products">
-                <p class="text-sm font-medium">Bulk apply template (by product ID, comma-separated)</p>
-                <input class="at-input at-focusable" name="product_ids_csv" placeholder="Product IDs, comma-separated (e.g. 12, 45, 88)">
-                <label class="flex gap-2 text-sm"><input type="checkbox" name="only_fill_blanks" value="1" checked> Only fill blank SEO fields</label>
-                <button type="submit" class="at-btn at-btn--primary at-btn--sm at-focusable">Apply template</button>
-            </form>
-            <?php endif; ?>
-        </div>
-    </div>
-
+    <?php
+    $categories = $useDb ? CategoryRepository::searchForAdmin('', 'published', 1, 100, 'sort_order', 'asc')['rows'] ?? [] : [];
+    ?>
     <div id="categories" class="at-card">
         <div class="at-card__body space-y-3">
             <h3 class="font-bold">Categories</h3>
             <ul class="divide-y divide-[var(--at-line)] text-sm">
-                <?php foreach ($categories as $cat): ?>
-                    <?php
+                <?php foreach ($categories as $cat):
                     $cid = (int) ($cat['id'] ?? 0);
                     $mt = trim((string) ($cat['meta_title'] ?? ''));
                     $md = trim((string) ($cat['meta_description'] ?? ''));
@@ -148,3 +255,7 @@ $categories = $useDb ? CategoryRepository::searchForAdmin('', 'published', 1, 10
         </div>
     </div>
 </div>
+
+<?php if ($editProduct !== null): ?>
+    <?php require __DIR__ . '/catalog-product-editor.php'; ?>
+<?php endif; ?>

@@ -149,7 +149,8 @@ $meta = $order['meta'] ?? [];
 
 $displayId = (string) ($overview['order_number'] ?? $order['id'] ?? $id);
 $placedAt = (string) ($overview['placed_at'] ?? $order['created_at'] ?? '');
-$orderStatus = (string) ($overview['status_public'] ?? $order['status'] ?? '');
+$currentStatus = is_array($order['current_status'] ?? null) ? $order['current_status'] : [];
+$orderStatus = (string) ($currentStatus['status'] ?? $overview['status_public'] ?? $order['status'] ?? '');
 $paymentStatusLabel = (string) ($overview['payment_status_label'] ?? '');
 
 layout_public_start(['pageTitle' => 'Order ' . $displayId . ' — Veggie Tokri', 'activeNav' => 'account']);
@@ -181,7 +182,7 @@ $formatDeliveryDay = static function (?string $d): string {
         <?php if ($placedAt !== ''): ?>
             <p class="at-order-detail__meta text-sm at-muted"><?= Security::escape(customer_format_datetime($placedAt)) ?></p>
         <?php endif; ?>
-        <div class="at-order-detail__badges">
+        <div class="at-order-detail__badges at-order-detail__badges--header">
             <?= customer_status_badge($orderStatus, ucwords(str_replace('_', ' ', $orderStatus)), 'order') ?>
             <?php if ($paymentStatusLabel !== '' && $paymentStatusLabel !== '—'): ?>
                 <span class="at-order-detail__pay-badge"><?= Security::escape($paymentStatusLabel) ?></span>
@@ -207,11 +208,13 @@ $cancelOrderNumber = $displayId;
 require APNI_TOKRI_ROOT . '/includes/partials/customer-order-cancel.php';
 ?>
 
+<?php require APNI_TOKRI_ROOT . '/includes/partials/order-current-status.php'; ?>
+
 <section class="at-card at-order-detail__timeline">
     <div class="at-card__body">
         <h2 class="at-h3">Order tracking</h2>
         <div class="mt-4">
-            <?php require APNI_TOKRI_ROOT . '/includes/partials/order-stepper.php'; ?>
+            <?php $resolvedOrderStatus = $orderStatus; require APNI_TOKRI_ROOT . '/includes/partials/order-stepper.php'; ?>
         </div>
     </div>
 </section>

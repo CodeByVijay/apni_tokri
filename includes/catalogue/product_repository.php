@@ -272,6 +272,50 @@ final class ProductRepository
      * @param array<string, mixed> $input
      * @return array{ok: bool, id?: int, errors?: array<string, string>, message?: string}
      */
+    /**
+     * SEO-only update from Admin → SEO catalog (does not change slug, SKU, or catalogue fields).
+     *
+     * @param array<string, mixed> $input meta_title, meta_description, optional robots_index
+     * @return array{ok: bool, message?: string, errors?: array<string, string>}
+     */
+    public static function saveSeoFields(int $id, array $input): array
+    {
+        if ($id <= 0) {
+            return ['ok' => false, 'message' => 'Invalid product.'];
+        }
+        $existing = self::find($id);
+        if ($existing === null) {
+            return ['ok' => false, 'message' => 'Product not found.'];
+        }
+        $metaTitle = trim((string) ($input['meta_title'] ?? ''));
+        $metaDesc = trim((string) ($input['meta_description'] ?? ''));
+        $robots = !empty($input['robots_index']) ? 1 : 0;
+        $errors = [];
+        if ($metaTitle !== '' && mb_strlen($metaTitle) > 70) {
+            $errors['meta_title'] = 'Keep the search title within 70 characters.';
+        }
+        if ($metaDesc !== '' && mb_strlen($metaDesc) > 320) {
+            $errors['meta_description'] = 'Keep the summary within 320 characters.';
+        }
+        if ($errors !== []) {
+            return ['ok' => false, 'message' => 'Fix the highlighted fields.', 'errors' => $errors];
+        }
+        Install::ensureConnection();
+        Database::pdo()->prepare(
+            'UPDATE products SET meta_title = ?, meta_description = ?, robots_index = ?, updated_at = NOW() WHERE id = ?'
+        )->execute([
+            $metaTitle !== '' ? mb_substr($metaTitle, 0, 191) : null,
+            $metaDesc !== '' ? mb_substr($metaDesc, 0, 320) : null,
+            $robots,
+            $id,
+        ]);
+        AuditLog::write('product.seo_update', 'product', (string) $id, [
+            'from' => 'seo_catalog',
+        ]);
+
+        return ['ok' => true, 'message' => 'Product SEO saved.'];
+    }
+
     public static function saveGeneral(?int $id, array $input): array
     {
         $errors = Validation::requiredFields($input, ['name']);

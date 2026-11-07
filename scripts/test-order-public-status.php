@@ -18,14 +18,19 @@ $ok = static function (bool $cond, string $msg) use (&$fail): void {
 };
 
 $reflect = new ReflectionClass(OrderRepository::class);
-$method = $reflect->getMethod('publicStatus');
-$method->setAccessible(true);
-$pub = static function (string $status, string $payment) use ($method): string {
-    return $method->invoke(null, $status, $payment);
+$pub = static function (string $status, string $payment): string {
+    return OrderRepository::publicStatus($status, $payment);
+};
+$withFulfillment = static function (string $status, string $payment, ?string $delivery): string {
+    return OrderRepository::publicStatusWithFulfillment($status, $payment, $delivery);
 };
 
 $ok($pub('confirmed', 'paid') === 'confirmed', 'Normal confirmed order (confirmed + paid)');
 $ok($pub('cancelled', 'paid') === 'cancelled', 'Cancelled + paid stays cancelled (refund requested scenario)');
+$ok($withFulfillment('confirmed', 'paid', 'delivered') === 'delivered', 'Confirmed order + delivery row delivered => delivered');
+$ok($withFulfillment('confirmed', 'paid', 'dispatched') === 'out_for_delivery', 'Delivery dispatched elevates to out_for_delivery');
+$ok($withFulfillment('preparing', 'paid', null) === 'confirmed', 'Preparing + paid maps via publicStatus until delivery advances');
+$ok($withFulfillment('cancelled', 'paid', 'delivered') === 'cancelled', 'Cancelled ignores delivery delivered');
 $ok($pub('cancelled', 'refunded') === 'cancelled', 'Cancelled + payment refunded stays cancelled');
 $ok($pub('pending_payment', 'pending') === 'pending_payment', 'Pending payment order unchanged');
 $ok($pub('delivered', 'paid') === 'delivered', 'Delivered + paid stays delivered');

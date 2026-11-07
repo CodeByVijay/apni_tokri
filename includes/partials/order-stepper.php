@@ -6,8 +6,10 @@ declare(strict_types=1);
  * Responsive horizontal order tracker (data comes from CustomerOrderTimeline; no progress is hardcoded).
  *
  * @var list<array{status?: string, at?: string, done?: bool}> $timeline
- * @var string $orderStatus Public/raw order status (used only to colour terminal failure states)
+ * @var string $orderStatus Legacy/public status key
+ * @var string|null $resolvedOrderStatus Canonical customer status (fulfilment-aware)
  */
+$resolvedOrderStatus = $resolvedOrderStatus ?? null;
 $steps = [];
 foreach ($timeline as $step) {
     $steps[] = [
@@ -21,7 +23,7 @@ if ($total === 0) {
     return;
 }
 
-$statusKey = strtolower(str_replace(' ', '_', trim((string) ($orderStatus ?? ''))));
+$statusKey = strtolower(str_replace(' ', '_', trim((string) ($resolvedOrderStatus ?? $orderStatus ?? ''))));
 $terminalBad = in_array($statusKey, ['cancelled', 'payment_failed', 'refunded', 'partially_refunded', 'delivery_exception'], true);
 $badLabel = static function (string $label): bool {
     return (bool) preg_match('/cancel|fail|could not|refund|exception|declin/i', $label);
@@ -36,6 +38,7 @@ foreach ($steps as $i => $s) {
         $currentIdx = $i;
     }
 }
+$resolvedKey = strtolower(str_replace(' ', '_', trim((string) ($resolvedOrderStatus ?? $orderStatus ?? ''))));
 $allDone = $currentIdx === null;
 if ($allDone) {
     $currentIdx = $total - 1;

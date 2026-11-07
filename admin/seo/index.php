@@ -7,9 +7,12 @@ require_once APNI_TOKRI_ROOT . '/includes/partials/admin/list-pagination.php';
 
 AdminDemoPerms::denyIfCannot('seo');
 $useDb = AdminPersistence::isAvailable();
-$seoSection = SeoAdminCenter::normalizeSection(isset($_GET['section']) ? (string) $_GET['section'] : 'dashboard');
-$redirectAfter = SeoAdminCenter::sectionUrl($seoSection);
-if (isset($_GET['page']) || isset($_GET['q'])) {
+$sectionRaw = $_POST['section'] ?? $_GET['section'] ?? 'dashboard';
+$seoSection = SeoAdminCenter::normalizeSection(is_string($sectionRaw) ? $sectionRaw : 'dashboard');
+$redirectAfter = $seoSection === 'catalog'
+    ? SeoAdminCenter::catalogSectionUrl(SeoAdminCenter::catalogParamsFromRequest())
+    : SeoAdminCenter::sectionUrl($seoSection);
+if ($seoSection !== 'catalog' && (isset($_GET['page']) || isset($_GET['q']))) {
     $redirectAfter .= '&' . http_build_query(array_filter([
         'page' => isset($_GET['page']) ? (int) $_GET['page'] : null,
         'q' => isset($_GET['q']) && is_string($_GET['q']) && $_GET['q'] !== '' ? $_GET['q'] : null,
@@ -79,6 +82,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         case 'save_templates':
             $result = SeoAdminCenter::saveTemplatesFromPost($_POST);
             admin_flash_set((string) ($result['message'] ?? 'Saved.'), !empty($result['ok']) ? 'success' : 'error');
+            break;
+        case 'save_product_seo':
+            $result = SeoAdminCenter::saveProductSeoFromPost($_POST);
+            admin_flash_set((string) ($result['message'] ?? 'Saved.'), !empty($result['ok']) ? 'success' : 'error');
+            if (!empty($result['ok']) && isset($_POST['product_id'])) {
+                $p = SeoAdminCenter::catalogParamsFromRequest();
+                $p['product_id'] = (int) $_POST['product_id'];
+                $redirectAfter = SeoAdminCenter::catalogSectionUrl($p);
+            }
+            break;
+        case 'apply_product_template':
+            $pid = isset($_POST['product_id']) ? (int) $_POST['product_id'] : 0;
+            $onlyBlanks = !empty($_POST['only_fill_blanks']);
+            $confirm = !empty($_POST['confirm_overwrite']);
+            $result = SeoAdminCenter::applyTemplateToProduct($pid, $onlyBlanks, $confirm);
+            admin_flash_set((string) ($result['message'] ?? 'Done.'), !empty($result['ok']) ? 'success' : 'error');
+            if ($pid > 0) {
+                $p = SeoAdminCenter::catalogParamsFromRequest();
+                $p['product_id'] = $pid;
+                $redirectAfter = SeoAdminCenter::catalogSectionUrl($p);
+            }
             break;
         case 'bulk_apply_products':
             $ids = [];

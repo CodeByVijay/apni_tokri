@@ -660,4 +660,380 @@ final class SeoAdminCenter
 
         return ['ok' => true, 'message' => 'Extra robots.txt rules saved.'];
     }
+
+    /** @var list<string> */
+    public const PRODUCT_SEO_FILTERS = ['all', 'missing', 'complete', 'needs_improvement'];
+
+    public static function normalizeProductSeoFilter(?string $filter): string
+    {
+        $filter = strtolower(trim((string) $filter));
+        if ($filter === 'missing_meta' || $filter === 'missing_title' || $filter === 'missing_desc') {
+            return 'missing';
+        }
+
+        return in_array($filter, self::PRODUCT_SEO_FILTERS, true) ? $filter : 'all';
+    }
+
+    public static function normalizeProductStatusFilter(?string $status): string
+    {
+        $status = strtolower(trim((string) $status));
+        if (in_array($status, ['published', 'draft', 'archived'], true)) {
+            return $status;
+        }
+
+        return '';
+    }
+
+    /**
+     * @param array<string, scalar|null> $params
+     */
+    public static function catalogSectionUrl(array $params = []): string
+    {
+        $base = self::sectionUrl('catalog');
+        $allowed = ['q', 'seo_filter', 'status', 'page', 'per_page', 'product_id'];
+        $q = ['section' => 'catalog'];
+        foreach ($allowed as $key) {
+            if (!array_key_exists($key, $params)) {
+                continue;
+            }
+            $v = $params[$key];
+            if ($v === null || $v === '' || ($key === 'page' && (int) $v < 2)) {
+                continue;
+            }
+            if ($key === 'per_page' && (int) $v === 20) {
+                continue;
+            }
+            if ($key === 'seo_filter' && self::normalizeProductSeoFilter((string) $v) === 'all') {
+                continue;
+            }
+            $q[$key] = $v;
+        }
+
+        return url_base() . '/admin/seo/index.php?' . http_build_query($q);
+    }
+
+    /** @return array<string, scalar|null> */
+    public static function catalogParamsFromRequest(): array
+    {
+        $pick = static function (string $key) {
+            if (isset($_POST[$key])) {
+                return $_POST[$key];
+            }
+
+            return $_GET[$key] ?? null;
+        };
+        $out = [];
+        $q = $pick('q');
+        if (is_string($q) && trim($q) !== '') {
+            $out['q'] = AdminServerList::searchFromRequest($q);
+        }
+        $sf = $pick('seo_filter');
+        if ($sf !== null && $sf !== '') {
+            $out['seo_filter'] = self::normalizeProductSeoFilter((string) $sf);
+        }
+        $st = $pick('status');
+        if ($st !== null && $st !== '') {
+            $out['status'] = self::normalizeProductStatusFilter((string) $st);
+        }
+        if ($pick('page') !== null) {
+            $out['page'] = AdminServerList::pageFromRequest((int) $pick('page'));
+        }
+        if ($pick('per_page') !== null) {
+            $out['per_page'] = AdminServerList::perPageFromRequest((int) $pick('per_page'));
+        }
+        $pid = $pick('product_id');
+        if ($pid !== null && (int) $pid > 0) {
+            $out['product_id'] = (int) $pid;
+        }
+
+        return $out;
+    }
+
+    /**
+     * @return array{published: int, complete: int, missing_title: int, missing_description: int, needs_improvement: int}
+     */
+    public static function productSeoDashboardCounts(): array
+    {
+        $out = [
+            'published' => 0,
+            'complete' => 0,
+            'missing_title' => 0,
+            'missing_description' => 0,
+            'needs_improvement' => 0,
+        ];
+        if (!Install::isSchemaReady()) {
+            return $out;
+        }
+        try {
+            $pdo = Database::pdo();
+            $out['published'] = (int) $pdo->query(
+                "SELECT COUNT(*) FROM products WHERE status = 'published'"
+            )->fetchColumn();
+            $stmt = $pdo->query(
+                "SELECT id, meta_title, meta_description FROM products WHERE status = 'published'"
+            );
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) ?: [] as $row) {
+                $health = self::productSeoHealth($row);
+                if ($health['bucket'] === 'complete') {
+                    $out['complete']++;
+                }
+                if ($health['title_ok'] === false) {
+                    $out['missing_title']++;
+                }
+                if ($health['desc_ok'] === false) {
+                    $out['missing_description']++;
+                }
+                if ($health['bucket'] === 'needs_improvement') {
+                    $out['needs_improvement']++;
+                }
+            }
+        } catch (Throwable $e) {
+            error_log('SeoAdminCenter::productSeoDashboardCounts: ' . $e->getMessage());
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     * @return array{
+     *   bucket: string,
+     *   label: string,
+     *   variant: string,
+     *   title_ok: bool,
+     *   desc_ok: bool,
+     *   title_label: string,
+     *   desc_label: string
+     * }
+     */
+    public static function productSeoHealth(array $row): array
+    {
+        $title = trim((string) ($row['meta_title'] ?? ''));
+        $desc = trim((string) ($row['meta_description'] ?? ''));
+        $titleOk = $title !== '' && mb_strlen($title) <= 70;
+        $descOk = $desc !== '' && mb_strlen($desc) >= 50 && mb_strlen($desc) <= 320;
+        $complete = $titleOk && $descOk;
+
+        if ($complete) {
+            return [
+                'bucket' => 'complete',
+                'label' => 'SEO complete',
+                'variant' => 'ok',
+                'title_ok' => true,
+                'desc_ok' => true,
+                'title_label' => 'Title set',
+                'desc_label' => 'Description set',
+            ];
+        }
+        if ($title === '' && $desc === '') {
+            return [
+                'bucket' => 'missing',
+                'label' => 'Missing SEO',
+                'variant' => 'bad',
+                'title_ok' => false,
+                'desc_ok' => false,
+                'title_label' => 'Missing title',
+                'desc_label' => 'Missing description',
+            ];
+        }
+
+        $bucket = 'needs_improvement';
+        $label = 'Needs improvement';
+        if ($title === '' || $desc === '') {
+            $bucket = 'missing';
+            $label = 'Missing SEO';
+        }
+
+        return [
+            'bucket' => $bucket,
+            'label' => $label,
+            'variant' => $bucket === 'missing' ? 'warn' : 'info',
+            'title_ok' => $titleOk,
+            'desc_ok' => $descOk,
+            'title_label' => $title === '' ? 'Missing title' : ($titleOk ? 'Title set' : 'Title too long'),
+            'desc_label' => $desc === '' ? 'Missing description' : ($descOk ? 'Description set' : 'Description too short'),
+        ];
+    }
+
+    private static function productSeoFilterSql(string $filter): string
+    {
+        $filter = self::normalizeProductSeoFilter($filter);
+        if ($filter === 'complete') {
+            return "TRIM(COALESCE(p.meta_title,'')) <> ''
+                AND TRIM(COALESCE(p.meta_description,'')) <> ''
+                AND CHAR_LENGTH(p.meta_title) <= 70
+                AND CHAR_LENGTH(p.meta_description) >= 50";
+        }
+        if ($filter === 'missing') {
+            return "(TRIM(COALESCE(p.meta_title,'')) = '' OR TRIM(COALESCE(p.meta_description,'')) = '')";
+        }
+        if ($filter === 'needs_improvement') {
+            return "NOT (TRIM(COALESCE(p.meta_title,'')) <> ''
+                AND TRIM(COALESCE(p.meta_description,'')) <> ''
+                AND CHAR_LENGTH(p.meta_title) <= 70
+                AND CHAR_LENGTH(p.meta_description) >= 50)
+                AND NOT (TRIM(COALESCE(p.meta_title,'')) = '' AND TRIM(COALESCE(p.meta_description,'')) = '')";
+        }
+
+        return '1=1';
+    }
+
+    /**
+     * @return array{rows: list<array<string, mixed>>, total: int, page: int, per_page: int, total_pages: int}
+     */
+    public static function searchProductSeoCatalog(
+        string $query,
+        string $seoFilter,
+        string $statusFilter,
+        int $page,
+        int $perPage
+    ): array {
+        if (!Install::isSchemaReady()) {
+            return ['rows' => [], 'total' => 0, 'page' => 1, 'per_page' => $perPage, 'total_pages' => 1];
+        }
+        Install::ensureConnection();
+        $page = max(1, $page);
+        $perPage = max(1, min(50, $perPage));
+        $where = [self::productSeoFilterSql($seoFilter)];
+        $params = [];
+        $statusFilter = self::normalizeProductStatusFilter($statusFilter);
+        if ($statusFilter !== '') {
+            $where[] = 'p.status = ?';
+            $params[] = $statusFilter;
+        }
+        $q = trim($query);
+        if ($q !== '') {
+            $like = '%' . AdminServerList::escapeLike($q) . '%';
+            $where[] = '(p.name LIKE ? OR p.slug LIKE ? OR p.sku LIKE ?)';
+            $params[] = $like;
+            $params[] = $like;
+            $params[] = $like;
+        }
+        $whereSql = implode(' AND ', $where);
+        $pdo = Database::pdo();
+        $countStmt = $pdo->prepare('SELECT COUNT(*) FROM products p WHERE ' . $whereSql);
+        $countStmt->execute($params);
+        $total = (int) $countStmt->fetchColumn();
+        if ($total === 0) {
+            return ['rows' => [], 'total' => 0, 'page' => 1, 'per_page' => $perPage, 'total_pages' => 1];
+        }
+        $totalPages = max(1, (int) ceil($total / $perPage));
+        if ($page > $totalPages) {
+            $page = $totalPages;
+        }
+        $offset = ($page - 1) * $perPage;
+        $stmt = $pdo->prepare(
+            'SELECT p.id, p.name, p.slug, p.sku, p.status, p.meta_title, p.meta_description, p.robots_index,
+                    (SELECT pi.file_path FROM product_images pi WHERE pi.product_id = p.id
+                     ORDER BY pi.is_primary DESC, pi.sort_order ASC, pi.id ASC LIMIT 1) AS thumb_path
+             FROM products p
+             WHERE ' . $whereSql . '
+             ORDER BY p.updated_at DESC, p.id DESC
+             LIMIT ' . (int) $perPage . ' OFFSET ' . (int) $offset
+        );
+        $stmt->execute($params);
+        $rows = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) ?: [] as $row) {
+            $health = self::productSeoHealth($row);
+            $thumb = trim((string) ($row['thumb_path'] ?? ''));
+            $rows[] = [
+                'id' => (int) $row['id'],
+                'name' => (string) $row['name'],
+                'sku' => (string) ($row['sku'] ?? ''),
+                'slug' => (string) ($row['slug'] ?? ''),
+                'status' => (string) ($row['status'] ?? ''),
+                'meta_title' => (string) ($row['meta_title'] ?? ''),
+                'meta_description' => (string) ($row['meta_description'] ?? ''),
+                'health' => $health,
+                'thumb_url' => $thumb !== '' ? asset_url($thumb) : '',
+            ];
+        }
+
+        return [
+            'rows' => $rows,
+            'total' => $total,
+            'page' => $page,
+            'per_page' => $perPage,
+            'total_pages' => $totalPages,
+        ];
+    }
+
+    public static function productPublicSeoUrl(string $slug): string
+    {
+        if ($slug === '') {
+            return SeoUrl::absolute('/index.php');
+        }
+
+        return SeoUrl::absolute('/product.php?slug=' . rawurlencode($slug));
+    }
+
+    /**
+     * @param array<string, mixed> $post
+     * @return array{ok: bool, message?: string, errors?: array<string, string>}
+     */
+    public static function saveProductSeoFromPost(array $post): array
+    {
+        $id = isset($post['product_id']) ? (int) $post['product_id'] : 0;
+
+        return ProductRepository::saveSeoFields($id, $post);
+    }
+
+    /**
+     * @return array{ok: bool, updated?: bool, title?: string, description?: string, message?: string}
+     */
+    public static function templateSuggestionsForProduct(int $productId): array
+    {
+        if ($productId <= 0 || !Install::isSchemaReady()) {
+            return ['ok' => false, 'message' => 'Product not found.'];
+        }
+        $row = ProductRepository::find($productId);
+        if ($row === null) {
+            return ['ok' => false, 'message' => 'Product not found.'];
+        }
+        $name = (string) ($row['name'] ?? 'Product');
+        $title = self::applyTemplateTokens(self::template('product_title'), ['{product_name}' => $name]);
+        $desc = self::applyTemplateTokens(self::template('product_desc'), ['{product_name}' => $name]);
+
+        return ['ok' => true, 'updated' => false, 'title' => $title, 'description' => $desc];
+    }
+
+    /**
+     * Apply template to one product (explicit confirmation required to overwrite).
+     *
+     * @return array{ok: bool, message?: string}
+     */
+    public static function applyTemplateToProduct(int $productId, bool $onlyFillBlanks, bool $confirmOverwrite): array
+    {
+        $row = ProductRepository::find($productId);
+        if ($row === null) {
+            return ['ok' => false, 'message' => 'Product not found.'];
+        }
+        $suggest = self::templateSuggestionsForProduct($productId);
+        if (empty($suggest['ok'])) {
+            return ['ok' => false, 'message' => (string) ($suggest['message'] ?? 'Could not build template.')];
+        }
+        $curTitle = trim((string) ($row['meta_title'] ?? ''));
+        $curDesc = trim((string) ($row['meta_description'] ?? ''));
+        $newTitle = (string) ($suggest['title'] ?? '');
+        $newDesc = (string) ($suggest['description'] ?? '');
+        if ($onlyFillBlanks) {
+            if ($curTitle !== '') {
+                $newTitle = $curTitle;
+            }
+            if ($curDesc !== '') {
+                $newDesc = $curDesc;
+            }
+        } elseif (!$confirmOverwrite && ($curTitle !== '' || $curDesc !== '')) {
+            return ['ok' => false, 'message' => 'Confirm overwrite or choose “only fill empty fields”.'];
+        }
+        if ($newTitle === $curTitle && $newDesc === $curDesc) {
+            return ['ok' => true, 'message' => 'No changes needed.'];
+        }
+
+        return ProductRepository::saveSeoFields($productId, [
+            'meta_title' => $newTitle,
+            'meta_description' => $newDesc,
+            'robots_index' => !empty($row['robots_index']),
+        ]);
+    }
 }

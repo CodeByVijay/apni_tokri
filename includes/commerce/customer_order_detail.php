@@ -18,7 +18,6 @@ final class CustomerOrderDetailService
         $pdo = Database::pdo();
         $orderId = (int) $orderRow['id'];
 
-        $base['overview'] = self::overview($orderRow, $base);
         $base['payments'] = self::paymentsForOrder($orderId);
         $base['payment_summary'] = self::paymentSummary($orderRow, $base['payments']);
         $base['address'] = self::addressBlock($orderRow, $pdo);
@@ -27,7 +26,152 @@ final class CustomerOrderDetailService
         $base['meta'] = self::metaBlock($orderRow, $pdo);
         $base['timeline'] = CustomerOrderTimeline::build($orderRow, $base['payments'], $pdo);
 
+        $deliveryCode = isset($base['delivery']['status_code']) && is_string($base['delivery']['status_code'])
+            ? $base['delivery']['status_code']
+            : null;
+        $resolvedStatus = OrderRepository::publicStatusWithFulfillment(
+            (string) ($orderRow['status'] ?? ''),
+            (string) ($orderRow['payment_status'] ?? ''),
+            $deliveryCode
+        );
+        $base['status'] = $resolvedStatus;
+        $base['overview'] = self::overview($orderRow, $base);
+        $base['overview']['status_public'] = $resolvedStatus;
+        $base['current_status'] = self::currentStatusPresentation(
+            $resolvedStatus,
+            $orderRow,
+            $base['delivery'],
+            $base['timeline'],
+            $pdo,
+            $orderId
+        );
+
         return $base;
+    }
+
+    /**
+     * Prominent “current status” block for order details (aligns badge with tracking).
+     *
+     * @param list<array{status?: string, at?: string, done?: bool}> $timeline
+     * @return array{
+     *   status: string,
+     *   title: string,
+     *   explanation: string,
+     *   icon: string,
+     *   when_label: ?string,
+     *   when_value: ?string,
+     *   refund_note: ?string
+     * }
+     */
+    public static function currentStatusPresentation(
+        string $resolvedStatus,
+        array $orderRow,
+        array $delivery,
+        array $timeline,
+        PDO $pdo,
+        int $orderId
+    ): array {
+        $title = ucwords(str_replace('_', ' ', $resolvedStatus));
+        $explanation = self::customerStatusExplanation($resolvedStatus, $delivery, $orderRow);
+        $icon = self::customerStatusIcon($resolvedStatus);
+        $whenLabel = null;
+        $whenValue = null;
+
+        $deliveredAt = trim((string) ($delivery['delivered_at'] ?? ''));
+        if ($resolvedStatus === OrderStatus::DELIVERED && $deliveredAt !== '') {
+            $whenLabel = 'Delivered on';
+            $whenValue = customer_format_datetime($deliveredAt);
+        } elseif (!empty($delivery['delivery_date'])) {
+            $whenLabel = 'Scheduled delivery';
+            $whenValue = (string) $delivery['delivery_date'];
+            if (!empty($delivery['time_range'])) {
+                $whenValue .= ' · ' . (string) $delivery['time_range'];
+            }
+        } elseif (!empty($delivery['delivery_eta'])) {
+            $whenLabel = 'Expected by';
+            $whenValue = (string) $delivery['delivery_eta'];
+        } elseif (!empty($orderRow['delivery_date'])) {
+            $whenLabel = 'Scheduled delivery';
+            $whenValue = (string) $orderRow['delivery_date'];
+        }
+
+        $refundNote = null;
+        $refStmt = $pdo->prepare(
+            "SELECT status FROM refund_requests WHERE order_id = ? AND status NOT IN ('rejected', 'cancelled') ORDER BY id DESC LIMIT 1"
+        );
+        $refStmt->execute([$orderId]);
+        $refSt = (string) ($refStmt->fetchColumn() ?: '');
+        if ($refSt !== '') {
+            $refundNote = 'Refund: ' . RefundRequestService::publicStatusLabel($refSt);
+        }
+
+        return [
+            'status' => $resolvedStatus,
+            'title' => $title,
+            'explanation' => $explanation,
+            'icon' => $icon,
+            'when_label' => $whenLabel,
+            'when_value' => $whenValue !== null && $whenValue !== '' ? $whenValue : null,
+            'refund_note' => $refundNote,
+        ];
+    }
+
+    private static function customerStatusIcon(string $status): string
+    {
+        switch ($status) {
+            case OrderStatus::DELIVERED:
+                return 'check';
+            case OrderStatus::OUT_FOR_DELIVERY:
+                return 'truck';
+            case OrderStatus::PREPARING:
+            case OrderStatus::READY:
+            case OrderStatus::ACCEPTED:
+                return 'box';
+            case OrderStatus::PENDING_PAYMENT:
+                return 'wallet';
+            case OrderStatus::PAYMENT_FAILED:
+                return 'alert-triangle';
+            case OrderStatus::CANCELLED:
+                return 'circle-x';
+            case OrderStatus::REFUNDED:
+            case OrderStatus::PARTIALLY_REFUNDED:
+                return 'refresh';
+            case OrderStatus::DELIVERY_EXCEPTION:
+                return 'info';
+            default:
+                return 'receipt';
+        }
+    }
+
+    /** @param array<string, mixed> $delivery */
+    private static function customerStatusExplanation(string $status, array $delivery, array $orderRow): string
+    {
+        switch ($status) {
+            case OrderStatus::PENDING_PAYMENT:
+                return 'Complete payment to confirm this order. We will start preparing after payment is received.';
+            case OrderStatus::PAYMENT_FAILED:
+                return 'Payment did not go through. You can retry from this page or choose another method.';
+            case OrderStatus::CONFIRMED:
+                return 'We have your order. Our team will start preparing it for delivery.';
+            case OrderStatus::PREPARING:
+                return 'Your vegetables are being picked and packed.';
+            case OrderStatus::READY:
+                return 'Your order is packed and waiting for the delivery partner.';
+            case OrderStatus::OUT_FOR_DELIVERY:
+                return 'Your order is on the way. The delivery partner may call when they are nearby.';
+            case OrderStatus::DELIVERED:
+                return 'This order has been delivered. Thank you for shopping with us.';
+            case OrderStatus::CANCELLED:
+                return 'This order was cancelled. If you paid online, refund updates appear below when applicable.';
+            case OrderStatus::REFUNDED:
+                return 'This order was refunded.';
+            case OrderStatus::PARTIALLY_REFUNDED:
+                return 'Part of this order was refunded.';
+            case OrderStatus::DELIVERY_EXCEPTION:
+                return 'We could not complete delivery as planned. Our team will contact you if needed.';
+            default:
+                return 'Here is the latest update on your order.';
+        }
     }
 
     /**
@@ -308,10 +452,16 @@ final class CustomerOrderDetailService
         $del = $delStmt->fetch(PDO::FETCH_ASSOC) ?: null;
 
         $deliveryStatus = null;
+        $deliveryStatusCode = null;
+        $deliveredAt = null;
         $contactPhone = null;
         if ($del !== null) {
             $dst = DeliveryStatus::normalize((string) ($del['status'] ?? ''));
+            $deliveryStatusCode = $dst;
             $deliveryStatus = DeliveryStatus::publicLabel($dst);
+            $deliveredAt = isset($del['delivered_at']) && (string) $del['delivered_at'] !== ''
+                ? (string) $del['delivered_at']
+                : null;
             if ($dst === DeliveryStatus::DISPATCHED) {
                 $phone = trim((string) ($del['delivery_person_phone'] ?? ''));
                 if ($phone !== '') {
@@ -330,6 +480,8 @@ final class CustomerOrderDetailService
             'delivery_date' => $deliveryDate !== '' ? $deliveryDate : null,
             'delivery_eta' => $eta !== '' ? $eta : null,
             'delivery_status' => $deliveryStatus,
+            'status_code' => $deliveryStatusCode,
+            'delivered_at' => $deliveredAt,
             'delivery_contact_phone' => $contactPhone,
         ];
     }

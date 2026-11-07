@@ -308,7 +308,7 @@ final class OrderRepository
         ];
     }
 
-    private static function publicStatus(string $status, string $paymentStatus): string
+    public static function publicStatus(string $status, string $paymentStatus): string
     {
         if ($paymentStatus === 'failed' || $status === 'payment_failed') {
             return 'payment_failed';
@@ -326,6 +326,83 @@ final class OrderRepository
         }
 
         return $status;
+    }
+
+    /**
+     * Customer-facing status: {@see publicStatus()} plus fulfilment from the deliveries row (not payment or timeline alone).
+     */
+    public static function publicStatusWithFulfillment(string $orderStatus, string $paymentStatus, ?string $deliveryStatus): string
+    {
+        $public = self::publicStatus($orderStatus, $paymentStatus);
+        if (in_array($public, [
+            OrderStatus::CANCELLED,
+            OrderStatus::PAYMENT_FAILED,
+            OrderStatus::REFUNDED,
+            OrderStatus::PARTIALLY_REFUNDED,
+        ], true)) {
+            return $public;
+        }
+        if ($public === OrderStatus::PENDING_PAYMENT) {
+            return $public;
+        }
+        $fromDelivery = self::orderPhaseFromDeliveryStatus($deliveryStatus);
+        if ($fromDelivery === null) {
+            return $public;
+        }
+        if ($orderStatus === OrderStatus::DELIVERED) {
+            return OrderStatus::DELIVERED;
+        }
+        if (self::orderPhaseRank($fromDelivery) > self::orderPhaseRank($public)) {
+            return $fromDelivery;
+        }
+
+        return $public;
+    }
+
+    private static function orderPhaseFromDeliveryStatus(?string $deliveryStatus): ?string
+    {
+        if ($deliveryStatus === null || trim($deliveryStatus) === '') {
+            return null;
+        }
+        $d = DeliveryStatus::normalize(trim($deliveryStatus));
+        if ($d === DeliveryStatus::DELIVERED) {
+            return OrderStatus::DELIVERED;
+        }
+        if ($d === DeliveryStatus::DISPATCHED) {
+            return OrderStatus::OUT_FOR_DELIVERY;
+        }
+        if ($d === DeliveryStatus::READY) {
+            return OrderStatus::READY;
+        }
+        if ($d === DeliveryStatus::FAILED) {
+            return OrderStatus::DELIVERY_EXCEPTION;
+        }
+        if ($d === DeliveryStatus::CANCELLED) {
+            return OrderStatus::CANCELLED;
+        }
+
+        return null;
+    }
+
+    /** @return int Higher means further along fulfilment. */
+    private static function orderPhaseRank(string $status): int
+    {
+        $map = [
+            OrderStatus::PENDING_PAYMENT => 0,
+            OrderStatus::PAYMENT_FAILED => 0,
+            OrderStatus::CONFIRMED => 10,
+            OrderStatus::ACCEPTED => 15,
+            OrderStatus::PREPARING => 20,
+            OrderStatus::READY => 30,
+            OrderStatus::OUT_FOR_DELIVERY => 40,
+            OrderStatus::DELIVERED => 50,
+            OrderStatus::DELIVERY_EXCEPTION => 45,
+            OrderStatus::CANCELLED => 5,
+            OrderStatus::REFUNDED => 5,
+            OrderStatus::PARTIALLY_REFUNDED => 5,
+        ];
+
+        return $map[$status] ?? 8;
     }
 }
 
