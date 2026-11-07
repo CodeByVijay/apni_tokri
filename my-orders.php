@@ -53,45 +53,69 @@ require APNI_TOKRI_ROOT . '/includes/partials/account-shell-start.php';
         ?>
     </div></div>
 <?php else: ?>
-    <ul class="grid gap-3">
+    <ul class="at-order-list grid gap-3 min-w-0">
         <?php foreach ($orders as $order):
             $st = (string) ($order['status'] ?? '');
+            $orderId = (string) ($order['id'] ?? '');
+            $detailUrl = url_base() . '/order-details.php?id=' . rawurlencode($orderId);
             $itemCount = (int) ($order['item_qty'] ?? 0);
             if ($itemCount === 0) {
                 foreach ($order['items'] ?? [] as $it) {
                     $itemCount += (int) ($it['qty'] ?? 0);
                 }
             }
+            $placedLabel = customer_format_datetime((string) ($order['created_at'] ?? ''));
+            $statusLabel = ucwords(str_replace('_', ' ', $st));
+            $invRef = $invoiceRefs[$orderId] ?? null;
             ?>
-            <li class="at-card">
-                <div class="at-card__body at-order-card__body">
-                    <div class="at-order-card__meta">
-                        <div class="flex -space-x-3">
-                            <?php foreach (array_slice($order['items'] ?? [], 0, 3) as $it): ?>
-                                <span class="w-11 h-11 rounded-full overflow-hidden border-2 border-white bg-[var(--at-cream-2)]"><?php if (!empty($it['image'])): ?><img src="<?= Security::escape((string) $it['image']) ?>" alt="" class="w-full h-full object-cover"><?php endif; ?></span>
-                            <?php endforeach; ?>
-                        </div>
-                        <div class="min-w-0">
-                            <p class="font-mono font-bold truncate"><?= Security::escape((string) ($order['id'] ?? '')) ?></p>
-                            <p class="text-sm at-muted"><?= (int) $itemCount ?> item<?= $itemCount === 1 ? '' : 's' ?></p>
-                        </div>
-                    </div>
-                    <?= customer_status_badge($st, ucwords(str_replace('_', ' ', $st)), 'order') ?>
-                    <div class="text-left sm:text-right">
-                        <p class="font-extrabold"><?= Security::escape(catalogue_format_price((float) (($order['totals']['total'] ?? 0)))) ?></p>
-                        <a href="<?= Security::escape(url_base()) ?>/order-details.php?id=<?= rawurlencode((string) $order['id']) ?>" class="at-link-arrow !text-sm at-focusable">Details</a>
-                        <?php
-                        if (!$usingDemoOrders && CustomerAuth::id() !== null) {
-                            $canCancel = OrderCancellationService::customerCancelState((int) CustomerAuth::id(), (string) ($order['id'] ?? ''));
-                            if (!empty($canCancel['eligible'])): ?>
-                        <a href="<?= Security::escape(url_base()) ?>/order-details.php?id=<?= rawurlencode((string) $order['id']) ?>&amp;cancel=1" class="at-link-arrow !text-sm at-focusable text-red-700">Cancel</a>
-                        <?php endif;
-                        } ?>
-                        <?php $invRef = $invoiceRefs[(string) ($order['id'] ?? '')] ?? null; if ($invRef !== null): ?>
-                            <a href="<?= Security::escape(url_base()) ?>/invoice-download.php?ref=<?= rawurlencode($invRef) ?>" class="at-link-arrow !text-sm at-focusable" title="Download invoice">Invoice</a>
+            <li class="min-w-0">
+                <article
+                    class="at-card at-order-card"
+                    data-at-order-card
+                    data-order-href="<?= Security::escape($detailUrl) ?>"
+                    tabindex="0"
+                    role="link"
+                    aria-label="<?= Security::escape('Order ' . $orderId . ', ' . $statusLabel . ', ' . catalogue_format_price((float) (($order['totals']['total'] ?? 0)))) ?>"
+                >
+                    <div class="at-card__body at-order-card__body">
+                        <header class="at-order-card__head">
+                            <p class="at-order-card__number font-mono font-bold break-all"><?= Security::escape($orderId) ?></p>
+                            <?= customer_status_badge($st, $statusLabel, 'order') ?>
+                        </header>
+
+                        <?php if (!empty($order['items'])): ?>
+                            <div class="at-order-card__thumbs" aria-hidden="true">
+                                <?php foreach (array_slice($order['items'] ?? [], 0, 3) as $it): ?>
+                                    <span class="at-order-card__thumb"><?php if (!empty($it['image'])): ?><img src="<?= Security::escape((string) $it['image']) ?>" alt="" class="w-full h-full object-cover"><?php endif; ?></span>
+                                <?php endforeach; ?>
+                            </div>
                         <?php endif; ?>
+
+                        <p class="at-order-card__meta text-sm at-muted">
+                            <span><?= (int) $itemCount ?> item<?= $itemCount === 1 ? '' : 's' ?></span>
+                            <?php if ($placedLabel !== ''): ?>
+                                <span class="at-order-card__meta-sep" aria-hidden="true">·</span>
+                                <time datetime="<?= Security::escape((string) ($order['created_at'] ?? '')) ?>"><?= Security::escape($placedLabel) ?></time>
+                            <?php endif; ?>
+                        </p>
+
+                        <div class="at-order-card__footer">
+                            <p class="at-order-card__total font-extrabold text-lg"><?= Security::escape(catalogue_format_price((float) (($order['totals']['total'] ?? 0)))) ?></p>
+                            <div class="at-order-card__actions">
+                                <?php if ($invRef !== null): ?>
+                                    <a href="<?= Security::escape(url_base()) ?>/invoice-download.php?ref=<?= rawurlencode($invRef) ?>"
+                                        class="at-btn at-btn--ghost at-btn--sm at-focusable at-order-card__side"
+                                        data-at-order-card-stop
+                                        title="Download invoice">Invoice</a>
+                                <?php endif; ?>
+                                <a href="<?= Security::escape($detailUrl) ?>"
+                                    class="at-btn at-btn--secondary at-btn--sm at-focusable at-order-card__cta">
+                                    View details<?= at_icon('chevron-right', 'at-order-card__cta-icon') ?>
+                                </a>
+                            </div>
+                        </div>
                     </div>
-                </div>
+                </article>
             </li>
         <?php endforeach; ?>
     </ul>

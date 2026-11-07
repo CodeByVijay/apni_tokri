@@ -60,6 +60,7 @@ function at_icon(string $name, string $class = ''): string
             'alert-triangle' => '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
             'circle-x' => '<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>',
             'chevron-down' => '<path d="m6 9 6 6 6-6"/>',
+            'chevron-right' => '<path d="m9 6 6 6-6 6"/>',
             'heart' => '<path d="M12 20s-7.5-4.6-7.5-10A4.5 4.5 0 0 1 12 7a4.5 4.5 0 0 1 7.5 3c0 5.4-7.5 10-7.5 10z"/>',
             'basket' => '<path d="M3 10h18l-2 9H5l-2-9z"/><path d="m8 10 3-6M16 10l-3-6M9 14v2M12 14v2M15 14v2"/>',
         ];

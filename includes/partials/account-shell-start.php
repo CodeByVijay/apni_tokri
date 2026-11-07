@@ -43,7 +43,7 @@ $_acItems = [
 </div>
 <div class="at-container py-6 md:py-8 at-account">
     <?php if ($_acLoggedIn): ?>
-        <nav class="at-account-nav at-no-scrollbar" aria-label="Account">
+        <nav class="at-account-nav at-account-nav--responsive at-no-scrollbar" aria-label="Account">
             <?php foreach ($_acItems as $key => $it): ?>
                 <a href="<?= Security::escape($_acBase . $it[0]) ?>" class="at-focusable <?= $accountActive === $key ? 'is-active' : '' ?>" <?= $accountActive === $key ? 'aria-current="page"' : '' ?>><?= at_icon($it[2]) ?><?= Security::escape($it[1]) ?></a>
             <?php endforeach; ?>

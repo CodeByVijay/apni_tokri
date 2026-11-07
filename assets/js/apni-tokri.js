@@ -80,6 +80,32 @@
       $('#' + $btn.attr('aria-controls')).prop('hidden', open);
     });
 
+    $(document).on('click', '[data-at-order-card]', function (e) {
+      if ($(e.target).closest('[data-at-order-card-stop]').length) {
+        return;
+      }
+      if ($(e.target).closest('a[href], button').length) {
+        return;
+      }
+      var href = $(this).attr('data-order-href');
+      if (href) {
+        window.location.href = href;
+      }
+    });
+    $(document).on('keydown', '[data-at-order-card]', function (e) {
+      if (e.key !== 'Enter' && e.key !== ' ') {
+        return;
+      }
+      if ($(e.target).closest('a[href], button, input, textarea, select').length) {
+        return;
+      }
+      e.preventDefault();
+      var href = $(this).attr('data-order-href');
+      if (href) {
+        window.location.href = href;
+      }
+    });
+
     // Desktop category menu: keep dropdowns inside the viewport (flip left when they would overflow right).
     function positionDnavMenu($item) {
       var $menu = $item.children('.at-dnav__menu');

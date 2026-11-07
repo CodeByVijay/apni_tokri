@@ -11,9 +11,16 @@ final class OrderNumberSettings
     public const KEY_SEQUENCE_DIGITS = 'order.sequence_digits';
     public const KEY_SEQUENCE_RESET = 'order.sequence_reset';
 
-    public const FORMAT_LEGACY_RANDOM = 'legacy_random';
-    public const FORMAT_FY_SEQUENTIAL = 'fy_sequential';
-    public const FORMAT_CY_SEQUENTIAL = 'cy_sequential';
+    public const FORMAT_DATE_RANDOM = 'date_random';
+    public const FORMAT_FY_SEQUENCE = 'fy_sequence';
+    public const FORMAT_CY_SEQUENCE = 'cy_sequence';
+
+    /** @deprecated Use FORMAT_DATE_RANDOM */
+    public const FORMAT_LEGACY_RANDOM = 'date_random';
+    /** @deprecated Use FORMAT_FY_SEQUENCE */
+    public const FORMAT_FY_SEQUENTIAL = 'fy_sequence';
+    /** @deprecated Use FORMAT_CY_SEQUENCE */
+    public const FORMAT_CY_SEQUENTIAL = 'cy_sequence';
 
     public const RESET_NEVER = 'never';
     public const RESET_FISCAL_YEAR = 'fiscal_year';
@@ -36,12 +43,31 @@ final class OrderNumberSettings
 
     public static function format(): string
     {
-        $f = trim(AppSettings::get(self::KEY_FORMAT, '') ?? '');
-        if (in_array($f, [self::FORMAT_LEGACY_RANDOM, self::FORMAT_FY_SEQUENTIAL, self::FORMAT_CY_SEQUENTIAL], true)) {
+        $f = self::normalizeFormat(trim(AppSettings::get(self::KEY_FORMAT, '') ?? ''));
+        if (in_array($f, [self::FORMAT_DATE_RANDOM, self::FORMAT_FY_SEQUENCE, self::FORMAT_CY_SEQUENCE], true)) {
             return $f;
         }
 
-        return self::FORMAT_FY_SEQUENTIAL;
+        return self::FORMAT_FY_SEQUENCE;
+    }
+
+    public static function isSequentialFormat(string $format): bool
+    {
+        $f = self::normalizeFormat($format);
+
+        return $f === self::FORMAT_FY_SEQUENCE || $f === self::FORMAT_CY_SEQUENCE;
+    }
+
+    public static function normalizeFormat(string $format): string
+    {
+        $format = trim($format);
+        $legacy = [
+            'legacy_random' => self::FORMAT_DATE_RANDOM,
+            'fy_sequential' => self::FORMAT_FY_SEQUENCE,
+            'cy_sequential' => self::FORMAT_CY_SEQUENCE,
+        ];
+
+        return $legacy[$format] ?? $format;
     }
 
     public static function startSequence(): int
@@ -53,7 +79,12 @@ final class OrderNumberSettings
 
     public static function sequenceDigits(): int
     {
-        $d = (int) trim(AppSettings::get(self::KEY_SEQUENCE_DIGITS, '') ?? (string) self::DEFAULT_SEQUENCE_DIGITS);
+        return self::clampSequenceDigits(trim(AppSettings::get(self::KEY_SEQUENCE_DIGITS, '') ?? ''));
+    }
+
+    public static function clampSequenceDigits(string $raw): int
+    {
+        $d = (int) trim($raw);
 
         return max(4, min(10, $d > 0 ? $d : self::DEFAULT_SEQUENCE_DIGITS));
     }
@@ -94,10 +125,11 @@ final class OrderNumberSettings
         $errors = [];
         $custom = !empty($post['custom_format_enabled']) ? '1' : '0';
         $prefix = strtoupper(trim((string) ($post['prefix'] ?? '')));
-        $format = trim((string) ($post['format'] ?? self::FORMAT_FY_SEQUENTIAL));
-        $start = trim((string) ($post['start_sequence'] ?? '1'));
-        $digits = trim((string) ($post['sequence_digits'] ?? (string) self::DEFAULT_SEQUENCE_DIGITS));
-        $reset = trim((string) ($post['sequence_reset'] ?? self::RESET_FISCAL_YEAR));
+        $format = self::normalizeFormat(trim((string) ($post['format'] ?? self::FORMAT_FY_SEQUENCE)));
+        $sequential = self::isSequentialFormat($format);
+        $start = trim((string) ($post['start_sequence'] ?? ''));
+        $digits = trim((string) ($post['sequence_digits'] ?? ''));
+        $reset = trim((string) ($post['sequence_reset'] ?? ''));
 
         if ($custom === '1') {
             if ($prefix === '') {
@@ -106,22 +138,29 @@ final class OrderNumberSettings
             if (preg_match('/^[A-Z0-9]{1,8}$/', $prefix) !== 1) {
                 $errors['prefix'] = 'Prefix must be 1–8 letters or numbers.';
             }
-            if (!in_array($format, [self::FORMAT_LEGACY_RANDOM, self::FORMAT_FY_SEQUENTIAL, self::FORMAT_CY_SEQUENTIAL], true)) {
+            if (!in_array($format, [self::FORMAT_DATE_RANDOM, self::FORMAT_FY_SEQUENCE, self::FORMAT_CY_SEQUENCE], true)) {
                 $errors['format'] = 'Choose a valid format.';
             }
-            if ($start === '' || preg_match('/^[0-9]{1,8}$/', $start) !== 1 || (int) $start < 1) {
-                $errors['start_sequence'] = 'Starting sequence must be a positive number up to 8 digits.';
-            }
-            if ($digits === '' || preg_match('/^[0-9]{1,2}$/', $digits) !== 1) {
-                $errors['sequence_digits'] = 'Sequence length must be 4–10.';
-            } else {
-                $d = (int) $digits;
-                if ($d < 4 || $d > 10) {
-                    $errors['sequence_digits'] = 'Sequence length must be between 4 and 10.';
+            if ($sequential) {
+                if ($start === '' || preg_match('/^[1-9][0-9]{0,7}$/', $start) !== 1) {
+                    $errors['start_sequence'] = 'Starting sequence must be a positive whole number (up to 8 digits).';
                 }
-            }
-            if (!in_array($reset, [self::RESET_NEVER, self::RESET_FISCAL_YEAR, self::RESET_CALENDAR_YEAR], true)) {
-                $errors['sequence_reset'] = 'Choose a valid reset policy.';
+                if ($digits === '' || preg_match('/^[0-9]{1,2}$/', $digits) !== 1) {
+                    $errors['sequence_digits'] = 'Sequence length must be 4–10.';
+                } else {
+                    $d = (int) $digits;
+                    if ($d < 4 || $d > 10) {
+                        $errors['sequence_digits'] = 'Sequence length must be between 4 and 10.';
+                    }
+                }
+                if ($reset === '') {
+                    $reset = $format === self::FORMAT_CY_SEQUENCE
+                        ? self::RESET_CALENDAR_YEAR
+                        : self::RESET_FISCAL_YEAR;
+                }
+                if (!in_array($reset, [self::RESET_NEVER, self::RESET_FISCAL_YEAR, self::RESET_CALENDAR_YEAR], true)) {
+                    $errors['sequence_reset'] = 'Choose a valid reset policy.';
+                }
             }
         }
 
@@ -133,9 +172,11 @@ final class OrderNumberSettings
         AppSettings::set(self::KEY_PREFIX, $custom === '1' && $prefix !== '' ? $prefix : null);
         if ($custom === '1') {
             AppSettings::set(self::KEY_FORMAT, $format);
-            AppSettings::set(self::KEY_START_SEQUENCE, $start);
-            AppSettings::set(self::KEY_SEQUENCE_DIGITS, $digits);
-            AppSettings::set(self::KEY_SEQUENCE_RESET, $reset);
+            if ($sequential) {
+                AppSettings::set(self::KEY_START_SEQUENCE, $start);
+                AppSettings::set(self::KEY_SEQUENCE_DIGITS, (string) self::clampSequenceDigits($digits));
+                AppSettings::set(self::KEY_SEQUENCE_RESET, $reset);
+            }
         }
 
         return ['ok' => true, 'message' => 'Order settings saved. Existing order numbers are unchanged.'];

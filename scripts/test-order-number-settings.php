@@ -104,6 +104,72 @@ $z1 = Database::transaction(static fn (): string => OrderNumberService::allocate
 $z2 = Database::transaction(static fn (): string => OrderNumberService::allocate($pdo, 'storefront'));
 ok($z1 !== $z2, 'Prefix change uses independent counter row');
 
+AppSettings::set(OrderNumberSettings::KEY_SEQUENCE_DIGITS, '2');
+AppSettings::resetCache();
+ok(OrderNumberSettings::adminFormState()['sequence_digits'] === '4', 'Invalid saved digit length shows safe default 4');
+ok(OrderNumberSettings::sequenceDigits() === 4, 'sequenceDigits() clamps invalid stored value');
+
+AppSettings::set(OrderNumberSettings::KEY_FORMAT, 'legacy_random');
+AppSettings::resetCache();
+ok(OrderNumberSettings::format() === OrderNumberSettings::FORMAT_DATE_RANDOM, 'Legacy stored format normalizes to date_random');
+
+AppSettings::set(OrderNumberSettings::KEY_START_SEQUENCE, '77');
+AppSettings::set(OrderNumberSettings::KEY_SEQUENCE_DIGITS, '8');
+AppSettings::set(OrderNumberSettings::KEY_SEQUENCE_RESET, OrderNumberSettings::RESET_NEVER);
+AppSettings::set(OrderNumberSettings::KEY_FORMAT, OrderNumberSettings::FORMAT_DATE_RANDOM);
+AppSettings::resetCache();
+$saveDateRandom = OrderNumberSettings::saveFromPost([
+    'custom_format_enabled' => '1',
+    'prefix' => 'ZT',
+    'format' => OrderNumberSettings::FORMAT_DATE_RANDOM,
+]);
+AppSettings::resetCache();
+ok($saveDateRandom['ok'] === true, 'Save date_random without sequential POST fields');
+ok(AppSettings::get(OrderNumberSettings::KEY_START_SEQUENCE, '') === '77', 'date_random save does not overwrite start_sequence');
+ok(AppSettings::get(OrderNumberSettings::KEY_SEQUENCE_DIGITS, '') === '8', 'date_random save does not overwrite sequence_digits');
+ok(AppSettings::get(OrderNumberSettings::KEY_SEQUENCE_RESET, '') === OrderNumberSettings::RESET_NEVER, 'date_random save does not overwrite sequence_reset');
+
+$saveBadDigits = OrderNumberSettings::saveFromPost([
+    'custom_format_enabled' => '1',
+    'prefix' => 'ZT',
+    'format' => OrderNumberSettings::FORMAT_FY_SEQUENCE,
+    'start_sequence' => '1',
+    'sequence_digits' => '11',
+    'sequence_reset' => OrderNumberSettings::RESET_FISCAL_YEAR,
+]);
+ok($saveBadDigits['ok'] === false && isset($saveBadDigits['errors']['sequence_digits']), 'Sequence digit length 11 rejected server-side');
+
+$saveBadDigitsLow = OrderNumberSettings::saveFromPost([
+    'custom_format_enabled' => '1',
+    'prefix' => 'ZT',
+    'format' => OrderNumberSettings::FORMAT_FY_SEQUENCE,
+    'start_sequence' => '1',
+    'sequence_digits' => '3',
+    'sequence_reset' => OrderNumberSettings::RESET_FISCAL_YEAR,
+]);
+ok($saveBadDigitsLow['ok'] === false && isset($saveBadDigitsLow['errors']['sequence_digits']), 'Sequence digit length 3 rejected server-side');
+
+$saveBadStart = OrderNumberSettings::saveFromPost([
+    'custom_format_enabled' => '1',
+    'prefix' => 'ZT',
+    'format' => OrderNumberSettings::FORMAT_CY_SEQUENCE,
+    'start_sequence' => '0',
+    'sequence_digits' => '6',
+    'sequence_reset' => OrderNumberSettings::RESET_CALENDAR_YEAR,
+]);
+ok($saveBadStart['ok'] === false && isset($saveBadStart['errors']['start_sequence']), 'Starting sequence 0 rejected');
+
+$saveCyDefaultReset = OrderNumberSettings::saveFromPost([
+    'custom_format_enabled' => '1',
+    'prefix' => 'ZT',
+    'format' => OrderNumberSettings::FORMAT_CY_SEQUENCE,
+    'start_sequence' => '5',
+    'sequence_digits' => '6',
+]);
+AppSettings::resetCache();
+ok($saveCyDefaultReset['ok'] === true, 'CY sequence save accepts omitted reset');
+ok(AppSettings::get(OrderNumberSettings::KEY_SEQUENCE_RESET, '') === OrderNumberSettings::RESET_CALENDAR_YEAR, 'CY sequence defaults reset to calendar year');
+
 $saveBad = OrderNumberSettings::saveFromPost([
     'custom_format_enabled' => '1',
     'prefix' => 'BAD-PREFIX',
