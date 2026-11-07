@@ -25,14 +25,14 @@ $sectionLabel = SeoAdminCenter::SECTIONS[$seoSection] ?? 'SEO';
         </form>
     </div>
 
-    <div class="at-seo-saas__nav-wrap">
+    <div class="at-seo-saas__nav-wrap at-seo-tabs-wrap" data-at-seo-tabs>
         <label class="at-seo-saas__nav-select-label" for="at-seo-section-select">Section</label>
-        <select id="at-seo-section-select" class="at-seo-saas__nav-select at-focusable" aria-label="Jump to SEO section">
+        <select id="at-seo-section-select" class="at-seo-saas__nav-select at-focusable" aria-label="Jump to SEO section" hidden>
             <?php foreach (SeoAdminCenter::SECTIONS as $key => $label): ?>
                 <option value="<?= Security::escape(SeoAdminCenter::sectionUrl($key)) ?>"<?= $seoSection === $key ? ' selected' : '' ?>><?= Security::escape($label) ?></option>
             <?php endforeach; ?>
         </select>
-        <nav class="at-seo-saas__nav" aria-label="SEO Management Center sections">
+        <nav class="at-seo-saas__nav at-seo-tabs" aria-label="SEO Management Center sections">
             <?php foreach (SeoAdminCenter::SECTIONS as $key => $label): ?>
                 <?php $short = SeoAdminUi::NAV_SHORT[$key] ?? $label; ?>
                 <a href="<?= Security::escape(SeoAdminCenter::sectionUrl($key)) ?>"
@@ -56,5 +56,38 @@ $sectionLabel = SeoAdminCenter::SECTIONS[$seoSection] ?? 'SEO';
             }
         });
     }
+    var wrap = document.querySelector('[data-at-seo-tabs]');
+    if (!wrap) {
+        return;
+    }
+    var mq = window.matchMedia('(max-width: 1023px)');
+    function scrollActive(smooth) {
+        if (!mq.matches) {
+            return;
+        }
+        var active = wrap.querySelector('.at-seo-saas__nav-link.is-active');
+        if (!active) {
+            return;
+        }
+        var target = active.offsetLeft - wrap.clientWidth / 2 + active.offsetWidth / 2;
+        var max = Math.max(0, wrap.scrollWidth - wrap.clientWidth);
+        target = Math.max(0, Math.min(target, max));
+        if (typeof wrap.scrollTo === 'function') {
+            wrap.scrollTo({ left: target, behavior: smooth ? 'smooth' : 'auto' });
+        } else {
+            wrap.scrollLeft = target;
+        }
+    }
+    scrollActive(false);
+    wrap.addEventListener('focusin', function (e) {
+        if (e.target && e.target.classList && e.target.classList.contains('at-seo-saas__nav-link')) {
+            scrollActive(true);
+        }
+    });
+    var t;
+    window.addEventListener('resize', function () {
+        clearTimeout(t);
+        t = setTimeout(function () { scrollActive(false); }, 120);
+    });
 })();
 </script>

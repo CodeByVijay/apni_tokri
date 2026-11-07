@@ -40,6 +40,7 @@ ok(is_file(APNI_TOKRI_ROOT . '/admin/seo/index.php'), 'admin index');
 ok(is_file(APNI_TOKRI_ROOT . '/includes/partials/admin/seo-ui.php'), 'seo ui helpers');
 $css = (string) file_get_contents(APNI_TOKRI_ROOT . '/assets/css/apni-tokri.css');
 ok(str_contains($css, '.at-seo-saas__nav'), 'saas nav css');
+ok(str_contains($css, '.at-seo-tabs-wrap'), 'seo tabs wrap css');
 ok(str_contains($css, '.at-seo-saas__score-ring'), 'health ring css');
 $idx = (string) file_get_contents(APNI_TOKRI_ROOT . '/admin/seo/index.php');
 ok(str_contains($idx, 'at-seo-saas'), 'index wraps saas shell');
