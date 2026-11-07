@@ -38,6 +38,7 @@ final class DeliverySlotReservationService
             return 0;
         }
         $pdo = $pdo ?? Database::pdo();
+        PaymentSlotHoldService::refreshHoldsForOpenPayments($pdo);
         $stmt = $pdo->prepare(
             "UPDATE delivery_slot_reservations SET status = ?, updated_at = NOW()
              WHERE status = ? AND expires_at <= NOW()"
@@ -45,6 +46,41 @@ final class DeliverySlotReservationService
         $stmt->execute([self::STATUS_RELEASED, self::STATUS_HELD]);
 
         return $stmt->rowCount();
+    }
+
+    /**
+     * Extend an active hold to at least $targetExpiresAt (capped by PaymentSlotHoldService absolute max).
+     */
+    public static function extendHoldExpiry(PDO $pdo, int $orderId, DateTimeInterface $targetExpiresAt): bool
+    {
+        if (!self::tableReady() || $orderId <= 0) {
+            return false;
+        }
+        $stmt = $pdo->prepare('SELECT * FROM delivery_slot_reservations WHERE order_id = ? FOR UPDATE');
+        $stmt->execute([$orderId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($row === false || (string) ($row['status'] ?? '') !== self::STATUS_HELD) {
+            return false;
+        }
+        try {
+            $created = new DateTimeImmutable((string) ($row['created_at'] ?? 'now'));
+            $cap = $created->modify('+' . PaymentSlotHoldService::ABSOLUTE_MAX_HOLD_MINUTES . ' minutes');
+        } catch (Throwable $e) {
+            return false;
+        }
+        $target = DateTimeImmutable::createFromInterface($targetExpiresAt);
+        if ($target > $cap) {
+            $target = $cap;
+        }
+        $current = new DateTimeImmutable((string) ($row['expires_at'] ?? 'now'));
+        if ($target <= $current) {
+            return false;
+        }
+        $pdo->prepare(
+            'UPDATE delivery_slot_reservations SET expires_at = ?, updated_at = NOW() WHERE order_id = ? AND status = ?'
+        )->execute([$target->format('Y-m-d H:i:s'), $orderId, self::STATUS_HELD]);
+
+        return true;
     }
 
     public static function releaseForOrder(int $orderId, ?PDO $pdo = null): void

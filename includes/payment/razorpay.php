@@ -46,6 +46,7 @@ final class RazorpayGateway
 
             return ['ok' => false, 'error' => PaymentInitDiagnostics::customerMessage('Razorpay', $referenceId), 'reference_id' => $referenceId];
         }
+        $expireAt = PaymentSlotHoldService::razorpayExpireAtUnix();
         $resp = PaymentHttp::request(
             'POST',
             'https://api.razorpay.com/v1/orders',
@@ -53,6 +54,7 @@ final class RazorpayGateway
                 'amount' => $amountPaise,
                 'currency' => 'INR',
                 'receipt' => substr($receipt, 0, 40),
+                'expire_at' => $expireAt,
                 'notes' => ['idempotency_key' => $idempotencyKey, 'reference_id' => $referenceId],
             ],
             [],
@@ -83,7 +85,11 @@ final class RazorpayGateway
 
         PaymentGatewayDiagnosticState::recordInitAttempt('razorpay', (int) $resp['status'], true, $referenceId);
 
-        return ['ok' => true, 'gateway_order_id' => $id];
+        return [
+            'ok' => true,
+            'gateway_order_id' => $id,
+            'expire_at' => $expireAt,
+        ];
     }
 
     public static function verifyPaymentSignature(string $orderId, string $paymentId, string $signature): bool

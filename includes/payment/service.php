@@ -249,6 +249,13 @@ final class PaymentService
             $gwOrderId = (string) $created['gateway_order_id'];
             $pdo->prepare('UPDATE payments SET gateway_order_id = ?, status = ? WHERE id = ?')
                 ->execute([$gwOrderId, 'pending', $paymentId]);
+            $sessionExpires = isset($created['expire_at'])
+                ? (new DateTimeImmutable())->setTimestamp((int) $created['expire_at'])
+                : null;
+            PaymentSlotHoldService::afterPaymentSessionStarted($pdo, $orderId, 'razorpay', $sessionExpires);
+            if ($sessionExpires !== null) {
+                PaymentSlotHoldService::storeSessionExpiryOnPayment($pdo, $paymentId, $sessionExpires);
+            }
 
             return [
                 'ok' => true,
@@ -278,6 +285,18 @@ final class PaymentService
         }
         $pdo->prepare('UPDATE payments SET gateway_order_id = ?, status = ? WHERE id = ?')
             ->execute([(string) $created['gateway_order_id'], 'pending', $paymentId]);
+        $sessionExpires = null;
+        if (!empty($created['order_expiry_time'])) {
+            try {
+                $sessionExpires = new DateTimeImmutable((string) $created['order_expiry_time']);
+            } catch (Throwable $e) {
+                $sessionExpires = null;
+            }
+        }
+        PaymentSlotHoldService::afterPaymentSessionStarted($pdo, $orderId, 'cashfree', $sessionExpires);
+        if ($sessionExpires !== null) {
+            PaymentSlotHoldService::storeSessionExpiryOnPayment($pdo, $paymentId, $sessionExpires);
+        }
 
         return [
             'ok' => true,
@@ -326,6 +345,17 @@ final class PaymentService
         $session = trim((string) ($fetched['payment_session_id'] ?? ''));
         if ($session === '') {
             return ['ok' => false, 'error' => 'Cashfree session unavailable.'];
+        }
+
+        $orderRow = PaymentRepository::orderByNumber($orderNumber);
+        if ($orderRow !== null) {
+            $pdo = Database::pdo();
+            $cfExpiry = PaymentSlotHoldService::cashfreeExpiryFromFetchOrder($fetched);
+            PaymentSlotHoldService::afterPaymentSessionResumed($pdo, (int) $orderRow['id'], $cfExpiry);
+            $paymentId = (int) ($payment['id'] ?? 0);
+            if ($paymentId > 0 && $cfExpiry !== null) {
+                PaymentSlotHoldService::storeSessionExpiryOnPayment($pdo, $paymentId, $cfExpiry);
+            }
         }
 
         return [
@@ -484,6 +514,9 @@ final class PaymentService
         }
 
         $_SESSION['checkout_payment'][$orderNumber] = $checkout;
+
+        $pdo = Database::pdo();
+        PaymentSlotHoldService::synchronizeOpenPaymentHold($pdo, (int) $order['id']);
 
         return ['ok' => true, 'checkout' => $checkout, 'info' => $info, 'order' => $order];
     }

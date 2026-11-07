@@ -231,7 +231,17 @@ function customer_format_datetime(?string $mysqlDatetime): string
     if ($mysqlDatetime === null || trim($mysqlDatetime) === '') {
         return '—';
     }
-    $ts = strtotime($mysqlDatetime);
+    $tzName = class_exists('DeliveryConfig', false) ? DeliveryConfig::timezone() : 'Asia/Kolkata';
+    try {
+        $tz = new DateTimeZone($tzName);
+        $dt = new DateTimeImmutable(trim($mysqlDatetime), $tz);
+    } catch (Throwable $e) {
+        $ts = strtotime($mysqlDatetime);
+        if ($ts === false) {
+            return Security::escape($mysqlDatetime);
+        }
+        $dt = (new DateTimeImmutable('@' . $ts))->setTimezone(new DateTimeZone($tzName));
+    }
 
-    return $ts !== false ? date('j M Y, g:i a', $ts) : Security::escape($mysqlDatetime);
+    return $dt->format('j M Y, g:i A');
 }

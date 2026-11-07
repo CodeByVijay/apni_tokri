@@ -104,6 +104,7 @@ require_once APNI_TOKRI_ROOT . '/includes/reports/payment_report.php';
 require_once APNI_TOKRI_ROOT . '/includes/reports/refund_report.php';
 require_once APNI_TOKRI_ROOT . '/includes/reports/subscription_report.php';
 require_once APNI_TOKRI_ROOT . '/includes/delivery/slot_reservations.php';
+require_once APNI_TOKRI_ROOT . '/includes/delivery/payment_slot_hold.php';
 require_once APNI_TOKRI_ROOT . '/includes/delivery/slot_admin.php';
 require_once APNI_TOKRI_ROOT . '/includes/commerce/gateway.php';
 require_once APNI_TOKRI_ROOT . '/includes/commerce/delivery.php';

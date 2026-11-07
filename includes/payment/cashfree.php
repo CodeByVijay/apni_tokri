@@ -79,10 +79,12 @@ final class CashfreeGateway
             return ['ok' => false, 'error' => PaymentInitDiagnostics::customerMessage('Cashfree', $referenceId), 'reference_id' => $referenceId];
         }
         $phone = preg_replace('/\D+/', '', $customerPhone) ?: '9999999999';
+        $orderExpiry = PaymentSlotHoldService::cashfreeOrderExpiryTime();
         $body = [
             'order_id' => $orderId,
             'order_amount' => round($amountInr, 2),
             'order_currency' => 'INR',
+            'order_expiry_time' => $orderExpiry->format('Y-m-d\TH:i:sP'),
             'customer_details' => [
                 'customer_id' => $phone,
                 'customer_phone' => $phone,
@@ -119,6 +121,7 @@ final class CashfreeGateway
             'ok' => true,
             'gateway_order_id' => $cfId,
             'payment_session_id' => $session,
+            'order_expiry_time' => $orderExpiry->format(DateTimeInterface::ATOM),
         ];
     }
 
@@ -145,6 +148,7 @@ final class CashfreeGateway
             'cf_order_id' => (string) ($resp['json']['cf_order_id'] ?? ''),
             'order_amount' => (float) ($resp['json']['order_amount'] ?? 0),
             'payment_session_id' => (string) ($resp['json']['payment_session_id'] ?? ''),
+            'order_expiry_time' => (string) ($resp['json']['order_expiry_time'] ?? ''),
         ];
     }
 

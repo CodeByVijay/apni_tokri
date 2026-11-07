@@ -43,6 +43,8 @@ okS(strpos($h, 'Step 5 of 7') !== false, 'progress count');
 okS(strpos($h, 'width: 57%') !== false, 'progress bar reflects 4/7');
 okS(strpos($h, 'is-bad') === false, 'no failure styling on healthy order');
 okS(strpos($h, 'at-stepper__scroll') !== false, 'tracker has own scroll container');
+okS(strpos($h, 'at-stepper__content') !== false, 'step content wrapper for layout');
+okS(preg_match('/\d{1,2} Nov 2026, \d{1,2}:\d{2} (AM|PM)/', $h) === 1, 'milestones use 12-hour IST-style timestamps');
 
 $delivered = $full;
 foreach ($delivered as &$s) {
@@ -83,6 +85,6 @@ okS(strpos($h, '<b>') === false && strpos($h, '&lt;b&gt;') !== false, 'labels ar
 
 $css = (string) file_get_contents(dirname(__DIR__) . '/assets/css/apni-tokri.css');
 okS(strpos($css, '.at-stepper__scroll') !== false && strpos($css, 'overflow-x: auto') !== false, 'css has scoped horizontal scroll');
-okS(strpos($css, '@media (max-width: 639px)') !== false, 'css has mobile rules');
+okS(strpos($css, '@media (max-width: 767px)') !== false, 'css has mobile vertical timeline rules');
 
 exit($fail > 0 ? 1 : 0);

@@ -16,6 +16,7 @@ foreach ($timeline as $step) {
         'label' => trim((string) ($step['status'] ?? '')),
         'at' => trim((string) ($step['at'] ?? '')),
         'done' => !empty($step['done']),
+        'description' => '',
     ];
 }
 $total = count($steps);
@@ -61,6 +62,9 @@ foreach ($steps as $i => &$s) {
     if ($i === $currentIdx && $allDone && $s['state'] === 'is-done') {
         $s['state'] .= ' is-final';
     }
+    if ($s['state'] === 'is-upcoming') {
+        $s['description'] = 'Pending — we will update this step as your order moves forward.';
+    }
 }
 unset($s);
 
@@ -94,10 +98,15 @@ $summaryBad = $currentStep['state'] === 'is-bad';
                             <?= at_icon('check', 'w-3.5 h-3.5') ?>
                         <?php endif; ?>
                     </span>
-                    <span class="at-stepper__label"><?= Security::escape($s['label']) ?></span>
-                    <?php if ($s['at'] !== ''): ?>
-                        <time class="at-stepper__time"><?= Security::escape(customer_format_datetime($s['at'])) ?></time>
-                    <?php endif; ?>
+                    <div class="at-stepper__content">
+                        <span class="at-stepper__label"><?= Security::escape($s['label']) ?></span>
+                        <?php if ($s['at'] !== ''): ?>
+                            <time class="at-stepper__time" datetime="<?= Security::escape($s['at']) ?>"><?= Security::escape(customer_format_datetime($s['at'])) ?></time>
+                        <?php endif; ?>
+                        <?php if (($s['description'] ?? '') !== ''): ?>
+                            <p class="at-stepper__desc"><?= Security::escape((string) $s['description']) ?></p>
+                        <?php endif; ?>
+                    </div>
                 </li>
             <?php endforeach; ?>
         </ol>
