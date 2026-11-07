@@ -16,6 +16,9 @@ $v = $v ?? [];
     <td><input name="variant_stock[]" type="number" min="0" class="at-input at-focusable" value="<?= (int) ($v['stock_qty'] ?? 0) ?>"></td>
     <td><input name="variant_low[]" type="number" min="0" class="at-input at-focusable" value="<?= (int) ($v['low_stock_threshold'] ?? 5) ?>"></td>
     <td>
+        <input name="variant_min[]" type="number" min="1" class="at-input at-focusable w-20" value="<?= (int) ($v['min_qty_per_order'] ?? CartQuantityRules::DEFAULT_MIN_PER_ORDER) ?>" aria-label="Min per order">
+    </td>
+    <td>
         <?php
         $maxVal = '';
         if (array_key_exists('max_qty_per_order', $v)) {

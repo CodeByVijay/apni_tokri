@@ -116,6 +116,7 @@ $pdpCartUrl = url_base() . '/cart.php';
                         <?php foreach ($variants as $i => $v):
                             $vp = catalogue_variant_prices($v);
                             $orderCap = CartQuantityRules::orderableQtyFromCatalogueVariant($v);
+                            $orderMin = CartQuantityRules::minPerOrderFromCatalogueVariant($v);
                             $id = 'variant-' . preg_replace('/[^a-zA-Z0-9_-]/', '-', (string) $v['id']);
                             ?>
                             <label class="inline-flex">
@@ -126,6 +127,7 @@ $pdpCartUrl = url_base() . '/cart.php';
                                     data-sale="<?= $vp['on_sale'] ? '1' : '0' ?>"
                                     data-stock="<?= (int) ($v['stock'] ?? 0) ?>"
                                     data-order-cap="<?= (int) $orderCap ?>"
+                                    data-order-min="<?= (int) $orderMin ?>"
                                     data-low="<?= (int) ($v['low_stock'] ?? 5) ?>"
                                     <?= $i === 0 ? 'checked' : '' ?>>
                                 <span class="at-chip"><?= Security::escape((string) $v['label']) ?> · <?= Security::escape(catalogue_format_price($vp['display'])) ?></span>
@@ -137,6 +139,7 @@ $pdpCartUrl = url_base() . '/cart.php';
                 $v = $variants[0];
                 $vp = catalogue_variant_prices($v);
                 $orderCap = CartQuantityRules::orderableQtyFromCatalogueVariant($v);
+                $orderMin = CartQuantityRules::minPerOrderFromCatalogueVariant($v);
                 ?>
                 <input type="radio" name="variant_id" class="sr-only" checked
                     value="<?= Security::escape((string) $v['id']) ?>"
@@ -145,6 +148,7 @@ $pdpCartUrl = url_base() . '/cart.php';
                     data-sale="<?= $vp['on_sale'] ? '1' : '0' ?>"
                     data-stock="<?= (int) ($v['stock'] ?? 0) ?>"
                     data-order-cap="<?= (int) $orderCap ?>"
+                    data-order-min="<?= (int) $orderMin ?>"
                     data-low="<?= (int) ($v['low_stock'] ?? 5) ?>">
                 <p class="text-sm"><span class="font-semibold">Pack size:</span> <?= Security::escape((string) $v['label']) ?></p>
             <?php endif; ?>
@@ -154,12 +158,15 @@ $pdpCartUrl = url_base() . '/cart.php';
                 <div class="at-qty">
                     <button type="button" data-qty-step="-1" aria-label="Decrease quantity">−</button>
                     <?php
-                    $qtyCapVariant = $defaultVariant ?? ($variants[0] ?? ['stock' => 0, 'max_qty_per_order' => CartQuantityRules::DEFAULT_MAX_PER_ORDER]);
-                    $pdpQtyMax = max(1, CartQuantityRules::orderableQtyFromCatalogueVariant($qtyCapVariant));
+                    $qtyCapVariant = $defaultVariant ?? ($variants[0] ?? ['stock' => 0, 'max_qty_per_order' => CartQuantityRules::DEFAULT_MAX_PER_ORDER, 'min_qty_per_order' => CartQuantityRules::DEFAULT_MIN_PER_ORDER]);
+                    $pdpQtyMin = CartQuantityRules::minPerOrderFromCatalogueVariant($qtyCapVariant);
+                    $pdpQtyMax = max($pdpQtyMin, CartQuantityRules::orderableQtyFromCatalogueVariant($qtyCapVariant));
+                    $pdpQtyDefault = min(max($pdpQtyMin, 1), $pdpQtyMax);
                     ?>
-                    <input id="qty" name="qty" type="number" min="1" max="<?= (int) $pdpQtyMax ?>" value="1" inputmode="numeric">
+                    <input id="qty" name="qty" type="number" min="<?= (int) $pdpQtyMin ?>" max="<?= (int) $pdpQtyMax ?>" value="<?= (int) $pdpQtyDefault ?>" inputmode="numeric" data-pdp-min-toast="<?= Security::escape(CartQuantityRules::minimumRequiredMessage($pdpQtyMin)) ?>">
                     <button type="button" data-qty-step="1" aria-label="Increase quantity">+</button>
                 </div>
+                <p id="at-product-qty-hint" class="text-xs at-muted mt-1"><?= $pdpQtyMin > 1 ? 'Minimum order: ' . (int) $pdpQtyMin . ' units.' : '' ?></p>
             </div>
 
             <div class="flex flex-col sm:flex-row gap-3">

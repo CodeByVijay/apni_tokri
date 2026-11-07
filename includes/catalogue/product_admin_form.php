@@ -23,8 +23,10 @@ final class ProductAdminForm
         $vStocks = $post['variant_stock'] ?? [];
         $vLows = $post['variant_low'] ?? [];
         $vMaxes = $post['variant_max'] ?? [];
+        $vMins = $post['variant_min'] ?? [];
         foreach ($vNames as $i => $vname) {
             $maxRaw = is_array($vMaxes) ? ($vMaxes[$i] ?? '') : '';
+            $minRaw = is_array($vMins) ? ($vMins[$i] ?? '') : '';
             $rows[] = [
                 'id' => is_array($vIds) ? ($vIds[$i] ?? '') : '',
                 'name' => $vname,
@@ -34,6 +36,7 @@ final class ProductAdminForm
                 'stock_qty' => is_array($vStocks) ? ($vStocks[$i] ?? 0) : 0,
                 'low_stock_threshold' => is_array($vLows) ? ($vLows[$i] ?? 5) : 5,
                 'max_qty_per_order' => $maxRaw,
+                'min_qty_per_order' => $minRaw,
                 'is_active' => 1,
                 'sort_order' => $i,
             ];
@@ -79,6 +82,22 @@ final class ProductAdminForm
                 $errors['variants'] = 'Max per order must be a positive number or 0 for unlimited (“' . $name . '”).';
                 break;
             }
+            $minRaw = trim((string) ($row['min_qty_per_order'] ?? ''));
+            $minVal = $minRaw === '' ? CartQuantityRules::DEFAULT_MIN_PER_ORDER : (int) $minRaw;
+            if ($minRaw !== '' && (!ctype_digit($minRaw) || (int) $minRaw < 1)) {
+                $errors['variants'] = 'Min per order must be a positive integer (“' . $name . '”).';
+                break;
+            }
+            $maxEffective = $maxRaw === '' ? CartQuantityRules::DEFAULT_MAX_PER_ORDER : CartQuantityRules::parseAdminMaxPerOrderInput($maxRaw);
+            if ($maxEffective !== null && $minVal > $maxEffective) {
+                $errors['variants'] = 'Min per order cannot exceed max per order for “' . $name . '”.';
+                break;
+            }
+            $stockVal = is_numeric($stockRaw) ? (int) $stockRaw : 0;
+            if ($minVal > $stockVal) {
+                $errors['variants'] = 'Minimum per order cannot exceed available stock for “' . $name . '”.';
+                break;
+            }
         }
 
         return $errors;
@@ -103,6 +122,7 @@ final class ProductAdminForm
                 'stock_qty' => $row['stock_qty'] ?? 0,
                 'low_stock_threshold' => $row['low_stock_threshold'] ?? 5,
                 'max_qty_per_order' => $row['max_qty_per_order'] ?? '',
+                'min_qty_per_order' => $row['min_qty_per_order'] ?? '',
                 'is_active' => 1,
                 'sort_order' => $i,
             ];
@@ -129,6 +149,7 @@ final class ProductAdminForm
                 'stock_qty' => (int) ($row['stock_qty'] ?? 0),
                 'low_stock_threshold' => (int) ($row['low_stock_threshold'] ?? 5),
                 'max_qty_per_order' => $row['max_qty_per_order'] ?? CartQuantityRules::DEFAULT_MAX_PER_ORDER,
+                'min_qty_per_order' => (int) ($row['min_qty_per_order'] ?? CartQuantityRules::DEFAULT_MIN_PER_ORDER),
             ];
         }
 

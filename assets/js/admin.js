@@ -330,7 +330,7 @@
           $el.val('');
         } else if ($el.attr('type') === 'number') {
           var n = $el.attr('name');
-          $el.val(n === 'variant_low[]' ? '5' : n === 'variant_stock[]' ? '0' : n === 'variant_max[]' ? '20' : '');
+          $el.val(n === 'variant_low[]' ? '5' : n === 'variant_stock[]' ? '0' : n === 'variant_max[]' ? '20' : n === 'variant_min[]' ? '1' : '');
         } else {
           $el.val('');
         }
@@ -348,7 +348,7 @@
             $el.val('');
           } else if ($el.attr('type') === 'number') {
             var n = $el.attr('name');
-            $el.val(n === 'variant_low[]' ? '5' : n === 'variant_max[]' ? '20' : '0');
+            $el.val(n === 'variant_low[]' ? '5' : n === 'variant_max[]' ? '20' : n === 'variant_min[]' ? '1' : '0');
           } else {
             $el.val('');
           }

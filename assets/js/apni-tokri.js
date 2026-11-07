@@ -179,8 +179,52 @@
       var step = parseInt($(this).data('qty-step'), 10) || 0;
       var min = parseInt($field.attr('min') || '1', 10);
       var max = parseInt($field.attr('max') || '99', 10);
-      var next = Math.min(max, Math.max(min, (parseInt($field.val(), 10) || min) + step));
-      if ($field.is('select') && !$field.find('option[value="' + next + '"]').length) return;
+      var cur = parseInt($field.val(), 10) || min;
+      var next = Math.min(max, Math.max(min, cur + step));
+      if (step > 0 && next <= cur) {
+        var $cartRow = $(this).closest('.at-line-item');
+        if ($cartRow.length) {
+          var limitMsg = String($cartRow.attr('data-qty-limit-toast') || '').trim();
+          var toastUi = window.VeggieTokri || window.ApniTokri;
+          if (limitMsg && toastUi && toastUi.toast) {
+            toastUi.toast(limitMsg, 'error');
+          }
+          return;
+        }
+      }
+      if (step < 0 && next >= cur) {
+        var $cartRowDn = $(this).closest('.at-line-item');
+        if ($cartRowDn.length) {
+          var minMsg = String($cartRowDn.attr('data-qty-decrease-toast') || '').trim();
+          var toastUiDn = window.VeggieTokri || window.ApniTokri;
+          if (minMsg && toastUiDn && toastUiDn.toast) {
+            toastUiDn.toast(minMsg, 'error');
+          }
+          return;
+        }
+        if ($field.attr('id') === 'qty') {
+          var pdpMinMsg = String($field.attr('data-pdp-min-toast') || '').trim();
+          var toastPdp = window.VeggieTokri || window.ApniTokri;
+          if (pdpMinMsg && toastPdp && toastPdp.toast) {
+            toastPdp.toast(pdpMinMsg, 'error');
+          }
+          return;
+        }
+      }
+      if ($field.is('select') && !$field.find('option[value="' + next + '"]').length) {
+        var $cartRow2 = $(this).closest('.at-line-item');
+        if ($cartRow2.length && step > 0) {
+          var limitMsg2 = String($cartRow2.attr('data-qty-limit-toast') || '').trim();
+          var toastUi2 = window.VeggieTokri || window.ApniTokri;
+          if (limitMsg2 && toastUi2 && toastUi2.toast) {
+            toastUi2.toast(limitMsg2, 'error');
+          }
+        }
+        return;
+      }
+      if (next === cur) {
+        return;
+      }
       $field.val(next).trigger('change');
     });
   }

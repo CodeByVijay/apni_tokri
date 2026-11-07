@@ -347,19 +347,30 @@
       var stock = parseInt($opt.data('stock'), 10);
       var low = parseInt($opt.data('low'), 10);
       var orderCap = parseInt($opt.data('order-cap'), 10);
+      var orderMin = parseInt($opt.data('order-min'), 10) || 1;
       if (!orderCap || orderCap < 0) {
         orderCap = Math.max(0, stock);
       }
+      if (orderCap > 0 && orderMin > orderCap) {
+        orderMin = orderCap;
+      }
       var $qty = $('#qty');
+      var $hint = $('#at-product-qty-hint');
       if ($qty.length) {
-        var capForInput = Math.max(orderCap, stock <= 0 ? 0 : 1);
         if (orderCap > 0) {
           $qty.attr('max', orderCap);
-          var cur = parseInt($qty.val(), 10) || 1;
+          $qty.attr('min', orderMin);
+          var cur = parseInt($qty.val(), 10) || orderMin;
           if (cur > orderCap) {
             $qty.val(orderCap);
+          } else if (cur < orderMin) {
+            $qty.val(orderMin);
           }
+          $qty.attr('data-pdp-min-toast', 'Minimum ' + orderMin + ' units required for this variant.');
         }
+      }
+      if ($hint.length) {
+        $hint.text(orderMin > 1 ? 'Minimum order: ' + orderMin + ' units.' : '');
       }
 
       $price.text('₹' + Math.round(price).toLocaleString('en-IN'));

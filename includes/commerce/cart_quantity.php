@@ -3,71 +3,106 @@
 declare(strict_types=1);
 
 /**
- * Sellable quantity caps: MIN(available stock, max per order).
+ * Sellable quantity bounds: min per order, max MIN(stock, max per order).
  */
 final class CartQuantityRules
 {
     public const DEFAULT_MAX_PER_ORDER = 20;
+    public const DEFAULT_MIN_PER_ORDER = 1;
 
-    /** @return array{ok: bool, message?: string, cap?: int} */
+    /** @return array{ok: bool, message?: string, cap?: int, min?: int} */
     public static function validateForVariantId(int $variantId, int $requestedQty): array
     {
-        if ($requestedQty <= 0) {
-            return ['ok' => false, 'message' => 'Quantity must be at least 1.', 'cap' => 0];
-        }
         $stock = InventoryService::availableQty($variantId);
-        $limit = self::maxPerOrderForVariantId($variantId);
-        $cap = self::capFromStockAndLimit($stock, $limit);
+        $max = self::maxPerOrderForVariantId($variantId);
+        $min = self::minPerOrderForVariantId($variantId);
+        $cap = self::capFromStockAndLimit($stock, $max);
 
-        return self::validateAgainstCapPublic($requestedQty, $stock, $limit, $cap);
+        return self::validateQuantityPublic($requestedQty, $stock, $max, $min, $cap);
     }
 
-    /** @return array{ok: bool, message?: string, cap?: int} */
+    /** @return array{ok: bool, message?: string, cap?: int, min?: int} */
     public static function validateForCatalogueVariant(array $variant, int $requestedQty): array
     {
-        if ($requestedQty <= 0) {
-            return ['ok' => false, 'message' => 'Quantity must be at least 1.', 'cap' => 0];
-        }
         $stock = max(0, (int) ($variant['stock'] ?? 0));
-        $limit = self::maxPerOrderFromCatalogueVariant($variant);
-        $cap = self::capFromStockAndLimit($stock, $limit);
+        $max = self::maxPerOrderFromCatalogueVariant($variant);
+        $min = self::minPerOrderFromCatalogueVariant($variant);
+        $cap = self::capFromStockAndLimit($stock, $max);
 
-        return self::validateAgainstCapPublic($requestedQty, $stock, $limit, $cap);
+        return self::validateQuantityPublic($requestedQty, $stock, $max, $min, $cap);
     }
 
     public static function orderableQty(int $variantId): int
     {
         $stock = InventoryService::availableQty($variantId);
-        $limit = self::maxPerOrderForVariantId($variantId);
+        $max = self::maxPerOrderForVariantId($variantId);
 
-        return self::capFromStockAndLimit($stock, $limit);
+        return self::capFromStockAndLimit($stock, $max);
     }
 
     public static function orderableQtyFromCatalogueVariant(array $variant): int
     {
         $stock = max(0, (int) ($variant['stock'] ?? 0));
-        $limit = self::maxPerOrderFromCatalogueVariant($variant);
+        $max = self::maxPerOrderFromCatalogueVariant($variant);
 
-        return self::capFromStockAndLimit($stock, $limit);
+        return self::capFromStockAndLimit($stock, $max);
+    }
+
+    public static function minPerOrderForVariantId(int $variantId): int
+    {
+        if ($variantId <= 0 || !Install::isSchemaReady()) {
+            return self::DEFAULT_MIN_PER_ORDER;
+        }
+        try {
+            Install::ensureConnection();
+            $stmt = Database::pdo()->prepare(
+                'SELECT min_qty_per_order FROM product_variants WHERE id = ? AND is_active = 1 LIMIT 1'
+            );
+            $stmt->execute([$variantId]);
+            $val = $stmt->fetchColumn();
+            if ($val === false) {
+                return self::DEFAULT_MIN_PER_ORDER;
+            }
+
+            return self::parseStoredMinPerOrder($val);
+        } catch (Throwable $e) {
+            return self::DEFAULT_MIN_PER_ORDER;
+        }
+    }
+
+    public static function minPerOrderFromCatalogueVariant(array $variant): int
+    {
+        if (!array_key_exists('min_qty_per_order', $variant)) {
+            return self::DEFAULT_MIN_PER_ORDER;
+        }
+
+        return self::parseStoredMinPerOrder($variant['min_qty_per_order']);
     }
 
     /**
      * Row-locked read for concurrent cart updates (persisted storefront).
      *
-     * @return array{stock: int, limit: ?int, cap: int}|null
+     * @return array{stock: int, limit: ?int, min: int, cap: int}|null
      */
     public static function lockedSellableCaps(PDO $pdo, int $variantId): ?array
     {
         $stmt = $pdo->prepare(
-            'SELECT stock_qty, max_qty_per_order, is_active FROM product_variants WHERE id = ? FOR UPDATE'
+            'SELECT stock_qty, max_qty_per_order, min_qty_per_order, is_active FROM product_variants WHERE id = ? FOR UPDATE'
         );
         try {
             $stmt->execute([$variantId]);
         } catch (Throwable $e) {
             $stmt = $pdo->prepare(
-                'SELECT stock_qty, is_active FROM product_variants WHERE id = ? FOR UPDATE'
+                'SELECT stock_qty, max_qty_per_order, is_active FROM product_variants WHERE id = ? FOR UPDATE'
             );
-            $stmt->execute([$variantId]);
+            try {
+                $stmt->execute([$variantId]);
+            } catch (Throwable $e2) {
+                $stmt = $pdo->prepare(
+                    'SELECT stock_qty, is_active FROM product_variants WHERE id = ? FOR UPDATE'
+                );
+                $stmt->execute([$variantId]);
+            }
         }
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$row || !(int) ($row['is_active'] ?? 0)) {
@@ -79,9 +114,12 @@ final class CartQuantityRules
         $limit = array_key_exists('max_qty_per_order', $row)
             ? self::parseStoredMaxPerOrder($row['max_qty_per_order'])
             : self::DEFAULT_MAX_PER_ORDER;
+        $min = array_key_exists('min_qty_per_order', $row)
+            ? self::parseStoredMinPerOrder($row['min_qty_per_order'])
+            : self::DEFAULT_MIN_PER_ORDER;
         $cap = self::capFromStockAndLimit($stock, $limit);
 
-        return ['stock' => $stock, 'limit' => $limit, 'cap' => $cap];
+        return ['stock' => $stock, 'limit' => $limit, 'min' => $min, 'cap' => $cap];
     }
 
     public static function maxPerOrderForVariantId(int $variantId): ?int
@@ -115,7 +153,6 @@ final class CartQuantityRules
         return self::parseStoredMaxPerOrder($variant['max_qty_per_order']);
     }
 
-    /** DB NULL or explicit 0 in catalogue export = unlimited per order. */
     private static function parseStoredMaxPerOrder(mixed $raw): ?int
     {
         if ($raw === null) {
@@ -129,7 +166,16 @@ final class CartQuantityRules
         return $n;
     }
 
-    /** @return int|null Positive limit, or null when unlimited. */
+    private static function parseStoredMinPerOrder(mixed $raw): int
+    {
+        $n = (int) $raw;
+        if ($n < 1) {
+            return self::DEFAULT_MIN_PER_ORDER;
+        }
+
+        return $n;
+    }
+
     public static function parseAdminMaxPerOrderInput(mixed $raw): ?int
     {
         $s = trim((string) $raw);
@@ -144,7 +190,6 @@ final class CartQuantityRules
         return $n;
     }
 
-    /** Default for new admin rows when the field is left blank. */
     public static function adminMaxPerOrderOrDefault(mixed $raw): ?int
     {
         $s = trim((string) $raw);
@@ -153,6 +198,20 @@ final class CartQuantityRules
         }
 
         return self::parseAdminMaxPerOrderInput($raw);
+    }
+
+    public static function adminMinPerOrderOrDefault(mixed $raw): int
+    {
+        $s = trim((string) $raw);
+        if ($s === '') {
+            return self::DEFAULT_MIN_PER_ORDER;
+        }
+        $n = (int) $s;
+        if ($n < 1) {
+            return self::DEFAULT_MIN_PER_ORDER;
+        }
+
+        return $n;
     }
 
     private static function capFromStockAndLimit(int $stock, ?int $limit): int
@@ -168,28 +227,116 @@ final class CartQuantityRules
     }
 
     /**
-     * @return array{ok: bool, message?: string, cap?: int}
+     * @return array{ok: bool, message?: string, cap?: int, min?: int}
      */
-    public static function validateAgainstCapPublic(int $requestedQty, int $stock, ?int $limit, int $cap): array
-    {
-        if ($cap <= 0) {
-            return ['ok' => false, 'message' => 'This item is currently out of stock.', 'cap' => 0];
-        }
-        if ($requestedQty <= $cap) {
-            return ['ok' => true, 'cap' => $cap];
-        }
-        if ($limit !== null && $stock >= $limit && $requestedQty > $limit) {
+    public static function validateQuantityPublic(
+        int $requestedQty,
+        int $stock,
+        ?int $maxLimit,
+        int $minQty,
+        int $cap
+    ): array {
+        $minQty = max(1, $minQty);
+        if ($cap > 0 && $minQty > $cap) {
             return [
                 'ok' => false,
-                'message' => 'Maximum ' . $limit . ' units allowed per order.',
+                'message' => self::minimumExceedsStockMessage($minQty, $cap),
                 'cap' => $cap,
+                'min' => $minQty,
+            ];
+        }
+        if ($cap <= 0) {
+            return ['ok' => false, 'message' => 'This item is currently out of stock.', 'cap' => 0, 'min' => $minQty];
+        }
+        if ($requestedQty < $minQty) {
+            return [
+                'ok' => false,
+                'message' => self::minimumRequiredMessage($minQty),
+                'cap' => $cap,
+                'min' => $minQty,
+            ];
+        }
+        if ($requestedQty <= $cap) {
+            return ['ok' => true, 'cap' => $cap, 'min' => $minQty];
+        }
+        if ($maxLimit !== null && $stock >= $maxLimit && $requestedQty > $maxLimit) {
+            return [
+                'ok' => false,
+                'message' => self::maximumPerOrderMessage($maxLimit),
+                'cap' => $cap,
+                'min' => $minQty,
             ];
         }
 
         return [
             'ok' => false,
-            'message' => 'Only ' . $cap . ' units are available.',
+            'message' => self::stockAvailabilityMessage($cap),
             'cap' => $cap,
+            'min' => $minQty,
         ];
+    }
+
+    /** @deprecated Use validateQuantityPublic via validateFor* */
+    public static function validateAgainstCapPublic(int $requestedQty, int $stock, ?int $limit, int $cap): array
+    {
+        return self::validateQuantityPublic($requestedQty, $stock, $limit, self::DEFAULT_MIN_PER_ORDER, $cap);
+    }
+
+    public static function minimumRequiredMessage(int $min): string
+    {
+        return 'Minimum ' . $min . ' units required for this variant.';
+    }
+
+    public static function maximumPerOrderMessage(int $limit): string
+    {
+        return 'Maximum ' . $limit . ' units allowed per order.';
+    }
+
+    public static function stockAvailabilityMessage(int $available): string
+    {
+        return 'Only ' . $available . ' units are available.';
+    }
+
+    public static function minimumExceedsStockMessage(int $min, int $available): string
+    {
+        return 'Minimum ' . $min . ' units is required, but only ' . $available . ' are available for this variant.';
+    }
+
+    /** Toast when customer tries to raise quantity above the sellable cap (cart + button). */
+    public static function cartIncreaseBlockedMessage(int $stock, ?int $limit, int $cap): string
+    {
+        if ($limit !== null && $stock >= $limit && $cap === $limit) {
+            return self::maximumPerOrderMessage($limit) . ' for this variant.';
+        }
+
+        return self::stockAvailabilityMessage($cap);
+    }
+
+    public static function cartDecreaseBlockedMessage(int $min): string
+    {
+        return self::minimumRequiredMessage($min);
+    }
+
+    /**
+     * Cart line validity when admin changes limits (do not auto-fix qty).
+     *
+     * @return array{ok: bool, message?: string}
+     */
+    public static function validateExistingCartLine(int $qtyInCart, int $stock, ?int $maxLimit, int $minQty): array
+    {
+        $check = self::validateQuantityPublic($qtyInCart, $stock, $maxLimit, $minQty, self::capFromStockAndLimit($stock, $maxLimit));
+        if ($check['ok']) {
+            return ['ok' => true];
+        }
+        $msg = (string) ($check['message'] ?? 'Update quantity for this item.');
+        if ($qtyInCart < $minQty) {
+            $msg .= ' Increase quantity or remove this item.';
+        } elseif ($qtyInCart > ($check['cap'] ?? 0)) {
+            $msg .= ' Reduce quantity or remove this item.';
+        } else {
+            $msg .= ' Please update or remove this item.';
+        }
+
+        return ['ok' => false, 'message' => $msg];
     }
 }

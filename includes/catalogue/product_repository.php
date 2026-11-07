@@ -474,6 +474,7 @@ final class ProductRepository
             $stock = max(0, (int) ($v['stock_qty'] ?? 0));
             $low = max(0, (int) ($v['low_stock_threshold'] ?? 5));
             $maxPer = CartQuantityRules::adminMaxPerOrderOrDefault($v['max_qty_per_order'] ?? '');
+            $minPer = CartQuantityRules::adminMinPerOrderOrDefault($v['min_qty_per_order'] ?? '');
             $active = !empty($v['is_active']) ? 1 : 0;
             $sort = (int) ($v['sort_order'] ?? $i);
 
@@ -481,8 +482,8 @@ final class ProductRepository
                 try {
                     $pdo->prepare(
                         'UPDATE product_variants SET name = ?, sku = ?, price = ?, sale_price = ?, stock_qty = ?,
-                         low_stock_threshold = ?, max_qty_per_order = ?, is_active = ?, sort_order = ?, updated_at = NOW() WHERE id = ? AND product_id = ?'
-                    )->execute([$vname, $sku !== '' ? $sku : null, $price, $sale, $stock, $low, $maxPer, $active, $sort, $vid, $productId]);
+                         low_stock_threshold = ?, max_qty_per_order = ?, min_qty_per_order = ?, is_active = ?, sort_order = ?, updated_at = NOW() WHERE id = ? AND product_id = ?'
+                    )->execute([$vname, $sku !== '' ? $sku : null, $price, $sale, $stock, $low, $maxPer, $minPer, $active, $sort, $vid, $productId]);
                 } catch (Throwable $e) {
                     $pdo->prepare(
                         'UPDATE product_variants SET name = ?, sku = ?, price = ?, sale_price = ?, stock_qty = ?,
@@ -493,9 +494,9 @@ final class ProductRepository
             } else {
                 try {
                     $pdo->prepare(
-                        'INSERT INTO product_variants (product_id, name, sku, price, sale_price, stock_qty, low_stock_threshold, max_qty_per_order, is_active, sort_order)
-                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-                    )->execute([$productId, $vname, $sku !== '' ? $sku : null, $price, $sale, $stock, $low, $maxPer, $active, $sort]);
+                        'INSERT INTO product_variants (product_id, name, sku, price, sale_price, stock_qty, low_stock_threshold, max_qty_per_order, min_qty_per_order, is_active, sort_order)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                    )->execute([$productId, $vname, $sku !== '' ? $sku : null, $price, $sale, $stock, $low, $maxPer, $minPer, $active, $sort]);
                 } catch (Throwable $e) {
                     $pdo->prepare(
                         'INSERT INTO product_variants (product_id, name, sku, price, sale_price, stock_qty, low_stock_threshold, is_active, sort_order)
@@ -623,6 +624,7 @@ final class ProductRepository
                 'stock' => (int) $v['stock_qty'],
                 'low_stock' => (int) $v['low_stock_threshold'],
                 'max_qty_per_order' => array_key_exists('max_qty_per_order', $v) ? $v['max_qty_per_order'] : CartQuantityRules::DEFAULT_MAX_PER_ORDER,
+                'min_qty_per_order' => array_key_exists('min_qty_per_order', $v) ? (int) $v['min_qty_per_order'] : CartQuantityRules::DEFAULT_MIN_PER_ORDER,
                 'sku' => (string) ($v['sku'] ?? ''),
             ];
         }

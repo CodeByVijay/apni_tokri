@@ -282,11 +282,11 @@ if ($errors !== []) {
                 <?php endif; ?>
                 <div class="at-admin-table-wrap">
                     <table class="at-admin-table at-admin-table--fixed">
-                        <thead><tr><th>Variant</th><th>SKU</th><th>Price (₹)</th><th>Sale</th><th>Stock</th><th>Low at</th><th>Max / order</th><th class="text-right"> </th></tr></thead>
+                        <thead><tr><th>Variant</th><th>SKU</th><th>Price (₹)</th><th>Sale</th><th>Stock</th><th>Low at</th><th>Min / order</th><th>Max / order</th><th class="text-right"> </th></tr></thead>
                         <tbody id="at-variant-rows">
                         <?php
                         if ($variants === []) {
-                            $variants = [['id' => '', 'name' => '', 'sku' => '', 'price' => '', 'sale_price' => null, 'stock_qty' => 0, 'low_stock_threshold' => 5, 'max_qty_per_order' => CartQuantityRules::DEFAULT_MAX_PER_ORDER]];
+                            $variants = [['id' => '', 'name' => '', 'sku' => '', 'price' => '', 'sale_price' => null, 'stock_qty' => 0, 'low_stock_threshold' => 5, 'min_qty_per_order' => CartQuantityRules::DEFAULT_MIN_PER_ORDER, 'max_qty_per_order' => CartQuantityRules::DEFAULT_MAX_PER_ORDER]];
                         }
                         foreach ($variants as $v) {
                             require APNI_TOKRI_ROOT . '/includes/partials/admin/product-variant-row.php';

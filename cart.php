@@ -43,6 +43,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
     $freeThreshold = 499; // demo threshold; server decides at checkout
     $toFree = (float) ($totals['amount_to_free_delivery'] ?? 0);
     $freePct = $toFree > 0 ? max(4, min(100, (int) round((1 - $toFree / $freeThreshold) * 100))) : 100;
+    $cartQtyBlocking = false;
     ?>
     <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_24rem] gap-6 lg:gap-10 items-start">
         <div class="min-w-0">
@@ -60,25 +61,48 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
 
             <ul class="grid gap-3">
                 <?php foreach ($items as $item):
-                    $lineCap = 1;
+                    $lineCap = 0;
+                    $stockAvail = 0;
+                    $orderLimit = CartQuantityRules::DEFAULT_MAX_PER_ORDER;
+                    $lineMin = CartQuantityRules::DEFAULT_MIN_PER_ORDER;
                     $vid = (int) ($item['variant_id'] ?? 0);
                     if ($vid > 0 && AppEnvironment::usePersistedStorefront()) {
-                        $lineCap = max(1, CartQuantityRules::orderableQty($vid));
+                        $stockAvail = InventoryService::availableQty($vid);
+                        $orderLimit = CartQuantityRules::maxPerOrderForVariantId($vid);
+                        $lineMin = CartQuantityRules::minPerOrderForVariantId($vid);
+                        $lineCap = CartQuantityRules::orderableQty($vid);
                     } else {
                         $p = app_catalogue()->product((string) ($item['product_slug'] ?? ''));
                         if ($p !== null) {
                             foreach ($p['variants'] ?? [] as $pv) {
                                 if ((string) ($pv['id'] ?? '') === (string) ($item['variant_id'] ?? '')) {
-                                    $lineCap = max(1, CartQuantityRules::orderableQtyFromCatalogueVariant($pv));
+                                    $stockAvail = max(0, (int) ($pv['stock'] ?? 0));
+                                    $orderLimit = CartQuantityRules::maxPerOrderFromCatalogueVariant($pv);
+                                    $lineMin = CartQuantityRules::minPerOrderFromCatalogueVariant($pv);
+                                    $lineCap = CartQuantityRules::orderableQtyFromCatalogueVariant($pv);
                                     break;
                                 }
                             }
                         }
                     }
-                    $selQty = min((int) ($item['qty'] ?? 1), max(1, $lineCap));
-                    $lineCap = max(1, $lineCap);
+                    $lineCap = max(0, $lineCap);
+                    $lineCheck = CartQuantityRules::validateExistingCartLine(
+                        (int) ($item['qty'] ?? 0),
+                        $stockAvail,
+                        $orderLimit,
+                        $lineMin
+                    );
+                    if (!$lineCheck['ok']) {
+                        $cartQtyBlocking = true;
+                    }
+                    $qtyLimitToast = CartQuantityRules::cartIncreaseBlockedMessage($stockAvail, $orderLimit, max(1, $lineCap));
+                    $qtyDecreaseToast = CartQuantityRules::cartDecreaseBlockedMessage($lineMin);
+                    $displayCap = max($lineMin, max(1, $lineCap));
+                    $displayMin = min($lineMin, $displayCap);
+                    $selQty = (int) ($item['qty'] ?? 1);
+                    $rangeStart = $selQty < $displayMin ? max(1, $selQty) : $displayMin;
                     ?>
-                    <li class="at-line-item" data-line-key="<?= Security::escape((string) $item['line_key']) ?>" data-unit-price="<?= Security::escape((string) (float) $item['unit_price']) ?>" data-qty-cap="<?= (int) $lineCap ?>">
+                    <li class="at-line-item" data-line-key="<?= Security::escape((string) $item['line_key']) ?>" data-unit-price="<?= Security::escape((string) (float) $item['unit_price']) ?>" data-qty-cap="<?= (int) $displayCap ?>" data-qty-min="<?= (int) $displayMin ?>" data-qty-limit-toast="<?= Security::escape($qtyLimitToast) ?>" data-qty-decrease-toast="<?= Security::escape($qtyDecreaseToast) ?>">
                         <a href="<?= Security::escape(url_base()) ?>/product.php?slug=<?= rawurlencode((string) $item['product_slug']) ?>" class="at-line-item__img at-focusable" tabindex="-1" aria-hidden="true">
                             <?php if (!empty($item['image'])): ?><img src="<?= Security::escape((string) $item['image']) ?>" alt="" loading="lazy"><?php endif; ?>
                         </a>
@@ -86,11 +110,14 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
                             <a href="<?= Security::escape(url_base()) ?>/product.php?slug=<?= rawurlencode((string) $item['product_slug']) ?>" class="font-bold hover:text-[var(--at-green)] at-focusable"><?= Security::escape((string) $item['name']) ?></a>
                             <p class="text-sm at-muted"><?= Security::escape((string) $item['label']) ?></p>
                             <p class="text-sm mt-1"><?= Security::escape(catalogue_format_price((float) $item['unit_price'])) ?> each</p>
+                            <?php if (!$lineCheck['ok']): ?>
+                                <p class="text-sm text-red-600 mt-2" role="alert"><?= Security::escape((string) ($lineCheck['message'] ?? '')) ?></p>
+                            <?php endif; ?>
                             <div class="flex flex-wrap items-center gap-3 mt-3">
                                 <div class="at-qty at-qty--sm">
                                     <button type="button" data-qty-step="-1" aria-label="Decrease quantity">−</button>
-                                    <select class="at-focusable js-cart-qty" aria-label="Quantity" min="1" max="<?= (int) $lineCap ?>">
-                                        <?php for ($q = 1; $q <= $lineCap; $q++): ?>
+                                    <select class="at-focusable js-cart-qty" aria-label="Quantity" min="<?= (int) $displayMin ?>" max="<?= (int) $displayCap ?>">
+                                        <?php for ($q = $rangeStart; $q <= $displayCap; $q++): ?>
                                             <option value="<?= $q ?>" <?= $selQty === $q ? 'selected' : '' ?>><?= $q ?></option>
                                         <?php endfor; ?>
                                     </select>
@@ -139,7 +166,10 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
 
         <aside class="at-summary">
             <?php require APNI_TOKRI_ROOT . '/includes/partials/cart-summary.php'; ?>
-            <a href="<?= Security::escape(url_base()) ?>/checkout.php" class="at-btn at-btn--primary at-btn--lg at-btn--block at-focusable mt-4">Proceed to checkout <?= at_icon('arrow-right', 'w-5 h-5') ?></a>
+            <?php if ($cartQtyBlocking): ?>
+                <p class="text-sm text-red-600 mb-3" role="alert">Fix quantity issues above before checkout.</p>
+            <?php endif; ?>
+            <a href="<?= $cartQtyBlocking ? '#' : Security::escape(url_base()) . '/checkout.php' ?>" class="at-btn at-btn--primary at-btn--lg at-btn--block at-focusable mt-4 <?= $cartQtyBlocking ? 'pointer-events-none opacity-50' : '' ?>" <?= $cartQtyBlocking ? 'aria-disabled="true"' : '' ?>>Proceed to checkout <?= at_icon('arrow-right', 'w-5 h-5') ?></a>
             <a href="<?= Security::escape(url_base()) ?>/index.php" class="at-btn at-btn--ghost at-btn--block at-focusable mt-2">Continue shopping</a>
         </aside>
     </div>
@@ -148,7 +178,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
             <p class="text-xs at-muted leading-tight">Total</p>
             <p class="font-extrabold text-lg leading-tight" data-cart-total><?= Security::escape(catalogue_format_price((float) $totals['total'])) ?></p>
         </div>
-        <a href="<?= Security::escape(url_base()) ?>/checkout.php" class="at-btn at-btn--primary at-focusable at-cart-sticky__cta">Checkout <?= at_icon('arrow-right', 'w-5 h-5') ?></a>
+        <a href="<?= $cartQtyBlocking ? '#' : Security::escape(url_base()) . '/checkout.php' ?>" class="at-btn at-btn--primary at-focusable at-cart-sticky__cta <?= $cartQtyBlocking ? 'pointer-events-none opacity-50' : '' ?>" <?= $cartQtyBlocking ? 'aria-disabled="true"' : '' ?>>Checkout <?= at_icon('arrow-right', 'w-5 h-5') ?></a>
     </div>
 <?php endif; ?>
 </div>

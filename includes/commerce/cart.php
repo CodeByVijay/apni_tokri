@@ -401,10 +401,11 @@ final class CartService
                 $exist->execute([$cartId, $vid]);
                 $row = $exist->fetch(PDO::FETCH_ASSOC);
                 $targetQty = $row ? (int) $row['quantity'] + $qty : $qty;
-                $check = CartQuantityRules::validateAgainstCapPublic(
+                $check = CartQuantityRules::validateQuantityPublic(
                     $targetQty,
                     $caps['stock'],
                     $caps['limit'],
+                    $caps['min'],
                     $caps['cap']
                 );
                 if (!$check['ok']) {
@@ -458,10 +459,11 @@ final class CartService
                 if ($caps === null) {
                     return ['ok' => false, 'message' => 'This item is currently out of stock.'];
                 }
-                $check = CartQuantityRules::validateAgainstCapPublic(
+                $check = CartQuantityRules::validateQuantityPublic(
                     $qty,
                     $caps['stock'],
                     $caps['limit'],
+                    $caps['min'],
                     $caps['cap']
                 );
                 if (!$check['ok']) {

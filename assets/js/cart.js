@@ -300,8 +300,31 @@
     $('.js-cart-qty').on('change', function () {
       var $row = $(this).closest('[data-line-key]');
       var prevQty = $(this).data('prev-qty');
-      postCartLine('update', $row.data('line-key'), { qty: $(this).val() }, $row, prevQty);
-      $(this).data('prev-qty', $(this).val());
+      var nextQty = $(this).val();
+      if (prevQty !== undefined && String(nextQty) === String(prevQty)) {
+        return;
+      }
+      var cap = parseInt($row.data('qty-cap'), 10) || parseInt($(this).attr('max'), 10) || 0;
+      var floor = parseInt($row.data('qty-min'), 10) || parseInt($(this).attr('min'), 10) || 1;
+      var requested = parseInt(nextQty, 10) || floor;
+      if (requested < floor) {
+        var minMsg = String($row.attr('data-qty-decrease-toast') || '').trim();
+        if (minMsg) {
+          toast(minMsg, 'error');
+        }
+        $(this).val(prevQty !== undefined ? prevQty : floor);
+        return;
+      }
+      if (cap > 0 && requested > cap) {
+        var limitMsg = String($row.attr('data-qty-limit-toast') || '').trim();
+        if (limitMsg) {
+          toast(limitMsg, 'error');
+        }
+        $(this).val(prevQty !== undefined ? prevQty : cap);
+        return;
+      }
+      postCartLine('update', $row.data('line-key'), { qty: nextQty }, $row, prevQty);
+      $(this).data('prev-qty', nextQty);
     });
 
     $('.js-cart-remove').on('click', function () {

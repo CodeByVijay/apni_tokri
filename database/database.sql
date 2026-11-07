@@ -204,6 +204,7 @@ CREATE TABLE IF NOT EXISTS `product_variants` (
   `stock_qty` INT NOT NULL DEFAULT 0,
   `low_stock_threshold` INT NOT NULL DEFAULT 5,
   `max_qty_per_order` INT NULL DEFAULT 20 COMMENT 'Max units per order; NULL = unlimited',
+  `min_qty_per_order` INT NOT NULL DEFAULT 1 COMMENT 'Minimum units per order',
   `is_active` TINYINT(1) NOT NULL DEFAULT 1,
   `sort_order` INT NOT NULL DEFAULT 0,
   `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
