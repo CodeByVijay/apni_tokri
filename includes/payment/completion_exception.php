@@ -266,6 +266,22 @@ final class PaymentCompletionExceptionService
         }
     }
 
+    /** @return array<string, mixed>|null */
+    public static function openForOrderId(int $orderId): ?array
+    {
+        if ($orderId <= 0 || !self::tableReady()) {
+            return null;
+        }
+        Install::ensureConnection();
+        $stmt = Database::pdo()->prepare(
+            'SELECT * FROM payment_completion_exceptions WHERE order_id = ? AND status = ? ORDER BY id DESC LIMIT 1'
+        );
+        $stmt->execute([$orderId, self::STATUS_OPEN]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        return $row ?: null;
+    }
+
     /** @return list<array<string, mixed>> */
     public static function listOpen(int $limit = 100): array
     {

@@ -146,6 +146,13 @@ if ($gateway === 'cashfree') {
     if (($result['state'] ?? '') === 'pending') {
         Ajax::success(['pending' => true, 'message' => $result['message'] ?? 'Payment still pending.']);
     }
+    if (($result['state'] ?? '') === 'reconciliation') {
+        Ajax::success([
+            'pending' => true,
+            'reconciliation' => true,
+            'message' => $result['message'] ?? 'Payment received; order confirmation is still pending.',
+        ]);
+    }
     Ajax::error($result['message'] ?? 'Payment not confirmed yet.');
 }
 

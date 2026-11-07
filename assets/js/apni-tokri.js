@@ -612,7 +612,7 @@
       }, 50);
     }
 
-    if (cfg.autoLaunchGateway) {
+    if (cfg.autoLaunchGateway && !cfg.fulfilmentReconciliation) {
       if (cfg.gatewayMode === 'cashfree') {
         var $cfAuto = $('#at-cashfree-pay');
         if ($cfAuto.length) {
@@ -628,11 +628,12 @@
 
     function cashfreeSyncStatus($btn) {
       var $pay = $('#at-cashfree-pay');
+      var $recon = $('#at-payment-reconciliation-check');
       var payload = {
         _csrf_token: csrf,
-        gateway: 'cashfree',
-        order_number: $pay.data('order-number') || '',
-        idempotency_key: $pay.data('idempotency') || ''
+        gateway: ($recon.length ? ($recon.data('gateway') || 'cashfree') : 'cashfree'),
+        order_number: $pay.data('order-number') || $recon.data('order-number') || '',
+        idempotency_key: $pay.data('idempotency') || $recon.data('idempotency') || ''
       };
       if (!payload.order_number || !payload.idempotency_key) {
         alert('Payment session unavailable.');
@@ -647,7 +648,11 @@
           return;
         }
         if (res && res.success && res.data && res.data.pending) {
-          alert(res.data.message || 'Payment is still processing.');
+          var pendingMsg = res.data.message || 'Payment is still processing.';
+          if ($('#at-pay-status').length) {
+            $('#at-pay-status').text(pendingMsg);
+          }
+          alert(pendingMsg);
           return;
         }
         alert((res && res.error && res.error.message) || 'Payment not confirmed yet.');

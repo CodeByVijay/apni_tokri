@@ -398,6 +398,13 @@ final class PaymentService
         if (!self::customerCanRetryStorefrontPayment($order)) {
             return ['ok' => false, 'error' => 'This order is not eligible for payment.', 'order' => $order];
         }
+        if (self::storefrontFulfilmentReconciliationContext((int) $order['id']) !== null) {
+            return [
+                'ok' => false,
+                'error' => 'Payment was already received. Confirmation is pending — use Check payment status or contact support.',
+                'order' => $order,
+            ];
+        }
 
         if ($freshAttempt) {
             $pendingAuto = !empty($_SESSION['checkout_payment_autolaunch'][$orderNumber]);
@@ -484,6 +491,10 @@ final class PaymentService
     public static function customerCanRetryStorefrontPayment(array $orderRow): bool
     {
         if ((string) ($orderRow['payment_status'] ?? '') === 'paid') {
+            return false;
+        }
+        $orderId = (int) ($orderRow['id'] ?? 0);
+        if ($orderId > 0 && self::storefrontFulfilmentReconciliationContext($orderId) !== null) {
             return false;
         }
         $status = (string) ($orderRow['status'] ?? '');
@@ -641,6 +652,8 @@ final class PaymentService
             );
             if (!$result['ok']) {
                 if (!empty($result['reconciliation'])) {
+                    self::clearStorefrontCheckoutSession($orderNumber);
+
                     return [
                         'ok' => false,
                         'state' => 'reconciliation',
@@ -822,12 +835,88 @@ final class PaymentService
      * @param array<string, mixed>|null $paymentBefore
      * @param array<string, mixed>|null $paymentAfter
      */
+    public static function clearStorefrontCheckoutSession(string $orderNumber): void
+    {
+        self::clearCheckoutPaymentSession($orderNumber);
+        if (PHP_SAPI !== 'cli' && isset($_SESSION) && is_array($_SESSION)) {
+            unset($_SESSION['checkout_payment_autolaunch'][$orderNumber]);
+        }
+    }
+
     private static function clearCheckoutPaymentSession(string $orderNumber): void
     {
         if (PHP_SAPI === 'cli' || !isset($_SESSION) || !is_array($_SESSION)) {
             return;
         }
         unset($_SESSION['checkout_payment'][$orderNumber]);
+    }
+
+    /**
+     * Gateway captured funds but order fulfilment did not complete (open exception or reconciliation_required payment).
+     *
+     * @return array{
+     *     customer_message: string,
+     *     idempotency_key: string,
+     *     gateway: string,
+     *     failure_reason?: string,
+     *     failure_category?: string
+     * }|null
+     */
+    public static function storefrontFulfilmentReconciliationContext(int $orderId): ?array
+    {
+        if ($orderId <= 0 || !Install::isSchemaReady()) {
+            return null;
+        }
+        Install::ensureConnection();
+        $pdo = Database::pdo();
+        $payStmt = $pdo->prepare(
+            "SELECT * FROM payments WHERE order_id = ? AND status = 'reconciliation_required' ORDER BY id DESC LIMIT 1"
+        );
+        $payStmt->execute([$orderId]);
+        $payRow = $payStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+        $exception = PaymentCompletionExceptionService::openForOrderId($orderId);
+        if ($payRow === null && $exception === null) {
+            return null;
+        }
+        $idempotency = '';
+        if ($payRow !== null) {
+            $idempotency = (string) ($payRow['idempotency_key'] ?? '');
+        }
+        if ($idempotency === '' && $exception !== null && isset($exception['payment_id'])) {
+            $pid = (int) $exception['payment_id'];
+            if ($pid > 0) {
+                $p2 = $pdo->prepare('SELECT idempotency_key FROM payments WHERE id = ? LIMIT 1');
+                $p2->execute([$pid]);
+                $idempotency = (string) ($p2->fetchColumn() ?: '');
+            }
+        }
+        $gateway = (string) ($payRow['gateway'] ?? $exception['gateway'] ?? 'cashfree');
+
+        $category = $exception !== null ? (string) ($exception['failure_category'] ?? '') : '';
+        $customerMessage = 'Payment received — order confirmation pending. Our team is completing your order; you will not be charged again.';
+        if ($category === PaymentCompletionExceptionService::CATEGORY_DELIVERY) {
+            $customerMessage = 'Payment received — we are arranging your delivery slot. You will not be charged again.';
+        }
+
+        return [
+            'customer_message' => $customerMessage,
+            'idempotency_key' => $idempotency,
+            'gateway' => $gateway,
+            'failure_reason' => $exception !== null ? (string) ($exception['failure_reason'] ?? '') : '',
+            'failure_category' => $category,
+        ];
+    }
+
+    public static function paymentAttemptStatusLabel(string $status): string
+    {
+        return match ($status) {
+            'captured' => 'Captured',
+            'reconciliation_required' => 'Payment captured — reconciliation required',
+            'created', 'pending', 'authorized' => 'Pending',
+            'failed' => 'Failed',
+            'refunded' => 'Refunded',
+            default => $status !== '' ? ucwords(str_replace('_', ' ', $status)) : '—',
+        };
     }
 
     /**

@@ -17,6 +17,7 @@ $orderNumber = isset($_GET['order']) && is_string($_GET['order']) ? trim($_GET['
 $error = '';
 $info = '';
 $checkout = null;
+$fulfilmentReconciliation = null;
 
 if ($orderNumber === '' || !CommerceGateway::useDatabase()) {
     header('Location: ' . url_base() . '/checkout.php', true, 302);
@@ -46,12 +47,19 @@ if ((string) $order['payment_status'] === 'paid') {
     exit;
 }
 
+$orderId = (int) $order['id'];
+$fulfilmentReconciliation = PaymentService::storefrontFulfilmentReconciliationContext($orderId);
+
 if (isset($_GET['retry']) && (string) $_GET['retry'] === '1') {
+    if ($fulfilmentReconciliation !== null) {
+        header('Location: ' . url_base() . '/payment.php?order=' . rawurlencode($orderNumber), true, 302);
+        exit;
+    }
     unset($_SESSION['checkout_payment'][$orderNumber]);
     $_SESSION['checkout_payment_autolaunch'][$orderNumber] = true;
 }
 
-$latestPayment = PaymentRepository::latestPaymentForOrder((int) $order['id']);
+$latestPayment = PaymentRepository::latestPaymentForOrder($orderId);
 $cashfreeActive = PaymentGatewayConfig::activeGateway() === 'cashfree' && !PaymentGatewayConfig::useSimulatedCheckout();
 if ($cashfreeActive || PaymentService::hasOpenCashfreePayment($latestPayment)) {
     $sync = PaymentService::syncCashfreeOrderPayment($orderNumber, $customerId);
@@ -64,7 +72,15 @@ if ($cashfreeActive || PaymentService::hasOpenCashfreePayment($latestPayment)) {
         exit;
     }
     if (($sync['state'] ?? '') === 'reconciliation') {
-        $error = (string) ($sync['message'] ?? 'Payment received; fulfilment pending.');
+        PaymentService::clearStorefrontCheckoutSession($orderNumber);
+        $fulfilmentReconciliation = PaymentService::storefrontFulfilmentReconciliationContext($orderId)
+            ?? [
+                'customer_message' => 'Payment received — order confirmation pending. Our team is completing your order; you will not be charged again.',
+                'idempotency_key' => is_array($latestPayment) ? (string) ($latestPayment['idempotency_key'] ?? '') : '',
+                'gateway' => 'cashfree',
+                'failure_reason' => (string) ($sync['message'] ?? ''),
+                'failure_category' => '',
+            ];
     } elseif (($sync['state'] ?? '') === 'error') {
         $error = (string) ($sync['message'] ?? 'Could not verify payment status.');
     } elseif (($sync['state'] ?? '') === 'pending') {
@@ -75,32 +91,38 @@ if ($cashfreeActive || PaymentService::hasOpenCashfreePayment($latestPayment)) {
         header('Location: ' . url_base() . '/order.php?id=' . rawurlencode($orderNumber), true, 302);
         exit;
     }
-    $latestPayment = PaymentRepository::latestPaymentForOrder((int) $order['id']);
+    $latestPayment = PaymentRepository::latestPaymentForOrder($orderId);
+    $fulfilmentReconciliation = PaymentService::storefrontFulfilmentReconciliationContext($orderId) ?? $fulfilmentReconciliation;
 }
 
-$checkout = $_SESSION['checkout_payment'][$orderNumber] ?? null;
-if ($checkout === null || !is_array($checkout)) {
-    if (PaymentService::hasOpenCashfreePayment($latestPayment) && is_array($latestPayment)) {
-        $resume = PaymentService::resumeCashfreeCheckout($orderNumber, $latestPayment);
-        if (!$resume['ok']) {
-            $error = $resume['error'] ?? 'Could not resume Cashfree payment.';
-        } else {
-            $checkout = $resume['checkout'] ?? [];
-            $_SESSION['checkout_payment'][$orderNumber] = $checkout;
-        }
-    } elseif ($latestPayment === null || (string) ($latestPayment['status'] ?? '') === 'failed') {
-        $mobile = (string) (CustomerService::profile()['mobile'] ?? '');
-        $init = PaymentService::initiateForOrder(
-            (int) $order['id'],
-            $orderNumber,
-            (float) $order['grand_total'],
-            $mobile
-        );
-        if (!$init['ok']) {
-            $error = $init['error'] ?? 'Could not start payment.';
-        } else {
-            $checkout = $init['checkout'] ?? [];
-            $_SESSION['checkout_payment'][$orderNumber] = $checkout;
+if ($fulfilmentReconciliation !== null) {
+    PaymentService::clearStorefrontCheckoutSession($orderNumber);
+    $checkout = null;
+} else {
+    $checkout = $_SESSION['checkout_payment'][$orderNumber] ?? null;
+    if ($checkout === null || !is_array($checkout)) {
+        if (PaymentService::hasOpenCashfreePayment($latestPayment) && is_array($latestPayment)) {
+            $resume = PaymentService::resumeCashfreeCheckout($orderNumber, $latestPayment);
+            if (!$resume['ok']) {
+                $error = $resume['error'] ?? 'Could not resume Cashfree payment.';
+            } else {
+                $checkout = $resume['checkout'] ?? [];
+                $_SESSION['checkout_payment'][$orderNumber] = $checkout;
+            }
+        } elseif ($latestPayment === null || (string) ($latestPayment['status'] ?? '') === 'failed') {
+            $mobile = (string) (CustomerService::profile()['mobile'] ?? '');
+            $init = PaymentService::initiateForOrder(
+                $orderId,
+                $orderNumber,
+                (float) $order['grand_total'],
+                $mobile
+            );
+            if (!$init['ok']) {
+                $error = $init['error'] ?? 'Could not start payment.';
+            } else {
+                $checkout = $init['checkout'] ?? [];
+                $_SESSION['checkout_payment'][$orderNumber] = $checkout;
+            }
         }
     }
 }
@@ -127,9 +149,9 @@ if ($orderEnvironmentBadge === null && $mode !== 'simulate') {
     }
 }
 $payReference = is_array($checkout) ? (string) ($checkout['reference_id'] ?? '') : '';
-$canRetry = $error !== '' && (string) ($order['payment_status'] ?? '') !== 'paid';
+$canRetry = $error !== '' && $fulfilmentReconciliation === null && (string) ($order['payment_status'] ?? '') !== 'paid';
 $autoLaunchGatewayCheckout = false;
-if ($error === '' && is_array($checkout) && !empty($_SESSION['checkout_payment_autolaunch'][$orderNumber])) {
+if ($fulfilmentReconciliation === null && $error === '' && is_array($checkout) && !empty($_SESSION['checkout_payment_autolaunch'][$orderNumber])) {
     $gatewayCheckoutReady = ($mode === 'cashfree' && (string) ($checkout['payment_session_id'] ?? '') !== '')
         || ($mode === 'razorpay' && (string) ($checkout['gateway_order_id'] ?? '') !== '');
     if ($gatewayCheckoutReady) {
@@ -137,16 +159,21 @@ if ($error === '' && is_array($checkout) && !empty($_SESSION['checkout_payment_a
         unset($_SESSION['checkout_payment_autolaunch'][$orderNumber]);
     }
 }
-$gatewayResumeManual = in_array($mode, ['cashfree', 'razorpay'], true) && is_array($checkout) && !$autoLaunchGatewayCheckout && $error === '';
+$gatewayResumeManual = $fulfilmentReconciliation === null
+    && in_array($mode, ['cashfree', 'razorpay'], true)
+    && is_array($checkout)
+    && !$autoLaunchGatewayCheckout
+    && $error === '';
+$showGatewayCheckout = $fulfilmentReconciliation === null && is_array($checkout);
 
 layout_public_start([
     'pageTitle' => 'Pay for order — Veggie Tokri',
     'activeNav' => 'cart',
     'showBottomNav' => false,
 ]);
-if ($mode === 'razorpay'): ?>
+if ($showGatewayCheckout && $mode === 'razorpay'): ?>
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-<?php elseif ($mode === 'cashfree'): ?>
+<?php elseif ($showGatewayCheckout && $mode === 'cashfree'): ?>
 <script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
 <?php endif;
 ?>
@@ -154,7 +181,12 @@ if ($mode === 'razorpay'): ?>
     <h1 class="at-h1">Complete payment</h1>
     <p class="at-muted mt-1">Order <span class="font-mono font-bold"><?= Security::escape($orderNumber) ?></span><?php require APNI_TOKRI_ROOT . '/includes/partials/order-environment-badge.php'; ?></p>
 
-    <?php if ($error !== ''): ?>
+    <?php if ($fulfilmentReconciliation !== null): ?>
+        <div class="at-alert at-alert--info mt-4" role="status">
+            <p class="font-bold"><?= Security::escape((string) $fulfilmentReconciliation['customer_message']) ?></p>
+            <p class="text-sm mt-2 at-muted">If this page opened after paying, do not pay again. Use <strong>Check payment status</strong> below or open your order from My orders.</p>
+        </div>
+    <?php elseif ($error !== ''): ?>
         <div class="at-alert at-alert--error mt-4" role="alert">
             <span><?= Security::escape($error) ?></span>
             <?php if ($canRetry): ?>
@@ -183,13 +215,28 @@ if ($mode === 'razorpay'): ?>
                 <?php endif; ?>
             </div>
 
-            <?php if ($mode === 'simulate' && is_array($checkout) && PaymentGatewayConfig::useSimulatedCheckout()): ?>
+            <?php if ($fulfilmentReconciliation !== null): ?>
+                <p class="text-sm at-muted" id="at-pay-status" aria-live="polite">We are confirming your payment with our systems. This usually takes a short time.</p>
+                <div id="at-payment-reconciliation-check" class="hidden"
+                     data-order-number="<?= Security::escape($orderNumber) ?>"
+                     data-idempotency="<?= Security::escape((string) ($fulfilmentReconciliation['idempotency_key'] ?? '')) ?>"
+                     data-gateway="<?= Security::escape((string) ($fulfilmentReconciliation['gateway'] ?? 'cashfree')) ?>"></div>
+                <button type="button" id="at-cashfree-refresh" class="at-btn at-btn--primary at-focusable at-btn--block">
+                    Check payment status
+                </button>
+                <a href="<?= Security::escape(url_base()) ?>/order-details.php?id=<?= rawurlencode($orderNumber) ?>" class="at-btn at-btn--secondary at-focusable at-btn--block text-center">
+                    View order details
+                </a>
+                <a href="<?= Security::escape(url_base()) ?>/support.php?order=<?= rawurlencode($orderNumber) ?>" class="at-btn at-btn--ghost at-focusable at-btn--block text-center">
+                    Contact support
+                </a>
+            <?php elseif ($mode === 'simulate' && is_array($checkout) && PaymentGatewayConfig::useSimulatedCheckout()): ?>
                 <p class="text-sm at-muted">Simulated gateway (Stage 9). Payment is confirmed only after server verification — not from the browser alone.</p>
                 <div class="flex flex-col sm:flex-row gap-3" id="at-pay-simulate" data-order="<?= Security::escape($orderNumber) ?>" data-token="<?= Security::escape((string) ($checkout['token'] ?? '')) ?>" data-idempotency="<?= Security::escape((string) ($checkout['idempotency_key'] ?? '')) ?>">
                     <button type="button" class="at-btn at-btn--primary at-btn--lg at-focusable flex-1" data-outcome="success"><?= at_icon('lock', 'w-5 h-5') ?> Pay (simulated success)</button>
                     <button type="button" class="at-btn at-btn--secondary at-focusable" data-outcome="fail">Simulate failure</button>
                 </div>
-            <?php elseif ($mode === 'razorpay' && is_array($checkout)): ?>
+            <?php elseif ($showGatewayCheckout && $mode === 'razorpay'): ?>
                 <p class="text-sm at-muted" id="at-pay-status" aria-live="polite"><?= $autoLaunchGatewayCheckout ? 'Opening secure Razorpay checkout…' : ($gatewayResumeManual ? 'Payment not completed yet. Continue to Razorpay below.' : 'Preparing Razorpay…') ?></p>
                 <button type="button" id="at-razorpay-pay" class="at-btn at-btn--primary at-btn--lg at-focusable at-btn--block<?= $autoLaunchGatewayCheckout ? ' hidden' : '' ?>"
                     data-key-id="<?= Security::escape((string) ($checkout['key_id'] ?? '')) ?>"
@@ -201,7 +248,7 @@ if ($mode === 'razorpay'): ?>
                     data-customer-mobile="<?= Security::escape((string) (CustomerService::profile()['mobile'] ?? '')) ?>">
                     <?= $gatewayResumeManual ? 'Continue to Razorpay' : 'Pay with Razorpay' ?>
                 </button>
-            <?php elseif ($mode === 'cashfree' && is_array($checkout)): ?>
+            <?php elseif ($showGatewayCheckout && $mode === 'cashfree'): ?>
                 <p class="text-sm at-muted" id="at-pay-status" aria-live="polite"><?= $autoLaunchGatewayCheckout ? 'Opening secure Cashfree checkout…' : ($gatewayResumeManual ? 'Payment not completed yet. Continue to Cashfree or refresh status below.' : 'Preparing Cashfree…') ?></p>
                 <button type="button" id="at-cashfree-pay" class="at-btn at-btn--primary at-btn--lg at-focusable at-btn--block<?= $autoLaunchGatewayCheckout ? ' hidden' : '' ?>"
                     data-session="<?= Security::escape((string) ($checkout['payment_session_id'] ?? '')) ?>"
@@ -227,7 +274,8 @@ window.AT_PAYMENT = {
     paymentFailedUrl: <?= json_encode(url_base() . '/payment-failed.php?order=' . rawurlencode($orderNumber), JSON_THROW_ON_ERROR) ?>,
     cashfreeMode: <?= json_encode($cashfreeTestMode ? 'sandbox' : 'production', JSON_THROW_ON_ERROR) ?>,
     autoLaunchGateway: <?= $autoLaunchGatewayCheckout ? 'true' : 'false' ?>,
-    gatewayMode: <?= json_encode($mode, JSON_THROW_ON_ERROR) ?>
+    gatewayMode: <?= json_encode($mode, JSON_THROW_ON_ERROR) ?>,
+    fulfilmentReconciliation: <?= $fulfilmentReconciliation !== null ? 'true' : 'false' ?>
 };
 </script>
 <?php layout_public_end(); ?>

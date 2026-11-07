@@ -71,6 +71,23 @@ final class CustomerOrderDetailService
         PDO $pdo,
         int $orderId
     ): array {
+        $reconCtx = PaymentService::storefrontFulfilmentReconciliationContext($orderId);
+        if ($reconCtx !== null) {
+            $explanation = (string) ($reconCtx['customer_message'] ?? '');
+            if (($reconCtx['failure_category'] ?? '') === PaymentCompletionExceptionService::CATEGORY_DELIVERY) {
+                $explanation = 'Your payment was successful. Our team is arranging a delivery slot for your order. You do not need to pay again.';
+            }
+
+            return [
+                'status' => $resolvedStatus,
+                'title' => 'Payment received',
+                'explanation' => $explanation,
+                'icon' => 'clock',
+                'when_label' => !empty($orderRow['delivery_date']) ? 'Requested delivery' : null,
+                'when_value' => !empty($orderRow['delivery_date']) ? (string) $orderRow['delivery_date'] : null,
+                'refund_note' => null,
+            ];
+        }
         $title = ucwords(str_replace('_', ' ', $resolvedStatus));
         $explanation = self::customerStatusExplanation($resolvedStatus, $delivery, $orderRow);
         $icon = self::customerStatusIcon($resolvedStatus);
@@ -182,6 +199,11 @@ final class CustomerOrderDetailService
     {
         $status = (string) ($orderRow['status'] ?? '');
         $paymentStatus = (string) ($orderRow['payment_status'] ?? '');
+        $orderIdLocal = (int) ($orderRow['id'] ?? 0);
+        $paymentStatusLabel = self::orderPaymentStatusLabel($paymentStatus);
+        if ($orderIdLocal > 0 && PaymentService::storefrontFulfilmentReconciliationContext($orderIdLocal) !== null) {
+            $paymentStatusLabel = 'Payment captured — confirmation pending';
+        }
         $placedAt = (string) ($orderRow['placed_at'] ?? $orderRow['created_at'] ?? '');
         $deliveryDate = trim((string) ($orderRow['delivery_date'] ?? ''));
         $eta = trim((string) ($orderRow['delivery_eta'] ?? ''));
@@ -193,7 +215,7 @@ final class CustomerOrderDetailService
             'status' => $status,
             'status_public' => (string) ($base['status'] ?? $status),
             'payment_status' => $paymentStatus,
-            'payment_status_label' => self::orderPaymentStatusLabel($paymentStatus),
+            'payment_status_label' => $paymentStatusLabel,
             'order_type' => self::orderTypeLabel((string) ($orderRow['order_source'] ?? '')),
             'expected_delivery' => $expected,
             'currency' => (string) ($orderRow['currency'] ?? 'INR'),
@@ -291,11 +313,15 @@ final class CustomerOrderDetailService
 
     public static function paymentRowStatusLabel(string $status): string
     {
+        if ($status === 'reconciliation_required') {
+            return PaymentService::paymentAttemptStatusLabel($status);
+        }
         switch ($status) {
             case 'captured':
                 return 'Paid';
             case 'created':
             case 'authorized':
+            case 'pending':
                 return 'Pending';
             case 'failed':
                 return 'Failed';
