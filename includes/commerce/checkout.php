@@ -484,6 +484,10 @@ final class CheckoutService
             return ['ok' => false, 'message' => $init['error'] ?? 'Could not start payment.'];
         }
         $_SESSION['checkout_payment'][$orderNumber] = $init['checkout'] ?? [];
+        $checkoutMode = is_array($init['checkout'] ?? null) ? (string) ($init['checkout']['mode'] ?? '') : '';
+        if (in_array($checkoutMode, ['cashfree', 'razorpay'], true)) {
+            $_SESSION['checkout_payment_autolaunch'][$orderNumber] = true;
+        }
 
         return [
             'ok' => true,

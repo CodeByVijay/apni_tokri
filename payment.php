@@ -48,6 +48,7 @@ if ((string) $order['payment_status'] === 'paid') {
 
 if (isset($_GET['retry']) && (string) $_GET['retry'] === '1') {
     unset($_SESSION['checkout_payment'][$orderNumber]);
+    $_SESSION['checkout_payment_autolaunch'][$orderNumber] = true;
 }
 
 $latestPayment = PaymentRepository::latestPaymentForOrder((int) $order['id']);
@@ -127,6 +128,16 @@ if ($orderEnvironmentBadge === null && $mode !== 'simulate') {
 }
 $payReference = is_array($checkout) ? (string) ($checkout['reference_id'] ?? '') : '';
 $canRetry = $error !== '' && (string) ($order['payment_status'] ?? '') !== 'paid';
+$autoLaunchGatewayCheckout = false;
+if ($error === '' && is_array($checkout) && !empty($_SESSION['checkout_payment_autolaunch'][$orderNumber])) {
+    $gatewayCheckoutReady = ($mode === 'cashfree' && (string) ($checkout['payment_session_id'] ?? '') !== '')
+        || ($mode === 'razorpay' && (string) ($checkout['gateway_order_id'] ?? '') !== '');
+    if ($gatewayCheckoutReady) {
+        $autoLaunchGatewayCheckout = true;
+        unset($_SESSION['checkout_payment_autolaunch'][$orderNumber]);
+    }
+}
+$gatewayResumeManual = in_array($mode, ['cashfree', 'razorpay'], true) && is_array($checkout) && !$autoLaunchGatewayCheckout && $error === '';
 
 layout_public_start([
     'pageTitle' => 'Pay for order — Veggie Tokri',
@@ -179,8 +190,8 @@ if ($mode === 'razorpay'): ?>
                     <button type="button" class="at-btn at-btn--secondary at-focusable" data-outcome="fail">Simulate failure</button>
                 </div>
             <?php elseif ($mode === 'razorpay' && is_array($checkout)): ?>
-                <p class="text-sm at-muted" id="at-pay-status" aria-live="polite">Tap below to open secure Razorpay checkout.</p>
-                <button type="button" id="at-razorpay-pay" class="at-btn at-btn--primary at-btn--lg at-focusable at-btn--block"
+                <p class="text-sm at-muted" id="at-pay-status" aria-live="polite"><?= $autoLaunchGatewayCheckout ? 'Opening secure Razorpay checkout…' : ($gatewayResumeManual ? 'Payment not completed yet. Continue to Razorpay below.' : 'Preparing Razorpay…') ?></p>
+                <button type="button" id="at-razorpay-pay" class="at-btn at-btn--primary at-btn--lg at-focusable at-btn--block<?= $autoLaunchGatewayCheckout ? ' hidden' : '' ?>"
                     data-key-id="<?= Security::escape((string) ($checkout['key_id'] ?? '')) ?>"
                     data-amount="<?= (int) ($checkout['amount_paise'] ?? 0) ?>"
                     data-order-id="<?= Security::escape((string) ($checkout['gateway_order_id'] ?? '')) ?>"
@@ -188,15 +199,15 @@ if ($mode === 'razorpay'): ?>
                     data-order-number="<?= Security::escape($orderNumber) ?>"
                     data-customer-name="<?= Security::escape((string) (CustomerService::profile()['name'] ?? 'Customer')) ?>"
                     data-customer-mobile="<?= Security::escape((string) (CustomerService::profile()['mobile'] ?? '')) ?>">
-                    <?= at_icon('wallet', 'w-5 h-5') ?> Pay with Razorpay
+                    <?= $gatewayResumeManual ? 'Continue to Razorpay' : 'Pay with Razorpay' ?>
                 </button>
             <?php elseif ($mode === 'cashfree' && is_array($checkout)): ?>
-                <p class="text-sm at-muted" id="at-pay-status" aria-live="polite">Tap below to open Cashfree checkout.</p>
-                <button type="button" id="at-cashfree-pay" class="at-btn at-btn--primary at-btn--lg at-focusable at-btn--block"
+                <p class="text-sm at-muted" id="at-pay-status" aria-live="polite"><?= $autoLaunchGatewayCheckout ? 'Opening secure Cashfree checkout…' : ($gatewayResumeManual ? 'Payment not completed yet. Continue to Cashfree or refresh status below.' : 'Preparing Cashfree…') ?></p>
+                <button type="button" id="at-cashfree-pay" class="at-btn at-btn--primary at-btn--lg at-focusable at-btn--block<?= $autoLaunchGatewayCheckout ? ' hidden' : '' ?>"
                     data-session="<?= Security::escape((string) ($checkout['payment_session_id'] ?? '')) ?>"
                     data-idempotency="<?= Security::escape((string) ($checkout['idempotency_key'] ?? '')) ?>"
                     data-order-number="<?= Security::escape($orderNumber) ?>">
-                    Pay with Cashfree
+                    <?= $gatewayResumeManual ? 'Continue to Cashfree' : 'Pay with Cashfree' ?>
                 </button>
                 <button type="button" id="at-cashfree-refresh" class="at-btn at-btn--secondary at-focusable at-btn--block">
                     Refresh payment status
@@ -214,7 +225,9 @@ window.AT_PAYMENT = {
     simulateUrl: <?= json_encode(url_base() . '/ajax/payment/simulate.php', JSON_THROW_ON_ERROR) ?>,
     orderSuccessUrl: <?= json_encode(url_base() . '/order.php?id=' . rawurlencode($orderNumber), JSON_THROW_ON_ERROR) ?>,
     paymentFailedUrl: <?= json_encode(url_base() . '/payment-failed.php?order=' . rawurlencode($orderNumber), JSON_THROW_ON_ERROR) ?>,
-    cashfreeMode: <?= json_encode($cashfreeTestMode ? 'sandbox' : 'production', JSON_THROW_ON_ERROR) ?>
+    cashfreeMode: <?= json_encode($cashfreeTestMode ? 'sandbox' : 'production', JSON_THROW_ON_ERROR) ?>,
+    autoLaunchGateway: <?= $autoLaunchGatewayCheckout ? 'true' : 'false' ?>,
+    gatewayMode: <?= json_encode($mode, JSON_THROW_ON_ERROR) ?>
 };
 </script>
 <?php layout_public_end(); ?>
