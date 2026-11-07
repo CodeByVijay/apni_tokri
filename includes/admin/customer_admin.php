@@ -175,7 +175,7 @@ final class AdminCustomerService
         }
         Install::ensureConnection();
         $stmt = Database::pdo()->prepare(
-            'SELECT id, subscription_number, status, start_date, end_date, price_paid, deliveries_remaining, created_at
+            'SELECT id, subscription_number, status, start_date, calendar_end_date, price_paid, deliveries_remaining, created_at
              FROM customer_subscriptions
              WHERE customer_id = ?
              ORDER BY id DESC LIMIT ?'

@@ -22,6 +22,8 @@ function ok(bool $c, string $m): void
 $root = dirname(__DIR__);
 ok(str_contains((string) file_get_contents($root . '/admin/customers/index.php'), 'AdminCustomerService::searchForAdmin'), 'List uses AdminCustomerService');
 ok(str_contains((string) file_get_contents($root . '/admin/customers/view.php'), 'Csrf::field'), 'View uses CSRF on POST');
+ok(str_contains((string) file_get_contents($root . '/includes/admin/customer_admin.php'), 'calendar_end_date'), 'Customer subscriptions query uses calendar_end_date column');
+ok(!str_contains((string) file_get_contents($root . '/includes/admin/customer_admin.php'), 'start_date, end_date'), 'Customer subscriptions query does not reference missing end_date');
 ok(str_contains((string) file_get_contents($root . '/admin/customers/edit.php'), 'Mobile cannot be changed'), 'Edit blocks mobile POST');
 ok(str_contains((string) file_get_contents($root . '/includes/auth.php'), 'customerIsActive'), 'CustomerAuth enforces is_active on check');
 ok(str_contains((string) file_get_contents($root . '/includes/commerce/checkout.php'), 'Your account is inactive'), 'Checkout blocks inactive customers');
