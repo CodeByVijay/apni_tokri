@@ -47,6 +47,18 @@ ok($form['udyam_registration_number'] === $validUdyam, 'Registration number stor
 ok($form['udyam_enterprise_name'] === 'Test MSME Unit', 'Enterprise name stored');
 ok(BusinessSettings::udyamVerifyUrl() === BusinessSettings::DEFAULT_UDYAM_VERIFY_URL, 'Default verify URL when blank');
 
+$blankOptionals = BusinessSettings::saveFromPost(array_merge(BusinessSettings::adminFormState(), [
+    'udyam_enabled' => '1',
+    'udyam_registration_number' => $validUdyam,
+    'udyam_enterprise_name' => '',
+    'udyam_verify_url' => '',
+    'remove_udyam_certificate' => '1',
+]));
+AppSettings::resetCache();
+ok($blankOptionals['ok'] === true, 'Save Udyam with blank enterprise and verify URL (persistField must not receive null)');
+ok(trim(BusinessSettings::adminFormState()['udyam_verify_url']) === '', 'Blank verify URL clears stored override');
+ok(BusinessSettings::udyamEnterpriseName() === null, 'Blank enterprise clears stored value');
+
 $pub = BusinessSettings::udyamPublicDisplay();
 ok($pub !== null && $pub['number'] === $validUdyam, 'Public display payload');
 ok($pub['enterprise_name'] === 'Test MSME Unit', 'Public display enterprise');

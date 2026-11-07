@@ -481,7 +481,7 @@ final class BusinessSettings
         AppSettings::set(self::KEY_UDYAM_ENABLED, $udyamEnabled);
         self::persistField(self::KEY_UDYAM_NUMBER, $udyamNumber);
         self::persistField(self::KEY_UDYAM_ENTERPRISE, $udyamEnterprise);
-        self::persistField(self::KEY_UDYAM_VERIFY_URL, $udyamVerifyUrl !== '' ? $udyamVerifyUrl : null);
+        self::persistField(self::KEY_UDYAM_VERIFY_URL, $udyamVerifyUrl);
         if ($newCert !== null && $newCert !== '') {
             AppSettings::set(self::KEY_UDYAM_CERTIFICATE_FILE, $newCert);
         } elseif (!empty($post['remove_udyam_certificate'])) {
