@@ -78,6 +78,7 @@
     var $conf = $form.find('input[name="location_confirmed"]');
     var $msg = $form.find('[data-addr-map-msg]');
 
+    var $building = $form.find('[name="building_name"]');
     var $street = $form.find('[name="street"]');
     var $area = $form.find('[name="area"]');
     var $city = $form.find('[name="addr_city"]');
@@ -113,7 +114,7 @@
       return;
     }
 
-    var $placeFields = $street.add($area).add($city).add($state).add($pin);
+    var $placeFields = $building.add($street).add($area).add($city).add($state).add($pin);
 
     function clearCoords() {
       $lat.val('');
@@ -147,6 +148,7 @@
 
     function fillFromGooglePlace(addr) {
       addr = addr || {};
+      setPlaceField($building, addr.building_name);
       setPlaceField($street, addr.street);
       setPlaceField($area, addr.area);
       setPlaceField($city, addr.city);
@@ -155,7 +157,7 @@
         var p = String(addr.postcode).replace(/\D/g, '');
         if (p.length === 6) setPlaceField($pin, p);
       }
-      if ($street.val() || $area.val() || $city.val() || $state.val() || $pin.val()) {
+      if ($building.val() || $street.val() || $area.val() || $city.val() || $state.val() || $pin.val()) {
         showDetectedHint();
       }
     }

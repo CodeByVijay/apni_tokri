@@ -14,7 +14,7 @@ final class GooglePlacesGeocoder
     private const AUTOCOMPLETE_URL = 'https://places.googleapis.com/v1/places:autocomplete';
     private const PLACE_BASE_URL = 'https://places.googleapis.com/v1/places/';
     private const AUTOCOMPLETE_FIELD_MASK = 'suggestions.placePrediction.placeId,suggestions.placePrediction.text.text';
-    private const PLACE_DETAILS_FIELD_MASK = 'id,formattedAddress,addressComponents,location';
+    private const PLACE_DETAILS_FIELD_MASK = 'id,displayName,types,formattedAddress,addressComponents,location';
 
     /**
      * @param list<string> $countries ISO 3166-1 alpha-2 uppercase
@@ -433,10 +433,14 @@ final class GooglePlacesGeocoder
                 continue;
             }
             $name = isset($c['long_name']) && is_string($c['long_name']) ? trim($c['long_name']) : '';
+            if ($name === '' && isset($c['short_name']) && is_string($c['short_name'])) {
+                $name = trim($c['short_name']);
+            }
             foreach ($c['types'] as $t) {
                 if (!is_string($t)) {
                     continue;
                 }
+                $t = strtolower($t);
                 $byType[$t] = $byType[$t] ?? [];
                 if ($name !== '') {
                     $byType[$t][] = $name;
@@ -476,6 +480,37 @@ final class GooglePlacesGeocoder
         if ($city !== null && $area !== null && mb_strtolower($city) === mb_strtolower($area)) {
             $city = $locality ?? $pick($byType, ['administrative_area_level_2', 'administrative_area_level_3']);
         }
+
+        $building = $pick($byType, [
+            'premise',
+            'establishment',
+            'point_of_interest',
+            'shopping_mall',
+            'store',
+            'lodging',
+            'restaurant',
+            'food',
+            'cafe',
+            'hospital',
+            'doctor',
+            'finance',
+            'real_estate_agency',
+            'corporate_office',
+            'lawyer',
+        ]);
+
+        $placeTypes = isset($result['place_types']) && is_array($result['place_types'])
+            ? array_values(array_filter(array_map(
+                static fn ($x) => is_string($x) ? strtolower($x) : '',
+                $result['place_types']
+            )))
+            : [];
+        $displayName = isset($result['display_name']) && is_string($result['display_name'])
+            ? trim($result['display_name']) : '';
+        if (($building === null || $building === '') && $displayName !== ''
+            && self::shouldUseDisplayNameAsBuilding($displayName, $placeTypes, $byType, $route, $locality, $city, $area)) {
+            $building = $displayName;
+        }
         $state = $pick($byType, ['administrative_area_level_1']);
         $postcode = $pick($byType, ['postal_code']);
         $country = $pick($byType, ['country']);
@@ -489,6 +524,7 @@ final class GooglePlacesGeocoder
             'place_id' => $placeId,
             'description' => $formatted,
             'house_number' => null,
+            'building_name' => ($building !== null && $building !== '') ? $building : null,
             'street' => ($route !== null && $route !== '') ? $route : null,
             'area' => ($area !== null && $area !== '') ? $area : null,
             'city' => ($city !== null && $city !== '') ? $city : null,
@@ -505,6 +541,52 @@ final class GooglePlacesGeocoder
      * @param array<string, mixed> $place Place Details (New) resource
      * @return array<string, mixed>
      */
+    /**
+     * @param array<string, list<string>> $byType
+     * @param list<string> $placeTypes
+     */
+    private static function shouldUseDisplayNameAsBuilding(
+        string $displayName,
+        array $placeTypes,
+        array $byType,
+        ?string $route,
+        ?string $locality,
+        ?string $city,
+        ?string $area
+    ): bool {
+        $dn = mb_strtolower(trim($displayName));
+        if ($dn === '') {
+            return false;
+        }
+        foreach ([$route, $locality, $city, $area] as $part) {
+            if ($part !== null && $part !== '' && mb_strtolower(trim($part)) === $dn) {
+                return false;
+            }
+        }
+        $generic = ['indore', 'madhya pradesh', 'india'];
+        if (in_array($dn, $generic, true)) {
+            return false;
+        }
+
+        $poiTypes = [
+            'point_of_interest', 'establishment', 'premise', 'store', 'shopping_mall', 'lodging',
+            'restaurant', 'cafe', 'hospital', 'doctor', 'finance', 'real_estate_agency', 'corporate_office',
+            'lawyer', 'health', 'food',
+        ];
+        foreach ($placeTypes as $t) {
+            if ($t !== '' && in_array($t, $poiTypes, true)) {
+                return true;
+            }
+        }
+        foreach ($poiTypes as $t) {
+            if (!empty($byType[$t])) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private static function legacyShapeFromNewPlace(array $place): array
     {
         $components = [];
@@ -513,9 +595,11 @@ final class GooglePlacesGeocoder
                 continue;
             }
             $types = isset($c['types']) && is_array($c['types']) ? $c['types'] : [];
+            $long = isset($c['longText']) && is_string($c['longText']) ? trim($c['longText']) : '';
+            $short = isset($c['shortText']) && is_string($c['shortText']) ? trim($c['shortText']) : '';
             $components[] = [
-                'long_name' => isset($c['longText']) && is_string($c['longText']) ? $c['longText'] : '',
-                'short_name' => isset($c['shortText']) && is_string($c['shortText']) ? $c['shortText'] : '',
+                'long_name' => $long !== '' ? $long : $short,
+                'short_name' => $short !== '' ? $short : $long,
                 'types' => $types,
             ];
         }
@@ -530,10 +614,18 @@ final class GooglePlacesGeocoder
             }
         }
 
+        $displayName = '';
+        if (isset($place['displayName']) && is_array($place['displayName'])
+            && isset($place['displayName']['text']) && is_string($place['displayName']['text'])) {
+            $displayName = trim($place['displayName']['text']);
+        }
+
         return [
             'place_id' => isset($place['id']) && is_string($place['id']) ? $place['id'] : '',
             'formatted_address' => isset($place['formattedAddress']) && is_string($place['formattedAddress'])
                 ? $place['formattedAddress'] : '',
+            'display_name' => $displayName,
+            'place_types' => isset($place['types']) && is_array($place['types']) ? $place['types'] : [],
             'address_components' => $components,
             'geometry' => [
                 'location' => [
