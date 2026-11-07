@@ -22,6 +22,8 @@ function ok(bool $c, string $m): void
 $root = dirname(__DIR__);
 ok(str_contains((string) file_get_contents($root . '/admin/customers/index.php'), 'AdminCustomerService::searchForAdmin'), 'List uses AdminCustomerService');
 ok(str_contains((string) file_get_contents($root . '/admin/customers/view.php'), 'Csrf::field'), 'View uses CSRF on POST');
+ok(str_contains((string) file_get_contents($root . '/includes/admin/customer_admin.php'), 'ticketsForCustomer'), 'Customer admin loads support tickets');
+ok(str_contains((string) file_get_contents($root . '/admin/customers/view.php'), 'Support tickets'), 'Customer view shows support tickets section');
 ok(str_contains((string) file_get_contents($root . '/includes/admin/customer_admin.php'), 'calendar_end_date'), 'Customer subscriptions query uses calendar_end_date column');
 ok(!str_contains((string) file_get_contents($root . '/includes/admin/customer_admin.php'), 'start_date, end_date'), 'Customer subscriptions query does not reference missing end_date');
 ok(str_contains((string) file_get_contents($root . '/admin/customers/edit.php'), 'Mobile cannot be changed'), 'Edit blocks mobile POST');
@@ -113,6 +115,33 @@ try {
 ok($reactIssueOk, 'Reactivated customer is not blocked by inactive OTP guard');
 CustomerAuth::loginById($idA);
 ok(CustomerAuth::check(), 'Reactivated customer can hold session');
+
+$created = SupportTicketService::create($idA, 'other', 'Admin customer view test ' . $tok, 'Probe body', null);
+ok(!empty($created['ok']), 'Support ticket created for customer A');
+$ticketListA = AdminCustomerService::ticketsForCustomer($idA);
+ok(count($ticketListA) >= 1, 'ticketsForCustomer returns customer A tickets');
+$ticketListB = AdminCustomerService::ticketsForCustomer($idB);
+$leak = false;
+foreach ($ticketListB as $row) {
+    if (str_contains((string) ($row['subject'] ?? ''), $tok)) {
+        $leak = true;
+    }
+}
+ok(!$leak, 'Customer B does not see customer A tickets');
+if (!empty($created['ticket_number'])) {
+    $delId = (int) $pdo->query(
+        'SELECT id FROM support_tickets WHERE ticket_number = ' . $pdo->quote((string) $created['ticket_number']) . ' LIMIT 1'
+    )->fetchColumn();
+    if ($delId > 0) {
+        $pdo->prepare('DELETE FROM support_messages WHERE ticket_id = ?')->execute([$delId]);
+        $pdo->exec('DELETE FROM support_tickets WHERE id = ' . $delId);
+    }
+}
+
+$emptyTickets = AdminCustomerService::ticketsForCustomer($idB);
+ok($emptyTickets === [] || count($emptyTickets) === (int) $pdo->query(
+    'SELECT COUNT(*) FROM support_tickets WHERE customer_id = ' . $idB
+)->fetchColumn(), 'Empty or isolated ticket list for customer B');
 
 $place = CheckoutService::placeOrder([
     'checkout_nonce' => CheckoutService::freshNonce(),

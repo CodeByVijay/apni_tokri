@@ -41,6 +41,7 @@ $invoices = AdminCustomerService::invoicesForCustomer($customerId);
 $payments = AdminCustomerService::paymentsForCustomer($customerId);
 $refunds = AdminCustomerService::refundsForCustomer($customerId);
 $subscriptions = AdminCustomerService::subscriptionsForCustomer($customerId);
+$tickets = AdminCustomerService::ticketsForCustomer($customerId);
 
 $displayName = trim((string) ($customer['name'] ?? '')) !== '' ? (string) $customer['name'] : 'Customer';
 $pageHeading = $displayName;
@@ -131,6 +132,48 @@ $base = url_base();
                                 <td><a class="underline" href="<?= Security::escape($base) ?>/admin/invoices/view.php?id=<?= (int) $inv['id'] ?>"><?= Security::escape((string) $inv['invoice_number']) ?></a></td>
                                 <td><?= Security::escape((string) ($inv['invoice_date'] ?? '')) ?></td>
                                 <td class="is-num"><?= Security::escape(catalogue_format_price((float) ($inv['grand_total'] ?? 0))) ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            <?php endif; ?>
+        </div></div>
+
+        <div class="at-card"><div class="at-card__body">
+            <h3 class="font-bold mb-2">
+                Support tickets
+                <?php if ($tickets !== []): ?>
+                    <span class="at-muted font-normal text-sm">(<?= count($tickets) ?>)</span>
+                <?php endif; ?>
+            </h3>
+            <?php if ($tickets === []): ?>
+                <p class="text-sm at-muted">No support tickets submitted by this customer.</p>
+            <?php else: ?>
+                <div class="at-admin-table-wrap">
+                    <table class="at-admin-table at-admin-table--dense">
+                        <thead><tr>
+                            <th>Ticket</th>
+                            <th>Subject</th>
+                            <th>Category</th>
+                            <th>Created</th>
+                            <th>Status</th>
+                            <th class="is-actions">View</th>
+                        </tr></thead>
+                        <tbody>
+                        <?php foreach ($tickets as $tk):
+                            $tid = (int) ($tk['id'] ?? 0);
+                            $ticketHref = $base . '/admin/support/index.php?id=' . $tid;
+                            ?>
+                            <tr>
+                                <td class="is-nowrap font-mono text-xs"><?= Security::escape((string) ($tk['ticket_number'] ?? '')) ?></td>
+                                <td><?= Security::escape((string) ($tk['subject'] ?? '')) ?></td>
+                                <td class="is-nowrap"><?= Security::escape(SupportTicketService::categoryLabel((string) ($tk['category'] ?? ''))) ?></td>
+                                <td class="is-nowrap"><?= Security::escape(customer_format_datetime((string) ($tk['created_at'] ?? ''))) ?></td>
+                                <td><?= admin_status_badge((string) ($tk['status'] ?? '')) ?></td>
+                                <td class="is-actions">
+                                    <a class="at-btn at-btn--ghost at-btn--sm at-focusable" href="<?= Security::escape($ticketHref) ?>">View ticket</a>
+                                </td>
                             </tr>
                         <?php endforeach; ?>
                         </tbody>

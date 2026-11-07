@@ -168,6 +168,27 @@ final class AdminCustomerService
     }
 
     /** @return list<array<string, mixed>> */
+    public static function ticketsForCustomer(int $customerId, int $limit = 50): array
+    {
+        if ($customerId <= 0) {
+            return [];
+        }
+        Install::ensureConnection();
+        $stmt = Database::pdo()->prepare(
+            'SELECT id, ticket_number, category, status, subject, created_at, updated_at
+             FROM support_tickets
+             WHERE customer_id = ?
+             ORDER BY created_at DESC, id DESC
+             LIMIT ?'
+        );
+        $stmt->bindValue(1, $customerId, PDO::PARAM_INT);
+        $stmt->bindValue(2, max(1, min(100, $limit)), PDO::PARAM_INT);
+        $stmt->execute();
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    /** @return list<array<string, mixed>> */
     public static function subscriptionsForCustomer(int $customerId, int $limit = 20): array
     {
         if ($customerId <= 0) {
