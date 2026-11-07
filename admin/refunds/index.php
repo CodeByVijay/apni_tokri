@@ -29,11 +29,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && Install::isSchemaReady()) {
     $result = ['ok' => false, 'message' => 'Unknown action'];
     if ($action === 'review') {
         $result = RefundRequestService::setUnderReview($rid);
+    } elseif ($action === 'approve_process') {
+        $mode = isset($_POST['refund_mode']) && is_string($_POST['refund_mode']) ? $_POST['refund_mode'] : 'partial';
+        $amt = $mode === 'full'
+            ? RefundRequestService::availableApprovalAmountForRequest($rid)
+            : (float) ($_POST['approved_amount'] ?? 0);
+        $result = RefundRequestService::approveAndProcessGatewayRefund(
+            $rid,
+            $amt,
+            isset($_POST['internal_note']) && is_string($_POST['internal_note']) ? trim($_POST['internal_note']) : null
+        );
     } elseif ($action === 'approve') {
         $amt = (float) ($_POST['approved_amount'] ?? 0);
         $result = RefundRequestService::approve($rid, $amt, (string) ($_POST['internal_note'] ?? ''));
     } elseif ($action === 'reject') {
         $result = RefundRequestService::reject($rid, (string) ($_POST['reject_reason'] ?? ''));
+    } elseif ($action === 'retry_gateway') {
+        $result = RefundRequestService::retryGatewayRefund($rid);
     } elseif ($action === 'gateway') {
         $result = RefundRequestService::initiateGatewayRefund($rid);
     }
@@ -76,6 +88,15 @@ if ($requestId > 0 && Install::isSchemaReady()) {
     $pageHeading = (string) $req['request_number'];
     require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
     $refundable = RefundRequestService::capturedAmountForOrder($orderId);
+    $availableApproval = RefundRequestService::availableApprovalAmountForRequest($requestId);
+    $latestGwRefund = RefundRequestService::latestPaymentRefundForRequest($requestId);
+    $reqStatus = (string) $req['status'];
+    $canApproveProcess = in_array($reqStatus, [RefundStatus::REQUESTED, RefundStatus::UNDER_REVIEW], true);
+    $canRetryGateway = $reqStatus === RefundStatus::REFUND_FAILED
+        && ($latestGwRefund === null || (string) ($latestGwRefund['gateway_status'] ?? '') === 'failed');
+    $canManualGateway = $reqStatus === RefundStatus::APPROVED;
+    $showSuccessPanel = in_array($reqStatus, [RefundStatus::REFUNDED, RefundStatus::PROCESSING, RefundStatus::REFUND_INITIATED], true)
+        && $latestGwRefund !== null;
     ?>
     <div class="at-card"><div class="at-card__body text-sm space-y-2">
         <p class="flex flex-wrap gap-2 items-center">
@@ -160,29 +181,99 @@ if ($requestId > 0 && Install::isSchemaReady()) {
         <?php endif; ?>
     </div></div>
 
-    <form method="post" class="at-card mt-4">
+    <?php if ($showSuccessPanel): ?>
+    <div class="at-card mt-4 at-alert at-alert--success"><div class="at-card__body text-sm space-y-1">
+        <p class="font-bold">Refund processed successfully</p>
+        <?php if ($req['approved_amount_inr'] !== null): ?>
+            <p>Approved amount: <strong><?= Security::escape(catalogue_format_price((float) $req['approved_amount_inr'])) ?></strong></p>
+        <?php endif; ?>
+        <?php if ((string) ($latestGwRefund['gateway_refund_id'] ?? '') !== ''): ?>
+            <p>Gateway reference: <code class="text-xs"><?= Security::escape((string) $latestGwRefund['gateway_refund_id']) ?></code></p>
+        <?php endif; ?>
+        <p class="text-xs at-muted">Gateway status: <?= Security::escape(RefundRequestService::publicGatewayStatusLabel((string) ($latestGwRefund['gateway_status'] ?? ''))) ?>
+            · <?= Security::escape(customer_format_datetime((string) ($latestGwRefund['created_at'] ?? ''))) ?></p>
+    </div></div>
+    <?php endif; ?>
+
+    <?php if ($reqStatus === RefundStatus::REFUND_FAILED && $req['approved_amount_inr'] !== null): ?>
+    <div class="at-card mt-4"><div class="at-card__body text-sm space-y-2">
+        <p class="at-alert at-alert--warning">Refund approval saved, but gateway processing failed. You can retry the refund below.</p>
+        <p>Approved amount: <strong><?= Security::escape(catalogue_format_price((float) $req['approved_amount_inr'])) ?></strong></p>
+    </div></div>
+    <?php endif; ?>
+
+    <form method="post" class="at-card mt-4" id="admin-refund-actions">
         <div class="at-card__body space-y-3">
             <?= Csrf::field() ?>
             <input type="hidden" name="request_id" value="<?= (int) $requestId ?>">
-            <p class="text-sm text-neutral-600">Approval is separate from gateway refund completion.</p>
-            <?php if (in_array((string) $req['status'], [RefundStatus::REQUESTED, RefundStatus::UNDER_REVIEW], true)): ?>
-                <button type="submit" name="action" value="review" class="at-btn at-btn--secondary at-focusable">Mark under review</button>
-            <?php endif; ?>
-            <?php if (in_array((string) $req['status'], [RefundStatus::REQUESTED, RefundStatus::UNDER_REVIEW], true)): ?>
+            <?php if ($canApproveProcess): ?>
+                <h3 class="font-bold">Approve refund</h3>
+                <p class="text-sm at-muted">Available refundable balance for this request: <strong><?= Security::escape(catalogue_format_price($availableApproval)) ?></strong></p>
+                <?php if (in_array($reqStatus, [RefundStatus::REQUESTED, RefundStatus::UNDER_REVIEW], true)): ?>
+                    <button type="submit" name="action" value="review" class="at-btn at-btn--secondary at-btn--sm at-focusable">Mark under review</button>
+                <?php endif; ?>
+                <fieldset class="space-y-2 border-0 p-0">
+                    <legend class="at-label">Refund type</legend>
+                    <label class="flex items-center gap-2 text-sm">
+                        <input type="radio" name="refund_mode" value="full" class="at-focusable" data-refund-mode>
+                        Full refund (<?= Security::escape(catalogue_format_price($availableApproval)) ?>)
+                    </label>
+                    <label class="flex items-center gap-2 text-sm">
+                        <input type="radio" name="refund_mode" value="partial" class="at-focusable" data-refund-mode checked>
+                        Partial refund
+                    </label>
+                </fieldset>
                 <div>
-                    <label class="at-label">Approved refund amount (INR)</label>
-                    <input type="number" step="0.01" min="0.01" name="approved_amount" class="at-input at-focusable" required>
+                    <label class="at-label" for="approved_amount">Approved refund amount (INR)</label>
+                    <input type="number" step="0.01" min="0.01" max="<?= Security::escape((string) max(0.01, $availableApproval)) ?>" name="approved_amount" id="approved_amount" class="at-input at-focusable" value="<?= $availableApproval > 0 ? Security::escape((string) $availableApproval) : '' ?>">
                 </div>
-                <textarea name="internal_note" class="at-textarea at-focusable" placeholder="Internal note"></textarea>
-                <button type="submit" name="action" value="approve" class="at-btn at-btn--primary at-focusable">Approve partial/full refund</button>
-                <textarea name="reject_reason" class="at-textarea at-focusable" placeholder="Rejection reason"></textarea>
-                <button type="submit" name="action" value="reject" class="at-btn at-btn--secondary at-focusable">Reject</button>
-            <?php endif; ?>
-            <?php if ((string) $req['status'] === RefundStatus::APPROVED): ?>
-                <button type="submit" name="action" value="gateway" class="at-btn at-btn--primary at-focusable">Initiate gateway refund</button>
+                <div>
+                    <label class="at-label" for="internal_note">Internal note</label>
+                    <textarea id="internal_note" name="internal_note" class="at-textarea at-focusable" rows="2" placeholder="Optional"></textarea>
+                </div>
+                <button type="submit" name="action" value="approve_process" class="at-btn at-btn--primary at-focusable">Approve &amp; Process Refund</button>
+                <div class="pt-2 border-t border-[var(--at-line)]">
+                    <label class="at-label" for="reject_reason">Rejection reason</label>
+                    <textarea id="reject_reason" name="reject_reason" class="at-textarea at-focusable" rows="2" placeholder="Required to reject"></textarea>
+                    <button type="submit" name="action" value="reject" class="at-btn at-btn--secondary at-focusable mt-2">Reject</button>
+                </div>
+            <?php elseif ($canRetryGateway): ?>
+                <p class="text-sm">Retry uses the saved approved amount (<?= Security::escape(catalogue_format_price((float) ($req['approved_amount_inr'] ?? 0))) ?>).</p>
+                <button type="submit" name="action" value="retry_gateway" class="at-btn at-btn--primary at-focusable">Retry gateway refund</button>
+            <?php elseif ($canManualGateway): ?>
+                <p class="text-sm at-muted">Approval saved; gateway was not started. Process when ready.</p>
+                <button type="submit" name="action" value="gateway" class="at-btn at-btn--primary at-focusable">Process gateway refund</button>
+            <?php elseif ($showSuccessPanel): ?>
+                <p class="text-sm at-muted">This refund has already been submitted to the gateway.</p>
             <?php endif; ?>
         </div>
     </form>
+    <?php if ($canApproveProcess): ?>
+    <script>
+    (function () {
+        var form = document.getElementById('admin-refund-actions');
+        if (!form) return;
+        var amount = form.querySelector('#approved_amount');
+        var fullAmt = <?= json_encode($availableApproval, JSON_THROW_ON_ERROR) ?>;
+        var sync = function () {
+            var mode = form.querySelector('input[name="refund_mode"]:checked');
+            if (!amount || !mode) return;
+            if (mode.value === 'full') {
+                amount.value = String(fullAmt);
+                amount.readOnly = true;
+                amount.removeAttribute('required');
+            } else {
+                amount.readOnly = false;
+                amount.setAttribute('required', 'required');
+            }
+        };
+        form.querySelectorAll('[data-refund-mode]').forEach(function (el) {
+            el.addEventListener('change', sync);
+        });
+        sync();
+    })();
+    </script>
+    <?php endif; ?>
     <div class="at-card mt-4"><div class="at-card__body">
         <h3 class="at-h3">Audit history</h3>
         <ul class="mt-2 text-sm space-y-1">

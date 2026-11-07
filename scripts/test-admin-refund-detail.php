@@ -32,7 +32,8 @@ ok(str_contains($index, 'Refund items'), 'Refund items section present');
 ok(str_contains($index, 'Order items'), 'Order context fallback when no stored lines');
 ok(str_contains($index, 'not inferred from the refund amount'), 'Does not infer refund lines from amount');
 ok(str_contains($index, 'order-items.php'), 'Reuses shared order items partial');
-ok(str_contains($index, 'value="gateway"'), 'Gateway action preserved on detail');
+ok(str_contains($index, 'approve_process'), 'Combined approve+process action');
+ok(str_contains($index, 'retry_gateway'), 'Manual retry action for failed gateway');
 
 if (!Install::isSchemaReady()) {
     fwrite(STDERR, "Schema not ready — static checks only.\n");
