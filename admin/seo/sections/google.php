@@ -11,14 +11,14 @@ $gtmOn = AppSettings::get(SeoAdminCenter::KEY_GTM_ENABLED, '') === '1';
 $gscOk = SeoAdminCenter::gscConfigured();
 $ga4Ok = SeoAdminCenter::ga4Configured();
 ?>
-<div class="grid gap-4 lg:grid-cols-2">
-    <div class="at-card lg:col-span-2">
-        <div class="at-card__body space-y-4 max-w-2xl">
-            <h3 class="font-bold">Google Search Console</h3>
+<div class="at-seo-saas__stack">
+    <div class="at-seo-saas__panel max-w-3xl">
+            <h3 class="at-seo-saas__panel-title">Google Search Console</h3>
             <p class="text-sm at-muted">Verify site ownership with the HTML meta tag method. Paste only the <code>content</code> value from Google — not your Google password.</p>
             <p class="text-sm">Status: <strong><?= $gscOk ? 'Configured' : 'Not configured yet' ?></strong></p>
             <form method="post" class="space-y-3">
                 <?= Csrf::field() ?>
+                <input type="hidden" name="section" value="google">
                 <input type="hidden" name="seo_action" value="save_google">
                 <div>
                     <label class="at-label">Verification meta content</label>
@@ -55,6 +55,5 @@ $ga4Ok = SeoAdminCenter::ga4Configured();
                 <?php endif; ?>
                 <button type="submit" class="at-btn at-btn--primary at-focusable"<?= $useDb ? '' : ' disabled' ?>>Save Google settings</button>
             </form>
-        </div>
     </div>
 </div>

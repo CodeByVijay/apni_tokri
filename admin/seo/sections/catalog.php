@@ -40,8 +40,8 @@ $filterOptions = [
 $statusOptions = ['' => 'Any status', 'published' => 'Published', 'draft' => 'Draft', 'archived' => 'Archived'];
 $clearUrl = SeoAdminCenter::catalogSectionUrl([]);
 ?>
-<div class="grid gap-6">
-    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+<div class="at-seo-saas__stack">
+    <div class="at-seo-saas__stat-row">
         <?php
         $statCards = [
             ['label' => 'Published products', 'value' => (int) $stats['published'], 'hint' => 'Live in catalogue'],
@@ -51,24 +51,21 @@ $clearUrl = SeoAdminCenter::catalogSectionUrl([]);
             ['label' => 'Needs improvement', 'value' => (int) $stats['needs_improvement'], 'hint' => 'Partial or short text'],
         ];
         foreach ($statCards as $card): ?>
-            <div class="at-card">
-                <div class="at-card__body">
-                    <p class="text-xs at-muted"><?= Security::escape($card['label']) ?></p>
-                    <p class="text-2xl font-bold text-brand-green-800"><?= (int) $card['value'] ?></p>
-                    <p class="text-xs at-muted mt-1"><?= Security::escape($card['hint']) ?></p>
-                </div>
+            <div class="at-seo-saas__stat">
+                    <p class="at-seo-saas__stat-label"><?= Security::escape($card['label']) ?></p>
+                    <p class="at-seo-saas__stat-value"><?= (int) $card['value'] ?></p>
+                    <p class="at-seo-saas__stat-hint"><?= Security::escape($card['hint']) ?></p>
             </div>
         <?php endforeach; ?>
     </div>
 
-    <div class="at-card">
-        <div class="at-card__body space-y-4">
-            <div class="flex flex-wrap items-center justify-between gap-2">
-                <h3 class="font-bold">Product SEO</h3>
+    <div class="at-seo-saas__panel">
+            <div class="flex flex-wrap items-center justify-between gap-2 at-seo-saas__panel-head">
+                <h3 class="at-seo-saas__panel-title">Product catalogue SEO</h3>
                 <p class="text-sm at-muted"><?= (int) $list['total'] ?> result<?= (int) $list['total'] === 1 ? '' : 's' ?></p>
             </div>
 
-            <form method="get" action="<?= Security::escape(url_base() . '/admin/seo/index.php') ?>" class="space-y-3">
+            <form method="get" action="<?= Security::escape(url_base() . '/admin/seo/index.php') ?>" class="space-y-3 at-seo-saas__form-toolbar">
                 <input type="hidden" name="section" value="catalog">
                 <div class="flex flex-col gap-3 md:flex-row md:items-end">
                     <div class="flex-1 min-w-0">
@@ -202,12 +199,11 @@ $clearUrl = SeoAdminCenter::catalogSectionUrl([]);
                 }
                 ?>
             <?php endif; ?>
-        </div>
     </div>
 
-    <details class="at-card">
-        <summary class="at-card__body cursor-pointer font-bold at-focusable">SEO templates (products &amp; categories)</summary>
-        <div class="at-card__body border-t border-[var(--at-line)] space-y-3 pt-0">
+    <details class="at-seo-saas__accordion">
+        <summary class="at-focusable">SEO templates (products &amp; categories)</summary>
+        <div class="p-4 pt-0 space-y-3 border-t border-[var(--at-line)]">
             <p class="text-sm at-muted">Placeholders: <code>{product_name}</code>, <code>{category_name}</code>, <code>{city}</code>, <code>{brand_name}</code></p>
             <form method="post" class="grid gap-3 md:grid-cols-2 max-w-4xl">
                 <?= Csrf::field() ?>
@@ -232,9 +228,9 @@ $clearUrl = SeoAdminCenter::catalogSectionUrl([]);
     <?php
     $categories = $useDb ? CategoryRepository::searchForAdmin('', 'published', 1, 100, 'sort_order', 'asc')['rows'] ?? [] : [];
     ?>
-    <div id="categories" class="at-card">
-        <div class="at-card__body space-y-3">
-            <h3 class="font-bold">Categories</h3>
+    <div id="categories" class="at-seo-saas__panel">
+            <h3 class="at-seo-saas__panel-title">Categories</h3>
+            <p class="at-seo-saas__panel-sub">Open a category to edit its search title and description.</p>
             <ul class="divide-y divide-[var(--at-line)] text-sm">
                 <?php foreach ($categories as $cat):
                     $cid = (int) ($cat['id'] ?? 0);
@@ -252,7 +248,6 @@ $clearUrl = SeoAdminCenter::catalogSectionUrl([]);
                     <li class="at-muted">No published categories.</li>
                 <?php endif; ?>
             </ul>
-        </div>
     </div>
 </div>
 

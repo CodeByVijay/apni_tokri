@@ -37,6 +37,12 @@ ok(SeoAdminCenter::normalizeGa4Id('bad') === null, 'GA4 reject');
 
 ok(method_exists('SeoNotFoundLog', 'recordCurrentRequest'), '404 record helper');
 ok(is_file(APNI_TOKRI_ROOT . '/admin/seo/index.php'), 'admin index');
+ok(is_file(APNI_TOKRI_ROOT . '/includes/partials/admin/seo-ui.php'), 'seo ui helpers');
+$css = (string) file_get_contents(APNI_TOKRI_ROOT . '/assets/css/apni-tokri.css');
+ok(str_contains($css, '.at-seo-saas__nav'), 'saas nav css');
+ok(str_contains($css, '.at-seo-saas__score-ring'), 'health ring css');
+$idx = (string) file_get_contents(APNI_TOKRI_ROOT . '/admin/seo/index.php');
+ok(str_contains($idx, 'at-seo-saas'), 'index wraps saas shell');
 foreach (array_keys(SeoAdminCenter::SECTIONS) as $sec) {
     ok(is_file(APNI_TOKRI_ROOT . '/admin/seo/sections/' . $sec . '.php'), 'section file ' . $sec);
 }

@@ -76,43 +76,44 @@ $homeDesc = AppSettings::get('seo.home.meta_description', '') ?? '';
 $homeIndex = AppSettings::get('seo.home.robots_index', '1') !== '0';
 $previewUrl = SeoUrl::absolute('/');
 ?>
-<div class="at-card mb-4">
-    <div class="at-card__body">
-        <p class="text-sm at-muted mb-2">Progress: <?= $completed ?> / <?= count($steps) ?> steps</p>
-        <div class="h-2 bg-neutral-200 rounded-full overflow-hidden"><div class="h-full bg-brand-green-700" style="width:<?= count($steps) > 0 ? (int) round(($completed / count($steps)) * 100) : 0 ?>%"></div></div>
-    </div>
+<div class="at-seo-saas__stack">
+<div class="at-seo-saas__panel">
+        <p class="at-seo-saas__panel-sub mb-2">Progress: <strong><?= $completed ?></strong> of <?= count($steps) ?> steps complete</p>
+        <div class="at-seo-saas__wizard-progress" role="progressbar" aria-valuenow="<?= (int) $completed ?>" aria-valuemin="0" aria-valuemax="<?= count($steps) ?>">
+            <div class="at-seo-saas__wizard-progress-fill" style="width:<?= count($steps) > 0 ? (int) round(($completed / count($steps)) * 100) : 0 ?>%"></div>
+        </div>
 </div>
-<ol class="space-y-4">
+<ol class="at-seo-saas__stack" style="list-style:none;margin:0;padding:0">
     <?php foreach ($steps as $key => $step): ?>
-        <li class="at-card">
-            <div class="at-card__body flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                    <h3 class="font-bold flex items-center gap-2">
-                        <?php if (!empty($step['done'])): ?><span class="text-green-700">✓</span><?php endif; ?>
-                        <?= Security::escape($step['title']) ?>
-                    </h3>
-                    <p class="text-sm at-muted"><?= Security::escape($step['help']) ?></p>
-                    <?php if (!empty($step['link'])): ?>
-                        <a class="text-sm text-brand-green-800 underline at-focusable" href="<?= Security::escape((string) $step['link']) ?>"><?= Security::escape((string) ($step['link_label'] ?? 'Open')) ?></a>
-                    <?php endif; ?>
-                </div>
-                <form method="post" class="shrink-0">
-                    <?= Csrf::field() ?>
-                    <input type="hidden" name="seo_action" value="wizard_mark">
-                    <input type="hidden" name="wizard_step" value="<?= Security::escape($key) ?>">
-                    <input type="hidden" name="wizard_done" value="1">
-                    <button type="submit" class="at-btn at-btn--ghost at-btn--sm at-focusable">Mark done</button>
-                </form>
+        <li class="at-seo-saas__wizard-step<?= !empty($step['done']) ? ' is-done' : '' ?>">
+            <div class="min-w-0 flex-1">
+                <h3 class="font-bold flex items-center gap-2">
+                    <?php if (!empty($step['done'])): ?><span class="text-green-700">✓</span><?php endif; ?>
+                    <?= Security::escape($step['title']) ?>
+                </h3>
+                <p class="text-sm at-muted"><?= Security::escape($step['help']) ?></p>
+                <?php if (!empty($step['link'])): ?>
+                    <a class="text-sm text-brand-green-800 underline at-focusable" href="<?= Security::escape((string) $step['link']) ?>"><?= Security::escape((string) ($step['link_label'] ?? 'Open')) ?></a>
+                <?php endif; ?>
             </div>
+            <form method="post" class="shrink-0">
+                <?= Csrf::field() ?>
+                <input type="hidden" name="section" value="setup">
+                <input type="hidden" name="seo_action" value="wizard_mark">
+                <input type="hidden" name="wizard_step" value="<?= Security::escape($key) ?>">
+                <input type="hidden" name="wizard_done" value="1">
+                <button type="submit" class="at-btn at-btn--ghost at-btn--sm at-focusable">Mark done</button>
+            </form>
         </li>
     <?php endforeach; ?>
 </ol>
 
-<div id="setup-home" class="at-card mt-6">
-    <div class="at-card__body space-y-4 max-w-2xl">
-        <h3 class="font-bold"><?= $simple ? 'Homepage search appearance' : 'Homepage SEO' ?></h3>
-        <form method="post" class="space-y-3">
+<div id="setup-home" class="at-seo-saas__panel max-w-2xl">
+        <h3 class="at-seo-saas__panel-title"><?= $simple ? 'Homepage search appearance' : 'Homepage SEO' ?></h3>
+        <p class="at-seo-saas__panel-sub">This is what people may see when they find your shop on Google.</p>
+        <form method="post" class="space-y-3 mt-4">
             <?= Csrf::field() ?>
+            <input type="hidden" name="section" value="setup">
             <input type="hidden" name="seo_action" value="save_homepage">
             <div>
                 <label class="at-label"><?= $simple ? 'Search title' : 'Meta title' ?></label>
@@ -134,5 +135,5 @@ $previewUrl = SeoUrl::absolute('/');
             </div>
             <button type="submit" class="at-btn at-btn--primary at-focusable"<?= $useDb ? '' : ' disabled' ?>>Save homepage SEO</button>
         </form>
-    </div>
+</div>
 </div>

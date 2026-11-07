@@ -20,8 +20,8 @@ $closeUrl = SeoAdminCenter::catalogSectionUrl(array_diff_key($catalogParams, ['p
 $hasExisting = $metaTitle !== '' || $metaDesc !== '';
 ?>
 <div class="at-seo-editor-backdrop" data-at-seo-editor-backdrop>
-    <div class="at-seo-editor at-card" role="dialog" aria-labelledby="at-seo-editor-title" aria-modal="true">
-        <div class="at-card__body space-y-4">
+    <div class="at-seo-editor at-seo-saas__panel" role="dialog" aria-labelledby="at-seo-editor-title" aria-modal="true">
+        <div class="space-y-4">
             <div class="flex flex-wrap items-start justify-between gap-2">
                 <div>
                     <h3 id="at-seo-editor-title" class="font-bold text-lg">Manage SEO</h3>

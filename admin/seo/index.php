@@ -157,14 +157,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 admin_layout_start(['pageTitle' => 'SEO Management Center', 'activeAdminNav' => 'seo']);
 $pageHeading = 'SEO Management Center';
+$pageDescription = 'Manage search titles, technical settings and redirects in one place — no code required.';
 require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
 AdminPersistence::renderUnavailableAlert();
+require_once APNI_TOKRI_ROOT . '/includes/partials/admin/seo-ui.php';
+echo '<div class="at-seo-saas">';
 require APNI_TOKRI_ROOT . '/includes/partials/admin/seo-nav.php';
+require APNI_TOKRI_ROOT . '/includes/partials/admin/seo-section-intro.php';
 
 $sectionFile = APNI_TOKRI_ROOT . '/admin/seo/sections/' . $seoSection . '.php';
+echo '<div class="at-seo-saas__content">';
 if (is_file($sectionFile)) {
     require $sectionFile;
 } else {
-    echo '<p class="at-muted">Section not found.</p>';
+    echo '<p class="at-seo-saas__empty">Section not found.</p>';
 }
+echo '</div></div>';
 admin_layout_end();

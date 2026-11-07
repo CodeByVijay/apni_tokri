@@ -32,18 +32,19 @@ if ($useDb) {
 $nfRows = $useDb && SeoNotFoundLog::tableReady() ? SeoNotFoundLog::listForAdmin(30) : [];
 $prefillFrom = isset($_GET['from']) && is_string($_GET['from']) ? trim($_GET['from']) : '';
 ?>
-<div class="grid gap-4">
-    <div id="redirect-form" class="at-card"><div class="at-card__body space-y-3">
-        <h3 class="font-bold">Add redirect</h3>
+<div class="at-seo-saas__stack">
+    <div id="redirect-form" class="at-seo-saas__panel space-y-3">
+        <h3 class="at-seo-saas__panel-title">Add redirect</h3>
         <p class="text-sm at-muted">When a page address changes, add a permanent redirect so visitors and Google reach the new URL.</p>
         <form method="post" class="space-y-3 max-w-xl">
             <?= Csrf::field() ?>
+            <input type="hidden" name="section" value="redirects">
             <input type="hidden" name="seo_action" value="redirect_save">
             <div><label class="at-label">Old path</label><input class="at-input at-focusable" name="from" placeholder="/old-product-slug" value="<?= Security::escape($prefillFrom) ?>" required<?= $useDb ? '' : ' disabled' ?>></div>
             <div><label class="at-label">New path</label><input class="at-input at-focusable" name="to" placeholder="/fresh-red-tomatoes" required<?= $useDb ? '' : ' disabled' ?>></div>
             <button type="submit" class="at-btn at-btn--primary at-focusable"<?= $useDb ? '' : ' disabled' ?>>Save 301 redirect</button>
         </form>
-    </div></div>
+    </div>
 
     <?php if ($useDb): ?>
     <form method="get" class="flex gap-2 max-w-md">
@@ -64,8 +65,8 @@ $prefillFrom = isset($_GET['from']) && is_string($_GET['from']) ? trim($_GET['fr
     }
     ?>
 
-    <div class="at-card"><div class="at-card__body space-y-3">
-        <h3 class="font-bold">404 errors</h3>
+    <div class="at-seo-saas__panel space-y-3">
+        <h3 class="at-seo-saas__panel-title">404 errors</h3>
         <p class="text-sm at-muted">URLs visitors requested that were not found. Create a redirect when you have a better destination — do not send every 404 to the homepage.</p>
         <?php if ($nfRows === []): ?>
             <p class="text-sm at-muted">No recent 404 requests recorded<?= SeoNotFoundLog::tableReady() ? '' : ' (run migration 1.35.0 to enable logging)' ?>.</p>
@@ -86,6 +87,6 @@ $prefillFrom = isset($_GET['from']) && is_string($_GET['from']) ? trim($_GET['fr
                 <?php endforeach; ?>
             </ul>
         <?php endif; ?>
-    </div></div>
+    </div>
     <?php endif; ?>
 </div>

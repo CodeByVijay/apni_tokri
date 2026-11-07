@@ -18,12 +18,13 @@ if ($useDb && CmsPageService::schemaReady()) {
     $cmsRows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 }
 ?>
-<div class="grid gap-6">
-    <div class="at-card">
-        <div class="at-card__body space-y-4 max-w-2xl">
-            <h3 class="font-bold">Homepage</h3>
-            <form method="post" class="space-y-3">
+<div class="at-seo-saas__stack">
+    <div class="at-seo-saas__panel max-w-2xl">
+            <h3 class="at-seo-saas__panel-title">Homepage</h3>
+            <p class="at-seo-saas__panel-sub">The main listing shoppers see when they search for your store.</p>
+            <form method="post" class="space-y-3 mt-4">
                 <?= Csrf::field() ?>
+                <input type="hidden" name="section" value="pages">
                 <input type="hidden" name="seo_action" value="save_homepage">
                 <div>
                     <label class="at-label"><?= $simple ? 'Title in Google results' : 'SEO title' ?></label>
@@ -41,12 +42,10 @@ if ($useDb && CmsPageService::schemaReady()) {
                 <?= SeoAdminCenter::searchPreview((string) $homeTitle, (string) $homeDesc, $previewUrl) ?>
                 <button type="submit" class="at-btn at-btn--primary at-focusable"<?= $useDb ? '' : ' disabled' ?>>Save</button>
             </form>
-        </div>
     </div>
 
-    <div class="at-card">
-        <div class="at-card__body space-y-3">
-            <h3 class="font-bold">Content pages</h3>
+    <div class="at-seo-saas__panel">
+            <h3 class="at-seo-saas__panel-title">Content pages</h3>
             <p class="text-sm at-muted">Edit full SEO fields (canonical, Open Graph, robots) in each page editor. Login, checkout, cart and account routes stay non-indexable by default.</p>
             <ul class="divide-y divide-[var(--at-line)] text-sm">
                 <?php foreach ($cmsRows as $page): ?>
@@ -69,6 +68,5 @@ if ($useDb && CmsPageService::schemaReady()) {
                     <li class="at-muted">No published CMS pages yet.</li>
                 <?php endif; ?>
             </ul>
-        </div>
     </div>
 </div>

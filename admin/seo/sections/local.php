@@ -32,10 +32,9 @@ if ($serviceArea !== '') {
 }
 $jsonPreview = json_encode($preview, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 ?>
-<div class="grid gap-4 lg:grid-cols-2">
-    <div class="at-card">
-        <div class="at-card__body space-y-3">
-            <h3 class="font-bold"><?= $simple ? 'Your business on Google Maps & local search' : 'Local business data' ?></h3>
+<div class="at-seo-saas__stack lg:grid lg:grid-cols-2 lg:gap-4">
+    <div class="at-seo-saas__panel">
+            <h3 class="at-seo-saas__panel-title"><?= $simple ? 'Your business on Google Maps & local search' : 'Local business data' ?></h3>
             <p class="text-sm at-muted">Core address and contact come from <a href="<?= Security::escape($settingsBusiness) ?>" class="underline at-focusable">Business profile</a>. We only output structured data you have entered — no invented reviews or hours.</p>
             <dl class="text-sm grid gap-2">
                 <div><dt class="at-muted">Business</dt><dd><?= Security::escape(BusinessSettings::legalName()) ?></dd></div>
@@ -43,8 +42,9 @@ $jsonPreview = json_encode($preview, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES 
                 <div><dt class="at-muted">Phone</dt><dd><?= Security::escape(BusinessSettings::supportPhoneDisplay() ?? '—') ?></dd></div>
                 <div><dt class="at-muted">Website</dt><dd><?= Security::escape(BusinessSettings::websiteUrl()) ?></dd></div>
             </dl>
-            <form method="post" class="space-y-3">
+            <form method="post" class="space-y-3 mt-3">
                 <?= Csrf::field() ?>
+                <input type="hidden" name="section" value="local">
                 <input type="hidden" name="seo_action" value="save_local">
                 <div>
                     <label class="at-label">Service area (optional)</label>
@@ -57,13 +57,10 @@ $jsonPreview = json_encode($preview, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES 
                 <button type="submit" class="at-btn at-btn--primary at-focusable"<?= $useDb ? '' : ' disabled' ?>>Save local SEO notes</button>
             </form>
             <p class="text-xs at-muted">To manage your Google Business Profile, use <a href="https://business.google.com/" class="underline" rel="noopener noreferrer">business.google.com</a> — this admin panel does not connect to GBP unless a future integration is added.</p>
-        </div>
     </div>
-    <div class="at-card">
-        <div class="at-card__body space-y-2">
-            <h3 class="font-bold">Structured data preview (JSON-LD)</h3>
+    <div class="at-seo-saas__panel">
+            <h3 class="at-seo-saas__panel-title">Structured data preview (JSON-LD)</h3>
             <p class="text-xs at-muted">Rendered on the site when address data exists. Validate in Google’s Rich Results Test.</p>
             <pre class="text-xs bg-neutral-100 p-3 rounded overflow-auto max-h-96"><?= Security::escape(is_string($jsonPreview) ? $jsonPreview : '{}') ?></pre>
-        </div>
     </div>
 </div>
