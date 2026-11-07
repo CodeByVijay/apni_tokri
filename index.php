@@ -12,10 +12,12 @@ $loadCatalogueJs = true;
 $base = url_base();
 
 $seoHome = SeoResolver::forHomepage();
+$heroImageUrl = asset_url('assets/images/demo/hero-basket.jpg');
 layout_public_start([
     'seo' => $seoHome,
     'jsonLd' => SeoStructuredData::forHomepage($seoHome),
     'activeNav' => 'home',
+    'preloadLcpImage' => $heroImageUrl,
 ]);
 require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
 
@@ -58,7 +60,7 @@ $categoryHints = [
             </div>
         </div>
         <div class="at-hero__media at-reveal" style="animation-delay:.08s">
-            <img src="<?= Security::escape(asset_url('assets/images/demo/hero-basket.jpg')) ?>" alt="A cane tokri basket filled with tomatoes, capsicum, bananas, apples and coriander" width="1024" height="576" fetchpriority="high">
+            <img src="<?= Security::escape($heroImageUrl) ?>" alt="A cane tokri basket filled with tomatoes, capsicum, bananas, apples and coriander" width="1024" height="576" fetchpriority="high" decoding="async">
             <div class="at-hero__chip">
                 <?= at_icon('shield') ?>
                 <span>Checked &amp; packed<br><span class="at-muted font-normal">before it leaves us</span></span>

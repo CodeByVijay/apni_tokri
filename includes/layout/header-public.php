@@ -46,7 +46,7 @@ $navIsCategoryPage = $activeNav === 'categories';
             </button>
 
             <a href="<?= Security::escape($base) ?>/index.php" class="at-logo at-focusable flex-shrink-0" aria-label="<?= Security::escape(BrandingSettings::logoAlt()) ?> — <?= Security::escape(__('nav_home')) ?>">
-                <img src="<?= Security::escape(BrandingSettings::logoUrl()) ?>" alt="<?= Security::escape(BrandingSettings::logoAlt()) ?>" width="44" height="44">
+                <img src="<?= Security::escape(BrandingSettings::logoUrl()) ?>" alt="" width="44" height="44" decoding="async">
                 <span>
                     <span class="at-logo__word"><?= Security::escape(__('brand_name')) ?></span>
                     <span class="at-logo__tag hidden sm:block"><?= Security::escape(__('tagline')) ?></span>
@@ -89,9 +89,10 @@ $navIsCategoryPage = $activeNav === 'categories';
             <label class="sr-only" for="at-search-m"><?= Security::escape(__('search_placeholder')) ?></label>
             <div class="at-search__field">
                 <?= at_icon('search') ?>
-                <input id="at-search-m" type="search" name="q" placeholder="<?= Security::escape(__('search_placeholder')) ?>" autocomplete="off">
+                <input id="at-search-m" type="search" name="q" placeholder="<?= Security::escape(__('search_placeholder')) ?>" autocomplete="off" aria-autocomplete="list" aria-controls="at-suggest-m">
+                <button type="submit" class="sr-only">Search</button>
             </div>
-            <div class="at-suggest" role="listbox"></div>
+            <div id="at-suggest-m" class="at-suggest" role="listbox"></div>
         </form>
 
         <!-- Category nav -->

@@ -73,8 +73,11 @@ $activeNav = '';
 require APNI_TOKRI_ROOT . '/includes/layout/footer-public.php';
 $footerOn = (string) ob_get_clean();
 ok(str_contains($footerOn, $validUdyam), 'Footer shows Udyam number when enabled');
-ok(str_contains($footerOn, 'Test MSME Unit'), 'Footer shows enterprise name');
-ok(str_contains($footerOn, 'href="' . BusinessSettings::DEFAULT_UDYAM_VERIFY_URL . '"'), 'Footer verify href uses canonical default URL');
+ok(str_contains($footerOn, 'Udyam Registration No.:'), 'Footer Udyam label');
+ok(!str_contains($footerOn, 'Test MSME Unit'), 'Footer omits enterprise name');
+ok(!str_contains($footerOn, '>Verify</a>'), 'Footer omits verify link');
+ok(str_contains($footerOn, 'FSSAI Lic. No.:'), 'Footer FSSAI label uses colon');
+ok(str_contains($footerOn, ' | '), 'Footer registration details separated by pipe');
 
 AppSettings::resetCache();
 BusinessSettings::saveFromPost(array_merge(BusinessSettings::adminFormState(), [
@@ -87,7 +90,7 @@ ok(BusinessSettings::udyamVerifyUrl() === BusinessSettings::DEFAULT_UDYAM_VERIFY
 ob_start();
 require APNI_TOKRI_ROOT . '/includes/layout/footer-public.php';
 $footerCanonical = (string) ob_get_clean();
-ok(str_contains($footerCanonical, 'href="' . BusinessSettings::DEFAULT_UDYAM_VERIFY_URL . '"'), 'Footer verify href canonicalizes saved Udyam_Verify.aspx');
+ok(!str_contains($footerCanonical, '>Verify</a>'), 'Footer still omits verify after canonical URL save');
 ok(BusinessSettings::canonicalUdyamVerifyUrl('https://verify.example.test/udyam') === 'https://verify.example.test/udyam', 'Custom verify URL preserved');
 ok(!str_contains($footerOn, '.pdf'), 'Footer does not expose certificate filename');
 
@@ -108,7 +111,7 @@ ok(BusinessSettings::udyamPublicDisplay() === null, 'Disabled hides footer block
 ob_start();
 require APNI_TOKRI_ROOT . '/includes/layout/footer-public.php';
 $footerOff = (string) ob_get_clean();
-ok(!str_contains($footerOff, 'Udyam ' . $validUdyam), 'Footer omits Udyam when disabled');
+ok(!str_contains($footerOff, 'Udyam Registration No.:'), 'Footer omits Udyam when disabled');
 
 $frozenSnap = [
     'schema' => 1,

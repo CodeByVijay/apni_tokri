@@ -117,11 +117,18 @@ foreach ($cmsFooterLinks as $cmsFooterLink) {
     <div class="border-t border-white/10">
         <div class="at-container py-4 flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between text-xs text-white/60">
             <span>&copy; <?= date('Y') ?> <?= Security::escape(BusinessSettings::legalName()) ?>. All rights reserved.
-                <?php $fssai = BusinessSettings::fssaiLicence(); if ($fssai !== null): ?>
-                    <span class="block sm:inline sm:ml-2">FSSAI Lic. No. <?= Security::escape($fssai) ?></span>
-                <?php endif; ?>
-                <?php $udyam = BusinessSettings::udyamPublicDisplay(); if ($udyam !== null): ?>
-                    <span class="block sm:inline sm:ml-2">Udyam <?= Security::escape($udyam['number']) ?><?php if (!empty($udyam['enterprise_name'])): ?> (<?= Security::escape($udyam['enterprise_name']) ?>)<?php endif; ?> · <a href="<?= Security::escape($udyam['verify_url']) ?>" class="underline at-focusable" rel="noopener noreferrer" target="_blank">Verify</a></span>
+                <?php
+                $fssai = BusinessSettings::fssaiLicence();
+                $udyam = BusinessSettings::udyamPublicDisplay();
+                $registrationLine = [];
+                if ($fssai !== null) {
+                    $registrationLine[] = 'FSSAI Lic. No.: ' . Security::escape($fssai);
+                }
+                if ($udyam !== null) {
+                    $registrationLine[] = 'Udyam Registration No.: ' . Security::escape($udyam['number']);
+                }
+                if ($registrationLine !== []): ?>
+                    <span class="block sm:inline sm:ml-2"><?= implode(' | ', $registrationLine) ?></span>
                 <?php endif; ?>
             </span>
             <?php if (AppEnvironment::allowsStorefrontDevelopmentLinks()): ?>
@@ -154,23 +161,23 @@ foreach ($cmsFooterLinks as $cmsFooterLink) {
 </nav>
 <?php endif; ?>
 
-<script src="<?= Security::escape(asset_url('assets/js/apni-tokri.js')) ?>"></script>
-<script src="<?= Security::escape(asset_url('assets/js/cart.js')) ?>"></script>
+<script defer src="<?= Security::escape(asset_url('assets/js/apni-tokri.js')) ?>"></script>
+<script defer src="<?= Security::escape(asset_url('assets/js/cart.js')) ?>"></script>
 <?php
 global $loadCatalogueJs;
 $loadCatalogueJs = !empty($loadCatalogueJs);
 ?>
 <?php if (!empty($GLOBALS['loadAddressMap'])): ?>
-<script src="<?= Security::escape(asset_url('assets/vendor/leaflet/leaflet.js')) ?>"></script>
-<script>window.AT_MAP_CONFIG = <?= json_encode(MapConfig::clientConfig(), JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
-<script src="<?= Security::escape(asset_url('assets/js/address-map.js')) ?>"></script>
+<script defer src="<?= Security::escape(asset_url('assets/vendor/leaflet/leaflet.js')) ?>"></script>
+<script defer>window.AT_MAP_CONFIG = <?= json_encode(MapConfig::clientConfig(), JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
+<script defer src="<?= Security::escape(asset_url('assets/js/address-map.js')) ?>"></script>
 <?php endif; ?>
 <?php if (!empty($GLOBALS['loadAddressAutocompleteJs'])): ?>
-<script>window.AT_ADDRESS_AUTOCOMPLETE = <?= json_encode(AddressAutocompleteSettings::publicClientConfig(), JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
-<script src="<?= Security::escape(asset_url('assets/js/address-autocomplete.js')) ?>"></script>
+<script defer>window.AT_ADDRESS_AUTOCOMPLETE = <?= json_encode(AddressAutocompleteSettings::publicClientConfig(), JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
+<script defer src="<?= Security::escape(asset_url('assets/js/address-autocomplete.js')) ?>"></script>
 <?php endif; ?>
 <?php if ($loadCatalogueJs): ?>
-<script src="<?= Security::escape(asset_url('assets/js/catalogue.js')) ?>"></script>
+<script defer src="<?= Security::escape(asset_url('assets/js/catalogue.js')) ?>"></script>
 <?php endif; ?>
 </body>
 </html>

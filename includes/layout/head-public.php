@@ -37,9 +37,19 @@ $locale = Lang::locale();
     <?php if (isset($jsonLd) && $jsonLd instanceof SeoJsonLd && !$jsonLd->isEmpty()): ?>
     <?= $jsonLd->renderScriptTag() ?>
     <?php endif; ?>
+    <?php
+    $preloadLcpImage = $preloadLcpImage ?? null;
+    if (is_string($preloadLcpImage) && $preloadLcpImage !== ''): ?>
+    <link rel="preload" as="image" href="<?= Security::escape($preloadLcpImage) ?>" fetchpriority="high">
+    <?php endif; ?>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500;1,9..144,600&family=Noto+Sans+Devanagari:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://cdn.tailwindcss.com" crossorigin>
+    <?php
+    $googleFontsHref = 'https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500;1,9..144,600&family=Noto+Sans+Devanagari:wght@400;600;700&display=swap';
+    ?>
+    <link rel="preload" as="style" href="<?= Security::escape($googleFontsHref) ?>" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="<?= Security::escape($googleFontsHref) ?>"></noscript>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -67,6 +77,7 @@ $locale = Lang::locale();
     <?php if (!empty($loadAddressMap)): ?>
     <link rel="stylesheet" href="<?= Security::escape(asset_url('assets/vendor/leaflet/leaflet.css')) ?>">
     <?php endif; ?>
+    <link rel="preconnect" href="https://code.jquery.com" crossorigin>
     <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
 </head>
 <body class="at-body bg-brand-cream text-brand-charcoal min-h-screen flex flex-col" data-locale="<?= Security::escape($locale) ?>">
