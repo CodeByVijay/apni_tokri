@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /**
- * Reusable delivery address form with Leaflet map pin (my-addresses.php and checkout.php).
+ * Delivery address form with Google Places search (my-addresses.php).
  *
  * Expected variables:
  * @var string               $addrFormAction     form action URL
@@ -33,17 +33,19 @@ $invalid = static function (string $k) use ($errs): string {
     return isset($errs[$k]) ? ' aria-invalid="true"' : '';
 };
 $labelType = (string) ($vals['label_type'] ?? 'Home');
+$acCfg = $addrAutocompleteClientConfig ?? AddressAutocompleteSettings::publicClientConfig();
 ?>
-<form method="post" action="<?= Security::escape((string) $addrFormAction) ?>" class="at-addr-form" data-at-address-form id="<?= Security::escape($uid) ?>-form">
+<form method="post" action="<?= Security::escape((string) $addrFormAction) ?>" class="at-addr-form" data-at-address-form data-addr-checkout-autocomplete="1" id="<?= Security::escape($uid) ?>-form">
     <?= Csrf::field() ?>
     <input type="hidden" name="action" value="<?= Security::escape($mode === 'update' ? (string) ($addrFormUpdateAction ?? 'update') : (string) ($addrFormAddAction ?? 'add')) ?>">
     <?php if ($mode === 'update'): ?><input type="hidden" name="address_id" value="<?= (int) ($addrFormId ?? 0) ?>"><?php endif; ?>
     <?php foreach ($hidden as $hk => $hv): ?>
         <input type="hidden" name="<?= Security::escape((string) $hk) ?>" value="<?= Security::escape((string) $hv) ?>">
     <?php endforeach; ?>
+    <input type="hidden" name="addr_checkout_autocomplete" value="1">
     <input type="hidden" name="latitude" value="<?= $v('latitude') ?>">
     <input type="hidden" name="longitude" value="<?= $v('longitude') ?>">
-    <input type="hidden" name="location_confirmed" value="<?= $v('location_confirmed') === '1' ? '1' : '0' ?>">
+    <input type="hidden" name="location_confirmed" value="<?= $v('location_confirmed') === '1' || ($v('latitude') !== '' && $v('longitude') !== '') ? '1' : '0' ?>">
 
     <?php if ($errs !== []): ?>
         <div class="at-alert at-alert--error" role="alert"><span>Please check the highlighted fields and try again.</span></div>
@@ -71,44 +73,12 @@ $labelType = (string) ($vals['label_type'] ?? 'Home');
         <?= $err('label') ?>
     </section>
 
-    <!-- Step B -->
-    <section class="at-addr-step" data-addr-step="location" aria-labelledby="<?= Security::escape($uid) ?>-h-loc">
-        <h3 class="at-addr-step__title" id="<?= Security::escape($uid) ?>-h-loc"><span class="at-addr-step__num">2</span>Pin your delivery location</h3>
-        <p class="at-addr-hint"><strong>Move the pin to your building entrance, not just the nearby road.</strong> A pin helps our delivery person find you faster. It is optional, and you can type your address even if location access is blocked.</p>
-        <div class="at-addr-gps">
-            <button type="button" class="at-btn at-btn--primary at-focusable at-addr-gps__btn" data-addr-gps>
-                <?= at_icon('pin', 'w-5 h-5') ?><span data-label>Use my current location</span><span class="at-addr-spinner" aria-hidden="true"></span>
-            </button>
-        </div>
-        <div class="at-addr-search" data-addr-search-wrap>
-            <label class="at-label" for="<?= Security::escape($uid) ?>-addr-search">Search address or place</label>
-            <div class="at-addr-search__field">
-                <input id="<?= Security::escape($uid) ?>-addr-search" type="text" class="at-input at-focusable" data-addr-search role="combobox" autocomplete="off" autocapitalize="words" spellcheck="false" maxlength="200" placeholder="e.g. Vijay Nagar, Scheme 54, society or road name" aria-autocomplete="list" aria-expanded="false" aria-controls="<?= Security::escape($uid) ?>-addr-search-list">
-                <span class="at-addr-search__spinner at-addr-spinner" data-addr-search-busy aria-hidden="true" hidden></span>
-            </div>
-            <p class="at-addr-search__hint at-addr-hint text-sm">Suggestions use OpenStreetMap search (Photon). Results are biased toward Indore; accuracy varies — always verify on the map.</p>
-            <p class="at-addr-search__status" data-addr-search-status role="status" aria-live="polite" hidden></p>
-            <ul id="<?= Security::escape($uid) ?>-addr-search-list" class="at-addr-search__list" data-addr-search-list role="listbox" aria-label="Address suggestions" hidden></ul>
-        </div>
-        <p class="at-addr-msg" data-addr-map-msg role="status" aria-live="polite" hidden></p>
-        <div class="at-addr-mapwrap">
-            <div class="at-addr-map" data-addr-map role="application" aria-label="Map for choosing your delivery location. Tap to place the pin or drag it."></div>
-            <div class="at-addr-map__loading" data-addr-map-loading><span class="at-addr-spinner is-visible" aria-hidden="true"></span> Loading map…</div>
-        </div>
-        <noscript><p class="at-addr-msg" data-kind="warn">The map needs JavaScript. You can still fill in the address below and save it.</p></noscript>
-        <p class="at-addr-status" data-addr-pin-status data-state="none" aria-live="polite">No pin placed yet. Tap the map or use your current location.</p>
-        <p class="at-addr-accuracy" data-addr-accuracy hidden></p>
-        <div class="at-addr-actions">
-            <button type="button" class="at-btn at-btn--secondary at-focusable" data-addr-confirm-loc disabled>Confirm this location</button>
-            <button type="button" class="at-btn at-btn--ghost at-btn--sm at-focusable" data-addr-clear-pin hidden>Remove pin</button>
-        </div>
-        <?= $err('location') ?>
-    </section>
+    <?php require APNI_TOKRI_ROOT . '/includes/partials/address-form-location-google.php'; ?>
 
     <!-- Step C -->
     <section class="at-addr-step" data-addr-step="details" aria-labelledby="<?= Security::escape($uid) ?>-h-details">
         <h3 class="at-addr-step__title" id="<?= Security::escape($uid) ?>-h-details"><span class="at-addr-step__num">3</span>Address details</h3>
-        <p class="at-addr-msg text-sm" data-addr-detected-hint hidden role="status">Address detected from your map location. Please verify and complete your address before continuing.</p>
+        <p class="at-addr-msg text-sm" data-addr-detected-hint hidden role="status">Some fields were filled from your search. Please verify and complete everything before saving.</p>
         <div class="at-addr-grid">
             <div>
                 <label class="at-label" for="<?= Security::escape($uid) ?>-house">House / Flat / Door number <span class="at-req">*</span></label>
@@ -129,6 +99,16 @@ $labelType = (string) ($vals['label_type'] ?? 'Home');
                 <label class="at-label" for="<?= Security::escape($uid) ?>-area">Area / Locality <span class="at-req">*</span></label>
                 <input id="<?= Security::escape($uid) ?>-area" name="area" class="at-input at-focusable" maxlength="150" required value="<?= $v('area') ?>" placeholder="Vijay Nagar"<?= $invalid('area') ?>>
                 <?= $err('area') ?>
+            </div>
+            <div>
+                <label class="at-label" for="<?= Security::escape($uid) ?>-city">City</label>
+                <input id="<?= Security::escape($uid) ?>-city" name="addr_city" class="at-input at-focusable" maxlength="128" value="<?= $v('addr_city') !== '' ? $v('addr_city') : Security::escape('Indore') ?>" placeholder="Indore"<?= $invalid('addr_city') ?>>
+                <?= $err('addr_city') ?>
+            </div>
+            <div>
+                <label class="at-label" for="<?= Security::escape($uid) ?>-state">State</label>
+                <input id="<?= Security::escape($uid) ?>-state" name="addr_state" class="at-input at-focusable" maxlength="128" value="<?= $v('addr_state') !== '' ? $v('addr_state') : Security::escape('Madhya Pradesh') ?>" placeholder="Madhya Pradesh"<?= $invalid('addr_state') ?>>
+                <?= $err('addr_state') ?>
             </div>
             <div>
                 <label class="at-label" for="<?= Security::escape($uid) ?>-pin">Pincode <span class="at-req">*</span></label>
@@ -184,8 +164,6 @@ $labelType = (string) ($vals['label_type'] ?? 'Home');
             <label class="at-addr-confirm"><input type="checkbox" name="make_default" value="1" <?= ($vals['make_default'] ?? '') === '1' ? 'checked' : '' ?>><span>Make this my default address</span></label>
         <?php endif; ?>
         <div class="at-addr-actions at-addr-actions--sticky">
-            <button type="button" class="at-btn at-btn--secondary at-focusable" data-addr-edit-location>Edit location</button>
-            <button type="button" class="at-btn at-btn--secondary at-focusable" data-addr-edit-address>Edit address</button>
             <button type="submit" class="at-btn at-btn--primary at-focusable"><?= $mode === 'update' ? 'Save changes' : 'Save address' ?></button>
             <?php if (!empty($addrFormCancelUrl)): ?>
                 <a href="<?= Security::escape((string) $addrFormCancelUrl) ?>" class="at-btn at-btn--ghost at-focusable">Cancel</a>

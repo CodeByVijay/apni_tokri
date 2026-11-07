@@ -13,8 +13,6 @@ if (!function_exists('at_address_summary_html')) {
         $e = static function ($v): string {
             return Security::escape((string) $v);
         };
-        $hasPin = AddressInput::hasPin($a);
-        $confirmed = $hasPin && !empty($a['location_confirmed_at']);
         $receiver = trim((string) ($a['receiver_name'] ?? ''));
         $phone = trim((string) ($a['receiver_phone'] ?? ''));
         $landmark = AddressInput::landmarkOf($a);
@@ -43,9 +41,6 @@ if (!function_exists('at_address_summary_html')) {
         if ($landmark !== '') {
             $h .= '<span class="at-addr-card__meta block">Landmark: ' . $e($landmark) . '</span>';
         }
-        $h .= '<span class="at-addr-card__pin ' . ($hasPin ? 'is-set' : 'is-missing') . '" role="status">'
-            . ($hasPin ? ($confirmed ? 'Map pin saved ✓' : 'Map pin saved (confirm on edit)') : 'No map pin yet')
-            . '</span>';
 
         return $h;
     }

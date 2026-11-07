@@ -84,7 +84,8 @@ foreach ($addresses as $a) {
 layout_public_start([
     'pageTitle' => 'My addresses — Veggie Tokri',
     'activeNav' => 'account',
-    'loadAddressMap' => $showForm || $anyPin,
+    'loadAddressMap' => false,
+    'loadAddressAutocompleteJs' => $showForm,
 ]);
 $accountActive = 'addresses';
 $accountTitle = 'My addresses';
@@ -108,7 +109,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/account-shell-start.php';
             <p class="mt-3 text-sm at-muted">You have no saved addresses yet. Add one to speed up checkout.</p>
         <?php else: ?>
             <ul class="mt-3 grid sm:grid-cols-2 gap-3">
-                <?php foreach ($addresses as $a): $isDef = (int) $a['is_default'] === 1; $hasPin = AddressInput::hasPin($a); ?>
+                <?php foreach ($addresses as $a): $isDef = (int) $a['is_default'] === 1; ?>
                     <li class="at-addr-card at-addr-card--static" data-address-id="<?= (int) $a['id'] ?>">
                         <div class="flex gap-3">
                             <span class="text-[var(--at-green)] mt-0.5 flex-shrink-0"><?= at_icon('pin', 'w-5 h-5') ?></span>
@@ -118,12 +119,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/account-shell-start.php';
                             <p class="text-xs at-muted">Instructions: <?= Security::escape((string) $a['delivery_instructions']) ?></p>
                         <?php endif; ?>
                         <div class="at-addr-card__actions">
-                            <a href="<?= Security::escape($base) ?>/my-addresses.php?edit=<?= (int) $a['id'] ?>" class="at-btn at-btn--secondary at-btn--sm at-focusable"><?= $hasPin ? 'Edit' : 'Add map pin' ?></a>
-                            <?php if ($hasPin): ?>
-                                <button type="button" class="at-btn at-btn--secondary at-btn--sm at-focusable" data-at-view-location
-                                    data-lat="<?= Security::escape((string) $a['latitude']) ?>" data-lng="<?= Security::escape((string) $a['longitude']) ?>"
-                                    data-title="<?= Security::escape((string) $a['label']) ?>">View location</button>
-                            <?php endif; ?>
+                            <a href="<?= Security::escape($base) ?>/my-addresses.php?edit=<?= (int) $a['id'] ?>" class="at-btn at-btn--secondary at-btn--sm at-focusable">Edit</a>
                             <?php if (!$isDef): ?>
                                 <form method="post" action="<?= Security::escape($base) ?>/my-addresses.php"><?= Csrf::field() ?>
                                     <input type="hidden" name="action" value="default"><input type="hidden" name="address_id" value="<?= (int) $a['id'] ?>">
@@ -154,6 +150,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/account-shell-start.php';
         $addrFormShowDefault = true;
         $addrFormHidden = [];
         $addrFormUid = 'ma';
+        $addrAutocompleteClientConfig = AddressAutocompleteSettings::publicClientConfig();
         require APNI_TOKRI_ROOT . '/includes/partials/address-form.php';
         ?>
     </div>

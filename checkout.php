@@ -153,8 +153,7 @@ layout_public_start([
     'pageTitle' => 'Checkout — Veggie Tokri',
     'activeNav' => 'cart',
     'showBottomNav' => false,
-    // Leaflet for "View location" on saved cards + delivery modal scripts; checkout form uses server autocomplete when enabled.
-    'loadAddressMap' => $dbAddressMode,
+    'loadAddressMap' => false,
     'loadAddressAutocompleteJs' => $checkoutAddrMapFree,
 ]);
 require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
@@ -203,18 +202,12 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
                                 <span class="at-addr-card__body">
                                     <?= at_address_summary_html($addr) ?>
                                     <?php if (!empty($addr['delivery_instructions'])): ?><span class="at-addr-card__meta block text-xs">Instructions: <?= Security::escape((string) $addr['delivery_instructions']) ?></span><?php endif; ?>
-                                    <?php if ($pinOk): ?>
-                                        <button type="button" class="at-btn at-btn--secondary at-btn--sm at-focusable at-addr-card__view-loc mt-2" data-at-view-location
-                                            data-lat="<?= Security::escape((string) $addr['latitude']) ?>" data-lng="<?= Security::escape((string) $addr['longitude']) ?>"
-                                            data-title="<?= Security::escape((string) $addr['label']) ?>">View location</button>
-                                    <?php endif; ?>
                                 </span>
                             </label>
                         <?php endforeach; ?>
                     </div>
                     <div class="at-addr-card__actions">
                         <a class="at-btn at-btn--secondary at-btn--sm at-focusable" data-checkout-edit href="<?= Security::escape(url_base()) ?>/checkout.php?edit_address=<?= (int) $selectedAddressId ?>#checkout-address-form">Edit selected address</a>
-                        <a class="at-btn at-btn--secondary at-btn--sm at-focusable" data-checkout-edit href="<?= Security::escape(url_base()) ?>/checkout.php?edit_address=<?= (int) $selectedAddressId ?>#checkout-address-form">Change delivery location</a>
                     </div>
                 <?php endif; ?>
                 <?php if ($loggedIn): ?>
@@ -232,12 +225,8 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
                             $addrFormAddAction = 'add_address';
                             $addrFormUpdateAction = 'update_address';
                             $addrFormUid = 'co';
-                            if ($checkoutAddrMapFree) {
-                                $addrAutocompleteClientConfig = AddressAutocompleteSettings::publicClientConfig();
-                                require APNI_TOKRI_ROOT . '/includes/partials/address-form-checkout.php';
-                            } else {
-                                require APNI_TOKRI_ROOT . '/includes/partials/address-form.php';
-                            }
+                            $addrAutocompleteClientConfig = AddressAutocompleteSettings::publicClientConfig();
+                            require APNI_TOKRI_ROOT . '/includes/partials/address-form-checkout.php';
                             ?>
                         </div>
                     </details>

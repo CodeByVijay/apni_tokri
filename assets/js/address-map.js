@@ -723,7 +723,7 @@
   /* ------------------------------------------------------------- bootstrap */
 
   function initAll() {
-    $('[data-at-address-form]').each(function () { initForm(this); });
+    $('[data-at-address-form]').not('[data-addr-checkout-autocomplete="1"]').each(function () { initForm(this); });
   }
 
   $(document).on('click', '[data-at-view-location]', function (e) {
