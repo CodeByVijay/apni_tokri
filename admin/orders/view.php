@@ -258,21 +258,11 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
 
         <?php if (($order['history'] ?? []) !== []): ?>
         <div class="at-card"><div class="at-card__body">
-            <h3 class="font-bold mb-2">Status history</h3>
-            <ul class="text-sm space-y-2">
-                <?php foreach ($order['history'] as $h): ?>
-                    <li>
-                        <?= admin_status_badge((string) ($h['status'] ?? '')) ?>
-                        <span class="at-muted">· <time datetime="<?= Security::escape((string) ($h['created_at'] ?? '')) ?>"><?= Security::escape(customer_format_datetime((string) ($h['created_at'] ?? ''))) ?></time></span>
-                        <?php if (!empty($h['admin_name'])): ?>
-                            <span class="at-muted">· <?= Security::escape((string) $h['admin_name']) ?></span>
-                        <?php endif; ?>
-                        <?php if (trim((string) ($h['note'] ?? '')) !== ''): ?>
-                            <span class="block at-muted mt-0.5"><?= Security::escape((string) $h['note']) ?></span>
-                        <?php endif; ?>
-                    </li>
-                <?php endforeach; ?>
-            </ul>
+            <h3 class="font-bold mb-3">Status history</h3>
+            <?php
+            $history = $order['history'];
+            require APNI_TOKRI_ROOT . '/includes/partials/admin/order-status-timeline.php';
+            ?>
         </div></div>
         <?php endif; ?>
     </div>

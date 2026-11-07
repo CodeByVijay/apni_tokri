@@ -6994,3 +6994,135 @@ body.at-map-viewer-open { overflow: hidden; }
     width: 100%;
   }
 }
+
+/* Admin order detail — status history timeline */
+.at-admin-order-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0.15rem 0 0;
+  max-width: 100%;
+}
+.at-admin-order-timeline__item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 2.25rem minmax(0, 1fr);
+  gap: 0.75rem 0.85rem;
+  padding-bottom: 1.25rem;
+}
+.at-admin-order-timeline__item:last-child {
+  padding-bottom: 0;
+}
+.at-admin-order-timeline__item:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  left: 1.1rem;
+  top: 2.1rem;
+  bottom: 0.15rem;
+  width: 2px;
+  background: var(--at-line);
+  border-radius: 1px;
+}
+.at-admin-order-timeline__marker {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 999px;
+  border: 2px solid var(--at-line-strong);
+  background: var(--at-surface);
+  flex-shrink: 0;
+}
+.at-admin-order-timeline__icon {
+  width: 1.1rem;
+  height: 1.1rem;
+  margin-top: 0.45rem;
+}
+.at-admin-order-timeline__content {
+  min-width: 0;
+  padding-top: 0.1rem;
+}
+.at-admin-order-timeline__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.75rem;
+}
+.at-admin-order-timeline__title {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--at-ink);
+  line-height: 1.35;
+}
+.at-admin-order-timeline__time {
+  font-size: 0.75rem;
+  color: var(--at-muted);
+  white-space: nowrap;
+}
+.at-admin-order-timeline__desc {
+  margin: 0.35rem 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--at-ink-2);
+  word-break: break-word;
+}
+.at-admin-order-timeline__item--completed .at-admin-order-timeline__marker {
+  border-color: var(--at-success);
+  background: var(--at-success-bg);
+  color: var(--at-success);
+}
+.at-admin-order-timeline__item--pending .at-admin-order-timeline__marker {
+  border-color: var(--at-yellow-dark);
+  background: var(--at-warning-bg);
+  color: var(--at-yellow-ink);
+}
+.at-admin-order-timeline__item--failure .at-admin-order-timeline__marker {
+  border-color: var(--at-danger);
+  background: var(--at-danger-bg);
+  color: var(--at-danger);
+}
+.at-admin-order-timeline__item--resolved .at-admin-order-timeline__marker {
+  border-color: var(--at-yellow-dark);
+  background: #fff0e0;
+  color: #9a5b14;
+}
+.at-admin-order-timeline__item.is-latest .at-admin-order-timeline__content {
+  background: var(--at-green-50);
+  border: 1px solid var(--at-green-100);
+  border-radius: var(--at-radius-sm);
+  padding: 0.65rem 0.75rem;
+}
+.at-admin-order-timeline__item.is-latest .at-admin-order-timeline__title {
+  color: var(--at-green-dark);
+}
+.at-admin-order-timeline__item.is-latest .at-admin-order-timeline__marker {
+  box-shadow: 0 0 0 3px var(--at-green-100);
+}
+.at-admin-order-timeline__item--failure.is-latest .at-admin-order-timeline__content {
+  background: var(--at-danger-bg);
+  border-color: #f5c4c0;
+}
+.at-admin-order-timeline__item--failure.is-latest .at-admin-order-timeline__title {
+  color: var(--at-danger);
+}
+.at-admin-order-timeline__item--pending.is-latest .at-admin-order-timeline__content {
+  background: var(--at-warning-bg);
+  border-color: var(--at-yellow-100);
+}
+.at-admin-order-timeline__item--resolved.is-latest .at-admin-order-timeline__content {
+  background: #fff0e0;
+  border-color: #f0d4b8;
+}
+@media (max-width: 767px) {
+  .at-admin-order-timeline__head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.2rem;
+  }
+  .at-admin-order-timeline__time {
+    white-space: normal;
+  }
+}
