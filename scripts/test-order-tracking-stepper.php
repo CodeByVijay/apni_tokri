@@ -44,6 +44,8 @@ okS(strpos($h, 'width: 57%') !== false, 'progress bar reflects 4/7');
 okS(strpos($h, 'is-bad') === false, 'no failure styling on healthy order');
 okS(strpos($h, 'at-stepper__scroll') !== false, 'tracker has own scroll container');
 okS(strpos($h, 'at-stepper__content') !== false, 'step content wrapper for layout');
+okS(strpos($h, 'data-at-order-tracking-toggle') !== false && strpos($h, 'aria-controls') !== false, 'mobile tracking toggle a11y');
+okS(strpos($h, 'at-stepper__collapse-bar') !== false, 'mobile collapse summary bar');
 okS(preg_match('/\d{1,2} Nov 2026, \d{1,2}:\d{2} (AM|PM)/', $h) === 1, 'milestones use 12-hour IST-style timestamps');
 
 $delivered = $full;

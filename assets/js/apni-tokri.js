@@ -80,6 +80,51 @@
       $('#' + $btn.attr('aria-controls')).prop('hidden', open);
     });
 
+    function syncOrderTrackingCollapse() {
+      var desktop = window.matchMedia('(min-width: 768px)').matches;
+      $('[data-at-order-tracking]').each(function () {
+        var $root = $(this);
+        var $panel = $root.find('.at-stepper__panel');
+        var $btn = $root.find('[data-at-order-tracking-toggle]');
+        if (!$btn.length || !$panel.length) {
+          return;
+        }
+        if (desktop) {
+          $root.addClass('is-expanded');
+          $root.removeData('tracking-mobile-open');
+          $btn.attr('aria-expanded', 'true');
+          $panel.attr('aria-hidden', 'false');
+          $btn.find('.at-stepper__toggle-text').text('View complete tracking');
+        } else {
+          if (!$root.data('tracking-mobile-open')) {
+            $root.removeClass('is-expanded');
+          }
+          var expanded = $root.hasClass('is-expanded');
+          $btn.attr('aria-expanded', expanded ? 'true' : 'false');
+          $panel.attr('aria-hidden', expanded ? 'false' : 'true');
+          $btn.find('.at-stepper__toggle-text').text(expanded ? 'Hide tracking' : 'View complete tracking');
+        }
+      });
+    }
+
+    $(document).on('click', '[data-at-order-tracking-toggle]', function () {
+      if (window.matchMedia('(min-width: 768px)').matches) {
+        return;
+      }
+      var $btn = $(this);
+      var $root = $btn.closest('[data-at-order-tracking]');
+      var $panel = $('#' + $btn.attr('aria-controls'));
+      var expanded = $root.hasClass('is-expanded');
+      $root.toggleClass('is-expanded', !expanded);
+      $root.data('tracking-mobile-open', !expanded);
+      $btn.attr('aria-expanded', expanded ? 'false' : 'true');
+      $panel.attr('aria-hidden', expanded ? 'true' : 'false');
+      $btn.find('.at-stepper__toggle-text').text(expanded ? 'View complete tracking' : 'Hide tracking');
+    });
+
+    syncOrderTrackingCollapse();
+    $(window).on('resize', syncOrderTrackingCollapse);
+
     $(document).on('click', '[data-at-order-card]', function (e) {
       if ($(e.target).closest('[data-at-order-card-stop]').length) {
         return;

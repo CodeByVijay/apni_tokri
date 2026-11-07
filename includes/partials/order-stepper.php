@@ -72,8 +72,25 @@ $currentStep = $steps[$currentIdx];
 $progressPct = $total > 1 ? (int) round(($doneCount / $total) * 100) : ($doneCount > 0 ? 100 : 0);
 $countLabel = $allDone ? ($total . ' of ' . $total) : (min($doneCount + 1, $total) . ' of ' . $total);
 $summaryBad = $currentStep['state'] === 'is-bad';
+$panelId = 'at-order-tracking-panel';
 ?>
-<div class="at-stepper" data-at-stepper>
+<div class="at-stepper at-stepper--collapsible" data-at-stepper data-at-order-tracking>
+    <div class="at-stepper__collapse-bar">
+        <p class="at-stepper__mobile-status" role="status">
+            <span class="at-stepper__mobile-status-label">Current status</span>
+            <span class="at-stepper__mobile-status-value<?= $summaryBad ? ' is-bad' : '' ?>"><?= Security::escape($currentStep['label']) ?></span>
+            <?php if ($currentStep['at'] !== ''): ?>
+                <time class="at-stepper__mobile-status-time" datetime="<?= Security::escape($currentStep['at']) ?>"><?= Security::escape(customer_format_datetime($currentStep['at'])) ?></time>
+            <?php endif; ?>
+        </p>
+        <button type="button" class="at-stepper__toggle at-focusable" data-at-order-tracking-toggle
+                aria-expanded="false" aria-controls="<?= Security::escape($panelId) ?>">
+            <span class="at-stepper__toggle-text">View complete tracking</span>
+            <?= at_icon('chevron-down', 'at-stepper__toggle-icon') ?>
+        </button>
+    </div>
+
+    <div class="at-stepper__panel" id="<?= Security::escape($panelId) ?>" aria-hidden="true">
     <div class="at-stepper__summary" role="status">
         <div class="at-stepper__summary-top">
             <span class="at-stepper__summary-label<?= $summaryBad ? ' is-bad' : '' ?>"><?= Security::escape($currentStep['label']) ?></span>
@@ -110,5 +127,6 @@ $summaryBad = $currentStep['state'] === 'is-bad';
                 </li>
             <?php endforeach; ?>
         </ol>
+    </div>
     </div>
 </div>
