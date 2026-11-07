@@ -65,6 +65,40 @@ final class CustomerAccountService
         return ['ok' => true, 'errors' => []];
     }
 
+    /**
+     * Optional email update (checkout); does not change name or marketing flags.
+     *
+     * @return array{ok: bool, message?: string}
+     */
+    public static function updateEmailOptional(int $customerId, string $email): array
+    {
+        $email = trim($email);
+        if ($customerId <= 0) {
+            return ['ok' => false, 'message' => 'You must be signed in.'];
+        }
+        if ($email !== '') {
+            if (strlen($email) > 191 || !Validation::email($email)) {
+                return ['ok' => false, 'message' => 'Enter a valid email address.'];
+            }
+        }
+
+        Install::ensureConnection();
+        $pdo = Database::pdo();
+
+        if ($email !== '') {
+            $dup = $pdo->prepare('SELECT id FROM customers WHERE email = ? AND id <> ? LIMIT 1');
+            $dup->execute([$email, $customerId]);
+            if ($dup->fetchColumn()) {
+                return ['ok' => false, 'message' => 'This email is already used by another account.'];
+            }
+        }
+
+        $stmt = $pdo->prepare('UPDATE customers SET email = ?, updated_at = NOW() WHERE id = ? AND is_active = 1');
+        $stmt->execute([$email !== '' ? $email : null, $customerId]);
+
+        return ['ok' => true];
+    }
+
     /** @return array<string, mixed>|null id, mobile, name, email */
     public static function profile(int $customerId): ?array
     {

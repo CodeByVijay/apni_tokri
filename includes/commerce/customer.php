@@ -21,7 +21,7 @@ final class CustomerService
                 return [];
             }
             Install::ensureConnection();
-            $stmt = Database::pdo()->prepare('SELECT id, mobile, name FROM customers WHERE id = ? LIMIT 1');
+            $stmt = Database::pdo()->prepare('SELECT id, mobile, name, email FROM customers WHERE id = ? LIMIT 1');
             $stmt->execute([CustomerAuth::id()]);
             $row = $stmt->fetch(PDO::FETCH_ASSOC);
             if (!$row) {
@@ -32,6 +32,7 @@ final class CustomerService
                 'id' => (string) $row['id'],
                 'mobile' => (string) $row['mobile'],
                 'name' => (string) ($row['name'] ?? 'Customer'),
+                'email' => (string) ($row['email'] ?? ''),
             ];
         }
 
@@ -204,11 +205,28 @@ final class SessionCustomerBackend
 
     public static function login(string $mobile, string $name): void
     {
+        $prev = is_array($_SESSION[self::KEY] ?? null) ? $_SESSION[self::KEY] : [];
         $_SESSION[self::KEY] = [
             'mobile' => $mobile,
             'name' => $name !== '' ? $name : 'Customer',
+            'email' => (string) ($prev['email'] ?? ''),
         ];
         AppSession::regenerate();
+    }
+
+    /** @return array{ok: bool, message?: string} */
+    public static function saveEmailOptional(string $email): array
+    {
+        $email = trim($email);
+        if ($email !== '' && (strlen($email) > 191 || !Validation::email($email))) {
+            return ['ok' => false, 'message' => 'Enter a valid email address.'];
+        }
+        if (!isset($_SESSION[self::KEY]) || !is_array($_SESSION[self::KEY])) {
+            return ['ok' => false, 'message' => 'Please log in to continue.'];
+        }
+        $_SESSION[self::KEY]['email'] = $email;
+
+        return ['ok' => true];
     }
 
     public static function logout(): void

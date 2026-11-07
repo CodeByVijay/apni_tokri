@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="csrf-token" content="a52be990477d8207a875f440720d88ba46693aefadc2a5c4031c9ca7ca846eb4">
+    <link rel="icon" href="/assets/images/logo.svg" sizes="any">
+    <title>Veggie Tokri — Freshness, Ready for Your Kitchen.</title>
+        <meta name="description" content="Fresh vegetables, fruits and daily food products delivered in Indore.">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://apnitokri.manconnect.club/index.php">
+    <meta property="og:title" content="Veggie Tokri — Freshness, Ready for Your Kitchen.">
+    <meta property="og:description" content="Fresh vegetables, fruits and daily food products delivered in Indore.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://apnitokri.manconnect.club/index.php">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="Veggie Tokri — Freshness, Ready for Your Kitchen.">
+    <meta name="twitter:description" content="Fresh vegetables, fruits and daily food products delivered in Indore.">            <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"Organization","name":"Veggie Tokri","url":"https://apnitokri.manconnect.club/index.php","telephone":"+91 94070 05023","email":"support@apnitokri.in"},{"@type":"WebSite","name":"Veggie Tokri","url":"https://apnitokri.manconnect.club/index.php","potentialAction":{"@type":"SearchAction","target":{"@type":"EntryPoint","urlTemplate":"https://apnitokri.manconnect.club/search.php?q={search_term_string}"},"query-input":"required name=search_term_string"}}]}</script>            <link rel="preload" as="image" href="/assets/images/demo/hero-basket.jpg" fetchpriority="high">
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://cdn.tailwindcss.com" crossorigin>
+        <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&amp;family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500;1,9..144,600&amp;family=Noto+Sans+Devanagari:wght@400;600;700&amp;display=swap" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&amp;family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500;1,9..144,600&amp;family=Noto+Sans+Devanagari:wght@400;600;700&amp;display=swap"></noscript>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            green: { DEFAULT: '#245C3A', 50: '#F0F6F2', 100: '#DFECE4', 600: '#2D7048', 700: '#245C3A', 800: '#1B4A2E', 900: '#133421' },
+                            yellow: { DEFAULT: '#F5A623', 100: '#FDEBC8', 600: '#D98A0B', 800: '#7A4A00' },
+                            cream: { DEFAULT: '#FFF8E9', 2: '#F9EFD7' },
+                            charcoal: '#292D29',
+                        }
+                    },
+                    fontFamily: {
+                        display: ['Fraunces', 'Georgia', 'serif'],
+                    },
+                    maxWidth: { '8xl': '80rem' }
+                }
+            }
+        };
+    </script>
+    <link rel="stylesheet" href="/assets/css/apni-tokri.css?v=1794074872">
+                <link rel="stylesheet" href="/assets/vendor/leaflet/leaflet.css">
+        <link rel="preconnect" href="https://code.jquery.com" crossorigin>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+</head>
+<body class="at-body bg-brand-cream text-brand-charcoal min-h-screen flex flex-col" data-locale="en">
+<a class="at-skip-link at-focusable" href="#main-content">Skip to main content</a>
+
+<header class="at-header" role="banner">
+    <div class="at-header__inner">
+        <div class="flex items-center gap-2 md:gap-5">
+            <button type="button" id="at-menu-toggle"
+                class="at-iconbtn md:!hidden -ml-2 at-focusable"
+                aria-expanded="false" aria-controls="at-mobile-nav"
+                aria-label="Open menu">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 7h16M4 12h16M4 17h16"/></svg>            </button>
+
+            <a href="/index.php" class="at-logo at-focusable flex-shrink-0" aria-label="Veggie Tokri — Home">
+                <img src="/assets/images/logo.svg" alt="" width="44" height="44" decoding="async">
+                <span>
+                    <span class="at-logo__word">Veggie Tokri</span>
+                    <span class="at-logo__tag hidden sm:block">Freshness, Ready for Your Kitchen.</span>
+                </span>
+            </a>
+
+            <!-- Search (desktop) -->
+            <form action="/search.php" method="get" role="search" class="at-search hidden md:block max-w-2xl mx-auto" data-at-search>
+                <label class="sr-only" for="at-search">Search vegetables, fruits, pickles…</label>
+                <div class="at-search__field">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></svg>                    <input id="at-search" type="search" name="q" placeholder="Search vegetables, fruits, pickles…" autocomplete="off" aria-autocomplete="list" aria-controls="at-suggest">
+                    <button type="submit">Search</button>
+                </div>
+                <div id="at-suggest" class="at-suggest" role="listbox"></div>
+            </form>
+
+            <div class="flex items-center gap-1 ml-auto flex-shrink-0">
+                <button type="button" class="at-location hidden lg:inline-flex at-focusable" data-at-open-modal="#at-delivery-modal" aria-haspopup="dialog">
+                    <span class="at-location__pin"><svg class="w-4 h-4" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.5C5 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg></span>
+                    <span><small>Deliver to</small><strong>Indore<span data-at-loc-pin></span></strong></span>
+                </button>
+                                <a href="/login.php" class="at-iconbtn at-focusable hidden md:inline-flex" aria-label="Login">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><span class="hidden xl:inline">Login</span>
+                </a>
+                <a href="/cart.php" class="at-iconbtn at-focusable" aria-label="Cart">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 4h2l2.2 11.2a1 1 0 0 0 1 .8h8.9a1 1 0 0 0 1-.8L20 8H6"/><circle cx="9.5" cy="20" r="1.3"/><circle cx="17" cy="20" r="1.3"/></svg>                    <span data-at-cart-count class="at-cart-badge hidden">0</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- Search (mobile) -->
+        <form action="/search.php" method="get" role="search" class="at-search md:hidden mt-2" data-at-search>
+            <label class="sr-only" for="at-search-m">Search vegetables, fruits, pickles…</label>
+            <div class="at-search__field">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></svg>                <input id="at-search-m" type="search" name="q" placeholder="Search vegetables, fruits, pickles…" autocomplete="off" aria-autocomplete="list" aria-controls="at-suggest-m">
+                <button type="submit" class="sr-only">Search</button>
+            </div>
+            <div id="at-suggest-m" class="at-suggest" role="listbox"></div>
+        </form>
+
+        <!-- Category nav -->
+        <nav class="hidden md:flex items-center justify-between mt-2 -mb-1 border-t border-[var(--at-line)] pt-1" aria-label="Categories">
+            <ul class="at-dnav -ml-3" role="list" data-at-dnav>
+                <li class="at-dnav__item"><a href="/index.php" class="at-dnav__link at-focusable is-active"><span>Home</span></a></li>
+                <li class="at-dnav__item" data-depth="0"><a class="at-dnav__link at-focusable" href="/category.php?slug=fresh-chopped"><span>Fresh &amp; Chopped</span></a></li><li class="at-dnav__item" data-depth="0"><a class="at-dnav__link at-focusable" href="/category.php?slug=ready-to-cook-combos"><span>Ready-to-Cook Combos</span></a></li>            </ul>
+            <div class="at-catnav -mr-3">
+                <a href="/faqs.php" class="at-focusable">FAQs</a>
+                <a href="/contact.php" class="at-focusable">Contact</a>
+            </div>
+        </nav>
+    </div>
+    <script type="application/json" id="at-search-index">[{"n":"Cut Lauki (Bottle Gourd)","u":"/product.php?slug=cut-lauki","i":"/assets/images/logo-placeholder.svg","p":"₹20","c":"Fresh & Chopped","k":"cut lauki (bottle gourd) fresh lauki, peeled and neatly cut into cooking-ready pieces. convenient and time-saving for your everyday meals. prd-000001"}]</script>
+</header>
+
+<!-- Mobile drawer -->
+<div id="at-mobile-nav" class="at-mobile-nav" aria-hidden="true">
+    <div class="at-mobile-nav__backdrop" data-at-nav-close tabindex="-1"></div>
+    <div class="at-mobile-nav__panel" role="dialog" aria-modal="true" aria-label="Categories">
+        <div class="flex items-center justify-between p-4 border-b border-[var(--at-line)]">
+            <span class="at-logo">
+                <img src="/assets/images/logo.svg" alt="Veggie Tokri" width="40" height="40">
+                <span class="at-logo__word">Veggie Tokri</span>
+            </span>
+            <button type="button" class="at-close at-focusable" data-at-nav-close aria-label="Close menu"><svg class="w-5 h-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+        </div>
+        <div class="p-3">
+            <button type="button" class="at-location w-full !max-w-none mb-3 at-focusable" data-at-open-modal="#at-delivery-modal" data-at-nav-close>
+                <span class="at-location__pin"><svg class="w-4 h-4" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.5C5 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg></span>
+                <span><small>Deliver to</small><strong>Indore<span data-at-loc-pin> · Check delivery area</span></strong></span>
+            </button>
+            <p class="at-eyebrow px-3 mt-2 mb-1">Categories</p>
+            <a href="/index.php" class="at-drawer-link at-focusable"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"/></svg>Home</a>
+            <nav class="at-macc-list" aria-label="Categories">
+                <div class="at-macc" style="--d:0"><div class="at-macc__row"><a class="at-drawer-link at-macc__link at-focusable" href="/category.php?slug=fresh-chopped">Fresh &amp; Chopped</a></div></div><div class="at-macc" style="--d:0"><div class="at-macc__row"><a class="at-drawer-link at-macc__link at-focusable" href="/category.php?slug=ready-to-cook-combos">Ready-to-Cook Combos</a></div></div>            </nav>
+            <hr class="at-divider">
+            <a href="/my-orders.php" class="at-drawer-link at-focusable"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3z"/><path d="M9 8h6M9 12h6"/></svg>My orders</a>
+            <a href="/my-subscriptions.php" class="at-drawer-link at-focusable"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M17 3l3 3-3 3"/><path d="M4 11V9a3 3 0 0 1 3-3h13"/><path d="M7 21l-3-3 3-3"/><path d="M20 13v2a3 3 0 0 1-3 3H4"/></svg>My subscriptions</a>
+            <a href="/faqs.php" class="at-drawer-link at-focusable"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 1-1 1.7M12 17h.01"/></svg>FAQs</a>
+            <a href="/contact.php" class="at-drawer-link at-focusable"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 5h16v11H9l-5 4V5z"/></svg>Contact</a>
+            <a href="/login.php" class="at-btn at-btn--primary at-btn--block at-focusable mt-4">Login</a>
+        </div>
+    </div>
+</div>
+
+<!-- Delivery modal -->
+<div id="at-delivery-modal" class="at-modal-backdrop" data-current-pin="" aria-hidden="true" role="presentation">
+    <div class="at-modal" role="dialog" aria-modal="true" aria-labelledby="at-delivery-modal-title">
+        <div class="at-modal__header">
+            <h2 id="at-delivery-modal-title" class="at-modal__title">Check delivery area</h2>
+            <button type="button" class="at-close at-focusable" data-at-modal-close aria-label="Close menu"><svg class="w-5 h-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+        </div>
+        <div class="at-modal__body space-y-3">
+            <p class="text-sm at-muted">We currently plan to deliver in select Indore areas. Enter your pincode to see if we reach you.</p>
+            <div>
+                <label class="at-label" for="at-pincode">Pincode / area</label>
+                <input id="at-pincode" type="text" class="at-input at-focusable" placeholder="e.g. 452001" inputmode="numeric" maxlength="6" autocomplete="postal-code" value="">
+                <p class="at-field-hint" id="at-pin-result" role="status" aria-live="polite"></p>
+            </div>
+        </div>
+        <div class="at-modal__footer">
+            <button type="button" class="at-btn at-btn--secondary at-focusable" data-at-modal-close>Close</button>
+            <button type="button" id="at-pin-check-btn" class="at-btn at-btn--primary at-focusable">Check delivery</button>
+        </div>
+    </div>
+</div>
+<main id="main-content" class="at-main--with-bottom-nav flex-1">
+<!-- Hero -->
+<section class="at-hero">
+    <div class="at-container at-hero__grid">
+        <div class="at-reveal">
+            <p class="at-eyebrow">Indore · Fresh, packed with care</p>
+            <h1 class="at-display mt-3">Freshness, Ready for Your Kitchen.</h1>
+            <p class="at-lead mt-4 max-w-lg">Fresh vegetables, fruits, ready-cut produce and pantry favourites — with clear prices and the delivery fee shown before you pay.</p>
+
+            <form class="at-checker mt-6" id="at-hero-pin-form" action="#" novalidate aria-label="Check delivery area">
+                <span class="hidden sm:flex items-center pl-3 text-[var(--at-green)]"><svg class="w-5 h-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.5C5 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg></span>
+                <label class="sr-only" for="hero-pincode">Pincode</label>
+                <input id="hero-pincode" type="text" inputmode="numeric" maxlength="6" autocomplete="postal-code" placeholder="Enter pincode, e.g. 452001" value="">
+                <button type="submit" class="at-btn at-btn--primary at-focusable" id="hero-pin-check">Check</button>
+            </form>
+            <div id="hero-pin-result" class="at-pin-result mt-3 hidden" role="status" aria-live="polite">
+                <p class="at-pin-result__status"></p>
+                <p class="at-pin-result__msg text-sm"></p>
+                <div class="at-pin-result__actions mt-2 flex flex-wrap gap-2">
+                    <a href="/category.php?slug=fresh-chopped" class="at-btn at-btn--primary at-btn--sm at-focusable" data-pin-continue>Continue shopping</a>
+                    <button type="button" class="at-btn at-btn--secondary at-btn--sm at-focusable" data-pin-change>Change pincode</button>
+                </div>
+            </div>
+
+            <div class="mt-5 flex flex-wrap gap-3">
+                <a href="/category.php?slug=fresh-chopped" class="at-btn at-btn--accent at-btn--lg at-focusable">Shop fresh vegetables <svg class="w-5 h-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg></a>
+                <a href="/my-subscriptions.php" class="at-btn at-btn--secondary at-btn--lg at-focusable">See subscriptions</a>
+            </div>
+        </div>
+        <div class="at-hero__media at-reveal" style="animation-delay:.08s">
+            <img src="/assets/images/demo/hero-basket.jpg" alt="A cane tokri basket filled with tomatoes, capsicum, bananas, apples and coriander" width="1024" height="576" fetchpriority="high" decoding="async">
+            <div class="at-hero__chip">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 3 5 6v5.5c0 4.4 3 8 7 9.5 4-1.5 7-5.1 7-9.5V6l-7-3z"/><path d="m9 12 2.2 2.2L15.5 10"/></svg>                <span>Checked &amp; packed<br><span class="at-muted font-normal">before it leaves us</span></span>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="at-section--white" aria-label="Why shop with us">
+    <div class="at-container py-5 md:py-6">
+        <div class="at-trust">
+                        <div class="at-trust__item"><span class="at-trust__icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 6h11v10H3z"/><path d="M14 9h4l3 3v4h-7"/><circle cx="7" cy="18" r="1.8"/><circle cx="17" cy="18" r="1.8"/></svg></span><div><strong>Fee shown upfront</strong><span>No surprises at payment</span></div></div>
+                        <div class="at-trust__item"><span class="at-trust__icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 19c0-8 5-13 15-14 0 10-5 15-13 15"/><path d="M5 19c2-5 5-8 9-10"/></svg></span><div><strong>Fresh, daily</strong><span>Handled with care</span></div></div>
+                        <div class="at-trust__item"><span class="at-trust__icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 11a8 8 0 0 0-14.5-4M4 4v4h4"/><path d="M4 13a8 8 0 0 0 14.5 4M20 20v-4h-4"/></svg></span><div><strong>Clear refunds</strong><span>Simple, written policy</span></div></div>
+                        <div class="at-trust__item"><span class="at-trust__icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 5h16v11H9l-5 4V5z"/></svg></span><div><strong>Local support</strong><span>Real people in Indore</span></div></div>
+                    </div>
+    </div>
+</section>
+        
+<!-- Categories -->
+<section class="at-section" aria-labelledby="home-cats">
+    <div class="at-container">
+        <div class="at-section-head">
+            <div>
+                <h2 id="home-cats" class="at-h2">Shop by category</h2>
+                <p>Everything for the daily tokri, in four aisles.</p>
+            </div>
+        </div>
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-5">
+                            <a href="/category.php?slug=fresh-chopped" class="at-category-tile at-focusable">
+                    <img src="/assets/images/demo/placeholder-category.svg" alt="Fresh &amp; Chopped" loading="lazy">
+                    <span class="at-category-tile__label">
+                        <strong>Fresh &amp; Chopped</strong>
+                        <span> · 1 items</span>
+                    </span>
+                </a>
+                            <a href="/category.php?slug=ready-to-cook-combos" class="at-category-tile at-focusable">
+                    <img src="/assets/images/demo/placeholder-category.svg" alt="Ready-to-Cook Combos" loading="lazy">
+                    <span class="at-category-tile__label">
+                        <strong>Ready-to-Cook Combos</strong>
+                        <span> · 0 items</span>
+                    </span>
+                </a>
+                    </div>
+            </div>
+</section>
+
+
+<!-- Offer -->
+<section class="at-container pb-2" aria-label="Current offer">
+    <div class="at-offer">
+        <div class="relative">
+            <span class="at-badge at-badge--yellow">Offer (demo)</span>
+            <h2>Free delivery on orders above ₹499</h2>
+            <p>Your cart shows exactly how much more you need. Eligibility and the final fee are always confirmed at checkout.</p>
+        </div>
+        <a href="/cart.php" class="at-btn at-btn--accent at-btn--lg at-focusable relative">View cart</a>
+    </div>
+</section>
+
+
+<!-- Subscriptions -->
+<section class="at-section at-section--white" id="subscriptions">
+    <div class="at-container">
+        <div class="at-section-head">
+            <div>
+                <p class="at-eyebrow">Prepaid plans</p>
+                <h2 class="at-h2 mt-1">Never run out of the basics</h2>
+                <p>Pay once for a fixed number of deliveries. Skip rules and carry-forward are explained before you pay.</p>
+            </div>
+        </div>
+                            <div class="at-alert at-alert--info">Subscription plans will be available soon.</div>
+                <p class="mt-4 text-sm at-muted">
+            Read the <a class="underline text-[var(--at-green)] font-semibold" href="/page.php?slug=subscription-terms">subscription terms</a> before subscribing.    </p>
+    </div>
+</section>
+
+<section class="at-section">
+    <div class="at-container">
+        <div class="at-section-head">
+            <div>
+                <h2 class="at-h2">Why Veggie Tokri</h2>
+                <p>Honest basics, done properly.</p>            </div>
+        </div>
+        <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div class="at-feature"><span class="at-feature__icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3z"/><path d="M9 8h6M9 12h6"/></svg></span><h3>Transparent pricing</h3><p>Item price, delivery fee and discounts are itemised before you pay.</p></div>
+                        <div class="at-feature"><span class="at-feature__icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3.5 7.5 12 3l8.5 4.5v9L12 21l-8.5-4.5v-9z"/><path d="m3.5 7.5 8.5 4.5 8.5-4.5M12 12v9"/></svg></span><h3>Proper packing</h3><p>Fresh and cut produce is packed to arrive in good condition.</p></div>
+                        <div class="at-feature"><span class="at-feature__icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.8 6.8 19.6l1-5.8L3.5 9.7l5.9-.9L12 3.5z"/></svg></span><h3>Verified reviews only</h3><p>Reviews come from delivered orders and are approved before they appear.</p></div>
+                        <div class="at-feature"><span class="at-feature__icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></span><h3>No pressure tactics</h3><p>No fake countdowns, no invented stock levels or ratings.</p></div>
+                    </div>
+    </div>
+</section>
+        <section class="at-section at-section--white">
+    <div class="at-container grid md:grid-cols-2 gap-8 lg:gap-14 items-center">
+        <div class="rounded-[var(--at-radius-lg)] overflow-hidden aspect-[4/3] bg-[var(--at-cream-2)]">
+            <img src="/assets/images/demo/about-packing.jpg" alt="" class="w-full h-full object-cover" loading="lazy" width="1024" height="768">
+        </div>
+        <div>
+            <p class="at-eyebrow">Quality &amp; packing</p>            <h2 class="at-h2 mt-1">Checked by hand, packed with care</h2>
+            <p class="at-lead mt-3">Every order is checked and packed according to our actual process. We update this section from the CMS before launch, and we never display unverified “organic” or “same-day” claims.</p>            <ul class="mt-5 grid gap-3 text-[0.9375rem]">
+                                                    <li class="flex gap-3"><span class="text-[var(--at-green)]"><svg class="w-5 h-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></span>Sorted for firmness and colour before packing</li>
+                                                    <li class="flex gap-3"><span class="text-[var(--at-green)]"><svg class="w-5 h-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></span>Cut produce kept chilled with a clear use-by on the pack</li>
+                                                    <li class="flex gap-3"><span class="text-[var(--at-green)]"><svg class="w-5 h-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></span>Packaged foods show ingredients and allergens as per the label</li>
+                            </ul>
+                        <a href="/page.php?slug=about-us" class="at-btn at-btn--primary at-focusable mt-6">About Veggie Tokri</a>
+                    </div>
+    </div>
+</section>
+        <section class="at-section">
+    <div class="at-container">
+        <div class="at-section-head">
+            <div>
+                <h2 class="at-h2">What customers say</h2>
+                <p>Featured stories from customers who gave consent — not paid or fabricated reviews.</p>            </div>
+        </div>
+                <div class="grid md:grid-cols-2 gap-4 max-w-4xl">
+            <article class="at-quote !bg-[var(--at-green-50)] border-dashed">
+                <h3 class="at-h3">Real stories, when customers share them</h3>
+                <p class="mt-2 text-sm at-muted">We publish only approved testimonials with recorded consent. Product reviews on each item come from delivered orders.</p>
+                                <a href="/category.php?slug=fresh-chopped" class="at-btn at-btn--secondary at-btn--sm at-focusable mt-4">Start shopping</a>
+            </article>
+        </div>
+            </div>
+</section>
+        
+</main><footer class="at-footer mt-auto" role="contentinfo">
+    <div class="at-container py-10 md:py-14 grid gap-10 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1.2fr]">
+        <div>
+            <a href="/index.php" class="at-logo !text-white">
+                <img src="/assets/images/logo.svg" alt="Veggie Tokri" width="44" height="44">
+                <span class="at-logo__word !text-white">Veggie Tokri</span>
+            </a>
+                                    <p class="mt-4 max-w-xs leading-relaxed">Freshness, Ready for Your Kitchen — Fresh vegetables, fruits, ready-to-cut produce and pantry favourites, delivered fresh to homes across Indore.</p>
+                                                <ul class="mt-5 !grid-flow-col !auto-cols-max gap-4 text-xs text-white/70">
+                <li class="flex items-center gap-1.5"><svg class="w-4 h-4" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 3 5 6v5.5c0 4.4 3 8 7 9.5 4-1.5 7-5.1 7-9.5V6l-7-3z"/><path d="m9 12 2.2 2.2L15.5 10"/></svg>Secure payments</li>
+                <li class="flex items-center gap-1.5"><svg class="w-4 h-4" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 11a8 8 0 0 0-14.5-4M4 4v4h4"/><path d="M4 13a8 8 0 0 0 14.5 4M20 20v-4h-4"/></svg>Clear refund policy</li>
+            </ul>
+        </div>
+        <div>
+            <h3>About Veggie Tokri</h3>
+            <ul>
+                                <li><a class="at-focusable" href="/page.php?slug=about-us">About Us</a></li>
+                                <li><a class="at-focusable" href="/faqs.php">FAQs</a></li>
+                <li><a class="at-focusable" href="/contact.php">Contact</a></li>
+                <li><a class="at-focusable" href="/my-subscriptions.php">Subscriptions</a></li>
+            </ul>
+        </div>
+        <div>
+            <h3>Policies</h3>
+            <ul>
+                                <li><a class="at-focusable" href="/page.php?slug=refund-policy">Refund and Cancellation Policy</a></li>
+                                <li><a class="at-focusable" href="/page.php?slug=shipping-policy">Shipping and Delivery Policy</a></li>
+                                <li><a class="at-focusable" href="/page.php?slug=privacy-policy">Privacy Policy</a></li>
+                                <li><a class="at-focusable" href="/page.php?slug=terms">Terms and Conditions</a></li>
+                                <li><a class="at-focusable" href="/page.php?slug=disclaimer">Disclaimer</a></li>
+                            </ul>
+        </div>
+        <div>
+            <h3>Support</h3>
+            <p>Need help?</p>
+            <ul class="mt-3">
+                                                <li class="flex items-center gap-2"><svg class="w-4 h-4 text-[var(--at-yellow)]" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A15 15 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg>                    <a class="text-white/90 underline at-focusable" href="tel:+919407005023">+91 94070 05023</a>
+                </li>
+                                                <li class="flex items-center gap-2"><svg class="w-4 h-4 text-[var(--at-yellow)]" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3.5 7 8.5 6 8.5-6"/></svg>                    <a class="text-white/90 underline at-focusable" href="mailto:support@apnitokri.in">support@apnitokri.in</a>
+                </li>
+                                                <li class="flex items-center gap-2"><svg class="w-4 h-4 text-[var(--at-yellow)]" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 5h16v11H9l-5 4V5z"/></svg>                    <a class="text-white/90 underline at-focusable" href="https://wa.me/919407005023" target="_blank" rel="noopener noreferrer">WhatsApp</a>
+                </li>
+                                            </ul>
+            <a href="/support.php" class="at-btn at-btn--light at-btn--sm at-focusable mt-4">Raise a ticket</a>
+                                </div>
+    </div>
+    <div class="border-t border-white/10">
+        <div class="at-container py-4 flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between text-xs text-white/60">
+            <span>&copy; 2026 Veggie Tokri. All rights reserved.
+                                    <span class="block sm:inline sm:ml-2">FSSAI Lic. No.: 21426850003997 | Udyam Registration No.: UDYAM-MP-23-0322106</span>
+                            </span>
+                        <span>
+                <a href="/styleguide.php" class="at-focusable">Design system</a>
+                <span class="mx-2">·</span>
+                <a href="/health-check.php" class="at-focusable">Health check</a>
+            </span>
+                    </div>
+    </div>
+</footer>
+
+<nav class="at-bottom-nav md:hidden" aria-label="Mobile shortcuts">
+    <div class="at-bottom-nav__inner">
+        <a href="/index.php" class="at-focusable ">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"/></svg>Home        </a>
+        <a href="/category.php" class="at-focusable ">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg>Categories        </a>
+        <a href="/cart.php" class="at-focusable ">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 4h2l2.2 11.2a1 1 0 0 0 1 .8h8.9a1 1 0 0 0 1-.8L20 8H6"/><circle cx="9.5" cy="20" r="1.3"/><circle cx="17" cy="20" r="1.3"/></svg>Cart        </a>
+        <a href="/login.php" class="at-focusable ">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>Account        </a>
+    </div>
+</nav>
+
+<script defer src="/assets/js/apni-tokri.js?v=1794073648"></script>
+<script defer src="/assets/js/cart.js?v=1794065416"></script>
+<script defer src="/assets/vendor/leaflet/leaflet.js"></script>
+<script defer>window.AT_MAP_CONFIG = {"tileUrl":"https://tile.openstreetmap.org/{z}/{x}/{y}.png","attribution":"\u0026copy; \u003Ca href=\u0022https://www.openstreetmap.org/copyright\u0022 target=\u0022_blank\u0022 rel=\u0022noopener\u0022\u003EOpenStreetMap\u003C/a\u003E contributors","maxZoom":19,"center":[22.74533530000000070003807195462286472320556640625,75.8799211000000042304236558265984058380126953125],"zoom":13,"imagePath":"/assets/vendor/leaflet/images/","photon":{"enabled":true,"minChars":3,"debounceMs":400,"limit":7}};</script>
+<script defer src="/assets/js/address-map.js?v=1794059735"></script>
+<script defer src="/assets/js/catalogue.js?v=1794063158"></script>
+</body>
+</html>

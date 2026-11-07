@@ -416,6 +416,24 @@ final class CheckoutService
         return $nonce;
     }
 
+    /** @return array{ok: bool, message?: string} */
+    private static function persistCheckoutContactEmail(string $email): array
+    {
+        if (AppEnvironment::usePersistedStorefront()) {
+            $customerId = CustomerAuth::id();
+            if ($customerId === null) {
+                return ['ok' => false, 'message' => 'Please log in to continue.'];
+            }
+
+            return CustomerAccountService::updateEmailOptional($customerId, $email);
+        }
+        if (AppEnvironment::allowsSessionDemoCommerce()) {
+            return SessionCustomerBackend::saveEmailOptional($email);
+        }
+
+        return ['ok' => true];
+    }
+
     /**
      * @return array{ok: bool, message?: string, order_number?: string, redirect?: string}
      */
@@ -442,6 +460,13 @@ final class CheckoutService
 
         if (!$terms) {
             return ['ok' => false, 'message' => 'Please accept the terms to continue.'];
+        }
+
+        $contactEmail = isset($input['customer_email']) && is_string($input['customer_email'])
+            ? trim($input['customer_email']) : '';
+        $emailSave = self::persistCheckoutContactEmail($contactEmail);
+        if (!$emailSave['ok']) {
+            return ['ok' => false, 'message' => (string) ($emailSave['message'] ?? 'Enter a valid email address.')];
         }
         if (!DeliveryConfig::slotsEnabled()) {
             $slot = $slot === '' ? 'auto' : $slot;

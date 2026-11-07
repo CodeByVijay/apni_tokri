@@ -75,6 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'delivery_slot' => $_POST['delivery_slot'] ?? '',
             'payment_sim' => $_POST['payment_sim'] ?? 'success',
             'terms' => $_POST['terms'] ?? null,
+            'customer_email' => $_POST['customer_email'] ?? '',
         ]);
         if (!$result['ok']) {
             $error = $result['message'] ?? 'Checkout failed.';
@@ -104,6 +105,10 @@ $addrFormOpenMode = $addrFormOpenMode ?? '';
 $addrFormOpenId = $addrFormOpenId ?? 0;
 $addrProfile = $dbAddressMode ? (CustomerAccountService::profile((int) CustomerAuth::id()) ?? []) : [];
 $addrFormValues = isset($addrPostValues) ? $addrPostValues : AddressInput::blankFormValues($addrProfile);
+$checkoutContactEmail = trim((string) (CustomerService::profile()['email'] ?? ''));
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['customer_email']) && is_string($_POST['customer_email'])) {
+    $checkoutContactEmail = trim($_POST['customer_email']);
+}
 if ($dbAddressMode && $addrFormOpenMode === '' && $_SERVER['REQUEST_METHOD'] === 'GET') {
     if (isset($_GET['address']) && is_string($_GET['address']) && ctype_digit($_GET['address'])) {
         $selectedAddressId = $_GET['address'];
@@ -185,8 +190,16 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
         <section class="at-checkout-block">
             <div class="at-checkout-block__head"><span class="at-checkout-block__num">1</span><h2 class="at-h3">Contact</h2></div>
             <?php if ($loggedIn): ?>
-                <p class="flex items-center gap-3"><span class="at-avatar"><?= Security::escape(strtoupper(substr((string) (CustomerService::profile()['name'] ?? 'C'), 0, 1))) ?></span>
-                    <span><strong><?= Security::escape(CustomerService::profile()['name'] ?? '') ?></strong><br><span class="at-muted text-sm"><?= Security::escape(CustomerService::profile()['mobile'] ?? '') ?></span></span></p>
+                <?php $checkoutProfile = CustomerService::profile(); ?>
+                <p class="flex items-center gap-3"><span class="at-avatar"><?= Security::escape(strtoupper(substr((string) ($checkoutProfile['name'] ?? 'C'), 0, 1))) ?></span>
+                    <span><strong><?= Security::escape($checkoutProfile['name'] ?? '') ?></strong><br><span class="at-muted text-sm"><?= Security::escape($checkoutProfile['mobile'] ?? '') ?></span></span></p>
+                <div class="mt-4 max-w-md">
+                    <label class="at-label" for="checkout-customer-email">Email address <span class="at-muted font-normal">(optional)</span></label>
+                    <input id="checkout-customer-email" name="customer_email" type="email" inputmode="email" autocomplete="email"
+                           form="checkout-form" class="at-input at-focusable w-full" maxlength="191"
+                           placeholder="Enter your email address" value="<?= Security::escape($checkoutContactEmail) ?>">
+                    <p class="text-xs at-muted mt-1.5">For order confirmation and invoice updates.</p>
+                </div>
             <?php else: ?>
                 <p class="text-sm at-muted">We verify your mobile number with an OTP before you can place the order.</p>
                 <a href="<?= Security::escape(url_base()) ?>/login.php" class="at-btn at-btn--primary at-focusable mt-3">Log in with mobile OTP</a>
