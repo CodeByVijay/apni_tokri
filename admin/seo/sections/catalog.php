@@ -40,8 +40,8 @@ $filterOptions = [
 $statusOptions = ['' => 'Any status', 'published' => 'Published', 'draft' => 'Draft', 'archived' => 'Archived'];
 $clearUrl = SeoAdminCenter::catalogSectionUrl([]);
 ?>
-<div class="at-seo-saas__stack">
-    <div class="at-seo-saas__stat-row">
+<div class="at-seo-saas__stack at-seo-saas__catalog">
+    <div class="at-seo-saas__stat-row at-seo-saas__catalog-stats">
         <?php
         $statCards = [
             ['label' => 'Published products', 'value' => (int) $stats['published'], 'hint' => 'Live in catalogue'],
@@ -65,15 +65,15 @@ $clearUrl = SeoAdminCenter::catalogSectionUrl([]);
                 <p class="text-sm at-muted"><?= (int) $list['total'] ?> result<?= (int) $list['total'] === 1 ? '' : 's' ?></p>
             </div>
 
-            <form method="get" action="<?= Security::escape(url_base() . '/admin/seo/index.php') ?>" class="space-y-3 at-seo-saas__form-toolbar">
+            <form method="get" action="<?= Security::escape(url_base() . '/admin/seo/index.php') ?>" class="at-seo-saas__catalog-toolbar">
                 <input type="hidden" name="section" value="catalog">
-                <div class="flex flex-col gap-3 md:flex-row md:items-end">
-                    <div class="flex-1 min-w-0">
+                <div class="at-seo-saas__catalog-toolbar-grid">
+                    <div class="at-seo-saas__catalog-toolbar-field at-seo-saas__catalog-toolbar-field--search">
                         <label class="at-label" for="catalog-q">Search</label>
                         <input id="catalog-q" name="q" class="at-input at-focusable w-full" value="<?= Security::escape($listQ) ?>"
                                placeholder="Product name, SKU or slug">
                     </div>
-                    <div class="w-full md:w-44">
+                    <div class="at-seo-saas__catalog-toolbar-field">
                         <label class="at-label" for="catalog-seo-filter">SEO filter</label>
                         <select id="catalog-seo-filter" name="seo_filter" class="at-select at-focusable w-full">
                             <?php foreach ($filterOptions as $key => $label): ?>
@@ -81,7 +81,7 @@ $clearUrl = SeoAdminCenter::catalogSectionUrl([]);
                             <?php endforeach; ?>
                         </select>
                     </div>
-                    <div class="w-full md:w-40">
+                    <div class="at-seo-saas__catalog-toolbar-field">
                         <label class="at-label" for="catalog-status">Status</label>
                         <select id="catalog-status" name="status" class="at-select at-focusable w-full">
                             <?php foreach ($statusOptions as $key => $label): ?>
@@ -89,8 +89,10 @@ $clearUrl = SeoAdminCenter::catalogSectionUrl([]);
                             <?php endforeach; ?>
                         </select>
                     </div>
-                    <button type="submit" class="at-btn at-btn--primary at-focusable w-full md:w-auto">Apply</button>
-                    <a href="<?= Security::escape($clearUrl) ?>" class="at-btn at-btn--ghost at-focusable w-full md:w-auto text-center">Clear filters</a>
+                    <div class="at-seo-saas__catalog-toolbar-actions">
+                        <button type="submit" class="at-btn at-btn--primary at-focusable">Apply</button>
+                        <a href="<?= Security::escape($clearUrl) ?>" class="at-btn at-btn--ghost at-focusable">Clear filters</a>
+                    </div>
                 </div>
             </form>
 
@@ -110,15 +112,15 @@ $clearUrl = SeoAdminCenter::catalogSectionUrl([]);
                     <a href="<?= Security::escape($clearUrl) ?>" class="at-btn at-btn--secondary at-focusable mt-4 inline-flex">Reset filters</a>
                 </div>
             <?php else: ?>
-                <div class="at-seo-catalog-table-wrap hidden md:block">
+                <div class="at-seo-catalog-table-wrap at-seo-catalog-table-wrap--desktop">
                     <table class="at-admin-table at-seo-catalog-table w-full">
                         <thead>
                             <tr>
-                                <th>Product</th>
-                                <th>Title</th>
-                                <th>Description</th>
-                                <th>SEO health</th>
-                                <th class="is-actions"></th>
+                                <th class="at-seo-catalog-table__col-product">Product</th>
+                                <th class="at-seo-catalog-table__col-meta">Title</th>
+                                <th class="at-seo-catalog-table__col-meta">Description</th>
+                                <th class="at-seo-catalog-table__col-health">SEO health</th>
+                                <th class="is-actions at-seo-catalog-table__col-actions"></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -127,25 +129,27 @@ $clearUrl = SeoAdminCenter::catalogSectionUrl([]);
                                 $manageUrl = SeoAdminCenter::catalogSectionUrl(array_merge($catalogParams, ['product_id' => (int) $row['id']]));
                                 ?>
                                 <tr>
-                                    <td>
-                                        <div class="flex items-center gap-3 min-w-0">
-                                            <span class="at-seo-catalog-thumb shrink-0">
+                                    <td class="at-seo-catalog-table__product">
+                                        <div class="at-seo-catalog-product">
+                                            <span class="at-seo-catalog-thumb">
                                                 <?php if (($row['thumb_url'] ?? '') !== ''): ?>
                                                     <img src="<?= Security::escape((string) $row['thumb_url']) ?>" alt="" loading="lazy">
                                                 <?php else: ?>
-                                                    <span class="at-seo-catalog-thumb--empty" aria-hidden="true"></span>
+                                                    <span class="at-seo-catalog-thumb--empty" aria-hidden="true"><?= at_icon('image', 'at-seo-catalog-thumb__icon') ?></span>
                                                 <?php endif; ?>
                                             </span>
-                                            <span class="min-w-0">
-                                                <span class="font-bold block truncate"><?= Security::escape((string) $row['name']) ?></span>
-                                                <span class="text-xs font-mono at-muted"><?= Security::escape((string) $row['sku']) ?></span>
+                                            <span class="at-seo-catalog-product__text">
+                                                <span class="at-seo-catalog-product__name"><?= Security::escape((string) $row['name']) ?></span>
+                                                <span class="at-seo-catalog-product__sku"><?= Security::escape((string) $row['sku']) ?></span>
                                             </span>
                                         </div>
                                     </td>
-                                    <td class="text-sm"><?= Security::escape((string) ($health['title_label'] ?? '')) ?></td>
-                                    <td class="text-sm"><?= Security::escape((string) ($health['desc_label'] ?? '')) ?></td>
-                                    <td><span class="at-status at-status--<?= Security::escape((string) ($health['variant'] ?? 'neutral')) ?>"><?= Security::escape((string) ($health['label'] ?? '')) ?></span></td>
-                                    <td class="is-actions">
+                                    <td class="at-seo-catalog-table__meta"><?= Security::escape((string) ($health['title_label'] ?? '')) ?></td>
+                                    <td class="at-seo-catalog-table__meta"><?= Security::escape((string) ($health['desc_label'] ?? '')) ?></td>
+                                    <td class="at-seo-catalog-table__health">
+                                        <span class="at-status at-status--<?= Security::escape((string) ($health['variant'] ?? 'neutral')) ?>"><?= Security::escape((string) ($health['label'] ?? '')) ?></span>
+                                    </td>
+                                    <td class="is-actions at-seo-catalog-table__actions">
                                         <a href="<?= Security::escape($manageUrl) ?>" class="at-btn at-btn--sm at-btn--primary at-focusable">Manage SEO</a>
                                     </td>
                                 </tr>
@@ -154,27 +158,43 @@ $clearUrl = SeoAdminCenter::catalogSectionUrl([]);
                     </table>
                 </div>
 
-                <ul class="at-seo-catalog-cards md:hidden grid gap-3 min-w-0">
+                <ul class="at-seo-catalog-cards">
                     <?php foreach ($list['rows'] as $row):
                         $health = $row['health'];
                         $manageUrl = SeoAdminCenter::catalogSectionUrl(array_merge($catalogParams, ['product_id' => (int) $row['id']]));
                         ?>
-                        <li class="at-card min-w-0">
-                            <div class="at-card__body flex gap-3 min-w-0">
-                                <span class="at-seo-catalog-thumb shrink-0">
+                        <li class="at-seo-catalog-card">
+                            <div class="at-seo-catalog-card__head">
+                                <span class="at-seo-catalog-thumb">
                                     <?php if (($row['thumb_url'] ?? '') !== ''): ?>
                                         <img src="<?= Security::escape((string) $row['thumb_url']) ?>" alt="" loading="lazy">
                                     <?php else: ?>
-                                        <span class="at-seo-catalog-thumb--empty" aria-hidden="true"></span>
+                                        <span class="at-seo-catalog-thumb--empty" aria-hidden="true"><?= at_icon('image', 'at-seo-catalog-thumb__icon') ?></span>
                                     <?php endif; ?>
                                 </span>
-                                <div class="min-w-0 flex-1 space-y-2">
-                                    <p class="font-bold truncate"><?= Security::escape((string) $row['name']) ?></p>
-                                    <p class="text-xs font-mono at-muted"><?= Security::escape((string) $row['sku']) ?></p>
-                                    <p class="text-xs at-muted"><?= Security::escape((string) ($health['title_label'] ?? '')) ?> · <?= Security::escape((string) ($health['desc_label'] ?? '')) ?></p>
-                                    <span class="at-status at-status--<?= Security::escape((string) ($health['variant'] ?? 'neutral')) ?>"><?= Security::escape((string) ($health['label'] ?? '')) ?></span>
-                                    <a href="<?= Security::escape($manageUrl) ?>" class="at-btn at-btn--sm at-btn--primary at-focusable w-full text-center">Manage SEO</a>
+                                <div class="at-seo-catalog-card__identity">
+                                    <p class="at-seo-catalog-product__name"><?= Security::escape((string) $row['name']) ?></p>
+                                    <p class="at-seo-catalog-product__sku"><?= Security::escape((string) $row['sku']) ?></p>
                                 </div>
+                            </div>
+                            <dl class="at-seo-catalog-card__details">
+                                <div>
+                                    <dt>Title</dt>
+                                    <dd><?= Security::escape((string) ($health['title_label'] ?? '')) ?></dd>
+                                </div>
+                                <div>
+                                    <dt>Description</dt>
+                                    <dd><?= Security::escape((string) ($health['desc_label'] ?? '')) ?></dd>
+                                </div>
+                                <div>
+                                    <dt>SEO health</dt>
+                                    <dd>
+                                        <span class="at-status at-status--<?= Security::escape((string) ($health['variant'] ?? 'neutral')) ?>"><?= Security::escape((string) ($health['label'] ?? '')) ?></span>
+                                    </dd>
+                                </div>
+                            </dl>
+                            <div class="at-seo-catalog-card__actions">
+                                <a href="<?= Security::escape($manageUrl) ?>" class="at-btn at-btn--sm at-btn--primary at-focusable">Manage SEO</a>
                             </div>
                         </li>
                     <?php endforeach; ?>

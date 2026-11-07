@@ -363,6 +363,124 @@ final class PaymentService
         return $result;
     }
 
+    /**
+     * Resume or create a gateway checkout session for storefront payment (amount from DB order only).
+     * Mirrors payment.php initiation rules; sets $_SESSION['checkout_payment'] when successful.
+     *
+     * @return array{
+     *     ok: bool,
+     *     error?: string,
+     *     info?: string,
+     *     checkout?: array<string, mixed>,
+     *     redirect?: string,
+     *     order?: array<string, mixed>
+     * }
+     */
+    public static function prepareStorefrontOrderPayment(string $orderNumber, int $customerId, bool $freshAttempt = false): array
+    {
+        if (!CommerceGateway::useDatabase()) {
+            return ['ok' => false, 'error' => 'Payments require a live order.'];
+        }
+
+        $order = PaymentRepository::orderByNumberForCustomer($orderNumber, $customerId);
+        if ($order === null) {
+            return ['ok' => false, 'error' => 'Order not found.'];
+        }
+
+        if ((string) ($order['payment_status'] ?? '') === 'paid') {
+            return [
+                'ok' => false,
+                'redirect' => url_base() . '/order.php?id=' . rawurlencode($orderNumber),
+                'order' => $order,
+            ];
+        }
+
+        if (!self::customerCanRetryStorefrontPayment($order)) {
+            return ['ok' => false, 'error' => 'This order is not eligible for payment.', 'order' => $order];
+        }
+
+        if ($freshAttempt) {
+            $pendingAuto = !empty($_SESSION['checkout_payment_autolaunch'][$orderNumber]);
+            $existingCheckout = $_SESSION['checkout_payment'][$orderNumber] ?? null;
+            if ($pendingAuto && is_array($existingCheckout)) {
+                $modeExisting = (string) ($existingCheckout['mode'] ?? '');
+                $gatewayReady = ($modeExisting === 'cashfree' && trim((string) ($existingCheckout['payment_session_id'] ?? '')) !== '')
+                    || ($modeExisting === 'razorpay' && trim((string) ($existingCheckout['gateway_order_id'] ?? '')) !== '')
+                    || $modeExisting === 'simulate';
+                if ($gatewayReady) {
+                    return ['ok' => true, 'checkout' => $existingCheckout, 'order' => $order];
+                }
+            }
+            unset($_SESSION['checkout_payment'][$orderNumber]);
+            $_SESSION['checkout_payment_autolaunch'][$orderNumber] = true;
+        }
+
+        $error = '';
+        $info = '';
+        $latestPayment = PaymentRepository::latestPaymentForOrder((int) $order['id']);
+        $cashfreeActive = PaymentGatewayConfig::activeGateway() === 'cashfree' && !PaymentGatewayConfig::useSimulatedCheckout();
+        if ($cashfreeActive || self::hasOpenCashfreePayment($latestPayment)) {
+            $sync = self::syncCashfreeOrderPayment($orderNumber, $customerId);
+            if (!empty($sync['redirect'])) {
+                return ['ok' => false, 'redirect' => (string) $sync['redirect'], 'order' => $order];
+            }
+            if (($sync['state'] ?? '') === 'reconciliation') {
+                $error = (string) ($sync['message'] ?? 'Payment received; fulfilment pending.');
+            } elseif (($sync['state'] ?? '') === 'error') {
+                $error = (string) ($sync['message'] ?? 'Could not verify payment status.');
+            } elseif (($sync['state'] ?? '') === 'pending') {
+                $info = (string) ($sync['message'] ?? '');
+            }
+            $order = PaymentRepository::orderByNumberForCustomer($orderNumber, $customerId) ?? $order;
+            if ((string) ($order['payment_status'] ?? '') === 'paid') {
+                return [
+                    'ok' => false,
+                    'redirect' => url_base() . '/order.php?id=' . rawurlencode($orderNumber),
+                    'order' => $order,
+                ];
+            }
+            $latestPayment = PaymentRepository::latestPaymentForOrder((int) $order['id']);
+        }
+
+        $checkout = $_SESSION['checkout_payment'][$orderNumber] ?? null;
+        if ($checkout === null || !is_array($checkout)) {
+            if (self::hasOpenCashfreePayment($latestPayment) && is_array($latestPayment)) {
+                $resume = self::resumeCashfreeCheckout($orderNumber, $latestPayment);
+                if (!$resume['ok']) {
+                    $error = $resume['error'] ?? 'Could not resume Cashfree payment.';
+                } else {
+                    $checkout = $resume['checkout'] ?? [];
+                }
+            } elseif ($latestPayment === null || (string) ($latestPayment['status'] ?? '') === 'failed') {
+                $mobile = (string) (CustomerService::profile()['mobile'] ?? '');
+                $init = self::initiateForOrder(
+                    (int) $order['id'],
+                    $orderNumber,
+                    (float) $order['grand_total'],
+                    $mobile
+                );
+                if (!$init['ok']) {
+                    $error = $init['error'] ?? 'Could not start payment.';
+                } else {
+                    $checkout = $init['checkout'] ?? [];
+                }
+            }
+        }
+
+        if ($error !== '' || !is_array($checkout) || $checkout === []) {
+            return [
+                'ok' => false,
+                'error' => $error !== '' ? $error : 'Could not start payment.',
+                'info' => $info,
+                'order' => $order,
+            ];
+        }
+
+        $_SESSION['checkout_payment'][$orderNumber] = $checkout;
+
+        return ['ok' => true, 'checkout' => $checkout, 'info' => $info, 'order' => $order];
+    }
+
     public static function customerCanRetryStorefrontPayment(array $orderRow): bool
     {
         if ((string) ($orderRow['payment_status'] ?? '') === 'paid') {

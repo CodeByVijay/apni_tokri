@@ -97,6 +97,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cancel_order'])) {
     }
 }
 
+$retryPaymentError = '';
+$retryPaymentInfo = '';
+$retryPaymentAutoLaunch = false;
+$retryPaymentCheckout = null;
+$retryPaymentCashfreeSandbox = PaymentGatewayConfig::usesSandboxPayments();
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['storefront_retry_payment'])) {
+    Csrf::requireValid();
+    if (!CommerceGateway::useDatabase() || CustomerAuth::id() === null || $id === '') {
+        $retryPaymentError = 'Payment retry requires a live account order.';
+    } else {
+        $custId = (int) CustomerAuth::id();
+        $retryRow = OrderFulfillmentService::orderRowForCustomer($id, $custId);
+        if ($retryRow === null || !PaymentService::customerCanRetryStorefrontPayment($retryRow)) {
+            $retryPaymentError = 'This order cannot accept payment right now.';
+        } else {
+            $orderNumber = (string) ($retryRow['order_number'] ?? $id);
+            $prep = PaymentService::prepareStorefrontOrderPayment($orderNumber, $custId, true);
+            if (!empty($prep['redirect'])) {
+                header('Location: ' . $prep['redirect'], true, 302);
+                exit;
+            }
+            if (empty($prep['ok'])) {
+                $retryPaymentError = (string) ($prep['error'] ?? 'Could not start payment.');
+                $retryPaymentInfo = (string) ($prep['info'] ?? '');
+            } else {
+                $launchMode = (string) (($prep['checkout'] ?? [])['mode'] ?? '');
+                if (!in_array($launchMode, ['cashfree', 'razorpay'], true)) {
+                    unset($_SESSION['checkout_payment_autolaunch'][$orderNumber]);
+                }
+                header('Location: ' . url_base() . '/order-details.php?id=' . rawurlencode($id), true, 303);
+                exit;
+            }
+        }
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['refund_request'])) {
     Csrf::requireValid();
     if (!CommerceGateway::useDatabase() || CustomerAuth::id() === null) {
@@ -154,7 +191,6 @@ $orderStatus = (string) ($currentStatus['status'] ?? $overview['status_public'] 
 $paymentStatusLabel = (string) ($overview['payment_status_label'] ?? '');
 
 $showRetryPayment = false;
-$retryPaymentUrl = '';
 $retryPaymentAmount = (float) ($totals['grand_total'] ?? $totals['total'] ?? 0);
 if (CommerceGateway::useDatabase() && CustomerAuth::id() !== null && $id !== '') {
     $orderRowForRetry = isset($row) && is_array($row)
@@ -162,13 +198,20 @@ if (CommerceGateway::useDatabase() && CustomerAuth::id() !== null && $id !== '')
         : OrderFulfillmentService::orderRowForCustomer($id, CustomerAuth::id());
     if ($orderRowForRetry !== null && PaymentService::customerCanRetryStorefrontPayment($orderRowForRetry)) {
         $showRetryPayment = true;
-        $retryPaymentUrl = url_base() . '/payment.php?order=' . rawurlencode($displayId);
-        if ((string) ($orderRowForRetry['payment_status'] ?? '') === 'failed') {
-            $retryPaymentUrl .= '&retry=1';
-        }
         $retryPaymentAmount = (float) ($orderRowForRetry['grand_total'] ?? $retryPaymentAmount);
         if ($paySummary !== null && isset($paySummary['amount']) && (float) $paySummary['amount'] > 0) {
             $retryPaymentAmount = (float) $paySummary['amount'];
+        }
+        $pendingCheckout = $_SESSION['checkout_payment'][$displayId] ?? null;
+        if (!empty($_SESSION['checkout_payment_autolaunch'][$displayId]) && is_array($pendingCheckout)) {
+            $launchMode = (string) ($pendingCheckout['mode'] ?? '');
+            $launchReady = ($launchMode === 'cashfree' && trim((string) ($pendingCheckout['payment_session_id'] ?? '')) !== '')
+                || ($launchMode === 'razorpay' && trim((string) ($pendingCheckout['gateway_order_id'] ?? '')) !== '');
+            if ($launchReady) {
+                $retryPaymentAutoLaunch = true;
+                $retryPaymentCheckout = $pendingCheckout;
+                unset($_SESSION['checkout_payment_autolaunch'][$displayId]);
+            }
         }
     }
 }
@@ -533,4 +576,5 @@ require APNI_TOKRI_ROOT . '/includes/partials/customer-order-cancel.php';
 </section>
 <?php
 require APNI_TOKRI_ROOT . '/includes/partials/account-shell-end.php';
+require APNI_TOKRI_ROOT . '/includes/partials/order-retry-payment-launch.php';
 layout_public_end();

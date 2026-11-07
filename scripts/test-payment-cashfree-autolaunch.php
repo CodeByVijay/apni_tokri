@@ -39,5 +39,11 @@ ok(str_contains($js, 'verifyUrl'), 'Server-side verify POST preserved for Razorp
 ok(str_contains($js, 'cashfreeSyncStatus'), 'Cashfree customer sync preserved');
 ok(str_contains($payment, 'syncCashfreeOrderPayment'), 'Cashfree server sync on payment page load');
 
+$orderDetails = (string) file_get_contents($root . '/order-details.php');
+$service = (string) file_get_contents($root . '/includes/payment/service.php');
+ok(str_contains($service, 'prepareStorefrontOrderPayment'), 'Shared storefront checkout preparation');
+ok(str_contains($orderDetails, 'checkout_payment_autolaunch'), 'Order details retry sets autolaunch flag');
+ok(str_contains($orderDetails, 'order-retry-payment-launch.php'), 'Order details gateway launch partial');
+
 echo $fail === 0 ? "PASS: payment gateway autolaunch.\n" : "Failures: {$fail}\n";
 exit($fail === 0 ? 0 : 1);

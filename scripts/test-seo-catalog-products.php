@@ -38,6 +38,11 @@ $catalog = (string) file_get_contents(APNI_TOKRI_ROOT . '/admin/seo/sections/cat
 $ok(str_contains($catalog, 'searchProductSeoCatalog'), 'catalog uses unified search');
 $ok(str_contains($catalog, 'No products found'), 'empty state message');
 $ok(str_contains($catalog, 'catalog-product-editor.php'), 'editor drawer');
+$ok(str_contains($catalog, 'at-seo-saas__catalog-toolbar'), 'catalog toolbar markup');
+$ok(str_contains($catalog, 'at-seo-catalog-card'), 'responsive catalog cards');
+$css = (string) file_get_contents(APNI_TOKRI_ROOT . '/assets/css/apni-tokri.css');
+$ok(str_contains($css, 'at-seo-saas__catalog-stats'), 'catalog KPI grid styles');
+$ok(str_contains($css, 'grid-template-columns: repeat(8'), 'nav eight-column desktop grid');
 
 if (Install::isSchemaReady()) {
     Install::ensureConnection();
