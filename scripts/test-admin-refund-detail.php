@@ -34,6 +34,12 @@ ok(str_contains($index, 'not inferred from the refund amount'), 'Does not infer 
 ok(str_contains($index, 'order-items.php'), 'Reuses shared order items partial');
 ok(str_contains($index, 'approve_process'), 'Combined approve+process action');
 ok(str_contains($index, 'retry_gateway'), 'Manual retry action for failed gateway');
+ok(str_contains($index, 'admin_format_audit_datetime'), 'Audit history uses admin audit datetime formatter');
+$helpers = (string) file_get_contents($root . '/includes/helpers.php');
+ok(str_contains($helpers, "format('Y-m-d h:i:s A')"), 'Audit datetime format includes date, seconds, and AM/PM');
+ok(admin_format_audit_datetime('') === '—', 'Empty audit timestamp shows em dash');
+$sample = admin_format_audit_datetime('2026-11-08 01:06:08');
+ok($sample !== '' && $sample !== '—' && preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} (AM|PM)$/', $sample) === 1, 'Audit sample matches YYYY-MM-DD hh:mm:ss AM/PM');
 
 if (!Install::isSchemaReady()) {
     fwrite(STDERR, "Schema not ready — static checks only.\n");

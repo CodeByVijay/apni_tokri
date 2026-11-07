@@ -289,4 +289,56 @@ final class CashfreeGateway
         return PaymentGatewayConfig::cashfreePgApiBase()
             . '/orders/' . rawurlencode($merchantOrderId) . '/refunds';
     }
+
+    public static function orderRefundStatusApiPath(string $merchantOrderId, string $refundLookupId): string
+    {
+        return self::ordersRefundApiPath($merchantOrderId)
+            . '/' . rawurlencode($refundLookupId);
+    }
+
+    /**
+     * Fetch status of an existing Cashfree refund (GET only).
+     *
+     * @return array{
+     *     ok: bool,
+     *     refund_status?: string,
+     *     gateway_refund_id?: string,
+     *     refund_amount?: float,
+     *     snapshot?: array<string, mixed>,
+     *     error?: string
+     * }
+     */
+    public static function fetchRefund(string $merchantOrderId, string $refundLookupId): array
+    {
+        $merchantOrderId = trim($merchantOrderId);
+        $refundLookupId = trim($refundLookupId);
+        if ($merchantOrderId === '' || $refundLookupId === '') {
+            return ['ok' => false, 'error' => 'Invalid refund lookup reference.'];
+        }
+        if (!self::isConfigured()) {
+            return ['ok' => false, 'error' => 'Cashfree is not configured.'];
+        }
+        try {
+            $url = self::orderRefundStatusApiPath($merchantOrderId, $refundLookupId);
+        } catch (RuntimeException $e) {
+            return ['ok' => false, 'error' => 'Cashfree is not configured.'];
+        }
+        $resp = PaymentHttp::request('GET', $url, null, self::headers());
+        if (!$resp['ok'] || !is_array($resp['json'])) {
+            error_log('Cashfree fetch refund HTTP ' . ($resp['status'] ?? 0));
+
+            return ['ok' => false, 'error' => 'Could not fetch refund status from Cashfree.'];
+        }
+        $json = $resp['json'];
+        $status = (string) ($json['refund_status'] ?? $json['status'] ?? '');
+        $cfId = (string) ($json['cf_refund_id'] ?? '');
+
+        return [
+            'ok' => true,
+            'refund_status' => $status,
+            'gateway_refund_id' => $cfId !== '' ? $cfId : null,
+            'refund_amount' => isset($json['refund_amount']) ? (float) $json['refund_amount'] : null,
+            'snapshot' => $json,
+        ];
+    }
 }

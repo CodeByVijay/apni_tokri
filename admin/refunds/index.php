@@ -46,6 +46,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && Install::isSchemaReady()) {
         $result = RefundRequestService::reject($rid, (string) ($_POST['reject_reason'] ?? ''));
     } elseif ($action === 'retry_gateway') {
         $result = RefundRequestService::retryGatewayRefund($rid);
+    } elseif ($action === 'fetch_gateway_status') {
+        $result = RefundRequestService::fetchGatewayRefundStatus($rid);
     } elseif ($action === 'gateway') {
         $result = RefundRequestService::initiateGatewayRefund($rid);
     }
@@ -94,6 +96,7 @@ if ($requestId > 0 && Install::isSchemaReady()) {
     $canApproveProcess = in_array($reqStatus, [RefundStatus::REQUESTED, RefundStatus::UNDER_REVIEW], true);
     $canRetryGateway = $reqStatus === RefundStatus::REFUND_FAILED
         && ($latestGwRefund === null || (string) ($latestGwRefund['gateway_status'] ?? '') === 'failed');
+    $canFetchGatewayStatus = RefundRequestService::canAdminFetchGatewayStatus($requestId, $reqStatus);
     $canManualGateway = $reqStatus === RefundStatus::APPROVED;
     $showSuccessPanel = in_array($reqStatus, [RefundStatus::REFUNDED, RefundStatus::PROCESSING, RefundStatus::REFUND_INITIATED], true)
         && $latestGwRefund !== null;
@@ -246,6 +249,12 @@ if ($requestId > 0 && Install::isSchemaReady()) {
             <?php elseif ($showSuccessPanel): ?>
                 <p class="text-sm at-muted">This refund has already been submitted to the gateway.</p>
             <?php endif; ?>
+            <?php if ($canFetchGatewayStatus): ?>
+                <div class="pt-2 border-t border-[var(--at-line)] space-y-2">
+                    <p class="text-sm at-muted">Fetch the latest status from the payment gateway. This does not create a new refund attempt.</p>
+                    <button type="submit" name="action" value="fetch_gateway_status" class="at-btn at-btn--secondary at-focusable">Fetch Gateway Status</button>
+                </div>
+            <?php endif; ?>
         </div>
     </form>
     <?php if ($canApproveProcess): ?>
@@ -278,7 +287,7 @@ if ($requestId > 0 && Install::isSchemaReady()) {
         <h3 class="at-h3">Audit history</h3>
         <ul class="mt-2 text-sm space-y-1">
             <?php foreach (RefundRequestService::history($requestId) as $h): ?>
-                <li><?= Security::escape((string) $h['created_at']) ?> — <?= Security::escape((string) $h['action']) ?></li>
+                <li><?= Security::escape(admin_format_audit_datetime((string) ($h['created_at'] ?? ''))) ?> — <?= Security::escape((string) $h['action']) ?></li>
             <?php endforeach; ?>
         </ul>
     </div></div>

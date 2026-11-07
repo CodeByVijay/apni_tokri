@@ -117,4 +117,51 @@ final class RazorpayGateway
 
         return Security::hashEquals($expected, $signature);
     }
+
+    /**
+     * Fetch status of an existing Razorpay refund (GET only).
+     *
+     * @return array{
+     *     ok: bool,
+     *     refund_status?: string,
+     *     gateway_refund_id?: string,
+     *     refund_amount?: float,
+     *     snapshot?: array<string, mixed>,
+     *     error?: string
+     * }
+     */
+    public static function fetchRefund(string $gatewayRefundId): array
+    {
+        $gatewayRefundId = trim($gatewayRefundId);
+        if ($gatewayRefundId === '') {
+            return ['ok' => false, 'error' => 'Invalid refund reference.'];
+        }
+        if (!self::isConfigured()) {
+            return ['ok' => false, 'error' => 'Razorpay is not configured.'];
+        }
+        $resp = PaymentHttp::request(
+            'GET',
+            'https://api.razorpay.com/v1/refunds/' . rawurlencode($gatewayRefundId),
+            null,
+            [],
+            self::keyId(),
+            self::keySecret()
+        );
+        if (!$resp['ok'] || !is_array($resp['json'])) {
+            error_log('Razorpay fetch refund HTTP ' . ($resp['status'] ?? 0));
+
+            return ['ok' => false, 'error' => 'Could not fetch refund status from Razorpay.'];
+        }
+        $json = $resp['json'];
+        $status = (string) ($json['status'] ?? '');
+        $amountPaise = (int) ($json['amount'] ?? 0);
+
+        return [
+            'ok' => true,
+            'refund_status' => $status,
+            'gateway_refund_id' => (string) ($json['id'] ?? $gatewayRefundId),
+            'refund_amount' => $amountPaise > 0 ? $amountPaise / 100 : null,
+            'snapshot' => $json,
+        ];
+    }
 }

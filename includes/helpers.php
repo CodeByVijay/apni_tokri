@@ -226,22 +226,47 @@ function customer_status_badge(string $status, ?string $label = null, string $co
         . Security::escape($text) . '</span>';
 }
 
-function customer_format_datetime(?string $mysqlDatetime): string
+function app_datetime_from_mysql(?string $mysqlDatetime): ?DateTimeImmutable
 {
     if ($mysqlDatetime === null || trim($mysqlDatetime) === '') {
-        return '—';
+        return null;
     }
     $tzName = class_exists('DeliveryConfig', false) ? DeliveryConfig::timezone() : 'Asia/Kolkata';
     try {
         $tz = new DateTimeZone($tzName);
-        $dt = new DateTimeImmutable(trim($mysqlDatetime), $tz);
+
+        return new DateTimeImmutable(trim($mysqlDatetime), $tz);
     } catch (Throwable $e) {
         $ts = strtotime($mysqlDatetime);
         if ($ts === false) {
-            return Security::escape($mysqlDatetime);
+            return null;
         }
-        $dt = (new DateTimeImmutable('@' . $ts))->setTimezone(new DateTimeZone($tzName));
+
+        return (new DateTimeImmutable('@' . $ts))->setTimezone(new DateTimeZone($tzName));
+    }
+}
+
+function customer_format_datetime(?string $mysqlDatetime): string
+{
+    $dt = app_datetime_from_mysql($mysqlDatetime);
+    if ($dt === null) {
+        if ($mysqlDatetime === null || trim($mysqlDatetime) === '') {
+            return '—';
+        }
+
+        return Security::escape($mysqlDatetime);
     }
 
     return $dt->format('j M Y, g:i A');
+}
+
+/** Admin audit timestamps: YYYY-MM-DD hh:mm:ss AM/PM in app timezone. */
+function admin_format_audit_datetime(?string $mysqlDatetime): string
+{
+    $dt = app_datetime_from_mysql($mysqlDatetime);
+    if ($dt === null) {
+        return '—';
+    }
+
+    return $dt->format('Y-m-d h:i:s A');
 }

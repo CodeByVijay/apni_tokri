@@ -192,4 +192,126 @@ final class GatewayRefundService
 
         return PaymentGatewayConfig::isProductionGatewayMode();
     }
+
+    /**
+     * Read-only gateway refund status lookup — never initiates a refund.
+     *
+     * @param array<string, mixed> $paymentRefundRow payment_refunds row with optional order_number join
+     * @return array{
+     *     ok: bool,
+     *     missing_reference?: bool,
+     *     api_error?: bool,
+     *     gateway?: string,
+     *     lookup_reference?: string,
+     *     refund_status?: string,
+     *     gateway_refund_id?: string|null,
+     *     refund_amount?: float|null,
+     *     snapshot?: array<string, mixed>,
+     *     message?: string
+     * }
+     */
+    public static function lookupRefundStatus(array $paymentRefundRow): array
+    {
+        $gateway = (string) ($paymentRefundRow['gateway'] ?? '');
+        if ($gateway === 'simulate') {
+            $status = strtolower((string) ($paymentRefundRow['gateway_status'] ?? 'pending'));
+
+            return [
+                'ok' => true,
+                'gateway' => 'simulate',
+                'lookup_reference' => (string) ($paymentRefundRow['gateway_refund_id'] ?? ''),
+                'refund_status' => $status,
+                'gateway_refund_id' => $paymentRefundRow['gateway_refund_id'] ?? null,
+                'refund_amount' => isset($paymentRefundRow['amount_inr']) ? (float) $paymentRefundRow['amount_inr'] : null,
+                'snapshot' => ['source' => 'local_simulate', 'gateway_status' => $status],
+            ];
+        }
+        if ($gateway === 'cashfree') {
+            $merchantOrderId = trim((string) ($paymentRefundRow['order_number'] ?? ''));
+            if ($merchantOrderId === '') {
+                return ['ok' => false, 'message' => 'Missing merchant order id for Cashfree lookup.', 'api_error' => true];
+            }
+            $lookup = trim((string) ($paymentRefundRow['gateway_refund_id'] ?? ''));
+            if ($lookup === '') {
+                $idempotency = trim((string) ($paymentRefundRow['idempotency_key'] ?? ''));
+                if ($idempotency === '') {
+                    return [
+                        'ok' => false,
+                        'missing_reference' => true,
+                        'message' => 'Gateway refund reference is missing — status reconciliation is unavailable.',
+                    ];
+                }
+                $lookup = substr(preg_replace('/[^a-zA-Z0-9_]/', '_', $idempotency), 0, 40);
+            }
+            $resp = CashfreeGateway::fetchRefund($merchantOrderId, $lookup);
+            if (!$resp['ok']) {
+                return [
+                    'ok' => false,
+                    'api_error' => true,
+                    'gateway' => 'cashfree',
+                    'lookup_reference' => $lookup,
+                    'message' => $resp['error'] ?? 'Could not fetch Cashfree refund status.',
+                ];
+            }
+
+            return [
+                'ok' => true,
+                'gateway' => 'cashfree',
+                'lookup_reference' => $lookup,
+                'refund_status' => (string) ($resp['refund_status'] ?? ''),
+                'gateway_refund_id' => $resp['gateway_refund_id'] ?? null,
+                'refund_amount' => $resp['refund_amount'] ?? null,
+                'snapshot' => self::sanitizeStatusSnapshot($resp['snapshot'] ?? []),
+            ];
+        }
+        if ($gateway === 'razorpay') {
+            $lookup = trim((string) ($paymentRefundRow['gateway_refund_id'] ?? ''));
+            if ($lookup === '') {
+                return [
+                    'ok' => false,
+                    'missing_reference' => true,
+                    'message' => 'Gateway refund reference is missing — status reconciliation is unavailable.',
+                ];
+            }
+            $resp = RazorpayGateway::fetchRefund($lookup);
+            if (!$resp['ok']) {
+                return [
+                    'ok' => false,
+                    'api_error' => true,
+                    'gateway' => 'razorpay',
+                    'lookup_reference' => $lookup,
+                    'message' => $resp['error'] ?? 'Could not fetch Razorpay refund status.',
+                ];
+            }
+
+            return [
+                'ok' => true,
+                'gateway' => 'razorpay',
+                'lookup_reference' => $lookup,
+                'refund_status' => (string) ($resp['refund_status'] ?? ''),
+                'gateway_refund_id' => $resp['gateway_refund_id'] ?? null,
+                'refund_amount' => $resp['refund_amount'] ?? null,
+                'snapshot' => self::sanitizeStatusSnapshot($resp['snapshot'] ?? []),
+            ];
+        }
+
+        return ['ok' => false, 'message' => 'Unsupported gateway for status lookup.'];
+    }
+
+    /** @param array<string, mixed> $json */
+    public static function sanitizeStatusSnapshot(array $json): array
+    {
+        $allowed = [
+            'refund_status', 'status', 'cf_refund_id', 'refund_id', 'refund_amount', 'refund_currency',
+            'id', 'amount', 'currency', 'created_at', 'payment_id',
+        ];
+        $out = [];
+        foreach ($allowed as $key) {
+            if (array_key_exists($key, $json)) {
+                $out[$key] = $json[$key];
+            }
+        }
+
+        return $out;
+    }
 }
