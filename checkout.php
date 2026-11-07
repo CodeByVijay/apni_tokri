@@ -145,6 +145,14 @@ $paymentGatewayReady = $paymentUsesSimulate || !empty($paymentLiveReady['ok']);
 $paymentGatewayBlockedMessage = $paymentGatewayReady
     ? ''
     : (string) ($paymentLiveReady['message'] ?? 'Payment gateway is not ready. Check Settings → Payment gateways.');
+$slotsOkInitial = !DeliveryConfig::slotsEnabled() || ($canShowDeliverySlots && $checkoutSlots !== []);
+$checkoutQuoteReady = $loggedIn
+    && $addresses !== []
+    && $slotsOkInitial
+    && empty($totals['coupon_error'])
+    && !empty($totals['delivery_quote_accurate'])
+    && ($totals['delivery_serviceable'] ?? false)
+    && trim((string) ($totals['delivery_quote_message'] ?? '')) === '';
 
 /** Map-free address form whenever persisted checkout addresses are used; optional search when autocomplete is enabled in settings. */
 $checkoutAddrMapFree = $dbAddressMode;
@@ -294,7 +302,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
                     </div>
                     <div class="at-checkout-pay__row">
                         <span class="at-checkout-pay__label">Amount payable</span>
-                        <span class="at-checkout-pay__value at-checkout-pay__amount"><?= Security::escape(catalogue_format_price((float) $totals['total'])) ?></span>
+                        <span class="at-checkout-pay__value at-checkout-pay__amount" data-checkout-pay-card-amount><?= Security::escape(catalogue_format_price((float) $totals['total'])) ?></span>
                     </div>
                     <p class="at-checkout-pay__hint text-sm at-muted">You will pay on the next screen. Your order is confirmed only after the server verifies payment with <?= Security::escape($paymentGatewayLabel) ?>.</p>
                     <?php if (!$paymentGatewayReady): ?>
@@ -328,11 +336,12 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
             <?php if (!$loggedIn): ?><p class="at-alert at-alert--warning mb-3 text-sm"><?= at_icon('lock', 'w-5 h-5 flex-shrink-0') ?><span>Log in with your mobile number to enable payment.</span></p><?php endif; ?>
             <?php
             $canPay = $loggedIn && $addresses !== [];
-            $slotsOk = !DeliveryConfig::slotsEnabled() || ($canShowDeliverySlots && $checkoutSlots !== []);
+            $slotsOk = $slotsOkInitial;
             ?>
+            <div class="at-alert at-alert--warning text-sm mb-3 hidden" data-checkout-quote-error role="alert"></div>
             <div class="flex flex-col sm:flex-row gap-3">
                 <?php if (CommerceGateway::useDatabase()): ?>
-                    <button type="submit" id="checkout-proceed-pay" class="at-btn at-btn--primary at-btn--lg at-focusable flex-1" data-at-checkout-submit <?= ($canPay && $slotsOk && $paymentGatewayReady) ? '' : 'disabled' ?>><?= at_icon('lock', 'w-5 h-5') ?> Proceed to pay <?= Security::escape(catalogue_format_price((float) $totals['total'])) ?></button>
+                    <button type="submit" id="checkout-proceed-pay" class="at-btn at-btn--primary at-btn--lg at-focusable flex-1" data-at-checkout-submit data-at-quote-ready="<?= ($checkoutQuoteReady && $paymentGatewayReady) ? '1' : '0' ?>" <?= ($canPay && $slotsOk && $paymentGatewayReady && $checkoutQuoteReady) ? '' : 'disabled' ?>><?= at_icon('lock', 'w-5 h-5') ?> Proceed to pay <span data-checkout-pay-amount><?= Security::escape(catalogue_format_price((float) $totals['total'])) ?></span></button>
                 <?php else: ?>
                     <button type="submit" name="payment_sim" value="success" class="at-btn at-btn--primary at-btn--lg at-focusable flex-1" <?= $canPay ? '' : 'disabled' ?>><?= at_icon('lock', 'w-5 h-5') ?> Pay <?= Security::escape(catalogue_format_price((float) $totals['total'])) ?> (demo success)</button>
                     <button type="submit" name="payment_sim" value="fail" class="at-btn at-btn--secondary at-btn--lg at-focusable" <?= $canPay ? '' : 'disabled' ?>>Simulate payment failure</button>
@@ -341,7 +350,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
         </form>
     </div>
 
-    <aside class="at-summary grid gap-4">
+    <aside class="at-summary grid gap-4" data-checkout-summary>
         <div class="at-card"><div class="at-card__body">
             <h2 class="at-card__title">Your items</h2>
             <ul class="mt-3 grid gap-3">
@@ -376,16 +385,29 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
 })();
 </script>
 <?php endif; ?>
+<?php if ($dbAddressMode && $loggedIn && DemoCart::items() !== []): ?>
+<script>
+window.AT_CHECKOUT = {
+    quoteUrl: <?= json_encode(url_base() . '/ajax/checkout/quote.php', JSON_THROW_ON_ERROR) ?>,
+    csrf: <?= json_encode(Csrf::token(), JSON_THROW_ON_ERROR) ?>
+};
+</script>
+<?php endif; ?>
 <script>
 (function () {
   var form = document.getElementById('checkout-form');
   var btn = document.getElementById('checkout-proceed-pay');
   var terms = form ? form.querySelector('input[name="terms"]') : null;
   function syncPayButton() {
+    if (typeof window.AT_CHECKOUT_SYNC_PAY === 'function') {
+      window.AT_CHECKOUT_SYNC_PAY();
+      return;
+    }
     if (!btn || btn.hasAttribute('data-at-checkout-hard-disabled')) return;
     var gatewayOk = btn.getAttribute('data-at-gateway-ready') === '1';
+    var quoteOk = btn.getAttribute('data-at-quote-ready') !== '0';
     var termsOk = !terms || terms.checked;
-    btn.disabled = !(gatewayOk && termsOk);
+    btn.disabled = !(gatewayOk && quoteOk && termsOk);
   }
   if (btn) {
     btn.setAttribute('data-at-gateway-ready', <?= ($paymentGatewayReady && $loggedIn && $addresses !== [] && $slotsOk) ? "'1'" : "'0'" ?>);

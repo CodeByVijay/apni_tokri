@@ -31,13 +31,19 @@ $couponApplied = catalogue_cart_coupon_applied($totals);
             <div class="is-total"><dt>Total</dt><dd data-cart-total><?= Security::escape(catalogue_format_price((float) $totals['total'])) ?></dd></div>
         </dl>
         <?php if (!empty($totals['delivery_quote_message'])): ?>
-            <p class="text-xs mt-3 px-3 py-2 rounded-lg bg-[var(--at-cream-2)] at-muted"><?= Security::escape((string) $totals['delivery_quote_message']) ?></p>
-        <?php elseif (!empty($totals['delivery_quote_accurate']) && !empty($totals['delivery_serviceable']) && !empty($totals['free_delivery_eligible']) && (float) ($totals['amount_to_free_delivery'] ?? 0) > 0): ?>
+            <p class="text-xs mt-3 px-3 py-2 rounded-lg bg-[var(--at-cream-2)] at-muted" data-cart-quote-message role="status"><?= Security::escape((string) $totals['delivery_quote_message']) ?></p>
+        <?php else: ?>
+            <p class="text-xs mt-3 px-3 py-2 rounded-lg bg-[var(--at-cream-2)] at-muted hidden" data-cart-quote-message role="status"></p>
+        <?php endif; ?>
+        <?php if (empty($totals['delivery_quote_message']) && !empty($totals['delivery_quote_accurate']) && !empty($totals['delivery_serviceable']) && !empty($totals['free_delivery_eligible']) && (float) ($totals['amount_to_free_delivery'] ?? 0) > 0): ?>
             <p data-cart-free-delivery class="text-xs mt-3 px-3 py-2 rounded-lg bg-[var(--at-yellow-100)] text-[var(--at-yellow-ink)] font-semibold">
                 Add <?= Security::escape(catalogue_format_price((float) $totals['amount_to_free_delivery'])) ?> more (eligible items) for free delivery.
             </p>
-        <?php elseif (empty($totals['delivery_serviceable']) && empty($totals['free_delivery_eligible'])): ?>
-            <p class="text-xs mt-3 at-muted">Check your pincode to see delivery fee and free-delivery progress.</p>
+        <?php else: ?>
+            <p data-cart-free-delivery class="text-xs mt-3 px-3 py-2 rounded-lg bg-[var(--at-yellow-100)] text-[var(--at-yellow-ink)] font-semibold hidden"></p>
+        <?php endif; ?>
+        <?php if (empty($totals['delivery_quote_message']) && empty($totals['delivery_serviceable']) && empty($totals['free_delivery_eligible'])): ?>
+            <p class="text-xs mt-3 at-muted" data-cart-quote-hint>Check your pincode to see delivery fee and free-delivery progress.</p>
         <?php endif; ?>
         <p class="text-xs at-muted mt-3">All charges are shown here — nothing is added at payment. The server recalculates the final amount at checkout.</p>
     </div>

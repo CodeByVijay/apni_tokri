@@ -243,6 +243,25 @@
         $free.addClass('hidden');
       }
     }
+    refreshQuoteMessage(totals);
+  }
+
+  function refreshQuoteMessage(totals) {
+    var $msg = $('[data-cart-quote-message]');
+    if (!$msg.length || !totals) return;
+    var text = String(totals.delivery_quote_message || '').trim();
+    if (text) {
+      $msg.removeClass('hidden').text(text);
+    } else {
+      $msg.addClass('hidden').text('');
+    }
+  }
+
+  function updateCheckoutPayAmounts(totals) {
+    if (!totals) return;
+    var amt = formatMoney(totals.total);
+    $('[data-checkout-pay-amount]').text(amt);
+    $('[data-checkout-pay-card-amount]').text(amt);
   }
 
   function parseAjaxError(xhr, fallback) {
@@ -473,5 +492,111 @@
         }
       });
     });
+
+    function initCheckoutQuote() {
+      var cfg = window.AT_CHECKOUT;
+      if (!cfg || !cfg.quoteUrl) return;
+
+      var quoteSeq = 0;
+      var quoteBusy = false;
+      var $summary = $('[data-checkout-summary]');
+      var $alert = $('[data-checkout-quote-error]');
+
+      function syncCheckoutPayState() {
+        var $btn = $('#checkout-proceed-pay');
+        if (!$btn.length || $btn.attr('data-at-checkout-hard-disabled') === '1') return;
+        var gatewayOk = $btn.attr('data-at-gateway-ready') === '1';
+        var quoteOk = $btn.attr('data-at-quote-ready') === '1';
+        var $terms = $('#checkout-form input[name="terms"]');
+        var termsOk = !$terms.length || $terms.prop('checked');
+        $btn.prop('disabled', !(gatewayOk && quoteOk && termsOk && !quoteBusy));
+      }
+
+      function setQuoteLoading(loading) {
+        quoteBusy = loading;
+        if ($summary.length) {
+          $summary.attr('aria-busy', loading ? 'true' : 'false');
+          $summary.toggleClass('opacity-60', loading);
+        }
+        syncCheckoutPayState();
+      }
+
+      window.AT_CHECKOUT_SYNC_PAY = syncCheckoutPayState;
+
+      function applyQuoteResponse(res, seq) {
+        if (seq !== quoteSeq) return;
+        setQuoteLoading(false);
+        if (!res || !res.success || !res.data || !res.data.totals) {
+          var failMsg = (res && res.error && res.error.message) || 'Could not update delivery quote.';
+          if ($alert.length) $alert.removeClass('hidden').text(failMsg);
+          $('#checkout-proceed-pay').attr('data-at-quote-ready', '0');
+          syncCheckoutPayState();
+          return;
+        }
+        var totals = res.data.totals;
+        var checkout = res.data.checkout || {};
+        refreshSummary(totals);
+        updateCheckoutPayAmounts(totals);
+        if ($alert.length) {
+          if (checkout.quote_message) {
+            $alert.removeClass('hidden').text(checkout.quote_message);
+          } else {
+            $alert.addClass('hidden').text('');
+          }
+        }
+        $('#checkout-proceed-pay').attr('data-at-quote-ready', checkout.can_pay ? '1' : '0');
+        syncCheckoutPayState();
+      }
+
+      function selectedAddressId() {
+        var $r = $('input[name="address_id"][form="checkout-form"]:checked');
+        return $r.length ? String($r.val()) : '';
+      }
+
+      function selectedSlot() {
+        var $r = $('input[name="delivery_slot"][form="checkout-form"]:checked');
+        if ($r.length) return String($r.val());
+        var $h = $('input[name="delivery_slot"][form="checkout-form"][type="hidden"]');
+        return $h.length ? String($h.val()) : 'auto';
+      }
+
+      function fetchQuote() {
+        var addressId = selectedAddressId();
+        if (!addressId) {
+          $('#checkout-proceed-pay').attr('data-at-quote-ready', '0');
+          syncCheckoutPayState();
+          return;
+        }
+        var seq = ++quoteSeq;
+        setQuoteLoading(true);
+        $.ajax({
+          url: cfg.quoteUrl,
+          method: 'POST',
+          dataType: 'json',
+          data: {
+            _csrf_token: cfg.csrf || csrfToken(),
+            address_id: addressId,
+            delivery_slot: selectedSlot()
+          }
+        })
+          .done(function (res) {
+            applyQuoteResponse(res, seq);
+          })
+          .fail(function (xhr) {
+            if (seq !== quoteSeq) return;
+            setQuoteLoading(false);
+            if ($alert.length) $alert.removeClass('hidden').text(parseAjaxError(xhr, 'Could not update delivery quote.'));
+            $('#checkout-proceed-pay').attr('data-at-quote-ready', '0');
+            syncCheckoutPayState();
+          });
+      }
+
+      $(document).on('change', 'input[name="address_id"][form="checkout-form"]', fetchQuote);
+      $(document).on('change', 'input[name="delivery_slot"][form="checkout-form"]', fetchQuote);
+      window.AT_CHECKOUT_REFRESH_QUOTE = fetchQuote;
+      syncCheckoutPayState();
+    }
+
+    initCheckoutQuote();
   });
 })(jQuery);
