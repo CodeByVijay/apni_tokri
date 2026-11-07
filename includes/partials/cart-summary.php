@@ -14,9 +14,10 @@ $couponApplied = catalogue_cart_coupon_applied($totals);
         <?php endif; ?>
         <dl class="mt-3 at-summary-list">
             <div><dt>Subtotal</dt><dd data-cart-subtotal><?= Security::escape(catalogue_format_price((float) $totals['subtotal'])) ?></dd></div>
-            <?php if ((float) ($totals['product_savings'] ?? 0) > 0): ?>
-                <div class="is-saving"><dt>Product savings</dt><dd>−<?= Security::escape(catalogue_format_price((float) $totals['product_savings'])) ?></dd></div>
-            <?php endif; ?>
+            <div class="is-saving<?= (float) ($totals['product_savings'] ?? 0) > 0 ? '' : ' hidden' ?>" data-cart-product-savings-row>
+                <dt>Product savings</dt>
+                <dd data-cart-product-savings><?= (float) ($totals['product_savings'] ?? 0) > 0 ? '−' . Security::escape(catalogue_format_price((float) $totals['product_savings'])) : '' ?></dd>
+            </div>
             <?php if ((float) ($totals['offer_discount'] ?? 0) > 0): ?>
                 <div class="is-saving" data-cart-offer-row><dt><?= Security::escape((string) ($totals['offer_label'] ?? 'Automatic offer')) ?></dt><dd data-cart-offer-amount>−<?= Security::escape(catalogue_format_price((float) $totals['offer_discount'])) ?></dd></div>
             <?php else: ?>
@@ -31,7 +32,7 @@ $couponApplied = catalogue_cart_coupon_applied($totals);
         </dl>
         <?php if (!empty($totals['delivery_quote_message'])): ?>
             <p class="text-xs mt-3 px-3 py-2 rounded-lg bg-[var(--at-cream-2)] at-muted"><?= Security::escape((string) $totals['delivery_quote_message']) ?></p>
-        <?php elseif (!empty($totals['free_delivery_eligible']) && (float) ($totals['amount_to_free_delivery'] ?? 0) > 0): ?>
+        <?php elseif (!empty($totals['delivery_quote_accurate']) && !empty($totals['delivery_serviceable']) && !empty($totals['free_delivery_eligible']) && (float) ($totals['amount_to_free_delivery'] ?? 0) > 0): ?>
             <p data-cart-free-delivery class="text-xs mt-3 px-3 py-2 rounded-lg bg-[var(--at-yellow-100)] text-[var(--at-yellow-ink)] font-semibold">
                 Add <?= Security::escape(catalogue_format_price((float) $totals['amount_to_free_delivery'])) ?> more (eligible items) for free delivery.
             </p>

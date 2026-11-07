@@ -40,22 +40,19 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
     require APNI_TOKRI_ROOT . '/includes/partials/empty-state.php';
     ?>
 <?php else:
-    $freeThreshold = 499; // demo threshold; server decides at checkout
-    $toFree = (float) ($totals['amount_to_free_delivery'] ?? 0);
-    $freePct = $toFree > 0 ? max(4, min(100, (int) round((1 - $toFree / $freeThreshold) * 100))) : 100;
+    $deliveryBanner = CartDeliveryBanner::fromTotals($totals);
     $cartQtyBlocking = false;
     ?>
     <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_24rem] gap-6 lg:gap-10 items-start">
         <div class="min-w-0">
-            <div class="at-card at-card--flat mb-4">
+            <div class="at-card at-card--flat mb-4" data-cart-delivery-banner>
                 <div class="at-card__body !py-4">
-                    <?php if ($toFree > 0): ?>
-                        <p class="text-sm font-semibold flex items-center gap-2"><?= at_icon('truck', 'w-5 h-5 text-[var(--at-green)]') ?>Add <strong><?= Security::escape(catalogue_format_price($toFree)) ?></strong> more to get free delivery</p>
-                    <?php else: ?>
-                        <p class="text-sm font-semibold flex items-center gap-2 text-[var(--at-success)]"><?= at_icon('check', 'w-5 h-5') ?>You’ve unlocked free delivery</p>
-                    <?php endif; ?>
-                    <div class="at-progress mt-3" role="progressbar" aria-valuenow="<?= (int) $freePct ?>" aria-valuemin="0" aria-valuemax="100"><div class="at-progress__bar" style="width:<?= (int) $freePct ?>%"></div></div>
-                    <p class="text-xs at-muted mt-2">Demo threshold ₹<?= (int) $freeThreshold ?>. The final delivery fee is confirmed at checkout.</p>
+                    <?php
+                    $bannerIcon = $deliveryBanner['tone'] === 'success' ? 'check' : 'truck';
+                    $bannerClass = $deliveryBanner['tone'] === 'success' ? 'text-[var(--at-success)]' : '';
+                    ?>
+                    <p class="text-sm font-semibold flex items-center gap-2 <?= Security::escape($bannerClass) ?>" data-cart-delivery-banner-text><?= at_icon($bannerIcon, 'w-5 h-5 ' . ($deliveryBanner['tone'] === 'success' ? '' : 'text-[var(--at-green)]')) ?><?= Security::escape((string) $deliveryBanner['message']) ?></p>
+                    <div class="at-progress mt-3 <?= $deliveryBanner['show_progress'] ? '' : 'hidden' ?>" data-cart-delivery-progress role="progressbar" aria-valuenow="<?= (int) $deliveryBanner['progress'] ?>" aria-valuemin="0" aria-valuemax="100"><div class="at-progress__bar" data-cart-delivery-progress-bar style="width:<?= (int) $deliveryBanner['progress'] ?>%"></div></div>
                 </div>
             </div>
 

@@ -113,12 +113,20 @@ final class PricingService
                 return $totals;
             }
 
+            $totals['delivery_quote_accurate'] = false;
+            $totals['delivery_quote_message'] = CartDeliveryBanner::MSG_SELECT_ADDRESS;
+            $totals['delivery_fee'] = 0.0;
+            $after = max(0, (float) ($totals['subtotal'] ?? 0) - (float) ($totals['offer_discount'] ?? 0)
+                - (float) ($totals['coupon_discount'] ?? 0));
+            $totals['total'] = round($after, 2);
+            $totals['amount_to_free_delivery'] = 0.0;
+
             return $totals;
         }
 
         if ($address === null) {
             $totals['delivery_quote_accurate'] = false;
-            $totals['delivery_quote_message'] = 'Select a delivery address for an accurate delivery fee.';
+            $totals['delivery_quote_message'] = CartDeliveryBanner::MSG_SELECT_ADDRESS;
             $totals['delivery_fee'] = 0.0;
             $after = max(0, (float) ($totals['subtotal'] ?? 0) - (float) ($totals['offer_discount'] ?? 0)
                 - (float) ($totals['coupon_discount'] ?? 0));

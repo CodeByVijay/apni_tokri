@@ -109,11 +109,89 @@
     }
   }
 
+  function refreshDeliveryBanner(totals) {
+    var $wrap = $('[data-cart-delivery-banner]');
+    var $text = $('[data-cart-delivery-banner-text]');
+    var $progress = $('[data-cart-delivery-progress]');
+    var $bar = $('[data-cart-delivery-progress-bar]');
+    if (!$wrap.length || !totals) return;
+
+    var quoteMsg = String(totals.delivery_quote_message || '').trim();
+    var accurate = !!totals.delivery_quote_accurate;
+    var serviceable = totals.delivery_serviceable !== false && totals.delivery_serviceable !== 0;
+    var toFree = parseFloat(totals.amount_to_free_delivery) || 0;
+    var eligible = !!totals.free_delivery_eligible;
+    var fee = parseFloat(totals.delivery_fee) || 0;
+    var msg = '';
+    var tone = 'muted';
+    var showProgress = false;
+    var progress = 0;
+
+    if (quoteMsg) {
+      msg = /select a delivery address/i.test(quoteMsg)
+        ? 'Select your delivery address to check delivery charges.'
+        : quoteMsg;
+    } else if (!accurate) {
+      msg = 'Select your delivery address to check delivery charges.';
+    } else if (!serviceable) {
+      msg = 'Delivery is not available for the selected address.';
+    } else if (fee <= 0 && eligible && toFree <= 0) {
+      msg = "You've unlocked free delivery";
+      tone = 'success';
+      showProgress = true;
+      progress = 100;
+    } else if (eligible && toFree > 0) {
+      msg = 'Add ' + formatMoney(toFree) + ' more to unlock free delivery';
+      tone = 'progress';
+      showProgress = true;
+      var threshold = parseFloat(totals.free_delivery_threshold) || 0;
+      if (threshold > 0) {
+        progress = Math.max(4, Math.min(100, Math.round(((threshold - toFree) / threshold) * 100)));
+      }
+    } else {
+      msg = 'Delivery fee is shown in your order summary once your address is confirmed.';
+    }
+
+    if ($text.length) {
+      $text.removeClass('text-[var(--at-success)]');
+      if (tone === 'success') {
+        $text.addClass('text-[var(--at-success)]');
+      }
+      $text.text(msg);
+    }
+    if ($progress.length) {
+      $progress.toggleClass('hidden', !showProgress);
+      $progress.attr('aria-valuenow', String(progress));
+    }
+    if ($bar.length) {
+      $bar.css('width', progress + '%');
+    }
+  }
+
   function refreshSummary(totals) {
     if (!totals) return;
     $('[data-cart-subtotal]').text(formatMoney(totals.subtotal));
-    $('[data-cart-delivery]').text(totals.delivery_fee === 0 ? 'Free' : formatMoney(totals.delivery_fee));
+    var deliveryLabel = '—';
+    if (totals.delivery_quote_message) {
+      deliveryLabel = '—';
+    } else if (totals.delivery_quote_accurate) {
+      deliveryLabel = parseFloat(totals.delivery_fee) === 0 ? 'Free' : formatMoney(totals.delivery_fee);
+    }
+    $('[data-cart-delivery]').text(deliveryLabel);
     $('[data-cart-total]').text(formatMoney(totals.total));
+    refreshDeliveryBanner(totals);
+
+    var productSavings = parseFloat(totals.product_savings) || 0;
+    var $productSavingsRow = $('[data-cart-product-savings-row]');
+    if ($productSavingsRow.length) {
+      if (productSavings > 0) {
+        $productSavingsRow.removeClass('hidden');
+        $('[data-cart-product-savings]').text('−' + formatMoney(productSavings));
+      } else {
+        $productSavingsRow.addClass('hidden');
+        $('[data-cart-product-savings]').text('');
+      }
+    }
 
     var offerDisc = parseFloat(totals.offer_discount) || 0;
     var $offerRow = $('[data-cart-offer-row]');
@@ -148,8 +226,19 @@
 
     var $free = $('[data-cart-free-delivery]');
     if ($free.length) {
-      if (totals.amount_to_free_delivery > 0) {
-        $free.removeClass('hidden').text('Add ' + formatMoney(totals.amount_to_free_delivery) + ' more for free delivery.');
+      var canShowFreeHint =
+        totals.delivery_quote_accurate &&
+        totals.delivery_serviceable !== false &&
+        totals.free_delivery_eligible &&
+        parseFloat(totals.amount_to_free_delivery) > 0;
+      if (canShowFreeHint) {
+        $free
+          .removeClass('hidden')
+          .text(
+            'Add ' +
+              formatMoney(totals.amount_to_free_delivery) +
+              ' more (eligible items) for free delivery.'
+          );
       } else {
         $free.addClass('hidden');
       }

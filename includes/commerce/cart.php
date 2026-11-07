@@ -194,6 +194,12 @@ final class CartService
         return SessionCartBackend::totals();
     }
 
+    /** Saved customer address used for cart delivery preview (if any). */
+    public static function cartDeliveryAddress(): ?array
+    {
+        return self::resolveCheckoutAddress(null);
+    }
+
     /** @return array<string, mixed>|null */
     private static function resolveCheckoutAddress(?int $addressId): ?array
     {
@@ -892,7 +898,26 @@ final class SessionCartBackend
             $totals = PricingService::totalsFromLines($lines, null, DeliveryContext::sessionPin());
         }
 
-        return $totals;
+        $previewLines = [];
+        foreach (self::items() as $item) {
+            $previewLines[] = [
+                'qty' => $item['qty'],
+                'unit_price' => $item['unit_price'],
+                'regular_price' => $item['regular_price'] ?? $item['unit_price'],
+                'on_sale' => $item['on_sale'] ?? false,
+                'grants_free_delivery' => !empty($item['grants_free_delivery']),
+                'product_id' => (int) ($item['product_id'] ?? 0),
+                'category_id' => (int) ($item['category_id'] ?? 0),
+                'variant_id' => (int) ($item['variant_id'] ?? 0),
+            ];
+        }
+
+        return PricingService::applyDeliveryQuotePreview(
+            $totals,
+            $previewLines,
+            CartService::cartDeliveryAddress(),
+            null
+        );
     }
 
     public static function clear(): void
