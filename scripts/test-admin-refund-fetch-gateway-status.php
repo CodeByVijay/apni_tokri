@@ -15,10 +15,14 @@ if (!Install::isSchemaReady()) {
 require_once __DIR__ . '/includes/stage12_phase_c1_fixture.php';
 
 $fail = 0;
-$ok = static function (bool $cond, string $msg) use (&$fail): void {
+$debug = getenv('APNI_TOKRI_REFUND_TEST_DEBUG') === '1';
+$ok = static function (bool $cond, string $msg, array $extra = []) use (&$fail, $debug): void {
     echo ($cond ? 'OK' : 'FAIL') . ': ' . $msg . "\n";
     if (!$cond) {
         $fail++;
+        if ($debug && $extra !== []) {
+            fwrite(STDERR, 'DEBUG ' . $msg . ': ' . json_encode($extra, JSON_UNESCAPED_UNICODE) . "\n");
+        }
     }
 };
 
@@ -34,6 +38,12 @@ $tok = $fixture['token'];
 $variantId = (int) ($pdo->query(
     'SELECT variant_id FROM order_items WHERE id = ' . (int) $fixture['order_item_id'] . ' LIMIT 1'
 )->fetchColumn() ?: 0);
+
+AppSettings::set('cashfree.enabled', '1');
+AppSettings::set('cashfree.app_id', 'cf_test_id_12345678');
+AppSettings::set('cashfree.secret_key', 'cf_test_secret_key_value', true);
+AppSettings::set('payment.test_mode', '1');
+AppSettings::resetCache();
 
 $isoOrder = static function (PDO $pdo, int $customerId, string $token, string $suffix, int $variantId): array {
     $amount = 120.00;
@@ -79,7 +89,7 @@ $isoOrder = static function (PDO $pdo, int $customerId, string $token, string $s
         $amount,
         'INR',
         'captured',
-        'pay_fetch_' . $suffix,
+        'pay_fetch_' . $suffix . '_' . $token,
     ]);
     $paymentId = (int) $pdo->lastInsertId();
 
@@ -91,9 +101,33 @@ $isoOrder = static function (PDO $pdo, int $customerId, string $token, string $s
     ];
 };
 
-AppSettings::set('cashfree.enabled', '1');
-AppSettings::set('cashfree.app_id', 'cf_test_id_12345678');
-AppSettings::set('cashfree.secret_key', 'cf_test_secret_key_value', true);
+$insertPaymentRefund = static function (
+    PDO $pdo,
+    int $requestId,
+    int $paymentId,
+    string $gateway,
+    float $amountInr,
+    string $idempotencyKey,
+    ?string $gatewayRefundId,
+    string $gatewayStatus = 'pending'
+): int {
+    $pdo->prepare(
+        'INSERT INTO payment_refunds
+         (refund_request_id, payment_id, gateway, amount_inr, idempotency_key, gateway_refund_id, gateway_status, response_json)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+    )->execute([
+        $requestId,
+        $paymentId,
+        $gateway,
+        $amountInr,
+        $idempotencyKey,
+        $gatewayRefundId,
+        $gatewayStatus,
+        '{}',
+    ]);
+
+    return (int) $pdo->lastInsertId();
+};
 
 $createReq = static function (PDO $pdo, array $iso, int $customerId, string $reqNum, float $amount): int {
     $pdo->prepare(
@@ -116,9 +150,15 @@ $createReq = static function (PDO $pdo, array $iso, int $customerId, string $req
     return $requestId;
 };
 
+$cashfreeMerchantRefundId = static function (string $idempotencyKey): string {
+    return substr(preg_replace('/[^a-zA-Z0-9_]/', '_', $idempotencyKey), 0, 40);
+};
+
 $httpLog = [];
+$mockInvocations = 0;
 $prevHandler = PaymentHttp::$testHandler;
-$setMock = static function (callable $resolver) use (&$httpLog): void {
+$setMock = static function (callable $resolver) use (&$httpLog, &$mockInvocations): void {
+    $mockInvocations = 0;
     PaymentHttp::$testHandler = static function (
         string $method,
         string $url,
@@ -126,78 +166,94 @@ $setMock = static function (callable $resolver) use (&$httpLog): void {
         array $headers = [],
         ?string $basicUser = null,
         ?string $basicPass = null
-    ) use (&$httpLog, $resolver): array {
-        $httpLog[] = ['method' => $method, 'url' => $url];
+    ) use (&$httpLog, &$mockInvocations, $resolver): array {
+        $mockInvocations++;
+        $httpLog[] = [
+            'method' => $method,
+            'url' => $url,
+            'body' => $jsonBody,
+        ];
+        $resp = $resolver($method, $url, $jsonBody);
+        $httpLog[count($httpLog) - 1]['response_status'] = $resp['status'] ?? null;
+        $httpLog[count($httpLog) - 1]['response_ok'] = $resp['ok'] ?? null;
 
-        return $resolver($method, $url);
+        return $resp;
     };
 };
 
+$assertNoPostRefundCreate = static function (array $httpLog) use ($ok): void {
+    foreach ($httpLog as $call) {
+        $method = strtoupper((string) ($call['method'] ?? ''));
+        $url = (string) ($call['url'] ?? '');
+        $isRefundCreate = $method === 'POST' && str_contains($url, '/refunds') && !str_ends_with($url, '/refunds');
+        $ok(!$isRefundCreate, 'No POST refund-create call: ' . $method . ' ' . $url);
+    }
+};
+
+// --- Pending: lookup via Cashfree cf_refund_id ---
 $isoPend = $isoOrder($pdo, $customerA, $tok, 'PENDONLY', $variantId);
 $reqPend = $createReq($pdo, $isoPend, $customerA, 'RF-FETCH-PEND-' . $tok, 35.0);
-$idempotencyPend = 'refund_req_' . $reqPend;
-$pdo->prepare(
-    'INSERT INTO payment_refunds
-     (refund_request_id, payment_id, gateway, amount_inr, idempotency_key, gateway_refund_id, gateway_status, response_json)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-)->execute([
+$idempotencyPend = 'refund_req_fetch_pend_' . $reqPend;
+$cfRefundIdPend = 'cf_ref_pend_' . $tok;
+$insertPaymentRefund(
+    $pdo,
     $reqPend,
     (int) $isoPend['payment_id'],
     'cashfree',
     35.0,
     $idempotencyPend,
-    'cf_ref_pend',
-    'pending',
-    '{}',
-]);
+    $cfRefundIdPend,
+    'pending'
+);
 $httpLog = [];
-$setMock(static function (string $method, string $url): array {
-    if ($method === 'GET' && str_contains($url, 'cf_ref_pend')) {
-        return [
-            'ok' => true,
-            'status' => 200,
-            'body' => '{"cf_refund_id":"cf_ref_pend","refund_status":"PENDING"}',
-            'json' => ['cf_refund_id' => 'cf_ref_pend', 'refund_status' => 'PENDING'],
-        ];
+$setMock(static function (string $method, string $url) use ($cfRefundIdPend): array {
+    if ($method !== 'GET' || !preg_match('#/refunds/' . preg_quote(rawurlencode($cfRefundIdPend), '#') . '$#', $url)) {
+        return ['ok' => false, 'status' => 502, 'body' => '', 'json' => null];
     }
 
-    return ['ok' => false, 'status' => 502, 'body' => '', 'json' => null];
+    return [
+        'ok' => true,
+        'status' => 200,
+        'body' => '{"cf_refund_id":"' . $cfRefundIdPend . '","refund_status":"PENDING"}',
+        'json' => ['cf_refund_id' => $cfRefundIdPend, 'refund_status' => 'PENDING'],
+    ];
 });
 $pendFetch = RefundRequestService::fetchGatewayRefundStatus($reqPend);
-$getOnly = array_filter($httpLog, static fn (array $c): bool => $c['method'] === 'GET');
-$ok(!empty($pendFetch['ok']), 'Pending fetch succeeds');
-$ok(count($getOnly) === 1, 'Fetch uses GET only (no refund create)');
+$getCalls = array_values(array_filter($httpLog, static fn (array $c): bool => strtoupper($c['method']) === 'GET'));
+$postCalls = array_values(array_filter($httpLog, static fn (array $c): bool => strtoupper($c['method']) === 'POST'));
+$prPend = $pdo->prepare('SELECT gateway_status, gateway_refund_id FROM payment_refunds WHERE refund_request_id = ? ORDER BY id DESC LIMIT 1');
+$prPend->execute([$reqPend]);
+$prPendRow = $prPend->fetch(PDO::FETCH_ASSOC) ?: [];
 $st = $pdo->prepare('SELECT status FROM refund_requests WHERE id = ?');
 $st->execute([$reqPend]);
-$ok((string) $st->fetchColumn() === RefundStatus::PROCESSING, 'Pending gateway keeps request processing');
+$reqPendStatus = (string) $st->fetchColumn();
+$ok($mockInvocations === 1, 'Pending: mock handler invoked once', ['http' => $httpLog, 'result' => $pendFetch]);
+$ok(count($getCalls) === 1, 'Pending: exactly one GET', ['http' => $httpLog]);
+$ok($postCalls === [], 'Pending: no POST calls', ['http' => $httpLog]);
+$ok(!empty($pendFetch['ok']), 'Pending: service returned success', ['result' => $pendFetch]);
+$ok(strtolower((string) ($prPendRow['gateway_status'] ?? '')) === 'pending', 'Pending: payment_refunds gateway_status pending', ['row' => $prPendRow]);
+$ok($reqPendStatus === RefundStatus::PROCESSING, 'Pending: refund request stays processing', ['status' => $reqPendStatus]);
+$assertNoPostRefundCreate($httpLog);
 
+// --- Success: merchant refund_id lookup when gateway_refund_id empty ---
 $isoSucc = $isoOrder($pdo, $customerA, $tok, 'SUCCESS', $variantId);
 $reqSucc = $createReq($pdo, $isoSucc, $customerA, 'RF-FETCH-SUCC-' . $tok, 40.0);
-$idempotencySucc = 'refund_req_' . $reqSucc;
-$pdo->prepare(
-    'INSERT INTO payment_refunds
-     (refund_request_id, payment_id, gateway, amount_inr, idempotency_key, gateway_refund_id, gateway_status, response_json)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-)->execute([
-    $reqSucc,
-    (int) $isoSucc['payment_id'],
-    'cashfree',
-    40.0,
-    $idempotencySucc,
-    null,
-    'pending',
-    '{}',
-]);
+$idempotencySucc = 'refund_req_fetch_succ_' . $reqSucc;
+$merchantLookupSucc = $cashfreeMerchantRefundId($idempotencySucc);
+$payIdSucc = (int) $isoSucc['payment_id'];
+$insertPaymentRefund($pdo, $reqSucc, $payIdSucc, 'cashfree', 40.0, $idempotencySucc, null, 'pending');
 $httpLog = [];
-$merchantRefundKey = 'refund_req_' . $reqSucc;
-$setMock(static function (string $method, string $url) use ($merchantRefundKey): array {
-    if ($method === 'GET' && str_contains($url, '/refunds/' . rawurlencode($merchantRefundKey))) {
+$setMock(static function (string $method, string $url) use ($merchantLookupSucc, $isoSucc): array {
+    $orderEnc = rawurlencode((string) $isoSucc['order_number']);
+    $refEnc = rawurlencode($merchantLookupSucc);
+    $expectedSuffix = '/orders/' . $orderEnc . '/refunds/' . $refEnc;
+    if ($method === 'GET' && str_ends_with($url, $expectedSuffix)) {
         return [
             'ok' => true,
             'status' => 200,
-            'body' => '{"cf_refund_id":"cf_ref_success","refund_status":"SUCCESS","refund_amount":40}',
+            'body' => '{"cf_refund_id":"cf_ref_success_' . $merchantLookupSucc . '","refund_status":"SUCCESS","refund_amount":40}',
             'json' => [
-                'cf_refund_id' => 'cf_ref_success',
+                'cf_refund_id' => 'cf_ref_success_' . $merchantLookupSucc,
                 'refund_status' => 'SUCCESS',
                 'refund_amount' => 40,
             ],
@@ -208,49 +264,93 @@ $setMock(static function (string $method, string $url) use ($merchantRefundKey):
 });
 $succFetch = RefundRequestService::fetchGatewayRefundStatus($reqSucc);
 $st->execute([$reqSucc]);
-$ok(!empty($succFetch['ok']), 'Success fetch completes refund');
-$ok((string) $st->fetchColumn() === RefundStatus::REFUNDED, 'SUCCESS gateway status → refunded');
+$reqSuccStatus = (string) $st->fetchColumn();
+$payStmt = $pdo->prepare('SELECT amount_refunded_inr FROM payments WHERE id = ?');
+$payStmt->execute([$payIdSucc]);
+$refundedOnce = (float) $payStmt->fetchColumn();
+$prSucc = $pdo->prepare('SELECT gateway_status, gateway_refund_id, completed_at FROM payment_refunds WHERE refund_request_id = ? LIMIT 1');
+$prSucc->execute([$reqSucc]);
+$prSuccRow = $prSucc->fetch(PDO::FETCH_ASSOC) ?: [];
+$ok($mockInvocations >= 1, 'Success: mock handler invoked', ['http' => $httpLog, 'result' => $succFetch]);
+$ok(!empty($succFetch['ok']), 'Success: service returned success', ['result' => $succFetch]);
+$ok($reqSuccStatus === RefundStatus::REFUNDED, 'Success: refund request refunded', ['status' => $reqSuccStatus]);
+$ok(
+    CashfreeRefundWebhook::classifyStatus('SUCCESS', '') === 'success',
+    'Success: SUCCESS normalized to success class'
+);
+$ok(abs($refundedOnce - 40.0) < 0.02, 'Success: payment amount_refunded_inr updated once', ['refunded' => $refundedOnce]);
+$ok((string) ($prSuccRow['gateway_refund_id'] ?? '') !== '', 'Success: gateway_refund_id back-filled from gateway');
+$ok($prSuccRow['completed_at'] !== null && $prSuccRow['completed_at'] !== '', 'Success: payment_refunds completed_at set');
 
-$isoMiss = $isoOrder($pdo, $customerA, $tok, 'MISSING', $variantId);
-$reqMiss = $createReq($pdo, $isoMiss, $customerA, 'RF-FETCH-MISS-' . $tok, 20.0);
-$pdo->prepare(
-    'INSERT INTO payment_refunds
-     (refund_request_id, payment_id, gateway, amount_inr, idempotency_key, gateway_refund_id, gateway_status, response_json)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-)->execute([
-    $reqMiss,
-    (int) $isoMiss['payment_id'],
-    'razorpay',
-    20.0,
-    null,
-    null,
-    'pending',
-    '{}',
+$httpLogBeforeRepeat = $httpLog;
+$httpLog = [];
+$setMock(static function (string $method, string $url) use ($merchantLookupSucc, $isoSucc): array {
+    $orderEnc = rawurlencode((string) $isoSucc['order_number']);
+    $refEnc = rawurlencode('cf_ref_success_' . $merchantLookupSucc);
+    if ($method === 'GET' && str_contains($url, '/orders/' . $orderEnc . '/refunds/')) {
+        return [
+            'ok' => true,
+            'status' => 200,
+            'json' => [
+                'cf_refund_id' => 'cf_ref_success_' . $merchantLookupSucc,
+                'refund_status' => 'SUCCESS',
+                'refund_amount' => 40,
+            ],
+            'body' => '{}',
+        ];
+    }
+
+    return ['ok' => false, 'status' => 502, 'body' => '', 'json' => null];
+});
+$repeatFetch = RefundRequestService::fetchGatewayRefundStatus($reqSucc);
+$payStmt->execute([$payIdSucc]);
+$refundedTwice = (float) $payStmt->fetchColumn();
+$st->execute([$reqSucc]);
+$ok(!empty($repeatFetch['ok']), 'Success: repeat fetch succeeds (idempotent)');
+$ok((string) $st->fetchColumn() === RefundStatus::REFUNDED, 'Success: repeat fetch keeps refunded');
+$ok(abs($refundedTwice - $refundedOnce) < 0.001, 'Success: repeat fetch does not double payment refund', [
+    'first' => $refundedOnce,
+    'second' => $refundedTwice,
 ]);
-$missFetch = RefundRequestService::fetchGatewayRefundStatus($reqMiss);
-$ok(empty($missFetch['ok']) && str_contains((string) ($missFetch['message'] ?? ''), 'missing'), 'Missing gateway ref shows reconciliation unavailable');
 
+// --- Razorpay: missing gateway_refund_id (idempotency present but not used for GET) ---
+$isoMiss = $isoOrder($pdo, $customerA, $tok, 'MISSING', $variantId);
+$pdo->prepare('UPDATE payments SET gateway = ? WHERE id = ?')->execute(['razorpay', (int) $isoMiss['payment_id']]);
+$reqMiss = $createReq($pdo, $isoMiss, $customerA, 'RF-FETCH-MISS-' . $tok, 20.0);
+$idempotencyMiss = 'refund_req_fetch_miss_' . $reqMiss;
+$insertPaymentRefund($pdo, $reqMiss, (int) $isoMiss['payment_id'], 'razorpay', 20.0, $idempotencyMiss, null, 'pending');
+$httpLog = [];
+$missFetch = RefundRequestService::fetchGatewayRefundStatus($reqMiss);
+$ok(empty($missFetch['ok']), 'Missing Razorpay gateway_refund_id rejected', ['result' => $missFetch]);
+$ok(str_contains(strtolower((string) ($missFetch['message'] ?? '')), 'missing'), 'Missing ref message', ['result' => $missFetch]);
+$ok($mockInvocations === 0, 'Missing ref: no HTTP calls', ['http' => $httpLog]);
+
+// --- API error preserves status ---
 $isoErr = $isoOrder($pdo, $customerA, $tok, 'APIERR', $variantId);
 $reqErr = $createReq($pdo, $isoErr, $customerA, 'RF-FETCH-ERR-' . $tok, 22.0);
-$pdo->prepare(
-    'INSERT INTO payment_refunds
-     (refund_request_id, payment_id, gateway, amount_inr, idempotency_key, gateway_refund_id, gateway_status, response_json)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-)->execute([
+$cfErr = 'cf_ref_err_' . $tok;
+$insertPaymentRefund(
+    $pdo,
     $reqErr,
     (int) $isoErr['payment_id'],
     'cashfree',
     22.0,
-    'refund_req_' . $reqErr,
-    'cf_ref_err',
-    'pending',
-    '{}',
-]);
-$before = RefundStatus::PROCESSING;
+    'refund_req_fetch_err_' . $reqErr,
+    $cfErr,
+    'pending'
+);
+$httpLog = [];
+$setMock(static function (string $method, string $url): array {
+    if ($method === 'GET' && str_contains($url, '/refunds/')) {
+        return ['ok' => false, 'status' => 502, 'body' => '', 'json' => null];
+    }
+
+    return ['ok' => false, 'status' => 500, 'body' => '', 'json' => null];
+});
 $errFetch = RefundRequestService::fetchGatewayRefundStatus($reqErr);
 $st->execute([$reqErr]);
-$ok(empty($errFetch['ok']), 'API error returns failure to admin');
-$ok((string) $st->fetchColumn() === $before, 'API error preserves request status');
+$ok(empty($errFetch['ok']), 'API error returns failure to admin', ['result' => $errFetch]);
+$ok((string) $st->fetchColumn() === RefundStatus::PROCESSING, 'API error preserves request status');
 
 $hist = $pdo->prepare(
     'SELECT action FROM refund_request_history WHERE refund_request_id = ? AND action = ?'

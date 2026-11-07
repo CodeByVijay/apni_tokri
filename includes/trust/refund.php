@@ -705,7 +705,9 @@ final class RefundRequestService
                 }
                 $lock = $pdo->prepare('SELECT * FROM payment_refunds WHERE id = ? FOR UPDATE');
                 $lock->execute([(int) $pr['id']]);
-                $prRow = $lock->fetch(PDO::FETCH_ASSOC) ?: $pr;
+                $locked = $lock->fetch(PDO::FETCH_ASSOC);
+                // Keep joined fields (e.g. order_number) required for gateway status GET.
+                $prRow = is_array($locked) ? array_merge($pr, $locked) : $pr;
 
                 $lookup = GatewayRefundService::lookupRefundStatus($prRow);
                 $audit = [
