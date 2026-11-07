@@ -15,6 +15,17 @@ $v = $v ?? [];
     <td><input name="variant_sale[]" type="number" step="0.01" min="0" class="at-input at-focusable" value="<?= isset($v['sale_price']) && $v['sale_price'] !== null && (string) $v['sale_price'] !== '' ? Security::escape((string) $v['sale_price']) : '' ?>" placeholder="—"></td>
     <td><input name="variant_stock[]" type="number" min="0" class="at-input at-focusable" value="<?= (int) ($v['stock_qty'] ?? 0) ?>"></td>
     <td><input name="variant_low[]" type="number" min="0" class="at-input at-focusable" value="<?= (int) ($v['low_stock_threshold'] ?? 5) ?>"></td>
+    <td>
+        <?php
+        $maxVal = '';
+        if (array_key_exists('max_qty_per_order', $v)) {
+            $maxVal = $v['max_qty_per_order'] === null ? '0' : (string) (int) $v['max_qty_per_order'];
+        } else {
+            $maxVal = (string) CartQuantityRules::DEFAULT_MAX_PER_ORDER;
+        }
+        ?>
+        <input name="variant_max[]" type="number" min="0" class="at-input at-focusable w-20" value="<?= Security::escape($maxVal) ?>" title="0 = unlimited per order" aria-label="Max per order">
+    </td>
     <td class="text-right whitespace-nowrap">
         <button type="button" class="at-btn at-btn--ghost at-btn--xs at-focusable text-red-700" data-at-remove-variant aria-label="Remove variant">Remove</button>
     </td>

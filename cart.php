@@ -59,8 +59,26 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
             </div>
 
             <ul class="grid gap-3">
-                <?php foreach ($items as $item): ?>
-                    <li class="at-line-item" data-line-key="<?= Security::escape((string) $item['line_key']) ?>" data-unit-price="<?= Security::escape((string) (float) $item['unit_price']) ?>">
+                <?php foreach ($items as $item):
+                    $lineCap = 1;
+                    $vid = (int) ($item['variant_id'] ?? 0);
+                    if ($vid > 0 && AppEnvironment::usePersistedStorefront()) {
+                        $lineCap = max(1, CartQuantityRules::orderableQty($vid));
+                    } else {
+                        $p = app_catalogue()->product((string) ($item['product_slug'] ?? ''));
+                        if ($p !== null) {
+                            foreach ($p['variants'] ?? [] as $pv) {
+                                if ((string) ($pv['id'] ?? '') === (string) ($item['variant_id'] ?? '')) {
+                                    $lineCap = max(1, CartQuantityRules::orderableQtyFromCatalogueVariant($pv));
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    $selQty = min((int) ($item['qty'] ?? 1), max(1, $lineCap));
+                    $lineCap = max(1, $lineCap);
+                    ?>
+                    <li class="at-line-item" data-line-key="<?= Security::escape((string) $item['line_key']) ?>" data-unit-price="<?= Security::escape((string) (float) $item['unit_price']) ?>" data-qty-cap="<?= (int) $lineCap ?>">
                         <a href="<?= Security::escape(url_base()) ?>/product.php?slug=<?= rawurlencode((string) $item['product_slug']) ?>" class="at-line-item__img at-focusable" tabindex="-1" aria-hidden="true">
                             <?php if (!empty($item['image'])): ?><img src="<?= Security::escape((string) $item['image']) ?>" alt="" loading="lazy"><?php endif; ?>
                         </a>
@@ -71,9 +89,9 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
                             <div class="flex flex-wrap items-center gap-3 mt-3">
                                 <div class="at-qty at-qty--sm">
                                     <button type="button" data-qty-step="-1" aria-label="Decrease quantity">−</button>
-                                    <select class="at-focusable js-cart-qty" aria-label="Quantity" min="1" max="10">
-                                        <?php for ($q = 1; $q <= 10; $q++): ?>
-                                            <option value="<?= $q ?>" <?= (int) $item['qty'] === $q ? 'selected' : '' ?>><?= $q ?></option>
+                                    <select class="at-focusable js-cart-qty" aria-label="Quantity" min="1" max="<?= (int) $lineCap ?>">
+                                        <?php for ($q = 1; $q <= $lineCap; $q++): ?>
+                                            <option value="<?= $q ?>" <?= $selQty === $q ? 'selected' : '' ?>><?= $q ?></option>
                                         <?php endfor; ?>
                                     </select>
                                     <button type="button" data-qty-step="1" aria-label="Increase quantity">+</button>

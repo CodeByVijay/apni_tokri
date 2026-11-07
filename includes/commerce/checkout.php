@@ -342,8 +342,15 @@ final class CheckoutService
         $totals['total'] = (float) $quote['grand_total'];
         foreach ($lines as $line) {
             $vid = (int) $line['variant_id'];
-            if (InventoryService::availableQty($vid) < (int) $line['qty']) {
-                return ['ok' => false, 'message' => 'Stock changed for ' . ($line['name'] ?? 'an item') . '. Update your cart.'];
+            $check = CartQuantityRules::validateForVariantId($vid, (int) $line['qty']);
+            if (!$check['ok']) {
+                $label = (string) ($line['name'] ?? 'an item');
+                $msg = (string) ($check['message'] ?? 'Update your cart.');
+                if (strpos($msg, 'out of stock') !== false) {
+                    return ['ok' => false, 'message' => $label . ' is currently out of stock. Please update your cart.'];
+                }
+
+                return ['ok' => false, 'message' => $msg . ' (' . $label . '). Update your cart.'];
             }
         }
 
@@ -492,6 +499,26 @@ final class CheckoutService
         $totals = CartService::totals();
         if (!empty($totals['coupon_error'])) {
             return ['ok' => false, 'message' => (string) $totals['coupon_error']];
+        }
+        foreach (CartService::items() as $line) {
+            $product = app_catalogue()->product((string) ($line['product_slug'] ?? ''));
+            if ($product === null) {
+                return ['ok' => false, 'message' => 'An item in your cart is no longer available.'];
+            }
+            $variant = null;
+            foreach ($product['variants'] ?? [] as $v) {
+                if ((string) ($v['id'] ?? '') === (string) ($line['variant_id'] ?? '')) {
+                    $variant = $v;
+                    break;
+                }
+            }
+            if ($variant === null) {
+                return ['ok' => false, 'message' => 'Please update your cart — a selected size is unavailable.'];
+            }
+            $check = CartQuantityRules::validateForCatalogueVariant($variant, (int) ($line['qty'] ?? 0));
+            if (!$check['ok']) {
+                return ['ok' => false, 'message' => (string) ($check['message'] ?? 'Update your cart.')];
+            }
         }
         $order = [
             'status' => $paySim === 'fail' ? 'payment_failed' : 'confirmed',

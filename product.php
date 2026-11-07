@@ -115,6 +115,7 @@ $pdpCartUrl = url_base() . '/cart.php';
                     <div class="flex flex-wrap gap-2 mt-2">
                         <?php foreach ($variants as $i => $v):
                             $vp = catalogue_variant_prices($v);
+                            $orderCap = CartQuantityRules::orderableQtyFromCatalogueVariant($v);
                             $id = 'variant-' . preg_replace('/[^a-zA-Z0-9_-]/', '-', (string) $v['id']);
                             ?>
                             <label class="inline-flex">
@@ -124,6 +125,7 @@ $pdpCartUrl = url_base() . '/cart.php';
                                     data-regular="<?= Security::escape((string) $vp['regular']) ?>"
                                     data-sale="<?= $vp['on_sale'] ? '1' : '0' ?>"
                                     data-stock="<?= (int) ($v['stock'] ?? 0) ?>"
+                                    data-order-cap="<?= (int) $orderCap ?>"
                                     data-low="<?= (int) ($v['low_stock'] ?? 5) ?>"
                                     <?= $i === 0 ? 'checked' : '' ?>>
                                 <span class="at-chip"><?= Security::escape((string) $v['label']) ?> · <?= Security::escape(catalogue_format_price($vp['display'])) ?></span>
@@ -134,6 +136,7 @@ $pdpCartUrl = url_base() . '/cart.php';
             <?php elseif (count($variants) === 1):
                 $v = $variants[0];
                 $vp = catalogue_variant_prices($v);
+                $orderCap = CartQuantityRules::orderableQtyFromCatalogueVariant($v);
                 ?>
                 <input type="radio" name="variant_id" class="sr-only" checked
                     value="<?= Security::escape((string) $v['id']) ?>"
@@ -141,6 +144,7 @@ $pdpCartUrl = url_base() . '/cart.php';
                     data-regular="<?= Security::escape((string) $vp['regular']) ?>"
                     data-sale="<?= $vp['on_sale'] ? '1' : '0' ?>"
                     data-stock="<?= (int) ($v['stock'] ?? 0) ?>"
+                    data-order-cap="<?= (int) $orderCap ?>"
                     data-low="<?= (int) ($v['low_stock'] ?? 5) ?>">
                 <p class="text-sm"><span class="font-semibold">Pack size:</span> <?= Security::escape((string) $v['label']) ?></p>
             <?php endif; ?>
@@ -149,7 +153,11 @@ $pdpCartUrl = url_base() . '/cart.php';
                 <label class="at-label" for="qty">Quantity</label>
                 <div class="at-qty">
                     <button type="button" data-qty-step="-1" aria-label="Decrease quantity">−</button>
-                    <input id="qty" name="qty" type="number" min="1" max="99" value="1" inputmode="numeric">
+                    <?php
+                    $qtyCapVariant = $defaultVariant ?? ($variants[0] ?? ['stock' => 0, 'max_qty_per_order' => CartQuantityRules::DEFAULT_MAX_PER_ORDER]);
+                    $pdpQtyMax = max(1, CartQuantityRules::orderableQtyFromCatalogueVariant($qtyCapVariant));
+                    ?>
+                    <input id="qty" name="qty" type="number" min="1" max="<?= (int) $pdpQtyMax ?>" value="1" inputmode="numeric">
                     <button type="button" data-qty-step="1" aria-label="Increase quantity">+</button>
                 </div>
             </div>

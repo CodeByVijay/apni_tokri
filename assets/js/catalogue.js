@@ -346,6 +346,21 @@
       var onSale = $opt.data('sale') === 1 || $opt.data('sale') === '1';
       var stock = parseInt($opt.data('stock'), 10);
       var low = parseInt($opt.data('low'), 10);
+      var orderCap = parseInt($opt.data('order-cap'), 10);
+      if (!orderCap || orderCap < 0) {
+        orderCap = Math.max(0, stock);
+      }
+      var $qty = $('#qty');
+      if ($qty.length) {
+        var capForInput = Math.max(orderCap, stock <= 0 ? 0 : 1);
+        if (orderCap > 0) {
+          $qty.attr('max', orderCap);
+          var cur = parseInt($qty.val(), 10) || 1;
+          if (cur > orderCap) {
+            $qty.val(orderCap);
+          }
+        }
+      }
 
       $price.text('₹' + Math.round(price).toLocaleString('en-IN'));
       if (onSale) {

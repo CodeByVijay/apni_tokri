@@ -22,7 +22,9 @@ final class ProductAdminForm
         $vSales = $post['variant_sale'] ?? [];
         $vStocks = $post['variant_stock'] ?? [];
         $vLows = $post['variant_low'] ?? [];
+        $vMaxes = $post['variant_max'] ?? [];
         foreach ($vNames as $i => $vname) {
+            $maxRaw = is_array($vMaxes) ? ($vMaxes[$i] ?? '') : '';
             $rows[] = [
                 'id' => is_array($vIds) ? ($vIds[$i] ?? '') : '',
                 'name' => $vname,
@@ -31,6 +33,7 @@ final class ProductAdminForm
                 'sale_price' => is_array($vSales) ? ($vSales[$i] ?? '') : '',
                 'stock_qty' => is_array($vStocks) ? ($vStocks[$i] ?? 0) : 0,
                 'low_stock_threshold' => is_array($vLows) ? ($vLows[$i] ?? 5) : 5,
+                'max_qty_per_order' => $maxRaw,
                 'is_active' => 1,
                 'sort_order' => $i,
             ];
@@ -71,6 +74,11 @@ final class ProductAdminForm
                 $errors['variants'] = 'Sale price must be zero or greater for “' . $name . '”.';
                 break;
             }
+            $maxRaw = trim((string) ($row['max_qty_per_order'] ?? ''));
+            if ($maxRaw !== '' && $maxRaw !== '0' && (!ctype_digit($maxRaw) || (int) $maxRaw < 1)) {
+                $errors['variants'] = 'Max per order must be a positive number or 0 for unlimited (“' . $name . '”).';
+                break;
+            }
         }
 
         return $errors;
@@ -94,6 +102,7 @@ final class ProductAdminForm
                 'sale_price' => $row['sale_price'] ?? '',
                 'stock_qty' => $row['stock_qty'] ?? 0,
                 'low_stock_threshold' => $row['low_stock_threshold'] ?? 5,
+                'max_qty_per_order' => $row['max_qty_per_order'] ?? '',
                 'is_active' => 1,
                 'sort_order' => $i,
             ];
@@ -119,6 +128,7 @@ final class ProductAdminForm
                 'sale_price' => $sale === '' ? null : $sale,
                 'stock_qty' => (int) ($row['stock_qty'] ?? 0),
                 'low_stock_threshold' => (int) ($row['low_stock_threshold'] ?? 5),
+                'max_qty_per_order' => $row['max_qty_per_order'] ?? CartQuantityRules::DEFAULT_MAX_PER_ORDER,
             ];
         }
 

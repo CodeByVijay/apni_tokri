@@ -876,8 +876,11 @@ final class PaymentService
                     if ($vid <= 0) {
                         continue;
                     }
-                    if (InventoryService::availableQty($vid) < $qty) {
-                        throw new RuntimeException('[inventory] Insufficient stock for ' . ($it['product_name'] ?? 'item'));
+                    $check = CartQuantityRules::validateForVariantId($vid, $qty);
+                    if (!$check['ok']) {
+                        throw new RuntimeException(
+                            '[inventory] ' . ($check['message'] ?? 'Insufficient stock') . ' for ' . ($it['product_name'] ?? 'item')
+                        );
                     }
                 }
                 foreach ($items as $it) {

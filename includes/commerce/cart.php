@@ -347,13 +347,15 @@ final class CartService
             $exist->execute([$custId, $vid]);
             $row = $exist->fetch(PDO::FETCH_ASSOC);
             $prices = self::variantUnitPrice($vid);
+            $cap = CartQuantityRules::orderableQty($vid);
             if ($row) {
+                $merged = min($cap, (int) $row['quantity'] + $qty);
                 $pdo->prepare('UPDATE cart_items SET quantity = ?, unit_price = ? WHERE id = ?')
-                    ->execute([min(99, (int) $row['quantity'] + $qty), $prices['display'], (int) $row['id']]);
+                    ->execute([$merged, $prices['display'], (int) $row['id']]);
             } else {
                 $pdo->prepare(
                     'INSERT INTO cart_items (cart_id, variant_id, quantity, unit_price) VALUES (?, ?, ?, ?)'
-                )->execute([$custId, $vid, min(99, $qty), $prices['display']]);
+                )->execute([$custId, $vid, min($cap, $qty), $prices['display']]);
             }
         }
         $pdo->prepare('DELETE FROM carts WHERE id = ?')->execute([$guestId]);
@@ -362,7 +364,9 @@ final class CartService
     /** @return array{ok: bool, message?: string, count?: int} */
     private static function dbAdd(string $productSlug, string $variantId, int $qty): array
     {
-        $qty = max(1, min(99, $qty));
+        if ($qty < 1) {
+            return ['ok' => false, 'message' => 'Quantity must be at least 1.'];
+        }
         $product = ProductRepository::findBySlug($productSlug, true);
         if ($product === null) {
             return ['ok' => false, 'message' => 'Product not found.'];
@@ -378,10 +382,6 @@ final class CartService
         if ($variant === null) {
             return ['ok' => false, 'message' => 'Please select a valid variant.'];
         }
-        $available = InventoryService::availableQty($vid);
-        if ($available < $qty) {
-            return ['ok' => false, 'message' => $available > 0 ? 'Only ' . $available . ' available.' : 'Out of stock.'];
-        }
 
         $prices = catalogue_variant_prices([
             'price' => $variant['price'],
@@ -389,24 +389,44 @@ final class CartService
         ]);
         $cartId = self::resolveCartId(true);
         Install::ensureConnection();
-        $pdo = Database::pdo();
-        $exist = $pdo->prepare('SELECT id, quantity FROM cart_items WHERE cart_id = ? AND variant_id = ?');
-        $exist->execute([$cartId, $vid]);
-        $row = $exist->fetch(PDO::FETCH_ASSOC);
-        if ($row) {
-            $newQty = min(99, (int) $row['quantity'] + $qty);
-            if ($available < $newQty) {
-                return ['ok' => false, 'message' => 'Only ' . $available . ' available.'];
-            }
-            $pdo->prepare('UPDATE cart_items SET quantity = ?, unit_price = ? WHERE id = ?')
-                ->execute([$newQty, $prices['display'], (int) $row['id']]);
-        } else {
-            $pdo->prepare(
-                'INSERT INTO cart_items (cart_id, variant_id, quantity, unit_price) VALUES (?, ?, ?, ?)'
-            )->execute([$cartId, $vid, $qty, $prices['display']]);
-        }
 
-        return ['ok' => true, 'message' => 'Added to cart.', 'count' => self::itemCount()];
+        try {
+            return Database::transaction(static function () use ($cartId, $vid, $qty, $prices): array {
+                $pdo = Database::pdo();
+                $caps = CartQuantityRules::lockedSellableCaps($pdo, $vid);
+                if ($caps === null) {
+                    return ['ok' => false, 'message' => 'Please select a valid variant.'];
+                }
+                $exist = $pdo->prepare('SELECT id, quantity FROM cart_items WHERE cart_id = ? AND variant_id = ? FOR UPDATE');
+                $exist->execute([$cartId, $vid]);
+                $row = $exist->fetch(PDO::FETCH_ASSOC);
+                $targetQty = $row ? (int) $row['quantity'] + $qty : $qty;
+                $check = CartQuantityRules::validateAgainstCapPublic(
+                    $targetQty,
+                    $caps['stock'],
+                    $caps['limit'],
+                    $caps['cap']
+                );
+                if (!$check['ok']) {
+                    return ['ok' => false, 'message' => $check['message'] ?? 'Quantity not allowed.'];
+                }
+                $targetQty = (int) $targetQty;
+                if ($row) {
+                    $pdo->prepare('UPDATE cart_items SET quantity = ?, unit_price = ? WHERE id = ?')
+                        ->execute([$targetQty, $prices['display'], (int) $row['id']]);
+                } else {
+                    $pdo->prepare(
+                        'INSERT INTO cart_items (cart_id, variant_id, quantity, unit_price) VALUES (?, ?, ?, ?)'
+                    )->execute([$cartId, $vid, $targetQty, $prices['display']]);
+                }
+
+                return ['ok' => true, 'message' => 'Added to cart.', 'count' => self::itemCount()];
+            });
+        } catch (Throwable $e) {
+            error_log('Cart add: ' . $e->getMessage());
+
+            return ['ok' => false, 'message' => 'Could not update cart. Please try again.'];
+        }
     }
 
     /** @return array{ok: bool, message?: string, totals?: array<string, mixed>} */
@@ -420,21 +440,44 @@ final class CartService
         if ($qty <= 0) {
             return self::dbRemove($lineKey);
         }
-        $available = InventoryService::availableQty($vid);
-        if ($available < $qty) {
-            return ['ok' => false, 'message' => 'Only ' . $available . ' available.'];
-        }
         $prices = self::variantUnitPrice($vid);
         Install::ensureConnection();
-        $stmt = Database::pdo()->prepare(
-            'UPDATE cart_items SET quantity = ?, unit_price = ? WHERE cart_id = ? AND variant_id = ?'
-        );
-        $stmt->execute([min(99, $qty), $prices['display'], $cartId, $vid]);
-        if ($stmt->rowCount() === 0) {
-            return ['ok' => false, 'message' => 'Item not in cart.'];
-        }
 
-        return ['ok' => true, 'totals' => self::totals()];
+        try {
+            return Database::transaction(static function () use ($cartId, $vid, $qty, $prices): array {
+                $pdo = Database::pdo();
+                $line = $pdo->prepare(
+                    'SELECT id FROM cart_items WHERE cart_id = ? AND variant_id = ? FOR UPDATE'
+                );
+                $line->execute([$cartId, $vid]);
+                $lineRow = $line->fetch(PDO::FETCH_ASSOC);
+                if (!$lineRow) {
+                    return ['ok' => false, 'message' => 'Item not in cart.'];
+                }
+                $caps = CartQuantityRules::lockedSellableCaps($pdo, $vid);
+                if ($caps === null) {
+                    return ['ok' => false, 'message' => 'This item is currently out of stock.'];
+                }
+                $check = CartQuantityRules::validateAgainstCapPublic(
+                    $qty,
+                    $caps['stock'],
+                    $caps['limit'],
+                    $caps['cap']
+                );
+                if (!$check['ok']) {
+                    return ['ok' => false, 'message' => $check['message'] ?? 'Quantity not allowed.'];
+                }
+                $pdo->prepare(
+                    'UPDATE cart_items SET quantity = ?, unit_price = ? WHERE cart_id = ? AND variant_id = ?'
+                )->execute([(int) $qty, $prices['display'], $cartId, $vid]);
+
+                return ['ok' => true, 'totals' => self::totals()];
+            });
+        } catch (Throwable $e) {
+            error_log('Cart update qty: ' . $e->getMessage());
+
+            return ['ok' => false, 'message' => 'Could not update cart. Please try again.'];
+        }
     }
 
     /** @return array{ok: bool, message?: string, count?: int, totals?: array<string, mixed>} */
@@ -611,7 +654,9 @@ final class SessionCartBackend
     /** @return array{ok: bool, message?: string, count?: int} */
     public static function add(string $productSlug, string $variantId, int $qty): array
     {
-        $qty = max(1, min(99, $qty));
+        if ($qty < 1) {
+            return ['ok' => false, 'message' => 'Quantity must be at least 1.'];
+        }
         $product = app_catalogue()->product($productSlug);
         if ($product === null) {
             return ['ok' => false, 'message' => 'Product not found.'];
@@ -626,16 +671,26 @@ final class SessionCartBackend
         if ($variant === null) {
             return ['ok' => false, 'message' => 'Please select a valid variant.'];
         }
-        if ((int) ($variant['stock'] ?? 0) < $qty) {
-            return ['ok' => false, 'message' => 'Not enough stock for this variant.'];
-        }
         $prices = catalogue_variant_prices($variant);
         $state = self::state();
         $key = self::lineKey($productSlug, $variantId);
+        $existingQty = 0;
+        foreach ($state['items'] as $item) {
+            if (($item['line_key'] ?? '') === $key) {
+                $existingQty = (int) ($item['qty'] ?? 0);
+                break;
+            }
+        }
+        $targetQty = $existingQty > 0 ? $existingQty + $qty : $qty;
+        $check = CartQuantityRules::validateForCatalogueVariant($variant, $targetQty);
+        if (!$check['ok']) {
+            return ['ok' => false, 'message' => $check['message'] ?? 'Quantity not allowed.'];
+        }
+        $targetQty = (int) $targetQty;
         $found = false;
         foreach ($state['items'] as &$item) {
             if (($item['line_key'] ?? '') === $key) {
-                $item['qty'] = min(99, (int) $item['qty'] + $qty);
+                $item['qty'] = $targetQty;
                 $found = true;
                 break;
             }
@@ -651,7 +706,7 @@ final class SessionCartBackend
                 'unit_price' => $prices['display'],
                 'regular_price' => $prices['regular'],
                 'on_sale' => $prices['on_sale'],
-                'qty' => $qty,
+                'qty' => $targetQty,
                 'image' => $product['images'][0] ?? '',
             ];
         }
@@ -677,11 +732,12 @@ final class SessionCartBackend
             }
             foreach ($product['variants'] ?? [] as $v) {
                 if ((string) ($v['id'] ?? '') === (string) $item['variant_id']) {
-                    if ((int) ($v['stock'] ?? 0) < $qty) {
-                        return ['ok' => false, 'message' => 'Only ' . (int) $v['stock'] . ' available.'];
+                    $check = CartQuantityRules::validateForCatalogueVariant($v, $qty);
+                    if (!$check['ok']) {
+                        return ['ok' => false, 'message' => $check['message'] ?? 'Quantity not allowed.'];
                     }
                     $prices = catalogue_variant_prices($v);
-                    $item['qty'] = min(99, $qty);
+                    $item['qty'] = (int) $qty;
                     $item['unit_price'] = $prices['display'];
                     $item['regular_price'] = $prices['regular'];
                     $item['on_sale'] = $prices['on_sale'];

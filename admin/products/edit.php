@@ -276,16 +276,17 @@ if ($errors !== []) {
         <div class="at-admin-card">
             <div class="at-admin-card__body space-y-3">
                 <p class="text-sm at-muted">Stock changes from orders use locked decrements (Stage 7). Manual edits here set absolute stock levels.</p>
+                <p class="text-xs at-muted">Max per order defaults to <?= (int) CartQuantityRules::DEFAULT_MAX_PER_ORDER ?>; enter <strong>0</strong> for unlimited (stock still applies).</p>
                 <?php if (!empty($errors['variants'])): ?>
                     <p class="text-sm text-red-600"><?= Security::escape((string) $errors['variants']) ?></p>
                 <?php endif; ?>
                 <div class="at-admin-table-wrap">
                     <table class="at-admin-table at-admin-table--fixed">
-                        <thead><tr><th>Variant</th><th>SKU</th><th>Price (₹)</th><th>Sale</th><th>Stock</th><th>Low at</th><th class="text-right"> </th></tr></thead>
+                        <thead><tr><th>Variant</th><th>SKU</th><th>Price (₹)</th><th>Sale</th><th>Stock</th><th>Low at</th><th>Max / order</th><th class="text-right"> </th></tr></thead>
                         <tbody id="at-variant-rows">
                         <?php
                         if ($variants === []) {
-                            $variants = [['id' => '', 'name' => '', 'sku' => '', 'price' => '', 'sale_price' => null, 'stock_qty' => 0, 'low_stock_threshold' => 5]];
+                            $variants = [['id' => '', 'name' => '', 'sku' => '', 'price' => '', 'sale_price' => null, 'stock_qty' => 0, 'low_stock_threshold' => 5, 'max_qty_per_order' => CartQuantityRules::DEFAULT_MAX_PER_ORDER]];
                         }
                         foreach ($variants as $v) {
                             require APNI_TOKRI_ROOT . '/includes/partials/admin/product-variant-row.php';

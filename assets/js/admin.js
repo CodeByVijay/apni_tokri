@@ -329,7 +329,8 @@
         if ($el.attr('name') === 'variant_id[]') {
           $el.val('');
         } else if ($el.attr('type') === 'number') {
-          $el.val($el.attr('name') === 'variant_low[]' ? '5' : ($el.attr('name') === 'variant_stock[]' ? '0' : ''));
+          var n = $el.attr('name');
+          $el.val(n === 'variant_low[]' ? '5' : n === 'variant_stock[]' ? '0' : n === 'variant_max[]' ? '20' : '');
         } else {
           $el.val('');
         }
@@ -346,7 +347,8 @@
           if ($el.attr('name') === 'variant_id[]') {
             $el.val('');
           } else if ($el.attr('type') === 'number') {
-            $el.val($el.attr('name') === 'variant_low[]' ? '5' : '0');
+            var n = $el.attr('name');
+            $el.val(n === 'variant_low[]' ? '5' : n === 'variant_max[]' ? '20' : '0');
           } else {
             $el.val('');
           }
