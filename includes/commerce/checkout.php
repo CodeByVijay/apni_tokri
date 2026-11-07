@@ -442,6 +442,13 @@ final class CheckoutService
         if (!CustomerService::isLoggedIn()) {
             return ['ok' => false, 'message' => 'Please log in to continue.'];
         }
+        $customerId = CustomerAuth::id();
+        if ($customerId !== null) {
+            $profile = CustomerAccountService::profile($customerId);
+            if ($profile === null || (int) ($profile['is_active'] ?? 1) !== 1) {
+                return ['ok' => false, 'message' => 'Your account is inactive. Contact support if you need help.'];
+            }
+        }
         if (CartService::items() === []) {
             return ['ok' => false, 'message' => 'Your cart is empty.'];
         }

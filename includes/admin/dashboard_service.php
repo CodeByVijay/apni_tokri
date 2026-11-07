@@ -782,58 +782,7 @@ final class AdminDashboardService
         string $sortColumn = 'created_at',
         string $sortDirection = 'desc'
     ): array {
-        if (!Install::isSchemaReady()) {
-            return ['rows' => [], 'total' => 0, 'page' => 1, 'per_page' => $perPage, 'total_pages' => 1];
-        }
-        Install::ensureConnection();
-        $pdo = Database::pdo();
-        $page = max(1, $page);
-        $perPage = max(1, min(100, $perPage));
-        $where = ['1=1'];
-        $params = [];
-        $q = trim($query);
-        if ($q !== '') {
-            $like = '%' . AdminServerList::escapeLike($q) . '%';
-            $where[] = '(c.name LIKE ? OR c.mobile LIKE ? OR c.email LIKE ?)';
-            $params[] = $like;
-            $params[] = $like;
-            $params[] = $like;
-        }
-        $whereSql = implode(' AND ', $where);
-        $sortMap = [
-            'created_at' => 'c.created_at',
-            'name' => 'c.name',
-            'mobile' => 'c.mobile',
-            'id' => 'c.id',
-        ];
-        $orderSql = AdminServerList::orderBySql($sortColumn, $sortDirection, $sortMap, 'created_at');
-        $countStmt = $pdo->prepare('SELECT COUNT(*) FROM customers c WHERE ' . $whereSql);
-        $countStmt->execute($params);
-        $total = (int) $countStmt->fetchColumn();
-        $totalPages = max(1, (int) ceil($total / $perPage));
-        if ($page > $totalPages) {
-            $page = $totalPages;
-        }
-        $offset = ($page - 1) * $perPage;
-        $sql = 'SELECT c.id, c.name, c.mobile, c.email, c.created_at,
-            (SELECT COUNT(*) FROM orders o WHERE o.customer_id = c.id) AS order_count
-            FROM customers c WHERE ' . $whereSql . ' ORDER BY ' . $orderSql . ' LIMIT ? OFFSET ?';
-        $stmt = $pdo->prepare($sql);
-        $i = 1;
-        foreach ($params as $p) {
-            $stmt->bindValue($i++, $p);
-        }
-        $stmt->bindValue($i++, $perPage, PDO::PARAM_INT);
-        $stmt->bindValue($i, $offset, PDO::PARAM_INT);
-        $stmt->execute();
-
-        return [
-            'rows' => $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [],
-            'total' => $total,
-            'page' => $page,
-            'per_page' => $perPage,
-            'total_pages' => $totalPages,
-        ];
+        return AdminCustomerService::searchForAdmin($query, $page, $perPage, $sortColumn, $sortDirection);
     }
 
     /** @param array<string, mixed> $row */

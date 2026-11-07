@@ -240,7 +240,51 @@ final class CustomerAuth
 
     public static function check(): bool
     {
-        return isset($_SESSION[self::SESSION_CUSTOMER_ID]) && (int) $_SESSION[self::SESSION_CUSTOMER_ID] > 0;
+        if (!isset($_SESSION[self::SESSION_CUSTOMER_ID])) {
+            return false;
+        }
+        $id = (int) $_SESSION[self::SESSION_CUSTOMER_ID];
+        if ($id <= 0) {
+            return false;
+        }
+
+        return self::customerIsActive($id);
+    }
+
+    private static function customerIsActive(int $customerId): bool
+    {
+        static $cache = [];
+        if (isset($cache[$customerId])) {
+            return $cache[$customerId];
+        }
+        if (!Install::isSchemaReady()) {
+            $cache[$customerId] = true;
+
+            return true;
+        }
+        try {
+            Install::ensureConnection();
+            $stmt = Database::pdo()->prepare('SELECT is_active FROM customers WHERE id = ? LIMIT 1');
+            $stmt->execute([$customerId]);
+            $v = $stmt->fetchColumn();
+            if ($v === false) {
+                unset($_SESSION[self::SESSION_CUSTOMER_ID]);
+                $cache[$customerId] = false;
+
+                return false;
+            }
+            $active = (int) $v === 1;
+            if (!$active) {
+                unset($_SESSION[self::SESSION_CUSTOMER_ID]);
+            }
+            $cache[$customerId] = $active;
+
+            return $active;
+        } catch (Throwable $e) {
+            $cache[$customerId] = true;
+
+            return true;
+        }
     }
 
     public static function id(): ?int
@@ -367,9 +411,12 @@ final class CustomerAuth
             return false;
         }
 
-        $cust = Database::pdo()->prepare('SELECT id, name FROM customers WHERE mobile = ? LIMIT 1');
+        $cust = Database::pdo()->prepare('SELECT id, name, is_active FROM customers WHERE mobile = ? LIMIT 1');
         $cust->execute([$mobile]);
         $custRow = $cust->fetch(PDO::FETCH_ASSOC);
+        if ($custRow && (int) ($custRow['is_active'] ?? 1) !== 1) {
+            return false;
+        }
         $customerId = $custRow ? $custRow['id'] : null;
         $savedName = $custRow ? trim((string) ($custRow['name'] ?? '')) : '';
         if (!$customerId) {

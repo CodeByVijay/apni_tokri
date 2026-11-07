@@ -34,6 +34,7 @@ require_once APNI_TOKRI_ROOT . '/includes/account/list_pagination.php';
 require_once APNI_TOKRI_ROOT . '/includes/lang.php';
 require_once APNI_TOKRI_ROOT . '/includes/layout/public.php';
 require_once APNI_TOKRI_ROOT . '/includes/admin/bootstrap.php';
+require_once APNI_TOKRI_ROOT . '/includes/admin/customer_admin.php';
 require_once APNI_TOKRI_ROOT . '/includes/admin/dashboard_service.php';
 require_once APNI_TOKRI_ROOT . '/includes/admin/list_actions.php';
 require_once APNI_TOKRI_ROOT . '/includes/admin/server_list.php';

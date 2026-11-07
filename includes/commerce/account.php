@@ -141,7 +141,7 @@ final class CustomerAccountService
     public static function profile(int $customerId): ?array
     {
         Install::ensureConnection();
-        $stmt = Database::pdo()->prepare('SELECT id, mobile, name, email FROM customers WHERE id = ? LIMIT 1');
+        $stmt = Database::pdo()->prepare('SELECT id, mobile, name, email, is_active FROM customers WHERE id = ? LIMIT 1');
         $stmt->execute([$customerId]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
