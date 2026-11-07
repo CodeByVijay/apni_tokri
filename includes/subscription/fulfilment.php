@@ -275,7 +275,7 @@ final class SubscriptionFulfilmentService
                 );
 
                 $subtotal = (float) $basket['total_inr'];
-                $orderNumber = 'AT-SUB-' . date('ymd') . '-' . strtoupper(substr(Security::randomToken(4), 0, 6));
+                $orderNumber = OrderNumberService::allocate($pdo, 'subscription');
 
                 self::upsertFulfilmentEvent($pdo, $dayId, $idempotencyKey, $runId, 'pending', null, null);
 

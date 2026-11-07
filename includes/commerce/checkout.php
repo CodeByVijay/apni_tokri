@@ -354,7 +354,6 @@ final class CheckoutService
             }
         }
 
-        $orderNumber = 'AT-' . date('ymd') . '-' . strtoupper(substr(Security::randomToken(4), 0, 6));
         $status = 'pending_payment';
         $paymentStatus = 'pending';
 
@@ -373,7 +372,7 @@ final class CheckoutService
         $snapshot = json_encode(DeliveryQuoteService::buildSnapshot($quote, $addrSnapshot), JSON_UNESCAPED_UNICODE);
 
         try {
-            $orderId = Database::transaction(static function () use (
+            $placed = Database::transaction(static function () use (
                 $customerId,
                 $addressId,
                 $slot,
@@ -384,12 +383,12 @@ final class CheckoutService
                 $snapshot,
                 $totals,
                 $lines,
-                $orderNumber,
                 $status,
                 $paymentStatus,
                 $slotResolved
-            ): int {
+            ): array {
                 $pdo = Database::pdo();
+                $orderNumber = OrderNumberService::allocate($pdo, 'storefront');
                 if ($slotResolved !== null) {
                     $slotIdLocal = (int) $slotResolved['id'];
                     $delDate = (string) $slotResolved['delivery_date'];
@@ -457,8 +456,10 @@ final class CheckoutService
                     );
                 }
 
-                return $orderId;
+                return ['id' => $orderId, 'number' => $orderNumber];
             });
+            $orderId = (int) $placed['id'];
+            $orderNumber = (string) $placed['number'];
         } catch (Throwable $e) {
             error_log('Checkout failed: ' . $e->getMessage());
 
