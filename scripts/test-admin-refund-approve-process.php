@@ -96,7 +96,8 @@ $pdo->prepare("UPDATE payments SET gateway = 'simulate' WHERE order_id = ?")->ex
 $retry = RefundRequestService::retryGatewayRefund($requestIdFail);
 $ok(!empty($retry['ok']), 'Manual retry after failure succeeds');
 $st->execute([$requestIdFail]);
-$ok((string) ($st->fetchColumn() ?: '') === RefundStatus::REFUNDED, 'Retry completes refund');
+$rowRetry = $st->fetch(PDO::FETCH_ASSOC) ?: [];
+$ok((string) ($rowRetry['status'] ?? '') === RefundStatus::REFUNDED, 'Retry completes refund');
 
 $over = RefundRequestService::approveAndProcessGatewayRefund($requestId, 99999.0, null);
 $ok(empty($over['ok']) && empty($over['approved_saved'] ?? false), 'Excessive amount rejected without approval');
@@ -112,7 +113,14 @@ $pdo->prepare(
 )->execute([$requestIdPend, (int) $fixture['order_item_id'], 30.00]);
 $pdo->prepare("UPDATE payments SET gateway = 'cashfree', gateway_payment_id = 'cf_pay_test' WHERE order_id = ?")->execute([$orderId]);
 $prevHandler = PaymentHttp::$testHandler;
-PaymentHttp::$testHandler = static function (string $method, string $url, ?array $jsonBody): array {
+PaymentHttp::$testHandler = static function (
+    string $method,
+    string $url,
+    ?array $jsonBody,
+    array $headers = [],
+    ?string $basicUser = null,
+    ?string $basicPass = null
+): array {
     return [
         'ok' => true,
         'status' => 200,

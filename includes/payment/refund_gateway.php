@@ -28,7 +28,7 @@ final class GatewayRefundService
         }
 
         $gateway = (string) ($payment['gateway'] ?? '');
-        if ($gateway === 'simulate' || PaymentGatewayConfig::useSimulatedCheckout()) {
+        if ($gateway === 'simulate') {
             return [
                 'ok' => true,
                 'gateway_refund_id' => 'sim_ref_' . substr($idempotencyKey, 0, 40),
@@ -149,7 +149,7 @@ final class GatewayRefundService
             return ['ok' => false, 'message' => 'Refund exceeds captured amount.'];
         }
         $gateway = (string) ($payment['gateway'] ?? '');
-        if ($gateway === 'simulate' || PaymentGatewayConfig::useSimulatedCheckout()) {
+        if ($gateway === 'simulate') {
             return [
                 'ok' => true,
                 'gateway_refund_id' => 'sim_sub_ref_' . substr($idempotencyKey, 0, 36),

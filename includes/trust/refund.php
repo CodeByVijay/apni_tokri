@@ -299,22 +299,48 @@ final class RefundRequestService
         return self::transition($requestId, RefundStatus::UNDER_REVIEW, 'under_review');
     }
 
+    /** Amount this open request already reserves against order refundable balance (line items or approved INR). */
+    public static function pendingContributionForRequest(int $requestId): float
+    {
+        if ($requestId <= 0 || !Install::isSchemaReady()) {
+            return 0.0;
+        }
+        Install::ensureConnection();
+        $stmt = Database::pdo()->prepare('SELECT status, approved_amount_inr FROM refund_requests WHERE id = ? LIMIT 1');
+        $stmt->execute([$requestId]);
+        $req = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$req) {
+            return 0.0;
+        }
+        $status = (string) ($req['status'] ?? '');
+        if (in_array($status, [RefundStatus::REJECTED, RefundStatus::CANCELLED, RefundStatus::REFUNDED, RefundStatus::REFUND_FAILED], true)) {
+            return 0.0;
+        }
+        $approved = (float) ($req['approved_amount_inr'] ?? 0);
+        if ($approved > 0) {
+            return round($approved, 2);
+        }
+
+        return self::sumLineItemsForRequest($requestId);
+    }
+
     public static function availableApprovalAmountForRequest(int $requestId): float
     {
         if ($requestId <= 0 || !Install::isSchemaReady()) {
             return 0.0;
         }
         Install::ensureConnection();
-        $stmt = Database::pdo()->prepare('SELECT order_id, approved_amount_inr FROM refund_requests WHERE id = ? LIMIT 1');
+        $stmt = Database::pdo()->prepare('SELECT order_id FROM refund_requests WHERE id = ? LIMIT 1');
         $stmt->execute([$requestId]);
-        $req = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$req) {
+        $orderId = (int) ($stmt->fetchColumn() ?: 0);
+        if ($orderId <= 0) {
             return 0.0;
         }
-        $orderId = (int) $req['order_id'];
         $refundable = self::capturedAmountForOrder($orderId);
         $alreadyRefunded = self::completedRefundTotalForOrder($orderId);
-        $otherPending = self::pendingRefundTotalForOrder($orderId) - (float) ($req['approved_amount_inr'] ?? 0);
+        $pendingAll = self::pendingRefundTotalForOrder($orderId);
+        $selfPending = self::pendingContributionForRequest($requestId);
+        $otherPending = max(0.0, $pendingAll - $selfPending);
         $available = $refundable - $alreadyRefunded - $otherPending;
 
         return round(max(0.0, $available), 2);
@@ -331,7 +357,8 @@ final class RefundRequestService
         $orderId = (int) $req['order_id'];
         $refundable = self::capturedAmountForOrder($orderId);
         $alreadyRefunded = self::completedRefundTotalForOrder($orderId);
-        $otherApproved = self::pendingRefundTotalForOrder($orderId) - (float) ($req['approved_amount_inr'] ?? 0);
+        $requestId = (int) ($req['id'] ?? 0);
+        $otherApproved = max(0.0, self::pendingRefundTotalForOrder($orderId) - self::pendingContributionForRequest($requestId));
         if ($amountInr + $alreadyRefunded + $otherApproved > $refundable + 0.01) {
             return ['ok' => false, 'message' => 'Amount exceeds refundable balance.'];
         }
@@ -502,6 +529,10 @@ final class RefundRequestService
             return ['ok' => false, 'message' => $gwResult['message'] ?? 'Gateway refund failed.'];
         }
 
+        $paymentRefundId = null;
+        $rowGatewayStatus = !empty($gwResult['simulated'])
+            ? 'pending'
+            : strtolower((string) ($gwResult['status'] ?? 'pending'));
         $pdo->prepare(
             'INSERT INTO payment_refunds
              (refund_request_id, payment_id, gateway, amount_inr, idempotency_key, gateway_refund_id, gateway_status, response_json)
@@ -513,17 +544,27 @@ final class RefundRequestService
             $amount,
             $idempotency,
             $gwResult['gateway_refund_id'] ?? null,
-            (string) ($gwResult['status'] ?? 'pending'),
+            $rowGatewayStatus,
             json_encode($gwResult, JSON_UNESCAPED_UNICODE),
         ]);
+        $paymentRefundId = (int) $pdo->lastInsertId();
 
         $newStatus = RefundStatus::PROCESSING;
         if (!empty($gwResult['simulated'])) {
-            RefundCompletionService::completeOrderRefund(
-                (int) $pdo->lastInsertId(),
+            $completion = RefundCompletionService::completeOrderRefund(
+                $paymentRefundId,
                 'processed',
                 $amount
             );
+            if (empty($completion['ok'])) {
+                $pdo->prepare('UPDATE refund_requests SET status = ?, updated_at = NOW() WHERE id = ?')
+                    ->execute([RefundStatus::REFUND_FAILED, $requestId]);
+                self::appendHistory($pdo, $requestId, 'system', null, 'gateway_failed', [
+                    'message' => (string) ($completion['message'] ?? 'Simulated refund completion failed.'),
+                ]);
+
+                return ['ok' => false, 'message' => (string) ($completion['message'] ?? 'Gateway refund failed.')];
+            }
             $newStatus = RefundStatus::REFUNDED;
         } else {
             $pdo->prepare('UPDATE refund_requests SET status = ?, updated_at = NOW() WHERE id = ?')
@@ -572,20 +613,36 @@ final class RefundRequestService
     /** @return array{ok: bool, message?: string} */
     public static function retryGatewayRefund(int $requestId): array
     {
-        Install::ensureConnection();
-        $pdo = Database::pdo();
-        $stmt = $pdo->prepare('SELECT * FROM refund_requests WHERE id = ? LIMIT 1');
-        $stmt->execute([$requestId]);
-        $req = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$req || (string) $req['status'] !== RefundStatus::REFUND_FAILED) {
-            return ['ok' => false, 'message' => 'Only failed refunds can be retried.'];
-        }
-        $pdo->prepare(
-            'UPDATE refund_requests SET status = ?, updated_at = NOW() WHERE id = ?'
-        )->execute([RefundStatus::APPROVED, $requestId]);
-        self::appendHistoryPublic($pdo, $requestId, 'admin', AdminAuth::id(), 'retry_requested', null);
+        try {
+            return Database::transaction(static function () use ($requestId): array {
+                $pdo = Database::pdo();
+                $stmt = $pdo->prepare('SELECT * FROM refund_requests WHERE id = ? FOR UPDATE');
+                $stmt->execute([$requestId]);
+                $req = $stmt->fetch(PDO::FETCH_ASSOC);
+                if (!$req || (string) $req['status'] !== RefundStatus::REFUND_FAILED) {
+                    return ['ok' => false, 'message' => 'Only failed refunds can be retried.'];
+                }
+                $inFlight = $pdo->prepare(
+                    "SELECT id FROM payment_refunds WHERE refund_request_id = ? AND gateway_status NOT IN ('failed') LIMIT 1"
+                );
+                $inFlight->execute([$requestId]);
+                if ($inFlight->fetchColumn()) {
+                    return ['ok' => false, 'message' => 'Gateway refund already in progress — reconcile before retrying.'];
+                }
+                $pdo->prepare(
+                    'UPDATE refund_requests SET status = ?, updated_at = NOW() WHERE id = ?'
+                )->execute([RefundStatus::APPROVED, $requestId]);
+                self::appendHistory($pdo, $requestId, 'admin', AdminAuth::id(), 'retry_requested', null);
+                $stmt->execute([$requestId]);
+                $req = $stmt->fetch(PDO::FETCH_ASSOC) ?: $req;
 
-        return self::initiateGatewayRefund($requestId);
+                return self::runGatewayRefundForApprovedRequest($pdo, $req);
+            });
+        } catch (Throwable $e) {
+            error_log('Retry gateway refund: ' . $e->getMessage());
+
+            return ['ok' => false, 'message' => 'Could not retry gateway refund.'];
+        }
     }
 
     /** @return array<string, mixed>|null */
