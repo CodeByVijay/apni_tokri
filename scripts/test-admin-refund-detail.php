@@ -34,6 +34,8 @@ ok(str_contains($index, 'not inferred from the refund amount'), 'Does not infer 
 ok(str_contains($index, 'order-items.php'), 'Reuses shared order items partial');
 ok(str_contains($index, 'approve_process'), 'Combined approve+process action');
 ok(str_contains($index, 'retry_gateway'), 'Manual retry action for failed gateway');
+ok(str_contains($index, 'adminGatewayStatusFetchUi'), 'Refund detail uses fetch UI eligibility helper');
+ok(str_contains($index, 'gatewayFetchUnavailableMessage'), 'Refund detail shows fetch-unavailable explanation');
 ok(str_contains($index, 'admin_format_audit_datetime'), 'Audit history uses admin audit datetime formatter');
 $helpers = (string) file_get_contents($root . '/includes/helpers.php');
 ok(str_contains($helpers, "format('Y-m-d h:i:s A')"), 'Audit datetime format includes date, seconds, and AM/PM');

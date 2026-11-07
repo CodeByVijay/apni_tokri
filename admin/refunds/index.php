@@ -96,7 +96,14 @@ if ($requestId > 0 && Install::isSchemaReady()) {
     $canApproveProcess = in_array($reqStatus, [RefundStatus::REQUESTED, RefundStatus::UNDER_REVIEW], true);
     $canRetryGateway = $reqStatus === RefundStatus::REFUND_FAILED
         && ($latestGwRefund === null || (string) ($latestGwRefund['gateway_status'] ?? '') === 'failed');
-    $canFetchGatewayStatus = RefundRequestService::canAdminFetchGatewayStatus($requestId, $reqStatus);
+    $gatewayFetchUi = RefundRequestService::adminGatewayStatusFetchUi($requestId, $reqStatus);
+    $canFetchGatewayStatus = $gatewayFetchUi['show_button'];
+    $gatewayFetchUnavailableMessage = $gatewayFetchUi['unavailable_message'];
+    $showGatewayReconcileUi = in_array($reqStatus, [
+        RefundStatus::PROCESSING,
+        RefundStatus::REFUND_INITIATED,
+        RefundStatus::REFUND_FAILED,
+    ], true);
     $canManualGateway = $reqStatus === RefundStatus::APPROVED;
     $showSuccessPanel = in_array($reqStatus, [RefundStatus::REFUNDED, RefundStatus::PROCESSING, RefundStatus::REFUND_INITIATED], true)
         && $latestGwRefund !== null;
@@ -241,19 +248,28 @@ if ($requestId > 0 && Install::isSchemaReady()) {
                     <button type="submit" name="action" value="reject" class="at-btn at-btn--secondary at-focusable mt-2">Reject</button>
                 </div>
             <?php elseif ($canRetryGateway): ?>
+                <h3 class="font-bold">Gateway actions</h3>
                 <p class="text-sm">Retry uses the saved approved amount (<?= Security::escape(catalogue_format_price((float) ($req['approved_amount_inr'] ?? 0))) ?>).</p>
-                <button type="submit" name="action" value="retry_gateway" class="at-btn at-btn--primary at-focusable">Retry gateway refund</button>
+                <div class="flex flex-wrap gap-2 items-center">
+                    <button type="submit" name="action" value="retry_gateway" class="at-btn at-btn--primary at-focusable">Retry gateway refund</button>
+                    <?php if ($canFetchGatewayStatus): ?>
+                        <button type="submit" name="action" value="fetch_gateway_status" class="at-btn at-btn--secondary at-focusable">Fetch Gateway Status</button>
+                    <?php endif; ?>
+                </div>
+                <?php if (!$canFetchGatewayStatus && $gatewayFetchUnavailableMessage !== null): ?>
+                    <p class="text-sm at-muted"><?= Security::escape($gatewayFetchUnavailableMessage) ?></p>
+                <?php endif; ?>
             <?php elseif ($canManualGateway): ?>
                 <p class="text-sm at-muted">Approval saved; gateway was not started. Process when ready.</p>
                 <button type="submit" name="action" value="gateway" class="at-btn at-btn--primary at-focusable">Process gateway refund</button>
             <?php elseif ($showSuccessPanel): ?>
                 <p class="text-sm at-muted">This refund has already been submitted to the gateway.</p>
-            <?php endif; ?>
-            <?php if ($canFetchGatewayStatus): ?>
-                <div class="pt-2 border-t border-[var(--at-line)] space-y-2">
+                <?php if ($canFetchGatewayStatus): ?>
                     <p class="text-sm at-muted">Fetch the latest status from the payment gateway. This does not create a new refund attempt.</p>
                     <button type="submit" name="action" value="fetch_gateway_status" class="at-btn at-btn--secondary at-focusable">Fetch Gateway Status</button>
-                </div>
+                <?php elseif ($gatewayFetchUnavailableMessage !== null): ?>
+                    <p class="text-sm at-muted"><?= Security::escape($gatewayFetchUnavailableMessage) ?></p>
+                <?php endif; ?>
             <?php endif; ?>
         </div>
     </form>

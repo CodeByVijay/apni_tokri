@@ -358,13 +358,37 @@ $hist = $pdo->prepare(
 $hist->execute([$reqPend, 'gateway_status_fetch']);
 $ok($hist->fetch(PDO::FETCH_ASSOC) !== false, 'Audit history records gateway_status_fetch');
 
+$uiProcessing = RefundRequestService::adminGatewayStatusFetchUi($reqPend, RefundStatus::PROCESSING);
+$ok(!empty($uiProcessing['show_button']), 'UI: processing + persisted reference → fetch visible');
+
+$pdo->prepare('UPDATE refund_requests SET status = ? WHERE id = ?')->execute([RefundStatus::REFUND_FAILED, $reqPend]);
+$uiFailedWithRef = RefundRequestService::adminGatewayStatusFetchUi($reqPend, RefundStatus::REFUND_FAILED);
+$ok(!empty($uiFailedWithRef['show_button']), 'UI: refund_failed + gateway reference → fetch visible');
+
+$isoNoRow = $isoOrder($pdo, $customerA, $tok, 'NOROW', $variantId);
+$reqNoRow = $createReq($pdo, $isoNoRow, $customerA, 'RF-FETCH-NOROW-' . $tok, 15.0);
+$pdo->prepare('UPDATE refund_requests SET status = ? WHERE id = ?')->execute([RefundStatus::REFUND_FAILED, $reqNoRow]);
+$uiNoRow = RefundRequestService::adminGatewayStatusFetchUi($reqNoRow, RefundStatus::REFUND_FAILED);
+$ok(
+    empty($uiNoRow['show_button']) && str_contains((string) ($uiNoRow['unavailable_message'] ?? ''), 'no gateway refund attempt'),
+    'UI: refund_failed + no payment_refunds → fetch hidden with explanation'
+);
+
+$uiMissBtn = RefundRequestService::adminGatewayStatusFetchUi($reqMiss, RefundStatus::PROCESSING);
+$ok(
+    empty($uiMissBtn['show_button']) && str_contains((string) ($uiMissBtn['unavailable_message'] ?? ''), 'reference'),
+    'UI: missing gateway refund reference → fetch hidden with explanation'
+);
+
 $index = (string) file_get_contents(dirname(__DIR__) . '/admin/refunds/index.php');
 $ok(str_contains($index, 'fetch_gateway_status'), 'Admin detail exposes fetch_gateway_status action');
 $ok(str_contains($index, 'Fetch Gateway Status'), 'Fetch Gateway Status button');
+$ok(str_contains($index, 'adminGatewayStatusFetchUi'), 'Admin detail uses gateway fetch UI helper');
+$ok(str_contains($index, 'Gateway actions'), 'Retry and fetch grouped in gateway actions');
 
 PaymentHttp::$testHandler = $prevHandler;
 
-foreach ([$isoPend, $isoSucc, $isoMiss, $isoErr] as $iso) {
+foreach ([$isoPend, $isoSucc, $isoMiss, $isoErr, $isoNoRow] as $iso) {
     $oid = (int) $iso['order_id'];
     $pdo->prepare('DELETE FROM payment_refunds WHERE payment_id IN (SELECT id FROM payments WHERE order_id = ?)')->execute([$oid]);
     $pdo->prepare('DELETE FROM refund_request_history WHERE refund_request_id IN (SELECT id FROM refund_requests WHERE order_id = ?)')->execute([$oid]);

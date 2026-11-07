@@ -645,41 +645,70 @@ final class RefundRequestService
 
     public static function canAdminFetchGatewayStatus(int $requestId, string $requestStatus): bool
     {
-        if ($requestId <= 0 || !Install::isSchemaReady()) {
-            return false;
-        }
-        if (in_array($requestStatus, [
-            RefundStatus::REFUNDED,
-            RefundStatus::REJECTED,
-            RefundStatus::CANCELLED,
-            RefundStatus::REQUESTED,
-            RefundStatus::UNDER_REVIEW,
-            RefundStatus::APPROVED,
-        ], true)) {
-            return false;
-        }
-        $row = self::paymentRefundRowForReconcile($requestId);
-        if ($row === null) {
-            return false;
-        }
-        $gateway = (string) ($row['gateway'] ?? '');
-        if (!in_array($gateway, ['cashfree', 'razorpay', 'simulate'], true)) {
-            return false;
-        }
-        if ($gateway === 'razorpay' && trim((string) ($row['gateway_refund_id'] ?? '')) === '') {
-            return false;
-        }
-        if ($gateway === 'cashfree'
-            && trim((string) ($row['gateway_refund_id'] ?? '')) === ''
-            && trim((string) ($row['idempotency_key'] ?? '')) === '') {
-            return false;
-        }
+        return self::adminGatewayStatusFetchUi($requestId, $requestStatus)['show_button'];
+    }
 
-        return in_array($requestStatus, [
+    /**
+     * Admin UI: when to show Fetch Gateway Status vs an explanation that lookup is unavailable.
+     *
+     * @return array{show_button: bool, unavailable_message: ?string}
+     */
+    public static function adminGatewayStatusFetchUi(int $requestId, string $requestStatus): array
+    {
+        $none = ['show_button' => false, 'unavailable_message' => null];
+        if ($requestId <= 0 || !Install::isSchemaReady()) {
+            return $none;
+        }
+        if (!in_array($requestStatus, [
             RefundStatus::PROCESSING,
             RefundStatus::REFUND_INITIATED,
             RefundStatus::REFUND_FAILED,
-        ], true);
+        ], true)) {
+            return $none;
+        }
+
+        $row = self::paymentRefundRowForReconcile($requestId);
+        if ($row === null) {
+            return [
+                'show_button' => false,
+                'unavailable_message' => 'Gateway status lookup is unavailable because no gateway refund attempt was saved for this request.',
+            ];
+        }
+
+        $gateway = (string) ($row['gateway'] ?? '');
+        if (!in_array($gateway, ['cashfree', 'razorpay', 'simulate'], true)) {
+            return [
+                'show_button' => false,
+                'unavailable_message' => 'Gateway status lookup is not available for this payment gateway.',
+            ];
+        }
+
+        if (!self::paymentRefundRowHasLookupReference($row)) {
+            return [
+                'show_button' => false,
+                'unavailable_message' => 'Gateway status lookup is unavailable because no gateway refund reference was saved for the latest attempt.',
+            ];
+        }
+
+        return ['show_button' => true, 'unavailable_message' => null];
+    }
+
+    /** @param array<string, mixed> $row */
+    public static function paymentRefundRowHasLookupReference(array $row): bool
+    {
+        $gateway = (string) ($row['gateway'] ?? '');
+        if ($gateway === 'simulate') {
+            return true;
+        }
+        if ($gateway === 'razorpay') {
+            return trim((string) ($row['gateway_refund_id'] ?? '')) !== '';
+        }
+        if ($gateway === 'cashfree') {
+            return trim((string) ($row['gateway_refund_id'] ?? '')) !== ''
+                || trim((string) ($row['idempotency_key'] ?? '')) !== '';
+        }
+
+        return false;
     }
 
     /** @return array{ok: bool, message?: string, status?: string} */
@@ -776,26 +805,26 @@ final class RefundRequestService
              INNER JOIN payments p ON p.id = pr.payment_id
              LEFT JOIN orders o ON o.id = p.order_id
              WHERE pr.refund_request_id = ?
-               AND pr.gateway_status NOT IN (\'failed\')
-             ORDER BY pr.id DESC LIMIT 1'
+             ORDER BY pr.id DESC'
         );
         $stmt->execute([$requestId]);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        if ($row) {
-            return $row;
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        if ($rows === []) {
+            return null;
         }
-        $fallback = $pdo->prepare(
-            'SELECT pr.*, o.order_number
-             FROM payment_refunds pr
-             INNER JOIN payments p ON p.id = pr.payment_id
-             LEFT JOIN orders o ON o.id = p.order_id
-             WHERE pr.refund_request_id = ?
-             ORDER BY pr.id DESC LIMIT 1'
-        );
-        $fallback->execute([$requestId]);
-        $row = $fallback->fetch(PDO::FETCH_ASSOC);
+        foreach ($rows as $row) {
+            $gwStatus = strtolower((string) ($row['gateway_status'] ?? ''));
+            if ($gwStatus !== 'failed' && self::paymentRefundRowHasLookupReference($row)) {
+                return $row;
+            }
+        }
+        foreach ($rows as $row) {
+            if (self::paymentRefundRowHasLookupReference($row)) {
+                return $row;
+            }
+        }
 
-        return $row ?: null;
+        return $rows[0];
     }
 
     /**
