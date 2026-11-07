@@ -215,18 +215,44 @@ final class SessionCustomerBackend
     }
 
     /** @return array{ok: bool, message?: string} */
-    public static function saveEmailOptional(string $email): array
+    public static function saveContactFromCheckout(string $nameInput, string $emailInput): array
     {
-        $email = trim($email);
-        if ($email !== '' && (strlen($email) > 191 || !Validation::email($email))) {
-            return ['ok' => false, 'message' => 'Enter a valid email address.'];
-        }
         if (!isset($_SESSION[self::KEY]) || !is_array($_SESSION[self::KEY])) {
             return ['ok' => false, 'message' => 'Please log in to continue.'];
         }
-        $_SESSION[self::KEY]['email'] = $email;
+
+        $nameInput = trim(preg_replace('/\s+/u', ' ', $nameInput) ?? '');
+        $emailInput = trim($emailInput);
+
+        if ($nameInput === '' && $emailInput === '') {
+            return ['ok' => true];
+        }
+
+        if ($nameInput !== '') {
+            $len = function_exists('mb_strlen') ? mb_strlen($nameInput) : strlen($nameInput);
+            if ($len < 2 || $len > 100) {
+                return ['ok' => false, 'message' => 'Name must be 2 to 100 characters.'];
+            }
+            if (preg_match('/[\x00-\x1F<>]/', $nameInput)) {
+                return ['ok' => false, 'message' => 'Name contains invalid characters.'];
+            }
+            $_SESSION[self::KEY]['name'] = $nameInput;
+        }
+
+        if ($emailInput !== '') {
+            if (strlen($emailInput) > 191 || !Validation::email($emailInput)) {
+                return ['ok' => false, 'message' => 'Enter a valid email address.'];
+            }
+            $_SESSION[self::KEY]['email'] = $emailInput;
+        }
 
         return ['ok' => true];
+    }
+
+    /** @return array{ok: bool, message?: string} */
+    public static function saveEmailOptional(string $email): array
+    {
+        return self::saveContactFromCheckout('', $email);
     }
 
     public static function logout(): void

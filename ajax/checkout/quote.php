@@ -31,15 +31,22 @@ if ($address === null) {
 }
 
 $slot = isset($_POST['delivery_slot']) && is_string($_POST['delivery_slot']) ? trim($_POST['delivery_slot']) : '';
+$deliveryDate = isset($_POST['delivery_date']) && is_string($_POST['delivery_date']) ? trim($_POST['delivery_date']) : '';
 if (!DeliveryConfig::slotsEnabled()) {
     $slot = $slot === '' ? 'auto' : $slot;
+    $deliveryDate = '';
 } elseif ($slot === '') {
     Ajax::error('Choose a delivery slot.');
 } elseif (!DeliveryService::validateSlot($slot)) {
     Ajax::error('Choose a valid delivery slot.');
+} else {
+    $dateErr = DeliverySlotService::validateCustomerSlotDate($slot, $deliveryDate);
+    if ($dateErr !== null) {
+        Ajax::error($dateErr);
+    }
 }
 
-$totals = CartService::totals($addressId, $slot);
+$totals = CartService::totals($addressId, $slot, $deliveryDate !== '' ? $deliveryDate : null);
 if (!empty($totals['coupon_error'])) {
     Ajax::error((string) $totals['coupon_error']);
 }
@@ -53,6 +60,7 @@ $payload['checkout'] = [
     'can_pay' => $canPay,
     'address_id' => $addressId,
     'delivery_slot' => $slot,
+    'delivery_date' => $deliveryDate,
     'quote_message' => trim((string) ($totals['delivery_quote_message'] ?? '')),
 ];
 

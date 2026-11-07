@@ -209,6 +209,23 @@ final class AdminOrderService
             }
         }
 
+        $deliverySlotId = isset($order['delivery_slot_id']) ? (int) $order['delivery_slot_id'] : 0;
+        $deliverySlotLabel = '';
+        $deliverySlotWindow = '';
+        $deliverySlotTimes = '';
+        if ($deliverySlotId > 0) {
+            $slotRow = DeliverySlotRepository::find($deliverySlotId);
+            if ($slotRow !== null) {
+                $deliverySlotLabel = (string) ($slotRow['label'] ?? '');
+                $deliverySlotWindow = (string) ($slotRow['window_label'] ?? '');
+                $start = DeliveryAdminUi::formatClockTime12h((string) ($slotRow['start_time'] ?? ''));
+                $end = DeliveryAdminUi::formatClockTime12h((string) ($slotRow['end_time'] ?? ''));
+                if ($start !== '' && $end !== '') {
+                    $deliverySlotTimes = $start . '–' . $end;
+                }
+            }
+        }
+
         return [
             'id' => $orderId,
             'order_number' => (string) ($order['order_number'] ?? ''),
@@ -221,6 +238,10 @@ final class AdminOrderService
             'address_line' => $addressLine,
             'address_label' => (string) ($order['address_label'] ?? ''),
             'delivery_slot' => (string) ($order['delivery_slot'] ?? ''),
+            'delivery_slot_id' => $deliverySlotId > 0 ? $deliverySlotId : null,
+            'delivery_slot_label' => $deliverySlotLabel,
+            'delivery_slot_window' => $deliverySlotWindow,
+            'delivery_slot_times' => $deliverySlotTimes,
             'delivery_date' => (string) ($order['delivery_date'] ?? ''),
             'delivery_fee' => (float) ($order['delivery_fee'] ?? 0),
             'subtotal' => (float) ($order['subtotal'] ?? 0),

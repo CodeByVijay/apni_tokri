@@ -146,10 +146,12 @@ try {
         $nonce = CheckoutService::freshNonce();
         $totals = CartService::totals($addrAId, DeliveryConfig::slotsEnabled() ? null : 'auto');
         ok(isset($totals['total']) && (float) $totals['total'] > 0, 'authenticated checkout totals include delivery context');
+        $slotPick = DeliveryConfig::slotsEnabled() ? (DeliverySlotService::availableForCheckout()[0] ?? null) : null;
         $orderTry = CheckoutService::placeOrder([
             'checkout_nonce' => $nonce,
             'address_id' => (string) $addrAId,
-            'delivery_slot' => DeliveryConfig::slotsEnabled() ? (string) (DeliverySlotService::availableForCheckout()[0]['slug'] ?? 'auto') : 'auto',
+            'delivery_slot' => $slotPick !== null ? (string) ($slotPick['slug'] ?? 'auto') : 'auto',
+            'delivery_date' => $slotPick !== null ? (string) ($slotPick['delivery_date'] ?? '') : '',
             'terms' => '1',
         ]);
         if (!empty($orderTry['ok']) && !empty($orderTry['order_number'])) {

@@ -167,7 +167,7 @@ final class CartService
     }
 
     /** @return array<string, mixed> */
-    public static function totals(?int $checkoutAddressId = null, ?string $deliverySlotSlug = null): array
+    public static function totals(?int $checkoutAddressId = null, ?string $deliverySlotSlug = null, ?string $deliverySlotDate = null): array
     {
         if (AppEnvironment::usePersistedStorefront()) {
             $cartId = self::resolveCartId(false);
@@ -188,7 +188,7 @@ final class CartService
             }
             $address = self::resolveCheckoutAddress($checkoutAddressId);
 
-            return PricingService::applyDeliveryQuotePreview($base, $lines, $address, $deliverySlotSlug);
+            return PricingService::applyDeliveryQuotePreview($base, $lines, $address, $deliverySlotSlug, $deliverySlotDate);
         }
 
         return SessionCartBackend::totals();

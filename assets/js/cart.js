@@ -560,6 +560,14 @@
         return $h.length ? String($h.val()) : 'auto';
       }
 
+      function selectedDeliveryDate() {
+        var $h = $('#checkout-delivery-date');
+        if ($h.length && $h.val()) return String($h.val());
+        var $r = $('input[name="delivery_slot"][form="checkout-form"]:checked');
+        if ($r.length && $r.attr('data-delivery-date')) return String($r.attr('data-delivery-date'));
+        return '';
+      }
+
       function fetchQuote() {
         var addressId = selectedAddressId();
         if (!addressId) {
@@ -569,15 +577,18 @@
         }
         var seq = ++quoteSeq;
         setQuoteLoading(true);
+        var postData = {
+          _csrf_token: cfg.csrf || csrfToken(),
+          address_id: addressId,
+          delivery_slot: selectedSlot()
+        };
+        var slotDate = selectedDeliveryDate();
+        if (slotDate) postData.delivery_date = slotDate;
         $.ajax({
           url: cfg.quoteUrl,
           method: 'POST',
           dataType: 'json',
-          data: {
-            _csrf_token: cfg.csrf || csrfToken(),
-            address_id: addressId,
-            delivery_slot: selectedSlot()
-          }
+          data: postData
         })
           .done(function (res) {
             applyQuoteResponse(res, seq);

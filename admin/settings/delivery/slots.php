@@ -220,7 +220,7 @@ if ($errors !== []): ?>
     </div>
     <div class="at-admin-table-wrap">
         <table class="at-admin-table">
-            <thead><tr><th>Name</th><th>Slug</th><th>Window</th><th>Legacy cutoff</th><th class="is-num">Cap</th><th class="is-num" title="Paid non-cancelled orders plus active checkout holds (same rules as checkout capacity)">Orders</th><th>Active</th><th class="is-actions">Actions</th></tr></thead>
+            <thead><tr><th>Name</th><th>Slug</th><th>Window</th><th>Legacy cutoff</th><th class="is-num">Cap</th><th class="is-num" title="Paid non-cancelled orders plus active checkout holds, summed across all delivery dates (per-date counts are in the grid above)">Orders (all dates)</th><th>Active</th><th class="is-actions">Actions</th></tr></thead>
             <tbody>
             <?php if ($slotList['rows'] === []): ?>
                 <tr><td colspan="8" class="text-sm at-muted">No slots match your search.</td></tr>

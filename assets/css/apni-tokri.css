@@ -2777,21 +2777,20 @@ body.at-gallery-lightbox-open {
   justify-content: center;
 }
 
-/* Contact email — full width, same field rhythm as .at-addr-form inputs */
-.at-checkout-block > div:has(#checkout-customer-email) {
+/* Checkout contact fields — full width, same rhythm as .at-addr-form inputs */
+.at-checkout-contact-fields {
   width: 100%;
   max-width: none;
-  margin-top: 1rem;
 }
-.at-checkout-block > div:has(#checkout-customer-email) .at-label {
+.at-checkout-contact-fields .at-label {
   margin-bottom: 0.375rem;
 }
-.at-checkout-block > div:has(#checkout-customer-email) #checkout-customer-email {
+.at-checkout-contact-fields .at-input {
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
 }
-.at-checkout-block > div:has(#checkout-customer-email) > p {
+.at-checkout-contact-fields .text-xs.at-muted {
   margin-top: 0.25rem;
   font-size: 0.8125rem;
   line-height: 1.45;

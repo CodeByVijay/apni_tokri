@@ -101,11 +101,47 @@ final class DeliverySlotService
         return self::assertBookableLocked($pdo, $slotRow, $deliveryDate, null);
     }
 
+    /** Validate checkout POST of slot slug + calendar delivery date. */
+    public static function validateCustomerSlotDate(string $slug, string $deliveryDateYmd): ?string
+    {
+        if (!DeliveryConfig::slotsEnabled()) {
+            return null;
+        }
+        $slug = trim($slug);
+        if ($slug === '' || $slug === 'auto') {
+            return 'Choose a valid delivery slot.';
+        }
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $deliveryDateYmd)) {
+            return 'Choose a valid delivery date for this slot.';
+        }
+        $today = DeliveryConfig::now()->format('Y-m-d');
+        if ($deliveryDateYmd < $today) {
+            return 'This delivery date is no longer available.';
+        }
+        if (!Install::isSchemaReady()) {
+            return 'Delivery slots are unavailable.';
+        }
+        Install::ensureConnection();
+        $stmt = Database::pdo()->prepare('SELECT * FROM delivery_slots WHERE slug = ? AND is_active = 1 LIMIT 1');
+        $stmt->execute([$slug]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$row) {
+            return 'Choose a valid delivery slot.';
+        }
+
+        return self::assertBookable($row, $deliveryDateYmd);
+    }
+
     /**
      * @param array<string, mixed> $slotRow
      */
-    public static function assertBookableLocked(PDO $pdo, array $slotRow, string $deliveryDate, ?int $excludeOrderId): ?string
-    {
+    public static function assertBookableLocked(
+        PDO $pdo,
+        array $slotRow,
+        string $deliveryDate,
+        ?int $excludeOrderId,
+        bool $skipCustomerCutoff = false
+    ): ?string {
         $now = DeliveryConfig::now();
         if (empty($slotRow['is_active'])) {
             return 'This delivery slot is not available.';
@@ -113,7 +149,7 @@ final class DeliverySlotService
         if (!self::isWeekdayAllowed($slotRow, $deliveryDate)) {
             return 'This delivery slot is not available on that day.';
         }
-        if (!self::isBeforeCutoff($slotRow, $now, $deliveryDate)) {
+        if (!$skipCustomerCutoff && !self::isBeforeCutoff($slotRow, $now, $deliveryDate)) {
             return 'This delivery slot is past cutoff time.';
         }
         $slotId = (int) $slotRow['id'];
@@ -124,6 +160,57 @@ final class DeliverySlotService
         }
 
         return null;
+    }
+
+    /**
+     * Active slots with capacity on a fixed calendar date (admin reschedule).
+     *
+     * @return list<array{id: int, slug: string, label: string, window: string, delivery_date: string, remaining: int}>
+     */
+    public static function listOptionsForDeliveryDate(
+        PDO $pdo,
+        string $deliveryDate,
+        ?int $excludeOrderId = null,
+        bool $skipCustomerCutoff = false
+    ): array {
+        if (!DeliveryConfig::slotsEnabled() || !Install::isSchemaReady()) {
+            return [];
+        }
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $deliveryDate)) {
+            return [];
+        }
+        DeliverySlotReservationService::releaseExpiredHolds($pdo);
+        $stmt = $pdo->query('SELECT * FROM delivery_slots WHERE is_active = 1 ORDER BY sort_order, id');
+        $out = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) ?: [] as $slot) {
+            if (!self::isWeekdayAllowed($slot, $deliveryDate)) {
+                continue;
+            }
+            if (!$skipCustomerCutoff && !self::isBeforeCutoff($slot, DeliveryConfig::now(), $deliveryDate)) {
+                continue;
+            }
+            $slotId = (int) $slot['id'];
+            $cap = (int) ($slot['capacity'] ?? 0);
+            $used = DeliverySlotReservationService::usedUnits($pdo, $slotId, $deliveryDate, $excludeOrderId);
+            $remaining = max(0, $cap - $used);
+            if ($remaining <= 0) {
+                continue;
+            }
+            $err = self::assertBookableLocked($pdo, $slot, $deliveryDate, $excludeOrderId, $skipCustomerCutoff);
+            if ($err !== null) {
+                continue;
+            }
+            $out[] = [
+                'id' => $slotId,
+                'slug' => (string) $slot['slug'],
+                'label' => (string) $slot['label'],
+                'window' => (string) $slot['window_label'],
+                'delivery_date' => $deliveryDate,
+                'remaining' => $remaining,
+            ];
+        }
+
+        return $out;
     }
 
     public static function remainingCapacity(int $slotId, string $deliveryDate, ?PDO $pdo = null): int

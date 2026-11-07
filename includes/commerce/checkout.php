@@ -417,7 +417,7 @@ final class CheckoutService
     }
 
     /** @return array{ok: bool, message?: string} */
-    private static function persistCheckoutContactEmail(string $email): array
+    private static function persistCheckoutContact(string $name, string $email): array
     {
         if (AppEnvironment::usePersistedStorefront()) {
             $customerId = CustomerAuth::id();
@@ -425,10 +425,10 @@ final class CheckoutService
                 return ['ok' => false, 'message' => 'Please log in to continue.'];
             }
 
-            return CustomerAccountService::updateEmailOptional($customerId, $email);
+            return CustomerAccountService::updateContactFromCheckout($customerId, $name, $email);
         }
         if (AppEnvironment::allowsSessionDemoCommerce()) {
-            return SessionCustomerBackend::saveEmailOptional($email);
+            return SessionCustomerBackend::saveContactFromCheckout($name, $email);
         }
 
         return ['ok' => true];
@@ -455,6 +455,8 @@ final class CheckoutService
 
         $addressId = (int) ($input['address_id'] ?? 0);
         $slot = (string) ($input['delivery_slot'] ?? '');
+        $deliveryDate = isset($input['delivery_date']) && is_string($input['delivery_date'])
+            ? trim($input['delivery_date']) : '';
         $paySim = (string) ($input['payment_sim'] ?? 'success');
         $terms = !empty($input['terms']);
 
@@ -462,23 +464,32 @@ final class CheckoutService
             return ['ok' => false, 'message' => 'Please accept the terms to continue.'];
         }
 
+        $contactName = isset($input['customer_name']) && is_string($input['customer_name'])
+            ? $input['customer_name'] : '';
         $contactEmail = isset($input['customer_email']) && is_string($input['customer_email'])
-            ? trim($input['customer_email']) : '';
-        $emailSave = self::persistCheckoutContactEmail($contactEmail);
-        if (!$emailSave['ok']) {
-            return ['ok' => false, 'message' => (string) ($emailSave['message'] ?? 'Enter a valid email address.')];
+            ? $input['customer_email'] : '';
+        $contactSave = self::persistCheckoutContact($contactName, $contactEmail);
+        if (!$contactSave['ok']) {
+            return ['ok' => false, 'message' => (string) ($contactSave['message'] ?? 'Check your contact details and try again.')];
         }
         if (!DeliveryConfig::slotsEnabled()) {
             $slot = $slot === '' ? 'auto' : $slot;
-        } elseif (!DeliveryService::validateSlot($slot)) {
-            return ['ok' => false, 'message' => 'Choose a valid delivery slot.'];
+            $deliveryDate = '';
+        } else {
+            if (!DeliveryService::validateSlot($slot)) {
+                return ['ok' => false, 'message' => 'Choose a valid delivery slot.'];
+            }
+            $dateErr = DeliverySlotService::validateCustomerSlotDate($slot, $deliveryDate);
+            if ($dateErr !== null) {
+                return ['ok' => false, 'message' => $dateErr];
+            }
         }
 
         if (!StorefrontReadiness::isStorefrontOperational()) {
             return ['ok' => false, 'message' => 'The store is not available for checkout yet. Please check back soon.'];
         }
         if (AppEnvironment::usePersistedStorefront()) {
-            return self::placeOrderDb($addressId, $slot, $paySim);
+            return self::placeOrderDb($addressId, $slot, $deliveryDate, $paySim);
         }
         if (AppEnvironment::allowsSessionDemoCommerce()) {
             return self::placeOrderSession($addressId, $slot, $paySim);
@@ -488,7 +499,7 @@ final class CheckoutService
     }
 
     /** @return array{ok: bool, message?: string, order_number?: string, redirect?: string} */
-    private static function placeOrderDb(int $addressId, string $slot, string $paySim): array
+    private static function placeOrderDb(int $addressId, string $slot, string $deliveryDateYmd, string $paySim): array
     {
         $customerId = CustomerAuth::id();
         if ($customerId === null) {
@@ -506,12 +517,15 @@ final class CheckoutService
         }
         $lines = CartService::items();
 
-        $quote = DeliveryQuoteService::quoteForCheckout($address, $lines, $slot, $totals);
+        $slotDateParam = DeliveryConfig::slotsEnabled() && $deliveryDateYmd !== '' ? $deliveryDateYmd : null;
+        $quote = DeliveryQuoteService::quoteForCheckout($address, $lines, $slot, $totals, null, null, $slotDateParam);
         if (empty($quote['ok'])) {
             return ['ok' => false, 'message' => (string) ($quote['message'] ?? 'Delivery is not available for this address.')];
         }
+        if ($slotDateParam !== null && (string) ($quote['delivery_date'] ?? '') !== $deliveryDateYmd) {
+            return ['ok' => false, 'message' => 'This delivery slot and date are no longer available. Refresh checkout and try again.'];
+        }
 
-        $slotResolved = $quote['slot_resolved'] ?? null;
         $deliveryDate = $quote['delivery_date'] ?? null;
         $deliveryEta = $quote['delivery_eta'] ?? null;
         $slotId = isset($quote['slot_id']) ? (int) $quote['slot_id'] : null;
@@ -562,15 +576,12 @@ final class CheckoutService
                 $totals,
                 $lines,
                 $status,
-                $paymentStatus,
-                $slotResolved
+                $paymentStatus
             ): array {
                 $pdo = Database::pdo();
                 $orderNumber = OrderNumberService::allocate($pdo, 'storefront');
-                if ($slotResolved !== null) {
-                    $slotIdLocal = (int) $slotResolved['id'];
-                    $delDate = (string) $slotResolved['delivery_date'];
-                    DeliverySlotReservationService::lockSlotAndAssertCapacity($pdo, $slotIdLocal, $delDate, null);
+                if ($slotId !== null && $slotId > 0 && is_string($deliveryDate) && $deliveryDate !== '') {
+                    DeliverySlotReservationService::lockSlotAndAssertCapacity($pdo, (int) $slotId, $deliveryDate, null);
                 }
 
                 $pdo->prepare(
@@ -625,13 +636,9 @@ final class CheckoutService
                     'Order created — complete payment to confirm',
                 ]);
 
-                if ($slotResolved !== null && DeliverySlotReservationService::tableReady()) {
-                    DeliverySlotReservationService::createHold(
-                        $pdo,
-                        (int) $slotResolved['id'],
-                        (string) $slotResolved['delivery_date'],
-                        $orderId
-                    );
+                if ($slotId !== null && $slotId > 0 && is_string($deliveryDate) && $deliveryDate !== ''
+                    && DeliverySlotReservationService::tableReady()) {
+                    DeliverySlotReservationService::createHold($pdo, (int) $slotId, $deliveryDate, $orderId);
                 }
 
                 return ['id' => $orderId, 'number' => $orderNumber];

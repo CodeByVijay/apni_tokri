@@ -221,13 +221,26 @@ final class DeliveryQuoteService
         $slotSlug = (string) ($order['delivery_slot'] ?? 'auto');
         $cartLines = self::cartLinesFromOrderItems($orderItems);
         $quoteAddress = DeliveryOrderSnapshot::addressForRevalidation($snapshot, $address);
-        $quote = self::quoteForCheckout($quoteAddress, $cartLines, $slotSlug, null, $pdo, $orderId);
+        $deliveryDate = (string) ($order['delivery_date'] ?? '');
+        $quote = self::quoteForCheckout(
+            $quoteAddress,
+            $cartLines,
+            $slotSlug,
+            null,
+            $pdo,
+            $orderId,
+            $deliveryDate !== '' ? $deliveryDate : null
+        );
         if (empty($quote['ok'])) {
             throw new DeliverySlotBookingException((string) ($quote['message'] ?? 'Delivery is no longer available.'));
         }
+        if ($deliveryDate !== '' && (string) ($quote['delivery_date'] ?? '') !== $deliveryDate) {
+            throw new DeliverySlotBookingException(
+                'Delivery date changed since checkout. Payment requires admin reconciliation or a new checkout.'
+            );
+        }
 
         $slotId = isset($order['delivery_slot_id']) ? (int) $order['delivery_slot_id'] : 0;
-        $deliveryDate = (string) ($order['delivery_date'] ?? '');
         if ($slotId > 0 && $deliveryDate !== '') {
             $hold = DeliverySlotReservationService::activeHoldForOrder($pdo, $orderId);
             if (DeliverySlotReservationService::tableReady() && $hold === null) {
@@ -438,6 +451,21 @@ final class DeliveryQuoteService
         }
 
         $slotId = (int) $slotRow['id'];
+        if ($deliveryDateOverride !== null && $deliveryDateOverride !== '') {
+            if ($slotResolved === null) {
+                $slotResolved = [
+                    'id' => $slotId,
+                    'slug' => $slotSlug,
+                    'label' => (string) ($slotRow['label'] ?? $slotSlug),
+                    'window' => (string) ($slotRow['window_label'] ?? ''),
+                    'delivery_date' => $deliveryDate,
+                    'row' => $slotRow,
+                ];
+            } else {
+                $slotResolved['delivery_date'] = $deliveryDate;
+                $slotResolved['id'] = $slotId;
+            }
+        }
         if ($pdo !== null) {
             try {
                 DeliverySlotReservationService::lockSlotAndAssertCapacity($pdo, $slotId, $deliveryDate, $excludeOrderId);

@@ -66,37 +66,75 @@ final class CustomerAccountService
     }
 
     /**
-     * Optional email update (checkout); does not change name or marketing flags.
+     * Checkout contact fields → customers.name / customers.email (not delivery receiver_name).
+     * Empty submitted values are ignored so existing profile data is never wiped at checkout.
      *
      * @return array{ok: bool, message?: string}
      */
-    public static function updateEmailOptional(int $customerId, string $email): array
+    public static function updateContactFromCheckout(int $customerId, string $nameInput, string $emailInput): array
     {
-        $email = trim($email);
         if ($customerId <= 0) {
             return ['ok' => false, 'message' => 'You must be signed in.'];
         }
-        if ($email !== '') {
-            if (strlen($email) > 191 || !Validation::email($email)) {
-                return ['ok' => false, 'message' => 'Enter a valid email address.'];
-            }
+
+        $nameInput = trim(preg_replace('/\s+/u', ' ', $nameInput) ?? '');
+        $emailInput = trim($emailInput);
+
+        if ($nameInput === '' && $emailInput === '') {
+            return ['ok' => true];
         }
 
-        Install::ensureConnection();
-        $pdo = Database::pdo();
+        $profile = self::profile($customerId);
+        if ($profile === null) {
+            return ['ok' => false, 'message' => 'Account not found.'];
+        }
 
-        if ($email !== '') {
-            $dup = $pdo->prepare('SELECT id FROM customers WHERE email = ? AND id <> ? LIMIT 1');
-            $dup->execute([$email, $customerId]);
+        $finalName = trim((string) ($profile['name'] ?? ''));
+        $finalEmail = trim((string) ($profile['email'] ?? ''));
+
+        if ($nameInput !== '') {
+            $len = function_exists('mb_strlen') ? mb_strlen($nameInput) : strlen($nameInput);
+            if ($len < 2 || $len > 100) {
+                return ['ok' => false, 'message' => 'Name must be 2 to 100 characters.'];
+            }
+            if (preg_match('/[\x00-\x1F<>]/', $nameInput)) {
+                return ['ok' => false, 'message' => 'Name contains invalid characters.'];
+            }
+            $finalName = $nameInput;
+        }
+
+        if ($emailInput !== '') {
+            if (strlen($emailInput) > 191 || !Validation::email($emailInput)) {
+                return ['ok' => false, 'message' => 'Enter a valid email address.'];
+            }
+            Install::ensureConnection();
+            $dup = Database::pdo()->prepare('SELECT id FROM customers WHERE email = ? AND id <> ? LIMIT 1');
+            $dup->execute([$emailInput, $customerId]);
             if ($dup->fetchColumn()) {
                 return ['ok' => false, 'message' => 'This email is already used by another account.'];
             }
+            $finalEmail = $emailInput;
         }
 
-        $stmt = $pdo->prepare('UPDATE customers SET email = ?, updated_at = NOW() WHERE id = ? AND is_active = 1');
-        $stmt->execute([$email !== '' ? $email : null, $customerId]);
+        Install::ensureConnection();
+        Database::pdo()->prepare(
+            'UPDATE customers SET name = ?, email = ?, updated_at = NOW() WHERE id = ? AND is_active = 1'
+        )->execute([
+            $finalName !== '' ? $finalName : null,
+            $finalEmail !== '' ? $finalEmail : null,
+            $customerId,
+        ]);
 
         return ['ok' => true];
+    }
+
+    /**
+     * @return array{ok: bool, message?: string}
+     * @deprecated use updateContactFromCheckout
+     */
+    public static function updateEmailOptional(int $customerId, string $email): array
+    {
+        return self::updateContactFromCheckout($customerId, '', $email);
     }
 
     /** @return array<string, mixed>|null id, mobile, name, email */

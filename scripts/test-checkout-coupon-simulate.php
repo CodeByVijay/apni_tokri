@@ -61,12 +61,15 @@ $cDisc = (float) $totals['coupon_discount'];
 okCh($cDisc > 0 && abs($cDisc - round($sub * 0.10, 2)) < 0.02, 'Coupon discount matches server calculation');
 okCh((string) $totals['coupon_code'] === $code, 'Totals include coupon code');
 
-$slot = DeliveryConfig::slotsEnabled() ? (string) ((DeliverySlotService::availableForCheckout()[0]['slug'] ?? '') ?: 'auto') : 'auto';
+$slotRow = DeliveryConfig::slotsEnabled() ? (DeliverySlotService::availableForCheckout()[0] ?? null) : null;
+$slot = $slotRow !== null ? (string) ($slotRow['slug'] ?? 'auto') : 'auto';
+$slotDate = $slotRow !== null ? (string) ($slotRow['delivery_date'] ?? '') : '';
 $nonce = CheckoutService::freshNonce();
 $placed = CheckoutService::placeOrder([
     'checkout_nonce' => $nonce,
     'address_id' => (string) $addr,
     'delivery_slot' => $slot,
+    'delivery_date' => $slotDate,
     'terms' => '1',
     'payment_sim' => 'success',
 ]);
@@ -91,6 +94,7 @@ $blocked = CheckoutService::placeOrder([
     'checkout_nonce' => $nonce2,
     'address_id' => (string) $addr,
     'delivery_slot' => $slot,
+    'delivery_date' => $slotDate,
     'terms' => '1',
     'payment_sim' => 'success',
 ]);

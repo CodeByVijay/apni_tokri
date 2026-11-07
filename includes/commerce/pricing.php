@@ -81,7 +81,8 @@ final class PricingService
         array $totals,
         array $lines,
         ?array $address = null,
-        ?string $deliverySlotSlug = null
+        ?string $deliverySlotSlug = null,
+        ?string $deliverySlotDate = null
     ): array {
         $mode = DeliveryZoneResolver::zoneResolutionMode();
         $totals['delivery_quote_accurate'] = true;
@@ -97,7 +98,10 @@ final class PricingService
                     $address,
                     $lines,
                     $deliverySlotSlug ?? 'auto',
-                    $totals
+                    $totals,
+                    null,
+                    null,
+                    $deliverySlotDate
                 );
                 if (!empty($quote['ok'])) {
                     return self::mergeQuoteIntoTotals($totals, $quote);
@@ -169,7 +173,10 @@ final class PricingService
             $address,
             $lines,
             $deliverySlotSlug ?? 'auto',
-            $totals
+            $totals,
+            null,
+            null,
+            $deliverySlotDate
         );
         if (empty($quote['ok'])) {
             $totals['delivery_quote_accurate'] = false;

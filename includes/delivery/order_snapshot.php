@@ -132,4 +132,27 @@ final class DeliveryOrderSnapshot
             'quoted_at' => null,
         ];
     }
+
+    /**
+     * Patch delivery slot fields after admin reschedule (fee/zone/pin unchanged).
+     *
+     * @param array<string, mixed>|null $snapshot
+     * @param array<string, mixed> $slotRow delivery_slots row
+     * @return array<string, mixed>
+     */
+    public static function applyAdminReschedule(?array $snapshot, array $slotRow, string $deliveryDate): array
+    {
+        $snap = $snapshot ?? [];
+        if (!isset($snap['schema_version'])) {
+            $snap['schema_version'] = DeliveryQuoteService::SNAPSHOT_SCHEMA;
+        }
+        $snap['slot_id'] = (int) ($slotRow['id'] ?? 0);
+        $snap['slot_slug'] = (string) ($slotRow['slug'] ?? '');
+        $snap['slot_label'] = (string) ($slotRow['label'] ?? '');
+        $snap['slot_window'] = (string) ($slotRow['window_label'] ?? '');
+        $snap['delivery_date'] = $deliveryDate;
+        $snap['admin_rescheduled_at'] = DeliveryConfig::now()->format(DATE_ATOM);
+
+        return $snap;
+    }
 }

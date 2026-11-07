@@ -39,6 +39,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $order !== null) {
         header('Location: ' . url_base() . '/admin/orders/view.php?id=' . $orderId, true, 302);
         exit;
     }
+    if ($postAction === 'reschedule_delivery') {
+        $adminId = AdminAuth::id();
+        if ($adminId === null) {
+            admin_flash_set('Admin session required.', 'error');
+        } else {
+            $slotId = isset($_POST['reschedule_slot_id']) ? (int) $_POST['reschedule_slot_id'] : 0;
+            $deliveryDate = isset($_POST['reschedule_delivery_date']) && is_string($_POST['reschedule_delivery_date'])
+                ? trim($_POST['reschedule_delivery_date']) : '';
+            $confirmNote = isset($_POST['reschedule_confirm_note']) && is_string($_POST['reschedule_confirm_note'])
+                ? trim($_POST['reschedule_confirm_note']) : '';
+            $result = AdminOrderDeliveryRescheduleService::reschedule(
+                $orderId,
+                $slotId,
+                $deliveryDate,
+                (int) $adminId,
+                $confirmNote
+            );
+            admin_flash_set(
+                (string) ($result['message'] ?? ($result['ok'] ? 'Delivery rescheduled.' : 'Reschedule failed.')),
+                !empty($result['ok']) ? 'success' : 'error'
+            );
+        }
+        header('Location: ' . url_base() . '/admin/orders/view.php?id=' . $orderId, true, 302);
+        exit;
+    }
     if ($postAction === 'refresh_cashfree_payment') {
         $adminId = AdminAuth::id();
         if ($adminId === null) {
@@ -213,6 +238,60 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
         </section>
         <?php endif; ?>
 
+        <?php
+        $canRescheduleDelivery = AdminOrderDeliveryRescheduleService::canRescheduleOrder($order, $paymentRecovery);
+        $rescheduleMinDate = DeliveryConfig::now()->format('Y-m-d');
+        try {
+            $rescheduleMaxDate = DeliveryConfig::now()->modify('+60 days')->format('Y-m-d');
+        } catch (Throwable $e) {
+            $rescheduleMaxDate = $rescheduleMinDate;
+        }
+        ?>
+        <?php if ($canRescheduleDelivery): ?>
+        <section class="at-card at-admin-order-recon" aria-labelledby="at-admin-order-reschedule-title">
+            <div class="at-card__body at-admin-order-recon__body">
+                <h3 id="at-admin-order-reschedule-title" class="at-admin-order-recon__title">Reschedule delivery</h3>
+                <p class="at-admin-order-recon__lead text-sm at-muted mb-3">
+                    Current:
+                    <strong><?= Security::escape((string) ($order['delivery_slot_label'] ?? $order['delivery_slot'] ?? '—')) ?></strong>
+                    <?php if ((string) ($order['delivery_slot_window'] ?? '') !== ''): ?>
+                        · <?= Security::escape((string) $order['delivery_slot_window']) ?>
+                    <?php endif; ?>
+                    <?php if ((string) ($order['delivery_slot_times'] ?? '') !== ''): ?>
+                        · <?= Security::escape((string) $order['delivery_slot_times']) ?>
+                    <?php endif; ?>
+                    <?php if ((string) ($order['delivery_date'] ?? '') !== ''): ?>
+                        · <strong><?= Security::escape((string) $order['delivery_date']) ?></strong>
+                    <?php endif; ?>
+                </p>
+                <div class="at-admin-order-recon__actions">
+                    <div class="at-admin-order-recon__field">
+                        <label class="at-label" for="reschedule_delivery_date">New delivery date</label>
+                        <input type="date" id="reschedule_delivery_date" name="reschedule_delivery_date" class="at-input at-focusable"
+                               min="<?= Security::escape($rescheduleMinDate) ?>" max="<?= Security::escape($rescheduleMaxDate) ?>" required>
+                    </div>
+                    <div class="at-admin-order-recon__field">
+                        <label class="at-label" for="reschedule_slot_id">Available slot</label>
+                        <select id="reschedule_slot_id" name="reschedule_slot_id" class="at-select at-focusable" required disabled>
+                            <option value="">Choose a date first…</option>
+                        </select>
+                        <p id="reschedule_slots_status" class="text-xs at-muted mt-1" aria-live="polite"></p>
+                    </div>
+                    <div class="at-admin-order-recon__field">
+                        <label class="at-label" for="reschedule_confirm_note">Customer confirmation / reason (required)</label>
+                        <textarea id="reschedule_confirm_note" name="reschedule_confirm_note" class="at-textarea at-focusable" rows="3" required
+                                  minlength="10" placeholder="e.g. Customer called — agreed to move to morning slot on 10 Nov."></textarea>
+                    </div>
+                    <p class="at-admin-order-recon__hint">Does not change payment status or start a new payment. Capacity is re-checked on submit.</p>
+                    <button type="submit" name="action" value="reschedule_delivery" class="at-btn at-btn--primary at-focusable at-admin-order-recon__submit"
+                            onclick="return confirm('Reschedule this order to the selected slot and date?');">
+                        Confirm reschedule
+                    </button>
+                </div>
+            </div>
+        </section>
+        <?php endif; ?>
+
         <?php if (($order['payments'] ?? []) !== []): ?>
         <?php
         $hasCashfreeAttempt = false;
@@ -282,7 +361,19 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
         <p><strong>Address<?= (string) ($order['address_label'] ?? '') !== '' ? ' (' . Security::escape((string) $order['address_label']) . ')' : '' ?>:</strong>
             <?= Security::escape((string) ($order['address_line'] ?? '—')) ?></p>
         <p><strong>Delivery:</strong>
-            <?= Security::escape((string) ($order['delivery_slot'] ?? '—')) ?>
+            <?php
+            $delName = (string) ($order['delivery_slot_label'] ?? '');
+            if ($delName === '') {
+                $delName = (string) ($order['delivery_slot'] ?? '—');
+            }
+            ?>
+            <?= Security::escape($delName) ?>
+            <?php if ((string) ($order['delivery_slot_window'] ?? '') !== ''): ?>
+                · <?= Security::escape((string) $order['delivery_slot_window']) ?>
+            <?php endif; ?>
+            <?php if ((string) ($order['delivery_slot_times'] ?? '') !== ''): ?>
+                · <?= Security::escape((string) $order['delivery_slot_times']) ?>
+            <?php endif; ?>
             <?php if ((string) ($order['delivery_date'] ?? '') !== ''): ?>
                 · <?= Security::escape((string) $order['delivery_date']) ?>
             <?php endif; ?>
@@ -327,6 +418,74 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
     };
     sel.addEventListener('change', sync);
     sync();
+})();
+</script>
+<?php endif; ?>
+<?php if (!empty($canRescheduleDelivery)): ?>
+<script>
+(function () {
+    var dateEl = document.getElementById('reschedule_delivery_date');
+    var slotEl = document.getElementById('reschedule_slot_id');
+    var statusEl = document.getElementById('reschedule_slots_status');
+    if (!dateEl || !slotEl) return;
+    var orderId = <?= (int) $orderId ?>;
+    var apiBase = <?= json_encode(url_base() . '/admin/ajax/order-reschedule-slots.php', JSON_UNESCAPED_UNICODE) ?>;
+    var loading = false;
+    var loadSlots = function () {
+        var date = dateEl.value;
+        slotEl.innerHTML = '';
+        slotEl.disabled = true;
+        if (!date) {
+            var ph = document.createElement('option');
+            ph.value = '';
+            ph.textContent = 'Choose a date first…';
+            slotEl.appendChild(ph);
+            if (statusEl) statusEl.textContent = '';
+            return;
+        }
+        if (loading) return;
+        loading = true;
+        if (statusEl) statusEl.textContent = 'Loading slots…';
+        fetch(apiBase + '?order_id=' + encodeURIComponent(String(orderId)) + '&delivery_date=' + encodeURIComponent(date), {
+            credentials: 'same-origin',
+            headers: { 'Accept': 'application/json' }
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (payload) {
+                loading = false;
+                var slots = payload && payload.data && payload.data.slots ? payload.data.slots : [];
+                if (!payload.success || slots.length === 0) {
+                    var empty = document.createElement('option');
+                    empty.value = '';
+                    empty.textContent = 'No slots with capacity on this date';
+                    slotEl.appendChild(empty);
+                    var errMsg = payload.error && payload.error.message ? payload.error.message : (payload.message || 'No slots available.');
+                    if (statusEl) statusEl.textContent = errMsg;
+                    return;
+                }
+                var first = document.createElement('option');
+                first.value = '';
+                first.textContent = 'Choose a slot…';
+                slotEl.appendChild(first);
+                slots.forEach(function (s) {
+                    var opt = document.createElement('option');
+                    opt.value = String(s.id);
+                    opt.textContent = s.label + ' · ' + s.window + ' (' + s.remaining + ' left)';
+                    slotEl.appendChild(opt);
+                });
+                slotEl.disabled = false;
+                if (statusEl) statusEl.textContent = slots.length + ' slot(s) available.';
+            })
+            .catch(function () {
+                loading = false;
+                var err = document.createElement('option');
+                err.value = '';
+                err.textContent = 'Could not load slots';
+                slotEl.appendChild(err);
+                if (statusEl) statusEl.textContent = 'Request failed. Try again.';
+            });
+    };
+    dateEl.addEventListener('change', loadSlots);
 })();
 </script>
 <?php endif; ?>

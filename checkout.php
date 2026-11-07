@@ -73,8 +73,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'checkout_nonce' => $_POST['checkout_nonce'] ?? '',
             'address_id' => $_POST['address_id'] ?? '',
             'delivery_slot' => $_POST['delivery_slot'] ?? '',
+            'delivery_date' => $_POST['delivery_date'] ?? '',
             'payment_sim' => $_POST['payment_sim'] ?? 'success',
             'terms' => $_POST['terms'] ?? null,
+            'customer_name' => $_POST['customer_name'] ?? '',
             'customer_email' => $_POST['customer_email'] ?? '',
         ]);
         if (!$result['ok']) {
@@ -105,9 +107,16 @@ $addrFormOpenMode = $addrFormOpenMode ?? '';
 $addrFormOpenId = $addrFormOpenId ?? 0;
 $addrProfile = $dbAddressMode ? (CustomerAccountService::profile((int) CustomerAuth::id()) ?? []) : [];
 $addrFormValues = isset($addrPostValues) ? $addrPostValues : AddressInput::blankFormValues($addrProfile);
-$checkoutContactEmail = trim((string) (CustomerService::profile()['email'] ?? ''));
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['customer_email']) && is_string($_POST['customer_email'])) {
-    $checkoutContactEmail = trim($_POST['customer_email']);
+$checkoutProfileForForm = CustomerService::profile();
+$checkoutContactName = trim((string) ($checkoutProfileForForm['name'] ?? ''));
+$checkoutContactEmail = trim((string) ($checkoutProfileForForm['email'] ?? ''));
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (isset($_POST['customer_name']) && is_string($_POST['customer_name'])) {
+        $checkoutContactName = trim($_POST['customer_name']);
+    }
+    if (isset($_POST['customer_email']) && is_string($_POST['customer_email'])) {
+        $checkoutContactEmail = trim($_POST['customer_email']);
+    }
 }
 if ($dbAddressMode && $addrFormOpenMode === '' && $_SERVER['REQUEST_METHOD'] === 'GET') {
     if (isset($_GET['address']) && is_string($_GET['address']) && ctype_digit($_GET['address'])) {
@@ -130,6 +139,9 @@ $checkoutSlots = DeliveryConfig::slotsEnabled() && $canShowDeliverySlots
 $defaultSlotSlug = DeliveryConfig::slotsEnabled()
     ? ($checkoutSlots !== [] ? (string) ($checkoutSlots[0]['slug'] ?? '') : null)
     : 'auto';
+$defaultSlotDate = DeliveryConfig::slotsEnabled() && $checkoutSlots !== []
+    ? (string) ($checkoutSlots[0]['delivery_date'] ?? '')
+    : null;
 // Addresses are ordered default-first; a just-added address (or one re-posted with the form) wins.
 if ($selectedAddressId === '' && isset($_POST['address_id']) && is_string($_POST['address_id'])) {
     $selectedAddressId = $_POST['address_id'];
@@ -141,7 +153,7 @@ if (!in_array($selectedAddressId, $validIds, true)) {
     $selectedAddressId = $addresses !== [] ? (string) ($addresses[0]['id'] ?? '') : '';
 }
 $defaultAddressId = $loggedIn && $selectedAddressId !== '' ? (int) $selectedAddressId : null;
-$totals = CartService::totals($defaultAddressId, $defaultSlotSlug);
+$totals = CartService::totals($defaultAddressId, $defaultSlotSlug, $defaultSlotDate);
 $paymentGwMeta = PaymentGatewayConfig::publicCheckoutConfig();
 $paymentGatewayLabel = PaymentGatewayConfig::gatewayLabel((string) ($paymentGwMeta['gateway'] ?? 'simulate'));
 $paymentUsesSimulate = PaymentGatewayConfig::useSimulatedCheckout();
@@ -190,15 +202,30 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
         <section class="at-checkout-block">
             <div class="at-checkout-block__head"><span class="at-checkout-block__num">1</span><h2 class="at-h3">Contact</h2></div>
             <?php if ($loggedIn): ?>
-                <?php $checkoutProfile = CustomerService::profile(); ?>
-                <p class="flex items-center gap-3"><span class="at-avatar"><?= Security::escape(strtoupper(substr((string) ($checkoutProfile['name'] ?? 'C'), 0, 1))) ?></span>
-                    <span><strong><?= Security::escape($checkoutProfile['name'] ?? '') ?></strong><br><span class="at-muted text-sm"><?= Security::escape($checkoutProfile['mobile'] ?? '') ?></span></span></p>
-                <div class="mt-4 max-w-md">
-                    <label class="at-label" for="checkout-customer-email">Email address <span class="at-muted font-normal">(optional)</span></label>
-                    <input id="checkout-customer-email" name="customer_email" type="email" inputmode="email" autocomplete="email"
-                           form="checkout-form" class="at-input at-focusable w-full" maxlength="191"
-                           placeholder="Enter your email address" value="<?= Security::escape($checkoutContactEmail) ?>">
-                    <p class="text-xs at-muted mt-1.5">For order confirmation and invoice updates.</p>
+                <?php
+                $checkoutAvatarInitial = $checkoutContactName !== ''
+                    ? strtoupper(mb_substr($checkoutContactName, 0, 1))
+                    : strtoupper(mb_substr((string) ($checkoutProfileForForm['mobile'] ?? 'C'), 0, 1));
+                ?>
+                <p class="flex items-center gap-3">
+                    <span class="at-avatar"><?= Security::escape($checkoutAvatarInitial) ?></span>
+                    <span class="text-sm at-muted">Registered mobile<br><strong class="text-[var(--at-ink)] font-semibold"><?= Security::escape($checkoutProfileForForm['mobile'] ?? '') ?></strong></span>
+                </p>
+                <div class="at-checkout-contact-fields mt-4 grid gap-4">
+                    <div>
+                        <label class="at-label" for="checkout-customer-name">Full name</label>
+                        <input id="checkout-customer-name" name="customer_name" type="text" autocomplete="name"
+                               form="checkout-form" class="at-input at-focusable" maxlength="100"
+                               placeholder="Enter your full name" value="<?= Security::escape($checkoutContactName) ?>">
+                        <p class="text-xs at-muted mt-1.5">Your account name for orders and invoices — not the delivery receiver.</p>
+                    </div>
+                    <div>
+                        <label class="at-label" for="checkout-customer-email">Email address <span class="at-muted font-normal">(optional)</span></label>
+                        <input id="checkout-customer-email" name="customer_email" type="email" inputmode="email" autocomplete="email"
+                               form="checkout-form" class="at-input at-focusable" maxlength="191"
+                               placeholder="Enter your email address" value="<?= Security::escape($checkoutContactEmail) ?>">
+                        <p class="text-xs at-muted mt-1.5">For order confirmation and invoice updates.</p>
+                    </div>
                 </div>
             <?php else: ?>
                 <p class="text-sm at-muted">We verify your mobile number with an OTP before you can place the order.</p>
@@ -287,11 +314,14 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
                 <?php if ($canShowDeliverySlots && $checkoutSlots === []): ?>
                     <p class="at-alert at-alert--warning text-sm">No slots available right now. Try again later or contact support.</p>
                 <?php elseif ($canShowDeliverySlots): ?>
-                    <div class="grid sm:grid-cols-3 gap-3">
+                    <?php $initialSlotDate = (string) ($checkoutSlots[0]['delivery_date'] ?? ''); ?>
+                    <div class="grid sm:grid-cols-3 gap-3" data-checkout-slot-grid>
                         <?php foreach ($checkoutSlots as $i => $s): ?>
                             <label class="at-option">
-                                <input type="radio" name="delivery_slot" form="checkout-form" value="<?= Security::escape($s['slug']) ?>" class="mt-1" <?= $i === 0 ? 'checked' : '' ?>>
-                                <span class="text-sm"><strong class="block"><?= Security::escape($s['label']) ?></strong><?= Security::escape($s['window']) ?><br><span class="at-muted text-xs"><?= (int) $s['remaining'] ?> spots left</span></span>
+                                <input type="radio" name="delivery_slot" form="checkout-form" value="<?= Security::escape($s['slug']) ?>" class="mt-1"
+                                       data-delivery-date="<?= Security::escape((string) ($s['delivery_date'] ?? '')) ?>" <?= $i === 0 ? 'checked' : '' ?>>
+                                <span class="text-sm"><strong class="block"><?= Security::escape($s['label']) ?></strong><?= Security::escape($s['window']) ?>
+                                    <br><span class="at-muted text-xs">Delivers <?= Security::escape((string) ($s['delivery_date'] ?? '')) ?> · <?= (int) $s['remaining'] ?> spots left</span></span>
                             </label>
                         <?php endforeach; ?>
                     </div>
@@ -346,6 +376,9 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
             <?= Csrf::field() ?>
             <input type="hidden" name="action" value="place_order">
             <input type="hidden" name="checkout_nonce" value="<?= Security::escape($checkoutNonce) ?>">
+            <?php if (DeliveryConfig::slotsEnabled() && $canShowDeliverySlots && ($checkoutSlots ?? []) !== []): ?>
+                <input type="hidden" name="delivery_date" form="checkout-form" id="checkout-delivery-date" value="<?= Security::escape($initialSlotDate ?? '') ?>">
+            <?php endif; ?>
             <?php if (!$loggedIn): ?><p class="at-alert at-alert--warning mb-3 text-sm"><?= at_icon('lock', 'w-5 h-5 flex-shrink-0') ?><span>Log in with your mobile number to enable payment.</span></p><?php endif; ?>
             <?php
             $canPay = $loggedIn && $addresses !== [];
@@ -414,6 +447,25 @@ window.AT_CHECKOUT = {
     quoteUrl: <?= json_encode(url_base() . '/ajax/checkout/quote.php', JSON_THROW_ON_ERROR) ?>,
     csrf: <?= json_encode(Csrf::token(), JSON_THROW_ON_ERROR) ?>
 };
+</script>
+<?php endif; ?>
+<?php if (DeliveryConfig::slotsEnabled() && ($canShowDeliverySlots ?? false) && ($checkoutSlots ?? []) !== []): ?>
+<script>
+(function () {
+    function syncDeliveryDateFromSlot() {
+        var checked = document.querySelector('input[name="delivery_slot"][form="checkout-form"]:checked');
+        var hidden = document.getElementById('checkout-delivery-date');
+        if (!hidden) return;
+        hidden.value = checked && checked.dataset.deliveryDate ? checked.dataset.deliveryDate : '';
+    }
+    document.addEventListener('change', function (e) {
+        var t = e.target;
+        if (t && t.matches && t.matches('input[name="delivery_slot"][form="checkout-form"]')) {
+            syncDeliveryDateFromSlot();
+        }
+    });
+    syncDeliveryDateFromSlot();
+})();
 </script>
 <?php endif; ?>
 <script>

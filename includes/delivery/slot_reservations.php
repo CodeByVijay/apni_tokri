@@ -155,8 +155,13 @@ final class DeliverySlotReservationService
      *
      * @return array<string, mixed> slot row
      */
-    public static function lockSlotAndAssertCapacity(PDO $pdo, int $slotId, string $deliveryDate, ?int $excludeOrderId = null): array
-    {
+    public static function lockSlotAndAssertCapacity(
+        PDO $pdo,
+        int $slotId,
+        string $deliveryDate,
+        ?int $excludeOrderId = null,
+        bool $skipCustomerCutoff = false
+    ): array {
         self::releaseExpiredHolds($pdo);
         $stmt = $pdo->prepare('SELECT * FROM delivery_slots WHERE id = ? FOR UPDATE');
         $stmt->execute([$slotId]);
@@ -164,12 +169,45 @@ final class DeliverySlotReservationService
         if (!$slot || empty($slot['is_active'])) {
             throw new DeliverySlotBookingException('Delivery slot is not available.');
         }
-        $err = DeliverySlotService::assertBookableLocked($pdo, $slot, $deliveryDate, $excludeOrderId);
+        $err = DeliverySlotService::assertBookableLocked($pdo, $slot, $deliveryDate, $excludeOrderId, $skipCustomerCutoff);
         if ($err !== null) {
             throw new DeliverySlotBookingException($err);
         }
 
         return $slot;
+    }
+
+    /**
+     * Move or create the per-order reservation row onto a slot/date (admin reschedule).
+     * Frees capacity on the previous slot/date when the row is updated.
+     */
+    public static function reassignOrderReservation(
+        PDO $pdo,
+        int $orderId,
+        int $slotId,
+        string $deliveryDate,
+        int $holdMinutes = self::DEFAULT_HOLD_MINUTES
+    ): void {
+        if (!self::tableReady() || $orderId <= 0) {
+            return;
+        }
+        $expires = DeliveryConfig::now()->modify('+' . max(5, $holdMinutes) . ' minutes')->format('Y-m-d H:i:s');
+        $stmt = $pdo->prepare('SELECT * FROM delivery_slot_reservations WHERE order_id = ? FOR UPDATE');
+        $stmt->execute([$orderId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($row !== false) {
+            $pdo->prepare(
+                'UPDATE delivery_slot_reservations SET delivery_slot_id = ?, delivery_date = ?, status = ?,
+                 expires_at = ?, updated_at = NOW() WHERE order_id = ?'
+            )->execute([$slotId, $deliveryDate, self::STATUS_HELD, $expires, $orderId]);
+
+            return;
+        }
+
+        $pdo->prepare(
+            'INSERT INTO delivery_slot_reservations (delivery_slot_id, delivery_date, order_id, status, expires_at)
+             VALUES (?, ?, ?, ?, ?)'
+        )->execute([$slotId, $deliveryDate, $orderId, self::STATUS_HELD, $expires]);
     }
 
     public static function createHold(PDO $pdo, int $slotId, string $deliveryDate, int $orderId, int $holdMinutes = self::DEFAULT_HOLD_MINUTES): void

@@ -25,6 +25,8 @@ $checkoutPhp = (string) file_get_contents($root . '/checkout.php');
 $cartJs = (string) file_get_contents($root . '/assets/js/cart.js');
 
 ok(str_contains($quotePhp, 'CartService::totals($addressId'), 'Quote endpoint uses CartService totals with address id');
+ok(str_contains($quotePhp, 'delivery_date'), 'Quote endpoint accepts delivery_date');
+ok(str_contains($quotePhp, 'validateCustomerSlotDate'), 'Quote endpoint validates slot + date');
 ok(str_contains($quotePhp, 'CustomerService::address'), 'Quote endpoint validates customer ownership');
 ok(str_contains($quotePhp, 'DeliveryQuoteService') === false, 'Quote endpoint reuses PricingService quote path via CartService');
 ok(str_contains($quotePhp, 'delivery_quote_accurate'), 'Quote endpoint computes pay eligibility from accurate quote');
