@@ -6,11 +6,6 @@ final class HomepageTrustService
 {
     public const SETTING_KEY = 'homepage.trust.config';
 
-    /** @var list<string> */
-    private const ALLOWED_ICONS = [
-        'truck', 'leaf', 'refresh', 'chat', 'receipt', 'box', 'star', 'lock', 'check', 'shield', 'pin',
-    ];
-
     /** @return array<string, mixed> */
     public static function defaultConfig(): array
     {
@@ -140,6 +135,17 @@ final class HomepageTrustService
                 $href = (string) ($section['cta_href'] ?? '');
                 if ($href !== '' && !self::isAllowedInternalHref($href)) {
                     $errors['quality_cta'] = 'Invalid link.';
+                }
+            }
+            if ($id === 'trust_strip' || $id === 'why_features') {
+                foreach ($section['items'] ?? [] as $j => $item) {
+                    if (!is_array($item)) {
+                        continue;
+                    }
+                    $icon = trim((string) ($item['icon'] ?? ''));
+                    if ($icon !== '' && HomepageTrustIcons::normalizeStoredId($icon) === null) {
+                        $errors[$id . '_icon_' . $j] = 'Unsupported icon “' . $icon . '”. Choose an icon from the picker.';
+                    }
                 }
             }
         }
@@ -331,10 +337,8 @@ final class HomepageTrustService
         if ($id === 'trust_strip') {
             $items = [];
             for ($i = 0; $i < 4; $i++) {
-                $icon = self::sanitizeText($post['trust_strip_icon_' . $i] ?? '', 32);
-                if (!in_array($icon, self::ALLOWED_ICONS, true)) {
-                    $icon = self::ALLOWED_ICONS[0];
-                }
+                $iconRaw = self::sanitizeText($post['trust_strip_icon_' . $i] ?? '', 32);
+                $icon = HomepageTrustIcons::normalizeStoredId($iconRaw) ?? $iconRaw;
                 $items[] = [
                     'icon' => $icon,
                     'title' => self::sanitizeText($post['trust_strip_title_' . $i] ?? '', 120),
@@ -348,10 +352,8 @@ final class HomepageTrustService
         if ($id === 'why_features') {
             $items = [];
             for ($i = 0; $i < 4; $i++) {
-                $icon = self::sanitizeText($post['why_features_icon_' . $i] ?? '', 32);
-                if (!in_array($icon, self::ALLOWED_ICONS, true)) {
-                    $icon = self::ALLOWED_ICONS[0];
-                }
+                $iconRaw = self::sanitizeText($post['why_features_icon_' . $i] ?? '', 32);
+                $icon = HomepageTrustIcons::normalizeStoredId($iconRaw) ?? $iconRaw;
                 $items[] = [
                     'icon' => $icon,
                     'title' => self::sanitizeText($post['why_features_title_' . $i] ?? '', 120),

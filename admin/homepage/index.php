@@ -20,7 +20,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         AuditLog::write('homepage.trust.save', 'settings', HomepageTrustService::SETTING_KEY);
         admin_flash_set('Homepage trust sections saved.');
     } else {
-        admin_flash_set($result['message'] ?? 'Could not save.', 'error');
+        $msg = (string) ($result['message'] ?? 'Could not save.');
+        if (!empty($result['errors']) && is_array($result['errors'])) {
+            $msg .= ' ' . implode(' ', array_values($result['errors']));
+        }
+        admin_flash_set($msg, 'error');
     }
     header('Location: ' . url_base() . '/admin/homepage/index.php', true, 302);
     exit;
@@ -53,8 +57,12 @@ if (!$useDb): ?>
         <label class="text-sm">Sort order <input type="number" name="sort_trust_strip" class="at-input w-20" value="<?= (int) ($strip['sort'] ?? 10) ?>"></label>
         <?php for ($i = 0; $i < 4; $i++):
             $item = ($strip['items'] ?? [])[$i] ?? []; ?>
-        <div class="grid md:grid-cols-3 gap-2 border-t pt-2">
-            <input type="text" name="trust_strip_icon_<?= $i ?>" class="at-input" placeholder="icon" value="<?= Security::escape((string) ($item['icon'] ?? '')) ?>">
+        <div class="grid gap-2 border-t pt-2 md:grid-cols-[minmax(14rem,16rem)_1fr_1fr] md:items-start">
+            <?php
+            $trustIconFieldName = 'trust_strip_icon_' . $i;
+            $trustIconValue = (string) ($item['icon'] ?? '');
+            require APNI_TOKRI_ROOT . '/includes/partials/admin/homepage-trust-icon-field.php';
+            ?>
             <input type="text" name="trust_strip_title_<?= $i ?>" class="at-input" placeholder="Title" value="<?= Security::escape((string) ($item['title'] ?? '')) ?>">
             <input type="text" name="trust_strip_subtitle_<?= $i ?>" class="at-input" placeholder="Subtitle" value="<?= Security::escape((string) ($item['subtitle'] ?? '')) ?>">
         </div>
@@ -70,8 +78,12 @@ if (!$useDb): ?>
         <input type="text" name="why_subtitle" class="at-input at-input--block" placeholder="Subtitle" value="<?= Security::escape((string) ($why['subtitle'] ?? '')) ?>">
         <?php for ($i = 0; $i < 4; $i++):
             $item = ($why['items'] ?? [])[$i] ?? []; ?>
-        <div class="grid md:grid-cols-3 gap-2 border-t pt-2">
-            <input type="text" name="why_features_icon_<?= $i ?>" class="at-input" value="<?= Security::escape((string) ($item['icon'] ?? '')) ?>">
+        <div class="grid gap-2 border-t pt-2 md:grid-cols-[minmax(14rem,16rem)_1fr_1fr] md:items-start">
+            <?php
+            $trustIconFieldName = 'why_features_icon_' . $i;
+            $trustIconValue = (string) ($item['icon'] ?? '');
+            require APNI_TOKRI_ROOT . '/includes/partials/admin/homepage-trust-icon-field.php';
+            ?>
             <input type="text" name="why_features_title_<?= $i ?>" class="at-input" value="<?= Security::escape((string) ($item['title'] ?? '')) ?>">
             <input type="text" name="why_features_body_<?= $i ?>" class="at-input" value="<?= Security::escape((string) ($item['body'] ?? '')) ?>">
         </div>
@@ -119,4 +131,5 @@ if (!$useDb): ?>
 
     <button type="submit" class="at-btn at-btn--primary at-focusable" <?= $useDb ? '' : 'disabled' ?>>Save trust sections</button>
 </form>
+<script src="<?= Security::escape(asset_url('assets/js/admin-homepage-trust-icons.js')) ?>"></script>
 <?php admin_layout_end(); ?>

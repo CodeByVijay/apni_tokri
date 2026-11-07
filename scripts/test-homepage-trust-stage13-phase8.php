@@ -243,6 +243,35 @@ ok(
 $dupCount = substr_count(stage13_p8_render_home_trust(), 'class="at-trust"');
 ok($dupCount <= 1, 'No duplicate trust sections');
 
+ok(HomepageTrustIcons::normalizeStoredId('message-circle') === 'chat', 'Icon alias message-circle → chat');
+ok(HomepageTrustIcons::normalizeStoredId('shopping-basket') === 'basket', 'Icon alias shopping-basket → basket');
+ok(HomepageTrustIcons::normalizeStoredId('truck') === 'truck', 'Legacy truck icon id');
+$htmlIcons = HomepageTrustRenderer::renderAll(url_base());
+ok(str_contains($htmlIcons, '<svg') && str_contains($htmlIcons, 'Fee shown upfront'), 'Trust icons render via at_icon');
+
+$badIcon = HomepageTrustService::saveFromRequest([
+    'enabled_trust_strip' => '1',
+    'sort_trust_strip' => '10',
+    'trust_strip_icon_0' => 'not-a-real-icon',
+    'trust_strip_title_0' => 'T',
+    'trust_strip_subtitle_0' => 'S',
+    'trust_strip_icon_1' => 'leaf',
+    'trust_strip_title_1' => 'Two',
+    'trust_strip_subtitle_1' => 'S2',
+    'trust_strip_icon_2' => 'refresh',
+    'trust_strip_title_2' => 'Three',
+    'trust_strip_subtitle_2' => 'S3',
+    'trust_strip_icon_3' => 'chat',
+    'trust_strip_title_3' => 'Four',
+    'trust_strip_subtitle_3' => 'S4',
+    'enabled_why_features' => '0',
+    'sort_why_features' => '20',
+    'enabled_quality' => '0',
+    'enabled_testimonials' => '0',
+    'enabled_faq_support' => '0',
+]);
+ok(empty($badIcon['ok']) && !empty($badIcon['errors']['trust_strip_icon_0']), 'Unsupported icon rejected on save');
+
 stage13_p8_cleanup($pdo);
 AppSettings::set('homepage.trust.config', null);
 $defaults = HomepageTrustService::getConfig();

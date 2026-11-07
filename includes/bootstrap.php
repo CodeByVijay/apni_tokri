@@ -178,6 +178,7 @@ require_once APNI_TOKRI_ROOT . '/includes/seo/robots.php';
 require_once APNI_TOKRI_ROOT . '/includes/seo/json_ld.php';
 require_once APNI_TOKRI_ROOT . '/includes/seo/structured_data.php';
 require_once APNI_TOKRI_ROOT . '/includes/homepage/trust.php';
+require_once APNI_TOKRI_ROOT . '/includes/homepage/trust_icons.php';
 require_once APNI_TOKRI_ROOT . '/includes/homepage/trust_render.php';
 require_once APNI_TOKRI_ROOT . '/includes/subscription/schedule.php';
 require_once APNI_TOKRI_ROOT . '/includes/subscription/plan.php';

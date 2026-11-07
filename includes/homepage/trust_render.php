@@ -49,10 +49,7 @@ final class HomepageTrustRenderer
             if ($title === '') {
                 continue;
             }
-            $icon = (string) ($item['icon'] ?? 'check');
-            if (!in_array($icon, ['truck', 'leaf', 'refresh', 'chat', 'receipt', 'box', 'star', 'lock', 'check', 'shield', 'pin'], true)) {
-                $icon = 'check';
-            }
+            $icon = HomepageTrustIcons::resolveForRender((string) ($item['icon'] ?? ''));
             $items[] = [
                 'icon' => $icon,
                 'title' => $title,
@@ -93,7 +90,7 @@ final class HomepageTrustRenderer
             if ($title === '' || $body === '') {
                 continue;
             }
-            $icon = (string) ($item['icon'] ?? 'check');
+            $icon = HomepageTrustIcons::resolveForRender((string) ($item['icon'] ?? ''));
             $cards[] = ['icon' => $icon, 'title' => $title, 'body' => $body];
         }
         if ($cards === []) {

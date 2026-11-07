@@ -4986,6 +4986,98 @@ body.at-gallery-lightbox-open {
 .at-seo-saas__nav-link-long {
   display: inline;
 }
+/* Admin — homepage trust icon picker */
+.at-trust-icon-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+}
+.at-trust-icon-field__selected {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.65rem;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid #e3e8e2;
+  border-radius: var(--at-radius);
+  background: #fafcf9;
+}
+.at-trust-icon-field__preview {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  color: var(--at-green);
+  flex-shrink: 0;
+}
+.at-trust-icon-field__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  flex: 1;
+  min-width: 6rem;
+}
+.at-trust-icon-field__label {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--at-ink);
+}
+.at-trust-icon-field__picker {
+  border: 1px solid #e3e8e2;
+  border-radius: var(--at-radius);
+  padding: 0.5rem;
+  background: #fff;
+  max-height: 14rem;
+  overflow: auto;
+}
+.at-trust-icon-field__search {
+  margin-bottom: 0.5rem;
+  width: 100%;
+}
+.at-trust-icon-field__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+  gap: 0.35rem;
+}
+.at-trust-icon-field__option {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.5rem;
+  border: 1px solid #e3e8e2;
+  border-radius: 0.5rem;
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+}
+.at-trust-icon-field__option:hover,
+.at-trust-icon-field__option.is-selected {
+  border-color: var(--at-green);
+  background: #f0f6f2;
+}
+.at-trust-icon-field__option-icon {
+  display: inline-flex;
+  color: var(--at-green);
+  flex-shrink: 0;
+}
+.at-trust-icon-field__option-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  min-width: 0;
+}
+.at-trust-icon-field__option-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.at-trust-icon-field__option-id {
+  font-size: 0.65rem;
+  color: var(--at-muted);
+}
 .at-seo-saas__section-intro {
   margin: 0 0 1.25rem;
 }
