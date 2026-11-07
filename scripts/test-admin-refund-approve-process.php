@@ -149,8 +149,9 @@ $rowFailPre = $st->fetch(PDO::FETCH_ASSOC) ?: [];
 $histFail = $pdo->prepare('SELECT action, payload_json FROM refund_request_history WHERE refund_request_id = ? ORDER BY id');
 $histFail->execute([$requestIdFail]);
 $failHistory = $histFail->fetchAll(PDO::FETCH_ASSOC) ?: [];
-$failPr = $pdo->prepare('SELECT * FROM payment_refunds WHERE refund_request_id = ?');
+$failPr = $pdo->prepare('SELECT * FROM payment_refunds WHERE refund_request_id = ? ORDER BY id');
 $failPr->execute([$requestIdFail]);
+$failPrRows = $failPr->fetchAll(PDO::FETCH_ASSOC) ?: [];
 $ok(
     empty($failRes['ok']) && !empty($failRes['approved_saved']),
     'Gateway fail keeps approval',
@@ -159,9 +160,18 @@ $ok(
         'db' => $rowFailPre,
         'remaining_captured' => RefundRequestService::capturedAmountForOrder($orderIdFailIso),
         'payment_gateway' => $pdo->query('SELECT gateway FROM payments WHERE id = ' . (int) $isoFail['payment_id'])->fetchColumn(),
-        'payment_refunds' => $failPr->fetchAll(PDO::FETCH_ASSOC),
+        'payment_refunds' => $failPrRows,
         'history' => $failHistory,
     ]
+);
+$ok($failPrRows !== [], 'Explicit gateway failure persists payment_refunds attempt');
+$ok(
+    trim((string) ($failPrRows[0]['idempotency_key'] ?? '')) !== '',
+    'Failed attempt stores idempotency key for reconciliation'
+);
+$ok(
+    (string) ($failPrRows[0]['gateway_status'] ?? '') === 'failed',
+    'Explicit failure marks attempt failed'
 );
 $st->execute([$requestIdFail]);
 $rowFail = $st->fetch(PDO::FETCH_ASSOC) ?: [];
@@ -171,6 +181,10 @@ $pdo->prepare('UPDATE payments SET gateway = ? WHERE id = ?')->execute(['simulat
 
 $retry = RefundRequestService::retryGatewayRefund($requestIdFail);
 $ok(!empty($retry['ok']), 'Manual retry after failure succeeds', ['retry' => $retry]);
+$failAttemptCount = (int) $pdo->query(
+    'SELECT COUNT(*) FROM payment_refunds WHERE refund_request_id = ' . (int) $requestIdFail
+)->fetchColumn();
+$ok($failAttemptCount === 2, 'Confirmed failed attempt allows new idempotent retry row');
 $st->execute([$requestIdFail]);
 $rowRetry = $st->fetch(PDO::FETCH_ASSOC) ?: [];
 $retryPr = RefundRequestService::latestPaymentRefundForRequest($requestIdFail);
@@ -234,6 +248,58 @@ $ok((string) ($rowPend['status'] ?? '') === RefundStatus::PROCESSING, 'Pending g
 ]);
 $block = RefundRequestService::initiateGatewayRefund($requestIdPend);
 $ok(empty($block['ok']), 'In-progress gateway refund cannot be duplicated');
+$prCountPend = (int) $pdo->query(
+    'SELECT COUNT(*) FROM payment_refunds WHERE refund_request_id = ' . (int) $requestIdPend
+)->fetchColumn();
+$ok($prCountPend === 1, 'Pending gateway path updates single attempt row (no duplicate insert)');
+
+$isoTimeout = refund_approve_process_isolated_order($pdo, $customerA, $tok, 'TMO', $variantId);
+$reqNumTimeout = 'RF-APPR-TMO-' . $tok;
+$pdo->prepare(
+    'INSERT INTO refund_requests (request_number, customer_id, order_id, reason_code, status, preferred_resolution)
+     VALUES (?, ?, ?, ?, ?, ?)'
+)->execute([$reqNumTimeout, $customerA, (int) $isoTimeout['order_id'], 'quality', RefundStatus::REQUESTED, 'refund']);
+$requestIdTimeout = (int) $pdo->lastInsertId();
+$pdo->prepare(
+    'INSERT INTO refund_request_items (refund_request_id, order_item_id, quantity, amount_inr) VALUES (?, ?, 1, ?)'
+)->execute([$requestIdTimeout, (int) $isoTimeout['order_item_id'], 28.00]);
+$pdo->prepare('UPDATE payments SET gateway = ?, gateway_payment_id = ? WHERE id = ?')->execute([
+    'cashfree',
+    'cf_pay_tmo',
+    (int) $isoTimeout['payment_id'],
+]);
+$httpLogTimeout = [];
+PaymentHttp::$testHandler = static function (string $method, string $url, ?array $body, array $headers, ?string $u, ?string $p) use (&$httpLogTimeout): array {
+    $httpLogTimeout[] = ['method' => $method, 'url' => $url];
+    if ($method === 'POST' && str_contains($url, '/refunds')) {
+        return ['ok' => false, 'status' => 502, 'body' => '', 'json' => null];
+    }
+
+    return ['ok' => false, 'status' => 500, 'body' => '', 'json' => null];
+};
+AppSettings::set('cashfree.enabled', '1');
+AppSettings::set('cashfree.app_id', 'cf_test_id_12345678');
+AppSettings::set('cashfree.secret_key', 'cf_test_secret_key_value', true);
+$tmo = RefundRequestService::approveAndProcessGatewayRefund($requestIdTimeout, 28.0, 'timeout probe');
+$attemptRow = $pdo->query(
+    'SELECT id, idempotency_key, gateway_status FROM payment_refunds WHERE refund_request_id = '
+    . (int) $requestIdTimeout . ' ORDER BY id DESC LIMIT 1'
+)->fetch(PDO::FETCH_ASSOC) ?: [];
+$st->execute([$requestIdTimeout]);
+$rowTmo = $st->fetch(PDO::FETCH_ASSOC) ?: [];
+$ok(empty($tmo['ok']), 'Ambiguous gateway response does not report success to admin');
+$ok((string) ($rowTmo['status'] ?? '') === RefundStatus::PROCESSING, 'Ambiguous timeout leaves request processing for reconciliation');
+$ok((string) ($attemptRow['gateway_status'] ?? '') === 'initiated', 'Ambiguous timeout preserves initiated attempt with reference');
+$ok(
+    !empty($attemptRow['idempotency_key']),
+    'Timeout attempt retains merchant refund idempotency key'
+);
+$ok(count(array_filter($httpLogTimeout, static fn ($c) => $c['method'] === 'POST')) === 1, 'Single refund-create POST before timeout');
+$retryBlocked = RefundRequestService::retryGatewayRefund($requestIdTimeout);
+$ok(empty($retryBlocked['ok']), 'Retry blocked while initiated attempt needs reconcile');
+$fetchUiTmo = RefundRequestService::adminGatewayStatusFetchUi($requestIdTimeout, RefundStatus::PROCESSING);
+$ok(!empty($fetchUiTmo['show_button']), 'Fetch visible after ambiguous create timeout');
+PaymentHttp::$testHandler = $prevHandler;
 
 $reqNumFull = 'RF-APPR-FULL-' . $tok;
 $pdo->prepare(
@@ -251,7 +317,7 @@ $ok(!empty($full['ok']), 'Full approve+process succeeds');
 $over = RefundRequestService::approveAndProcessGatewayRefund($requestId, 99999.0, null);
 $ok(empty($over['ok']) && empty($over['approved_saved'] ?? false), 'Excessive amount rejected without approval');
 
-foreach ([$orderIdFailIso, $orderIdPendIso] as $isoOid) {
+foreach ([$orderIdFailIso, $orderIdPendIso, (int) $isoTimeout['order_id']] as $isoOid) {
     $pdo->prepare('DELETE FROM payment_refunds WHERE payment_id IN (SELECT id FROM payments WHERE order_id = ?)')->execute([$isoOid]);
     $pdo->prepare('DELETE FROM refund_request_items WHERE order_item_id IN (SELECT id FROM order_items WHERE order_id = ?)')->execute([$isoOid]);
     $pdo->prepare('DELETE FROM refund_requests WHERE order_id = ?')->execute([$isoOid]);
@@ -260,7 +326,7 @@ foreach ([$orderIdFailIso, $orderIdPendIso] as $isoOid) {
     $pdo->prepare('DELETE FROM orders WHERE id = ?')->execute([$isoOid]);
 }
 
-foreach ([$requestId, $requestIdFull, $requestIdFail, $requestIdPend] as $rid) {
+foreach ([$requestId, $requestIdFull, $requestIdFail, $requestIdPend, $requestIdTimeout] as $rid) {
     $pdo->prepare('DELETE FROM payment_refunds WHERE refund_request_id = ?')->execute([$rid]);
     $pdo->prepare('DELETE FROM refund_request_history WHERE refund_request_id = ?')->execute([$rid]);
     $pdo->prepare('DELETE FROM refund_request_items WHERE refund_request_id = ?')->execute([$rid]);

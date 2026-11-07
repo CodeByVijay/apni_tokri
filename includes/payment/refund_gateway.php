@@ -7,24 +7,24 @@ final class GatewayRefundService
     /**
      * Initiate a gateway refund against a captured payment row.
      *
-     * @return array{ok: bool, gateway_refund_id?: string, status?: string, message?: string, simulated?: bool}
+     * @return array{ok: bool, gateway_refund_id?: string, status?: string, message?: string, simulated?: bool, ambiguous?: bool, explicit_failure?: bool}
      */
     public static function refundPayment(int $paymentId, float $amountInr, string $idempotencyKey): array
     {
         if ($amountInr <= 0) {
-            return ['ok' => false, 'message' => 'Invalid refund amount.'];
+            return ['ok' => false, 'message' => 'Invalid refund amount.', 'explicit_failure' => true];
         }
         Install::ensureConnection();
         $stmt = Database::pdo()->prepare('SELECT * FROM payments WHERE id = ? LIMIT 1');
         $stmt->execute([$paymentId]);
         $payment = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$payment || (string) ($payment['status'] ?? '') !== 'captured') {
-            return ['ok' => false, 'message' => 'Payment is not refundable.'];
+            return ['ok' => false, 'message' => 'Payment is not refundable.', 'explicit_failure' => true];
         }
         $captured = (float) ($payment['amount'] ?? 0);
         $already = (float) ($payment['amount_refunded_inr'] ?? 0);
         if ($amountInr + $already > $captured + 0.01) {
-            return ['ok' => false, 'message' => 'Refund exceeds captured amount.'];
+            return ['ok' => false, 'message' => 'Refund exceeds captured amount.', 'explicit_failure' => true];
         }
 
         $gateway = (string) ($payment['gateway'] ?? '');
@@ -39,7 +39,7 @@ final class GatewayRefundService
 
         $gwPaymentId = (string) ($payment['gateway_payment_id'] ?? '');
         if ($gwPaymentId === '') {
-            return ['ok' => false, 'message' => 'Missing gateway payment reference.'];
+            return ['ok' => false, 'message' => 'Missing gateway payment reference.', 'explicit_failure' => true];
         }
 
         if ($gateway === 'razorpay') {
@@ -54,20 +54,40 @@ final class GatewayRefundService
                 $merchantOrderId = (string) ($oStmt->fetchColumn() ?: '');
             }
             if ($merchantOrderId === '') {
-                return ['ok' => false, 'message' => 'Missing merchant order id for Cashfree refund.'];
+                return ['ok' => false, 'message' => 'Missing merchant order id for Cashfree refund.', 'explicit_failure' => true];
             }
 
             return self::cashfreeRefund($merchantOrderId, $amountInr, $idempotencyKey);
         }
 
-        return ['ok' => false, 'message' => 'Unsupported payment gateway for refunds.'];
+        return ['ok' => false, 'message' => 'Unsupported payment gateway for refunds.', 'explicit_failure' => true];
     }
 
-    /** @return array{ok: bool, gateway_refund_id?: string, status?: string, message?: string} */
+    /**
+     * @param array{ok?: bool, status?: int, json?: mixed, error?: string} $resp
+     * @return array{ok: false, message: string, ambiguous: bool, explicit_failure: bool}
+     */
+    private static function refundHttpFailure(array $resp, string $logLabel): array
+    {
+        $status = (int) ($resp['status'] ?? 0);
+        $ambiguous = $status === 0 || ($status >= 500 && $status < 600);
+        error_log($logLabel . ' HTTP ' . $status);
+
+        return [
+            'ok' => false,
+            'message' => $ambiguous
+                ? 'Gateway refund response was inconclusive. Reconcile status before retrying.'
+                : 'Gateway refund failed.',
+            'ambiguous' => $ambiguous,
+            'explicit_failure' => !$ambiguous,
+        ];
+    }
+
+    /** @return array{ok: bool, gateway_refund_id?: string, status?: string, message?: string, ambiguous?: bool, explicit_failure?: bool} */
     private static function razorpayRefund(string $gatewayPaymentId, float $amountInr, string $idempotencyKey): array
     {
         if (!RazorpayGateway::isConfigured()) {
-            return ['ok' => false, 'message' => 'Razorpay is not configured.'];
+            return ['ok' => false, 'message' => 'Razorpay is not configured.', 'explicit_failure' => true];
         }
         $paise = PaymentService::amountToPaise($amountInr);
         $resp = PaymentHttp::request(
@@ -82,9 +102,7 @@ final class GatewayRefundService
             RazorpayGateway::keySecret()
         );
         if (!$resp['ok'] || !is_array($resp['json'])) {
-            error_log('Razorpay refund HTTP ' . $resp['status']);
-
-            return ['ok' => false, 'message' => 'Gateway refund failed.'];
+            return self::refundHttpFailure($resp, 'Razorpay refund');
         }
         $refId = (string) ($resp['json']['id'] ?? '');
         $status = (string) ($resp['json']['status'] ?? 'pending');
@@ -92,16 +110,16 @@ final class GatewayRefundService
         return ['ok' => true, 'gateway_refund_id' => $refId, 'status' => $status];
     }
 
-    /** @return array{ok: bool, gateway_refund_id?: string, status?: string, message?: string} */
+    /** @return array{ok: bool, gateway_refund_id?: string, status?: string, message?: string, ambiguous?: bool, explicit_failure?: bool} */
     private static function cashfreeRefund(string $merchantOrderId, float $amountInr, string $idempotencyKey): array
     {
         if (!CashfreeGateway::isConfigured()) {
-            return ['ok' => false, 'message' => 'Cashfree is not configured.'];
+            return ['ok' => false, 'message' => 'Cashfree is not configured.', 'explicit_failure' => true];
         }
         try {
             $refundUrl = CashfreeGateway::ordersRefundApiPath($merchantOrderId);
         } catch (RuntimeException $e) {
-            return ['ok' => false, 'message' => 'Cashfree is not configured.'];
+            return ['ok' => false, 'message' => 'Cashfree is not configured.', 'explicit_failure' => true];
         }
         $body = [
             'refund_amount' => round($amountInr, 2),
@@ -121,9 +139,7 @@ final class GatewayRefundService
             $headers
         );
         if (!$resp['ok'] || !is_array($resp['json'])) {
-            error_log('Cashfree refund HTTP ' . $resp['status']);
-
-            return ['ok' => false, 'message' => 'Gateway refund failed.'];
+            return self::refundHttpFailure($resp, 'Cashfree refund');
         }
         $refId = (string) ($resp['json']['cf_refund_id'] ?? $resp['json']['refund_id'] ?? '');
         $status = (string) ($resp['json']['refund_status'] ?? 'PENDING');

@@ -24,6 +24,8 @@ $index = (string) file_get_contents($root . '/admin/refunds/index.php');
 $refundPhp = (string) file_get_contents($root . '/includes/trust/refund.php');
 
 ok(str_contains($refundPhp, 'findByIdForAdmin'), 'Refund service exposes admin detail loader');
+ok(str_contains($refundPhp, 'insertPaymentRefundAttempt'), 'Gateway refunds persist attempt before API call');
+ok(str_contains($refundPhp, 'gateway_attempt_started'), 'Audit history records attempt start');
 ok(str_contains($refundPhp, 'lineItemsForAdmin'), 'Refund service exposes stored line items query');
 ok(str_contains($index, 'AdminOrderService::findById'), 'Refund detail loads order by numeric id');
 ok(str_contains($index, '/admin/orders/view.php?id='), 'Order link uses numeric order id');

@@ -478,6 +478,69 @@ final class RefundRequestService
         });
     }
 
+    private static function insertPaymentRefundAttempt(
+        PDO $pdo,
+        int $requestId,
+        int $paymentId,
+        string $gateway,
+        float $amountInr,
+        string $idempotencyKey
+    ): int {
+        $pdo->prepare(
+            'INSERT INTO payment_refunds
+             (refund_request_id, payment_id, gateway, amount_inr, idempotency_key, gateway_refund_id, gateway_status, response_json)
+             VALUES (?, ?, ?, ?, ?, NULL, ?, ?)'
+        )->execute([
+            $requestId,
+            $paymentId,
+            $gateway,
+            $amountInr,
+            $idempotencyKey,
+            'initiated',
+            json_encode(['phase' => 'initiated', 'idempotency_key' => $idempotencyKey], JSON_UNESCAPED_UNICODE),
+        ]);
+
+        return (int) $pdo->lastInsertId();
+    }
+
+    /** @param array<string, mixed> $gwResult */
+    private static function finalizePaymentRefundAttempt(
+        PDO $pdo,
+        int $paymentRefundId,
+        array $gwResult,
+        bool $createSucceeded
+    ): void {
+        if (!$createSucceeded) {
+            $ambiguous = !empty($gwResult['ambiguous']);
+            $status = $ambiguous ? 'initiated' : 'failed';
+            $pdo->prepare(
+                'UPDATE payment_refunds SET gateway_status = ?, response_json = ?, updated_at = NOW() WHERE id = ?'
+            )->execute([
+                $status,
+                json_encode([
+                    'phase' => $ambiguous ? 'ambiguous' : 'create_failed',
+                    'message' => $gwResult['message'] ?? '',
+                    'gateway_response' => GatewayRefundService::sanitizeStatusSnapshot($gwResult),
+                ], JSON_UNESCAPED_UNICODE),
+                $paymentRefundId,
+            ]);
+
+            return;
+        }
+
+        $rowGatewayStatus = !empty($gwResult['simulated'])
+            ? 'pending'
+            : strtolower((string) ($gwResult['status'] ?? 'pending'));
+        $pdo->prepare(
+            'UPDATE payment_refunds SET gateway_refund_id = ?, gateway_status = ?, response_json = ?, updated_at = NOW() WHERE id = ?'
+        )->execute([
+            $gwResult['gateway_refund_id'] ?? null,
+            $rowGatewayStatus,
+            json_encode(GatewayRefundService::sanitizeStatusSnapshot($gwResult) + ['phase' => 'created'], JSON_UNESCAPED_UNICODE),
+            $paymentRefundId,
+        ]);
+    }
+
     /**
      * @param array<string, mixed> $req Locked row in approved (or immediately post-approve) state.
      * @return array{ok: bool, message?: string, gateway_refund_id?: string|null, status?: string}
@@ -509,43 +572,43 @@ final class RefundRequestService
         );
         $inFlight->execute([$requestId]);
         if ($inFlight->fetchColumn()) {
-            return ['ok' => false, 'message' => 'Gateway refund already in progress.'];
+            return ['ok' => false, 'message' => 'Gateway refund already in progress — reconcile before retrying.'];
         }
 
         $pdo->prepare(
             'UPDATE refund_requests SET status = ?, updated_at = NOW() WHERE id = ?'
         )->execute([RefundStatus::REFUND_INITIATED, $requestId]);
 
+        $paymentRefundId = self::insertPaymentRefundAttempt(
+            $pdo,
+            $requestId,
+            (int) $payment['id'],
+            (string) $payment['gateway'],
+            $amount,
+            $idempotency
+        );
+        self::appendHistory($pdo, $requestId, 'system', null, 'gateway_attempt_started', [
+            'payment_refund_id' => $paymentRefundId,
+            'idempotency_key' => $idempotency,
+        ]);
+
         $gwResult = GatewayRefundService::refundPayment((int) $payment['id'], $amount, $idempotency);
         if (!$gwResult['ok']) {
+            self::finalizePaymentRefundAttempt($pdo, $paymentRefundId, $gwResult, false);
+            $ambiguous = !empty($gwResult['ambiguous']);
+            $requestStatus = $ambiguous ? RefundStatus::PROCESSING : RefundStatus::REFUND_FAILED;
             $pdo->prepare('UPDATE refund_requests SET status = ?, updated_at = NOW() WHERE id = ?')
-                ->execute([RefundStatus::REFUND_FAILED, $requestId]);
-            self::appendHistory($pdo, $requestId, 'system', null, 'gateway_failed', [
+                ->execute([$requestStatus, $requestId]);
+            self::appendHistory($pdo, $requestId, 'system', null, $ambiguous ? 'gateway_ambiguous' : 'gateway_failed', [
                 'message' => $gwResult['message'] ?? '',
+                'payment_refund_id' => $paymentRefundId,
+                'idempotency_key' => $idempotency,
             ]);
 
             return ['ok' => false, 'message' => $gwResult['message'] ?? 'Gateway refund failed.'];
         }
 
-        $paymentRefundId = null;
-        $rowGatewayStatus = !empty($gwResult['simulated'])
-            ? 'pending'
-            : strtolower((string) ($gwResult['status'] ?? 'pending'));
-        $pdo->prepare(
-            'INSERT INTO payment_refunds
-             (refund_request_id, payment_id, gateway, amount_inr, idempotency_key, gateway_refund_id, gateway_status, response_json)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-        )->execute([
-            $requestId,
-            (int) $payment['id'],
-            (string) $payment['gateway'],
-            $amount,
-            $idempotency,
-            $gwResult['gateway_refund_id'] ?? null,
-            $rowGatewayStatus,
-            json_encode($gwResult, JSON_UNESCAPED_UNICODE),
-        ]);
-        $paymentRefundId = (int) $pdo->lastInsertId();
+        self::finalizePaymentRefundAttempt($pdo, $paymentRefundId, $gwResult, true);
 
         $newStatus = RefundStatus::PROCESSING;
         if (!empty($gwResult['simulated'])) {
@@ -565,18 +628,23 @@ final class RefundRequestService
             }
             $newStatus = RefundStatus::REFUNDED;
         } else {
-            $pdo->prepare('UPDATE refund_requests SET status = ?, updated_at = NOW() WHERE id = ?')
-                ->execute([RefundStatus::PROCESSING, $requestId]);
+            $normalized = strtolower((string) ($gwResult['status'] ?? 'pending'));
+            if (!RefundCompletionService::isTerminalSuccess($normalized)) {
+                $pdo->prepare('UPDATE refund_requests SET status = ?, updated_at = NOW() WHERE id = ?')
+                    ->execute([RefundStatus::PROCESSING, $requestId]);
+            }
         }
 
         self::appendHistory($pdo, $requestId, 'admin', AdminAuth::id(), 'gateway_initiated', [
             'gateway_refund_id' => $gwResult['gateway_refund_id'] ?? null,
+            'payment_refund_id' => $paymentRefundId,
+            'idempotency_key' => $idempotency,
         ]);
         AuditLog::write('refund.gateway_init', 'refund_request', (string) $requestId);
 
         $message = $newStatus === RefundStatus::REFUNDED
             ? 'Refund processed successfully.'
-            : 'Refund processed successfully. Completion will be confirmed via gateway webhook.';
+            : 'Refund submitted to the gateway. Completion will be confirmed when the gateway reports success.';
 
         return [
             'ok' => true,
@@ -1341,7 +1409,7 @@ final class RefundRequestService
                 LEFT JOIN customer_subscriptions cs ON cs.id = sp.customer_subscription_id';
         $params = [];
         if ($bucket === 'pending') {
-            $sql .= " WHERE pr.gateway_status IN ('created', 'pending')";
+            $sql .= " WHERE pr.gateway_status IN ('created', 'pending', 'initiated')";
         } elseif ($bucket === 'processing') {
             $sql .= " WHERE pr.gateway_status NOT IN ('processed', 'completed', 'success', 'failed') AND pr.gateway_status NOT IN ('created', 'pending')";
         } elseif ($bucket === 'completed') {
