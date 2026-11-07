@@ -86,7 +86,7 @@ if ($order === null) {
 }
 
 $pageHeading = (string) $order['order_number'];
-$pageDescription = 'Placed ' . (string) ($order['placed_at'] ?? '');
+$pageDescription = 'Placed ' . customer_format_datetime((string) ($order['placed_at'] ?? ''));
 $breadcrumbs = [
     ['label' => 'Orders', 'href' => url_base() . '/admin/orders/index.php'],
     ['label' => (string) $order['order_number']],
@@ -113,7 +113,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
                 $reasonLabel = OrderCancellationService::CUSTOMER_REASONS[$reasonCode] ?? $reasonCode;
                 ?>
             <div class="mt-3 p-3 rounded-lg bg-[var(--at-surface-2)] text-sm space-y-1">
-                <p><strong>Cancellation</strong> · <?= Security::escape(ucfirst($by)) ?> · <?= Security::escape((string) ($cancelEvt['created_at'] ?? '')) ?></p>
+                <p><strong>Cancellation</strong> · <?= Security::escape(ucfirst($by)) ?> · <?= Security::escape(customer_format_datetime((string) ($cancelEvt['created_at'] ?? ''))) ?></p>
                 <p><strong>Reason:</strong> <?= Security::escape($reasonLabel) ?>
                     <?php if (trim((string) ($cancelEvt['reason_detail'] ?? '')) !== ''): ?>
                         — <?= Security::escape(trim((string) $cancelEvt['reason_detail'])) ?>
@@ -247,7 +247,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
                             <td><?= admin_status_badge((string) ($pay['status'] ?? ''), PaymentService::paymentAttemptStatusLabel((string) ($pay['status'] ?? ''))) ?></td>
                             <td class="is-num"><?= Security::escape(catalogue_format_price((float) ($pay['amount'] ?? 0))) ?></td>
                             <td class="is-id"><?= Security::escape((string) ($pay['gateway_payment_id'] ?? $pay['gateway_order_id'] ?? '—')) ?></td>
-                            <td class="is-nowrap"><?= Security::escape((string) ($pay['updated_at'] ?? $pay['created_at'] ?? '')) ?></td>
+                            <td class="is-nowrap"><?= Security::escape(customer_format_datetime((string) ($pay['updated_at'] ?? $pay['created_at'] ?? ''))) ?></td>
                         </tr>
                     <?php endforeach; ?>
                     </tbody>
@@ -263,7 +263,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
                 <?php foreach ($order['history'] as $h): ?>
                     <li>
                         <?= admin_status_badge((string) ($h['status'] ?? '')) ?>
-                        <span class="at-muted">· <?= Security::escape((string) ($h['created_at'] ?? '')) ?></span>
+                        <span class="at-muted">· <time datetime="<?= Security::escape((string) ($h['created_at'] ?? '')) ?>"><?= Security::escape(customer_format_datetime((string) ($h['created_at'] ?? ''))) ?></time></span>
                         <?php if (!empty($h['admin_name'])): ?>
                             <span class="at-muted">· <?= Security::escape((string) $h['admin_name']) ?></span>
                         <?php endif; ?>
