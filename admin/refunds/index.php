@@ -45,31 +45,121 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && Install::isSchemaReady()) {
 admin_layout_start(['pageTitle' => 'Refunds', 'activeAdminNav' => 'refunds']);
 
 if ($requestId > 0 && Install::isSchemaReady()) {
-    Install::ensureConnection();
-    $stmt = Database::pdo()->prepare(
-        'SELECT rr.*, o.order_number FROM refund_requests rr
-         INNER JOIN orders o ON o.id = rr.order_id WHERE rr.id = ? LIMIT 1'
-    );
-    $stmt->execute([$requestId]);
-    $req = $stmt->fetch(PDO::FETCH_ASSOC);
-    if (!$req) {
+    $req = RefundRequestService::findByIdForAdmin($requestId);
+    if ($req === null) {
         echo '<p>Request not found.</p>';
         admin_layout_end();
         exit;
     }
+    $orderId = (int) ($req['order_id'] ?? 0);
+    $order = $orderId > 0 ? AdminOrderService::findById($orderId) : null;
+    $refundLineItems = RefundRequestService::lineItemsForAdmin($requestId);
+    $refundLinesTotal = RefundRequestService::sumLineItemsForRequest($requestId);
+    $reasonLabels = RefundRequestService::reasonLabels();
+    $reasonCode = (string) ($req['reason_code'] ?? '');
+    $reasonLabel = $reasonLabels[$reasonCode] ?? $reasonCode;
+    $customerId = (int) ($req['customer_id'] ?? 0);
+    $base = url_base();
+    $orderHref = $orderId > 0 ? $base . '/admin/orders/view.php?id=' . $orderId : '';
+    $customerName = trim((string) ($order['customer_name'] ?? ''));
+    $customerMobile = trim((string) ($order['customer_mobile'] ?? ''));
+    $isGuestPresentation = $customerName === '' && $customerMobile === '';
+    $customerDisplay = $isGuestPresentation
+        ? 'Guest'
+        : ($customerName !== '' ? $customerName : $customerMobile);
+    $customerHref = $customerId > 0 && !$isGuestPresentation
+        ? $base . '/admin/customers/view.php?id=' . $customerId
+        : '';
+    $orderPlacedAt = $order !== null
+        ? (string) ($order['placed_at'] ?? '')
+        : '';
     $pageHeading = (string) $req['request_number'];
     require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
-    $refundable = RefundRequestService::capturedAmountForOrder((int) $req['order_id']);
+    $refundable = RefundRequestService::capturedAmountForOrder($orderId);
     ?>
     <div class="at-card"><div class="at-card__body text-sm space-y-2">
-        <p>Order: <strong><?= Security::escape((string) $req['order_number']) ?></strong></p>
-        <p>Status: <strong><?= Security::escape((string) $req['status']) ?></strong></p>
-        <p>Reason: <?= Security::escape((string) $req['reason_code']) ?> — <?= Security::escape((string) ($req['description'] ?? '')) ?></p>
-        <p>Refundable balance (approx): ₹<?= number_format($refundable, 2) ?></p>
-        <?php if ($req['approved_amount_inr'] !== null): ?>
-            <p>Approved amount: ₹<?= number_format((float) $req['approved_amount_inr'], 2) ?></p>
+        <p class="flex flex-wrap gap-2 items-center">
+            <span>Status: <?= admin_status_badge((string) $req['status'], RefundRequestService::publicStatusLabel((string) $req['status'])) ?></span>
+            <?php if ($req['approved_amount_inr'] !== null): ?>
+                <span class="at-muted">· Approved <?= Security::escape(catalogue_format_price((float) $req['approved_amount_inr'])) ?></span>
+            <?php endif; ?>
+        </p>
+        <p><strong>Reason:</strong> <?= Security::escape($reasonLabel) ?>
+            <?php if (trim((string) ($req['description'] ?? '')) !== ''): ?>
+                <span class="at-muted">— <?= Security::escape(trim((string) $req['description'])) ?></span>
+            <?php endif; ?>
+        </p>
+        <p>Refundable balance (approx): <strong><?= Security::escape(catalogue_format_price($refundable)) ?></strong></p>
+        <p class="text-xs at-muted">Requested <?= Security::escape(customer_format_datetime((string) ($req['created_at'] ?? ''))) ?></p>
+    </div></div>
+
+    <div class="grid lg:grid-cols-2 gap-4 mt-4">
+        <div class="at-card"><div class="at-card__body text-sm space-y-2">
+            <h3 class="font-bold">Order details</h3>
+            <?php if ($orderHref !== ''): ?>
+                <p><strong>Order:</strong> <a class="underline font-mono" href="<?= Security::escape($orderHref) ?>"><?= Security::escape((string) $req['order_number']) ?></a></p>
+            <?php else: ?>
+                <p><strong>Order:</strong> <?= Security::escape((string) $req['order_number']) ?></p>
+            <?php endif; ?>
+            <?php if ($order !== null): ?>
+                <p><strong>Order status:</strong> <?= admin_status_badge((string) ($order['status'] ?? '')) ?></p>
+                <p><strong>Payment:</strong> <?= admin_status_badge((string) ($order['payment_status'] ?? '')) ?></p>
+                <p><strong>Grand total:</strong> <?= Security::escape(catalogue_format_price((float) ($order['grand_total'] ?? 0))) ?></p>
+            <?php endif; ?>
+        </div></div>
+        <div class="at-card"><div class="at-card__body text-sm space-y-2">
+            <h3 class="font-bold">Customer details</h3>
+            <p><strong>Customer:</strong>
+                <?php if ($customerHref !== ''): ?>
+                    <a class="underline" href="<?= Security::escape($customerHref) ?>"><?= Security::escape($customerDisplay) ?></a>
+                <?php else: ?>
+                    <?= Security::escape($customerDisplay) ?>
+                <?php endif; ?>
+            </p>
+            <?php if ($customerMobile !== ''): ?>
+                <p><strong>Mobile:</strong> <?= Security::escape($customerMobile) ?></p>
+            <?php endif; ?>
+            <p><strong>Email:</strong>
+                <?php if ($order !== null && trim((string) ($order['customer_email'] ?? '')) !== ''): ?>
+                    <?= Security::escape((string) $order['customer_email']) ?>
+                <?php else: ?>
+                    <span class="at-muted">—</span>
+                <?php endif; ?>
+            </p>
+            <p><strong>Delivery address:</strong> <?= Security::escape((string) ($order['address_line'] ?? '—')) ?></p>
+            <p><strong>Order date:</strong>
+                <?php if ($orderPlacedAt !== ''): ?>
+                    <?= Security::escape(customer_format_datetime($orderPlacedAt)) ?>
+                <?php else: ?>
+                    <span class="at-muted">—</span>
+                <?php endif; ?>
+            </p>
+        </div></div>
+    </div>
+
+    <div class="at-card mt-4"><div class="at-card__body">
+        <?php if ($refundLineItems !== []): ?>
+            <h3 class="font-bold mb-3">Refund items</h3>
+            <?php
+            $orderItems = $refundLineItems;
+            require APNI_TOKRI_ROOT . '/includes/partials/order-items.php';
+            ?>
+            <dl class="at-order-totals mt-3">
+                <div class="is-grand"><dt>Refund items total</dt><dd><?= Security::escape(catalogue_format_price($refundLinesTotal)) ?></dd></div>
+            </dl>
+        <?php elseif ($order !== null && ($order['items'] ?? []) !== []): ?>
+            <h3 class="font-bold mb-3">Order items</h3>
+            <p class="text-sm at-muted mb-2">No line items are stored on this refund request. Shown for order context only — not inferred from the refund amount.</p>
+            <?php
+            $orderItems = $order['items'];
+            require APNI_TOKRI_ROOT . '/includes/partials/order-items.php';
+            ?>
+        <?php else: ?>
+            <h3 class="font-bold mb-2">Refund items</h3>
+            <p class="text-sm at-muted">No refund line items recorded for this request.</p>
         <?php endif; ?>
     </div></div>
+
     <form method="post" class="at-card mt-4">
         <div class="at-card__body space-y-3">
             <?= Csrf::field() ?>

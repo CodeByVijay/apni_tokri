@@ -59,7 +59,14 @@ $dup = AdminOrderService::updateStatus($orderId, $target, '');
 ok(empty($dup['ok']), 'Duplicate status without meaningful change rejected');
 
 $viewPhp = (string) file_get_contents(dirname(__DIR__) . '/admin/orders/view.php');
-ok(substr_count($viewPhp, '<form') === 2, 'Status form + separate Cashfree refresh form (no nested forms)');
+ok(str_contains($viewPhp, '<div class="at-admin-order-detail__layout">'), 'Layout wrapper is not a single POST form');
+ok(str_contains($viewPhp, 'id="admin-order-update-status"'), 'Status update has dedicated form');
+ok(str_contains($viewPhp, 'id="admin-order-reschedule-delivery"'), 'Reschedule delivery has dedicated form');
+ok(
+    !preg_match('/id="admin-order-update-status"[^>]*>[\s\S]*reschedule_delivery_date/s', $viewPhp)
+    && !preg_match('/admin-order-update-status[\s\S]{0,1200}reschedule_delivery_date/s', $viewPhp),
+    'Reschedule date field is outside status update form'
+);
 ok(
     str_contains($viewPhp, 'at-admin-order-detail__layout')
     && str_contains($viewPhp, 'at-admin-order-detail__main')

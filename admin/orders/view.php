@@ -91,12 +91,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $order !== null) {
         header('Location: ' . url_base() . '/admin/orders/view.php?id=' . $orderId, true, 302);
         exit;
     }
-    $result = AdminOrderService::updateStatus(
-        $orderId,
-        (string) ($_POST['status'] ?? ''),
-        (string) ($_POST['note'] ?? '')
-    );
-    admin_flash_set($result['message'] ?? ($result['ok'] ? 'Saved.' : 'Failed.'), !empty($result['ok']) ? 'success' : 'error');
+    if ($postAction === 'update_status' || ($postAction === '' && array_key_exists('status', $_POST))) {
+        $result = AdminOrderService::updateStatus(
+            $orderId,
+            (string) ($_POST['status'] ?? ''),
+            (string) ($_POST['note'] ?? '')
+        );
+        admin_flash_set($result['message'] ?? ($result['ok'] ? 'Saved.' : 'Failed.'), !empty($result['ok']) ? 'success' : 'error');
+        header('Location: ' . url_base() . '/admin/orders/view.php?id=' . $orderId, true, 302);
+        exit;
+    }
+    admin_flash_set('Unknown action.', 'error');
     header('Location: ' . url_base() . '/admin/orders/view.php?id=' . $orderId, true, 302);
     exit;
 }
@@ -121,8 +126,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
 <p class="mb-4 text-sm"><a class="underline at-focusable" href="<?= Security::escape(url_base()) ?>/admin/orders/index.php">← Back to orders</a></p>
 
 <div class="at-admin-order-detail">
-<form method="post" class="at-admin-order-detail__layout">
-    <?= Csrf::field() ?>
+<div class="at-admin-order-detail__layout">
     <div class="at-admin-order-detail__main">
         <div class="at-card"><div class="at-card__body at-admin-order-detail__summary text-sm">
             <p class="at-admin-order-detail__status-line">
@@ -206,7 +210,8 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
                 <?php if ($recoverySlots === []): ?>
                     <p class="at-alert at-alert--warning at-admin-order-recon__warn">No replacement slots with capacity right now. Free capacity or add a slot, then retry.</p>
                 <?php else: ?>
-                    <div class="at-admin-order-recon__actions">
+                    <form method="post" class="at-admin-order-recon__actions" id="admin-order-payment-recovery">
+                        <?= Csrf::field() ?>
                         <input type="hidden" name="exception_id" value="<?= (int) $paymentRecovery['exception_id'] ?>">
                         <div class="at-admin-order-recon__field">
                             <label class="at-label" for="recovery_slot_id">Replacement delivery slot</label>
@@ -232,7 +237,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
                                 onclick="return confirm('Complete fulfilment for this captured payment with the selected slot?');">
                             Complete fulfilment with selected slot
                         </button>
-                    </div>
+                    </form>
                 <?php endif; ?>
             </div>
         </section>
@@ -264,7 +269,8 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
                         · <strong><?= Security::escape((string) $order['delivery_date']) ?></strong>
                     <?php endif; ?>
                 </p>
-                <div class="at-admin-order-recon__actions">
+                <form method="post" class="at-admin-order-recon__actions" id="admin-order-reschedule-delivery">
+                    <?= Csrf::field() ?>
                     <div class="at-admin-order-recon__field">
                         <label class="at-label" for="reschedule_delivery_date">New delivery date</label>
                         <input type="date" id="reschedule_delivery_date" name="reschedule_delivery_date" class="at-input at-focusable"
@@ -287,7 +293,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
                             onclick="return confirm('Reschedule this order to the selected slot and date?');">
                         Confirm reschedule
                     </button>
-                </div>
+                </form>
             </div>
         </section>
         <?php endif; ?>
@@ -380,6 +386,8 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
         </p>
     </div></div>
     <div class="at-card at-admin-order-detail__status-card"><div class="at-card__body at-admin-order-detail__status-form">
+        <form method="post" id="admin-order-update-status">
+            <?= Csrf::field() ?>
         <h3 class="font-bold">Update status</h3>
         <label class="at-label" for="status">Order status</label>
         <select id="status" name="status" class="at-select at-focusable" required>
@@ -398,11 +406,12 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
         </select>
         <label class="at-label" for="note">Internal note</label>
         <textarea id="note" name="note" class="at-textarea at-focusable" rows="3" placeholder="Optional note for audit trail"></textarea>
-        <button type="submit" class="at-btn at-btn--primary at-focusable at-btn--block">Save</button>
+        <button type="submit" name="action" value="update_status" class="at-btn at-btn--primary at-focusable at-btn--block">Save</button>
         <p class="text-xs at-muted">Payment status is not changed here. Use Payments / Refunds modules for gateway actions.</p>
+        </form>
     </div></div>
     </aside>
-</form>
+</div>
 <form method="post" id="admin-order-refresh-cashfree" class="hidden" aria-hidden="true" tabindex="-1">
     <?= Csrf::field() ?>
 </form>

@@ -937,4 +937,63 @@ final class RefundRequestService
     ): void {
         self::appendHistoryPublic($pdo, $requestId, $actorType, $actorId, $action, $payload);
     }
+
+    /** @return array<string, mixed>|null */
+    public static function findByIdForAdmin(int $requestId): ?array
+    {
+        if ($requestId <= 0 || !Install::isSchemaReady()) {
+            return null;
+        }
+        Install::ensureConnection();
+        $stmt = Database::pdo()->prepare(
+            'SELECT rr.*, o.order_number
+             FROM refund_requests rr
+             INNER JOIN orders o ON o.id = rr.order_id
+             WHERE rr.id = ? LIMIT 1'
+        );
+        $stmt->execute([$requestId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        return $row ?: null;
+    }
+
+    /**
+     * Stored refund line items only (joined to order_items for product display).
+     *
+     * @return list<array{name: string, variant: string, qty: int, unit_price: float, line_total: float, image: string}>
+     */
+    public static function lineItemsForAdmin(int $requestId): array
+    {
+        if ($requestId <= 0 || !Install::isSchemaReady()) {
+            return [];
+        }
+        Install::ensureConnection();
+        $stmt = Database::pdo()->prepare(
+            'SELECT ri.quantity, ri.amount_inr,
+                    oi.product_name, oi.variant_name, oi.unit_price,
+                    (SELECT pi.file_path FROM product_images pi
+                     INNER JOIN product_variants pv ON pv.product_id = pi.product_id
+                     WHERE pv.id = oi.variant_id
+                     ORDER BY pi.is_primary DESC, pi.sort_order ASC, pi.id ASC LIMIT 1) AS image_path
+             FROM refund_request_items ri
+             INNER JOIN order_items oi ON oi.id = ri.order_item_id
+             WHERE ri.refund_request_id = ?
+             ORDER BY ri.id ASC'
+        );
+        $stmt->execute([$requestId]);
+        $out = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $it) {
+            $imagePath = (string) ($it['image_path'] ?? '');
+            $out[] = [
+                'name' => (string) ($it['product_name'] ?? ''),
+                'variant' => (string) ($it['variant_name'] ?? ''),
+                'qty' => (int) ($it['quantity'] ?? 0),
+                'unit_price' => (float) ($it['unit_price'] ?? 0),
+                'line_total' => (float) ($it['amount_inr'] ?? 0),
+                'image' => $imagePath !== '' ? asset_url($imagePath) : '',
+            ];
+        }
+
+        return $out;
+    }
 }
