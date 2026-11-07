@@ -341,7 +341,7 @@
       refreshPdpCartButton();
     });
 
-    function updateFromVariant($opt) {
+    function updateFromVariant($opt, resetQuantity) {
       var price = parseFloat($opt.data('price'));
       var regular = parseFloat($opt.data('regular'));
       var onSale = $opt.data('sale') === 1 || $opt.data('sale') === '1';
@@ -361,11 +361,15 @@
         if (orderCap > 0) {
           $qty.attr('max', orderCap);
           $qty.attr('min', orderMin);
-          var cur = parseInt($qty.val(), 10) || orderMin;
-          if (cur > orderCap) {
-            $qty.val(orderCap);
-          } else if (cur < orderMin) {
+          if (resetQuantity) {
             $qty.val(orderMin);
+          } else {
+            var cur = parseInt($qty.val(), 10) || orderMin;
+            if (cur > orderCap) {
+              $qty.val(orderCap);
+            } else if (cur < orderMin) {
+              $qty.val(orderMin);
+            }
           }
           $qty.attr('data-pdp-min-toast', 'Minimum ' + orderMin + ' units required for this variant.');
         }
@@ -419,7 +423,7 @@
     }
 
     $form.find('input[name=variant_id]').on('change', function () {
-      updateFromVariant($(this));
+      updateFromVariant($(this), true);
       fetchVariantsInCart(refreshPdpCartButton);
     });
     var $checked = $form.find('input[name=variant_id]:checked');
