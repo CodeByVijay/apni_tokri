@@ -60,7 +60,13 @@ ok(empty($dup['ok']), 'Duplicate status without meaningful change rejected');
 
 $viewPhp = (string) file_get_contents(dirname(__DIR__) . '/admin/orders/view.php');
 ok(substr_count($viewPhp, '<form') === 2, 'Status form + separate Cashfree refresh form (no nested forms)');
-ok(str_contains($viewPhp, 'lg:grid-cols-3') && str_contains($viewPhp, 'lg:col-span-2'), 'Order detail retains two-column desktop grid');
+ok(
+    str_contains($viewPhp, 'at-admin-order-detail__layout')
+    && str_contains($viewPhp, 'at-admin-order-detail__main')
+    && str_contains($viewPhp, 'at-admin-order-detail__aside'),
+    'Order detail retains two-column desktop layout (scoped grid)'
+);
+ok(str_contains($viewPhp, 'at-admin-order-recon'), 'Reconciliation panel uses scoped admin order classes');
 ok(str_contains($viewPhp, 'refresh_cashfree_payment'), 'Cashfree refresh action preserved');
 ok(str_contains($viewPhp, 'form="admin-order-refresh-cashfree"'), 'Refresh button targets external form');
 ok(!preg_match('/<form[^>]*>\s*<form/s', $viewPhp), 'No nested form elements');

@@ -95,9 +95,10 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
 ?>
 <p class="mb-4 text-sm"><a class="underline at-focusable" href="<?= Security::escape(url_base()) ?>/admin/orders/index.php">← Back to orders</a></p>
 
-<form method="post" class="grid lg:grid-cols-3 gap-4">
+<div class="at-admin-order-detail">
+<form method="post" class="at-admin-order-detail__layout">
     <?= Csrf::field() ?>
-    <div class="lg:col-span-2 space-y-4">
+    <div class="at-admin-order-detail__main">
         <div class="at-card"><div class="at-card__body text-sm space-y-2">
             <p><strong>Customer:</strong>
                 <?= Security::escape(trim((string) ($order['customer_name'] ?? '')) !== '' ? (string) $order['customer_name'] : 'Guest') ?>
@@ -177,54 +178,54 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
             : [];
         ?>
         <?php if ($paymentRecovery !== null): ?>
-        <div class="at-card border-amber-200 bg-amber-50/40"><div class="at-card__body space-y-3">
-            <h3 class="font-bold text-amber-950">Payment captured — fulfilment reconciliation</h3>
-            <p class="text-sm">Cashfree captured <strong><?= Security::escape(catalogue_format_price((float) $paymentRecovery['captured_amount_inr'])) ?></strong>.
-                Do not create another payment session. Assign a delivery slot and complete fulfilment below.</p>
-            <p class="text-sm at-muted"><strong>Failure:</strong> <?= Security::escape((string) $paymentRecovery['failure_reason']) ?></p>
-            <p class="text-xs font-mono at-muted">Gateway payment: <?= Security::escape((string) $paymentRecovery['gateway_payment_id']) ?></p>
-            <?php if ($recoverySlots === []): ?>
-                <p class="text-sm at-alert at-alert--warn">No replacement slots with capacity right now. Free capacity or add a slot, then retry.</p>
-            <?php else: ?>
-                <form method="post" class="space-y-3 border-t border-amber-200/80 pt-3">
-                    <?= Csrf::field() ?>
-                    <input type="hidden" name="action" value="recover_payment_fulfilment">
-                    <input type="hidden" name="exception_id" value="<?= (int) $paymentRecovery['exception_id'] ?>">
-                    <label class="at-label" for="recovery_slot_id">Replacement delivery slot</label>
-                    <select id="recovery_slot_id" name="recovery_slot_id" class="at-select at-focusable w-full" required>
-                        <option value="">Choose a slot…</option>
-                        <?php foreach ($recoverySlots as $opt): ?>
-                            <option value="<?= (int) $opt['id'] ?>" data-date="<?= Security::escape((string) $opt['delivery_date']) ?>">
-                                <?= Security::escape((string) $opt['label']) ?> · <?= Security::escape((string) $opt['window']) ?>
-                                · <?= Security::escape((string) $opt['delivery_date']) ?>
-                                (<?= (int) $opt['remaining'] ?> left)
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                    <input type="hidden" name="recovery_delivery_date" id="recovery_delivery_date" value="">
-                    <label class="at-label" for="recovery_confirm_note">Confirmation note (required)</label>
-                    <textarea id="recovery_confirm_note" name="recovery_confirm_note" class="at-textarea at-focusable" rows="2" required
-                              placeholder="e.g. Customer agreed to morning slot 8 Mar after expired hold."></textarea>
-                    <p class="text-xs at-muted">This reserves the slot, re-runs server-side payment completion, and marks the exception resolved. Idempotent if already confirmed.</p>
-                    <button type="submit" class="at-btn at-btn--primary at-focusable" onclick="return confirm('Complete fulfilment for this captured payment with the selected slot?');">
-                        Complete fulfilment with selected slot
-                    </button>
-                </form>
-                <script>
-                (function () {
-                    var sel = document.getElementById('recovery_slot_id');
-                    var dateInput = document.getElementById('recovery_delivery_date');
-                    if (!sel || !dateInput) return;
-                    var sync = function () {
-                        var opt = sel.options[sel.selectedIndex];
-                        dateInput.value = opt && opt.dataset.date ? opt.dataset.date : '';
-                    };
-                    sel.addEventListener('change', sync);
-                    sync();
-                })();
-                </script>
-            <?php endif; ?>
-        </div></div>
+        <section class="at-card at-admin-order-recon" aria-labelledby="at-admin-order-recon-title">
+            <div class="at-card__body at-admin-order-recon__body">
+                <h3 id="at-admin-order-recon-title" class="at-admin-order-recon__title">Payment captured — fulfilment reconciliation</h3>
+                <p class="at-admin-order-recon__lead">Do not create another payment session. Assign a delivery slot and complete fulfilment below.</p>
+                <dl class="at-admin-order-recon__meta">
+                    <div>
+                        <dt>Captured amount</dt>
+                        <dd><?= Security::escape(catalogue_format_price((float) $paymentRecovery['captured_amount_inr'])) ?></dd>
+                    </div>
+                    <div class="at-admin-order-recon__meta--wide">
+                        <dt>Gateway payment</dt>
+                        <dd class="at-admin-order-recon__mono"><?= Security::escape((string) $paymentRecovery['gateway_payment_id']) ?></dd>
+                    </div>
+                </dl>
+                <p class="at-admin-order-recon__failure"><strong>Failure:</strong> <?= Security::escape((string) $paymentRecovery['failure_reason']) ?></p>
+                <?php if ($recoverySlots === []): ?>
+                    <p class="at-alert at-alert--warning at-admin-order-recon__warn">No replacement slots with capacity right now. Free capacity or add a slot, then retry.</p>
+                <?php else: ?>
+                    <div class="at-admin-order-recon__actions">
+                        <input type="hidden" name="exception_id" value="<?= (int) $paymentRecovery['exception_id'] ?>">
+                        <div class="at-admin-order-recon__field">
+                            <label class="at-label" for="recovery_slot_id">Replacement delivery slot</label>
+                            <select id="recovery_slot_id" name="recovery_slot_id" class="at-select at-focusable" required>
+                                <option value="">Choose a slot…</option>
+                                <?php foreach ($recoverySlots as $opt): ?>
+                                    <option value="<?= (int) $opt['id'] ?>" data-date="<?= Security::escape((string) $opt['delivery_date']) ?>">
+                                        <?= Security::escape((string) $opt['label']) ?> · <?= Security::escape((string) $opt['window']) ?>
+                                        · <?= Security::escape((string) $opt['delivery_date']) ?>
+                                        (<?= (int) $opt['remaining'] ?> left)
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <input type="hidden" name="recovery_delivery_date" id="recovery_delivery_date" value="">
+                        <div class="at-admin-order-recon__field">
+                            <label class="at-label" for="recovery_confirm_note">Confirmation note (required)</label>
+                            <textarea id="recovery_confirm_note" name="recovery_confirm_note" class="at-textarea at-focusable" rows="3" required
+                                      placeholder="e.g. Customer agreed to morning slot 8 Mar after expired hold."></textarea>
+                        </div>
+                        <p class="at-admin-order-recon__hint">Reserves the slot, re-runs server-side payment completion, and resolves the exception (idempotent if already confirmed).</p>
+                        <button type="submit" name="action" value="recover_payment_fulfilment" class="at-btn at-btn--primary at-focusable at-admin-order-recon__submit"
+                                onclick="return confirm('Complete fulfilment for this captured payment with the selected slot?');">
+                            Complete fulfilment with selected slot
+                        </button>
+                    </div>
+                <?php endif; ?>
+            </div>
+        </section>
         <?php endif; ?>
 
         <?php if (($order['payments'] ?? []) !== []): ?>
@@ -242,7 +243,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
             && CashfreeGateway::isConfigured();
         ?>
         <div class="at-card"><div class="at-card__body">
-            <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+            <div class="at-admin-order-detail__section-head">
                 <h3 class="font-bold">Payment attempts</h3>
                 <?php if ($canRefreshCashfree): ?>
                     <button type="submit" form="admin-order-refresh-cashfree" name="action" value="refresh_cashfree_payment" class="at-btn at-btn--secondary at-btn--sm at-focusable">Refresh payment status</button>
@@ -291,7 +292,8 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
         <?php endif; ?>
     </div>
 
-    <div class="at-card lg:col-span-1 self-start"><div class="at-card__body space-y-3">
+    <aside class="at-admin-order-detail__aside">
+    <div class="at-card at-admin-order-detail__status-card"><div class="at-card__body space-y-3">
         <h3 class="font-bold">Update status</h3>
         <label class="at-label" for="status">Order status</label>
         <select id="status" name="status" class="at-select at-focusable" required>
@@ -313,8 +315,25 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
         <button type="submit" class="at-btn at-btn--primary at-focusable at-btn--block">Save</button>
         <p class="text-xs at-muted">Payment status is not changed here. Use Payments / Refunds modules for gateway actions.</p>
     </div></div>
+    </aside>
 </form>
 <form method="post" id="admin-order-refresh-cashfree" class="hidden" aria-hidden="true" tabindex="-1">
     <?= Csrf::field() ?>
 </form>
+<?php if ($paymentRecovery !== null && $recoverySlots !== []): ?>
+<script>
+(function () {
+    var sel = document.getElementById('recovery_slot_id');
+    var dateInput = document.getElementById('recovery_delivery_date');
+    if (!sel || !dateInput) return;
+    var sync = function () {
+        var opt = sel.options[sel.selectedIndex];
+        dateInput.value = opt && opt.dataset.date ? opt.dataset.date : '';
+    };
+    sel.addEventListener('change', sync);
+    sync();
+})();
+</script>
+<?php endif; ?>
+</div>
 <?php admin_layout_end(); ?>

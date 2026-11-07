@@ -6634,3 +6634,177 @@ body.at-map-viewer-open { overflow: hidden; }
 @media (min-width: 768px) {
   .at-main--with-bottom-nav { padding-bottom: 0; }
 }
+
+/* Admin order detail (admin/orders/view.php) */
+.at-admin-order-detail {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+.at-admin-order-detail__layout {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+.at-admin-order-detail__main {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+  order: 1;
+}
+.at-admin-order-detail__aside {
+  min-width: 0;
+  order: 5;
+}
+@media (min-width: 1024px) {
+  .at-admin-order-detail__layout {
+    display: grid;
+    grid-template-columns: minmax(0, 68fr) minmax(16rem, 32fr);
+    gap: 1rem 1.25rem;
+    align-items: start;
+  }
+  .at-admin-order-detail__aside {
+    order: 0;
+  }
+  .at-admin-order-detail__status-card {
+    position: sticky;
+    top: 0.75rem;
+  }
+}
+.at-admin-order-detail__section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
+  margin-bottom: 0.5rem;
+}
+.at-admin-order-detail .at-admin-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+@media (max-width: 1023px) {
+  .at-admin-order-detail .at-admin-table-wrap .at-admin-table {
+    min-width: 0;
+    width: 100%;
+  }
+}
+@media (max-width: 767px) {
+  .at-admin-order-detail .at-btn--primary:not(.at-btn--sm),
+  .at-admin-order-detail .at-btn--secondary:not(.at-btn--sm) {
+    width: 100%;
+  }
+}
+.at-admin-order-detail .at-admin-order-recon {
+  border-color: #e8c468;
+  background: var(--at-warning-bg);
+  box-shadow: none;
+}
+.at-admin-order-recon__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+.at-admin-order-recon__title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1.35;
+  color: #7a4e00;
+}
+.at-admin-order-recon__lead {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: var(--at-ink);
+}
+.at-admin-order-recon__meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.35rem 1rem;
+  margin: 0;
+  padding: 0.55rem 0.7rem;
+  background: rgba(255, 255, 255, 0.62);
+  border: 1px solid rgba(232, 196, 104, 0.65);
+  border-radius: var(--at-radius);
+  font-size: 0.8125rem;
+}
+.at-admin-order-recon__meta > div {
+  min-width: 0;
+}
+.at-admin-order-recon__meta dt {
+  margin: 0;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--at-muted);
+}
+.at-admin-order-recon__meta dd {
+  margin: 0.15rem 0 0;
+  font-weight: 700;
+  color: var(--at-ink);
+  overflow-wrap: anywhere;
+}
+.at-admin-order-recon__meta--wide {
+  grid-column: 1 / -1;
+}
+.at-admin-order-recon__mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.at-admin-order-recon__failure {
+  margin: 0;
+  padding: 0.5rem 0.65rem;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  background: rgba(255, 255, 255, 0.55);
+  border-left: 3px solid #d97706;
+  border-radius: 0 var(--at-radius) var(--at-radius) 0;
+}
+.at-admin-order-recon__warn {
+  margin: 0;
+  font-size: 0.875rem;
+}
+.at-admin-order-recon__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid rgba(232, 196, 104, 0.55);
+}
+.at-admin-order-recon__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.at-admin-order-recon__field .at-select,
+.at-admin-order-recon__field .at-textarea {
+  width: 100%;
+  max-width: 100%;
+}
+.at-admin-order-recon__hint {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--at-muted);
+}
+.at-admin-order-recon__submit {
+  align-self: flex-start;
+  margin-top: 0.15rem;
+}
+@media (max-width: 767px) {
+  .at-admin-order-recon__meta {
+    grid-template-columns: 1fr;
+  }
+  .at-admin-order-recon__submit {
+    align-self: stretch;
+    width: 100%;
+  }
+}
