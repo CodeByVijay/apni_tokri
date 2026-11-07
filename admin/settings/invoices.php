@@ -75,6 +75,13 @@ $logoPath = InvoiceSettings::logoPath();
             <div><dt class="at-muted">Legal / business name</dt><dd><?= $h($seller['legal_name'] ?? '—') ?></dd></div>
             <div><dt class="at-muted">Tagline</dt><dd><?= $h($seller['tagline'] ?? '—') ?></dd></div>
             <div><dt class="at-muted">FSSAI</dt><dd><?= $h($seller['fssai'] ?? '—') ?></dd></div>
+            <div><dt class="at-muted">Udyam</dt><dd><?php
+                if (!empty($seller['udyam_number'])) {
+                    echo $h($seller['udyam_number'] . (!empty($seller['udyam_enterprise']) ? ' — ' . $seller['udyam_enterprise'] : ''));
+                } else {
+                    echo '—';
+                }
+            ?></dd></div>
             <div class="sm:col-span-2"><dt class="at-muted">Address</dt><dd><?php
                 $addr = array_filter([
                     $seller['address'] ?? '',

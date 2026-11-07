@@ -166,6 +166,13 @@ final class InvoicePdfRenderer
         if (!empty($seller['fssai'])) {
             $left[] = ['t' => 'FSSAI: ' . $seller['fssai'], 'b' => false, 's' => 8.8, 'c' => self::INK];
         }
+        if (!empty($seller['udyam_number'])) {
+            $udyamLine = 'Udyam Reg.: ' . $seller['udyam_number'];
+            if (!empty($seller['udyam_enterprise'])) {
+                $udyamLine .= ' — ' . $seller['udyam_enterprise'];
+            }
+            $left[] = ['t' => $udyamLine, 'b' => false, 's' => 8.8, 'c' => self::INK];
+        }
         if (!empty($seller['gstin']) && InvoiceSettings::gstMode() !== 'unregistered') {
             $left[] = ['t' => 'GSTIN: ' . $seller['gstin'], 'b' => false, 's' => 8.8, 'c' => self::INK];
         }
@@ -648,6 +655,13 @@ final class InvoicePdfRenderer
         }
         if (!empty($seller['fssai'])) {
             $center('FSSAI: ' . $seller['fssai'], 7, false);
+        }
+        if (!empty($seller['udyam_number'])) {
+            $udyamThermal = 'Udyam: ' . $seller['udyam_number'];
+            if (!empty($seller['udyam_enterprise'])) {
+                $udyamThermal .= ' — ' . $seller['udyam_enterprise'];
+            }
+            $center($udyamThermal, 7, false);
         }
         $rule();
         $center((string) $doc['title'], 10, true);

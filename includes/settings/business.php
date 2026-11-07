@@ -28,6 +28,13 @@ final class BusinessSettings
     public const KEY_SUPPORT_WHATSAPP = 'business.support_whatsapp';
     public const KEY_SUPPORT_EMAIL = 'business.support_email';
     public const KEY_FSSAI_LICENCE = 'business.fssai_licence';
+    public const KEY_UDYAM_ENABLED = 'business.udyam_enabled';
+    public const KEY_UDYAM_NUMBER = 'business.udyam_registration_number';
+    public const KEY_UDYAM_ENTERPRISE = 'business.udyam_enterprise_name';
+    public const KEY_UDYAM_VERIFY_URL = 'business.udyam_verify_url';
+    public const KEY_UDYAM_CERTIFICATE_FILE = 'business.udyam_certificate_file';
+
+    public const DEFAULT_UDYAM_VERIFY_URL = 'https://udyamregistration.gov.in/Udyam_verify.aspx';
 
     public const MIGRATION_INVOICE_IDENTITY = 'business.invoice_identity_migrated_v1';
 
@@ -155,6 +162,104 @@ final class BusinessSettings
         return $v;
     }
 
+    public static function udyamEnabled(): bool
+    {
+        return (AppSettings::get(self::KEY_UDYAM_ENABLED, '') ?? '') === '1';
+    }
+
+    public static function udyamRegistrationNumber(): ?string
+    {
+        $v = strtoupper(trim(AppSettings::get(self::KEY_UDYAM_NUMBER, '') ?? ''));
+
+        return $v !== '' ? $v : null;
+    }
+
+    public static function udyamEnterpriseName(): ?string
+    {
+        $v = trim(AppSettings::get(self::KEY_UDYAM_ENTERPRISE, '') ?? '');
+
+        return $v !== '' ? $v : null;
+    }
+
+    public static function udyamVerifyUrl(): string
+    {
+        $v = trim(AppSettings::get(self::KEY_UDYAM_VERIFY_URL, '') ?? '');
+        if ($v !== '' && filter_var($v, FILTER_VALIDATE_URL) !== false && preg_match('#^https?://#i', $v) === 1) {
+            return $v;
+        }
+
+        return self::DEFAULT_UDYAM_VERIFY_URL;
+    }
+
+    /** Admin reference only — certificate PDF is not exposed on the storefront. */
+    public static function udyamCertificateStoredFile(): ?string
+    {
+        $file = trim(AppSettings::get(self::KEY_UDYAM_CERTIFICATE_FILE, '') ?? '');
+        if ($file === '' || preg_match('/^[a-f0-9]{24}\.pdf$/', $file) !== 1) {
+            return null;
+        }
+
+        return $file;
+    }
+
+    public static function udyamCertificatePath(): ?string
+    {
+        $file = self::udyamCertificateStoredFile();
+        if ($file === null) {
+            return null;
+        }
+        $path = InvoiceStorage::assetDir() . '/' . $file;
+
+        return is_file($path) ? $path : null;
+    }
+
+    /**
+     * Public footer / compliance display when enabled and registration number is set.
+     *
+     * @return array{number: string, enterprise_name: ?string, verify_url: string}|null
+     */
+    public static function udyamPublicDisplay(): ?array
+    {
+        if (!self::udyamEnabled()) {
+            return null;
+        }
+        $number = self::udyamRegistrationNumber();
+        if ($number === null) {
+            return null;
+        }
+
+        return [
+            'number' => $number,
+            'enterprise_name' => self::udyamEnterpriseName(),
+            'verify_url' => self::udyamVerifyUrl(),
+        ];
+    }
+
+    /**
+     * Values frozen onto new invoice snapshots (registration + enterprise only).
+     *
+     * @return array{number: string, enterprise_name: ?string}|null
+     */
+    public static function udyamForInvoice(): ?array
+    {
+        $pub = self::udyamPublicDisplay();
+        if ($pub === null) {
+            return null;
+        }
+
+        return [
+            'number' => $pub['number'],
+            'enterprise_name' => $pub['enterprise_name'],
+        ];
+    }
+
+    public static function isValidUdyamNumber(string $number): bool
+    {
+        $n = strtoupper(trim($number));
+
+        return preg_match('/^UDYAM-[A-Z]{2}-[0-9]{2}-[0-9]{7}$/', $n) === 1;
+    }
+
     /**
      * Public website URL for invoices and business-facing display (not the app deployment URL).
      * Falls back to {@see self::DEFAULT_WEBSITE_URL} when unset or cleared.
@@ -190,6 +295,10 @@ final class BusinessSettings
             'support_email' => trim(AppSettings::get(self::KEY_SUPPORT_EMAIL, '') ?? ''),
             'fssai_licence' => trim(AppSettings::get(self::KEY_FSSAI_LICENCE, '') ?? ''),
             'website_url' => self::websiteUrlForForm(),
+            'udyam_enabled' => self::udyamEnabled() ? '1' : '0',
+            'udyam_registration_number' => trim(AppSettings::get(self::KEY_UDYAM_NUMBER, '') ?? ''),
+            'udyam_enterprise_name' => trim(AppSettings::get(self::KEY_UDYAM_ENTERPRISE, '') ?? ''),
+            'udyam_verify_url' => trim(AppSettings::get(self::KEY_UDYAM_VERIFY_URL, '') ?? ''),
         ];
     }
 
@@ -259,9 +368,10 @@ final class BusinessSettings
 
     /**
      * @param array<string, mixed> $post
+     * @param array<string, mixed>|null $udyamCertificateFile $_FILES['udyam_certificate'] when present
      * @return array{ok: bool, message?: string, errors?: array<string, string>}
      */
-    public static function saveFromPost(array $post): array
+    public static function saveFromPost(array $post, ?array $udyamCertificateFile = null): array
     {
         if (!Install::isSchemaReady()) {
             return ['ok' => false, 'message' => 'Database schema not ready.'];
@@ -286,6 +396,10 @@ final class BusinessSettings
         $email = $state['support_email'];
         $fssai = $state['fssai_licence'];
         $websiteUrl = $state['website_url'];
+        $udyamEnabled = !empty($post['udyam_enabled']) ? '1' : '0';
+        $udyamNumber = strtoupper(trim($state['udyam_registration_number']));
+        $udyamEnterprise = trim($state['udyam_enterprise_name']);
+        $udyamVerifyUrl = trim($state['udyam_verify_url']);
 
         foreach (['store_name' => $storeName, 'legal_name' => $legalName] as $field => $val) {
             if ($val !== '' && mb_strlen($val) > 160) {
@@ -324,6 +438,30 @@ final class BusinessSettings
                 $errors['website_url'] = 'Enter a full http(s) URL, or leave blank to use the default.';
             }
         }
+        if ($udyamEnterprise !== '' && mb_strlen($udyamEnterprise) > 160) {
+            $errors['udyam_enterprise_name'] = 'Enterprise name must be 160 characters or fewer.';
+        }
+        if ($udyamNumber !== '' && !self::isValidUdyamNumber($udyamNumber)) {
+            $errors['udyam_registration_number'] = 'Use format UDYAM-XX-00-0000000 (e.g. UDYAM-MP-09-1234567).';
+        }
+        if ($udyamEnabled === '1' && $udyamNumber === '') {
+            $errors['udyam_registration_number'] = 'Enter the Udyam registration number or disable Udyam display.';
+        }
+        if ($udyamVerifyUrl !== '') {
+            if (filter_var($udyamVerifyUrl, FILTER_VALIDATE_URL) === false || !preg_match('#^https?://#i', $udyamVerifyUrl)) {
+                $errors['udyam_verify_url'] = 'Enter a full http(s) verification URL, or leave blank for the official default.';
+            }
+        }
+
+        $newCert = null;
+        if ($udyamCertificateFile !== null && (int) ($udyamCertificateFile['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
+            $upload = InvoiceStorage::storeUdyamCertificateUpload($udyamCertificateFile);
+            if (!$upload['ok']) {
+                $errors['udyam_certificate'] = (string) ($upload['message'] ?? 'Certificate upload failed.');
+            } else {
+                $newCert = (string) ($upload['file'] ?? '');
+            }
+        }
 
         if ($errors !== []) {
             return ['ok' => false, 'message' => 'Fix the highlighted fields.', 'errors' => $errors];
@@ -340,6 +478,15 @@ final class BusinessSettings
         self::persistField(self::KEY_SUPPORT_EMAIL, $email);
         self::persistField(self::KEY_FSSAI_LICENCE, $fssai);
         self::persistField(self::KEY_WEBSITE_URL, $websiteUrl);
+        AppSettings::set(self::KEY_UDYAM_ENABLED, $udyamEnabled);
+        self::persistField(self::KEY_UDYAM_NUMBER, $udyamNumber);
+        self::persistField(self::KEY_UDYAM_ENTERPRISE, $udyamEnterprise);
+        self::persistField(self::KEY_UDYAM_VERIFY_URL, $udyamVerifyUrl !== '' ? $udyamVerifyUrl : null);
+        if ($newCert !== null && $newCert !== '') {
+            AppSettings::set(self::KEY_UDYAM_CERTIFICATE_FILE, $newCert);
+        } elseif (!empty($post['remove_udyam_certificate'])) {
+            AppSettings::set(self::KEY_UDYAM_CERTIFICATE_FILE, null);
+        }
 
         return ['ok' => true, 'message' => 'Business profile saved.'];
     }

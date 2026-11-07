@@ -18,7 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    $result = BusinessSettings::saveFromPost($_POST);
+    $result = BusinessSettings::saveFromPost($_POST, $_FILES['udyam_certificate'] ?? null);
     if (!empty($result['ok'])) {
         admin_flash_set((string) ($result['message'] ?? 'Business profile saved.'));
     } else {
@@ -40,6 +40,7 @@ if (!empty($_SESSION['business_form_post']) && is_array($_SESSION['business_form
             $form[$k] = trim((string) $posted[$k]);
         }
     }
+    $form['udyam_enabled'] = !empty($posted['udyam_enabled']) ? '1' : '0';
 }
 if (!empty($_SESSION['business_form_errors']) && is_array($_SESSION['business_form_errors'])) {
     $errors = $_SESSION['business_form_errors'];
@@ -55,7 +56,8 @@ $settingsTab = 'business';
 require APNI_TOKRI_ROOT . '/includes/partials/admin/settings-nav.php';
 ?>
 
-<form method="post" class="grid gap-4 lg:grid-cols-2 max-w-5xl">
+<?php $udyamCertOnFile = BusinessSettings::udyamCertificatePath() !== null; ?>
+<form method="post" enctype="multipart/form-data" class="grid gap-4 lg:grid-cols-2 max-w-5xl">
     <div class="at-card lg:col-span-2">
         <div class="at-card__body space-y-4">
             <?= Csrf::field() ?>
@@ -136,6 +138,47 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/settings-nav.php';
                     <input id="fssai_licence" name="fssai_licence" class="at-input at-focusable" maxlength="64"
                            value="<?= Security::escape($form['fssai_licence']) ?>" placeholder="Shown in footer and on invoices when set">
                     <?php if (isset($errors['fssai_licence'])): ?><p class="text-xs text-red-600 mt-1"><?= Security::escape($errors['fssai_licence']) ?></p><?php endif; ?>
+                </div>
+            </div>
+
+            <h3 class="font-bold">MSME Udyam registration</h3>
+            <p class="text-sm at-muted">Registration number and enterprise name appear in the website footer (when enabled) and on newly generated invoices. Certificate PDF is stored for admin reference only — not published on the storefront.</p>
+            <label class="flex gap-2 text-sm items-start"><input type="checkbox" name="udyam_enabled" value="1" class="mt-1"<?= ($form['udyam_enabled'] ?? '0') === '1' ? ' checked' : '' ?>>
+                <span>Show Udyam registration in footer and on new invoices</span></label>
+            <?php if (isset($errors['udyam_enabled'])): ?><p class="text-xs text-red-600"><?= Security::escape($errors['udyam_enabled']) ?></p><?php endif; ?>
+            <div class="grid md:grid-cols-2 gap-4">
+                <div>
+                    <label class="at-label" for="udyam_registration_number">Udyam registration number</label>
+                    <input id="udyam_registration_number" name="udyam_registration_number" class="at-input at-focusable font-mono" maxlength="32"
+                           value="<?= Security::escape($form['udyam_registration_number'] ?? '') ?>" placeholder="UDYAM-XX-00-0000000">
+                    <?php if (isset($errors['udyam_registration_number'])): ?><p class="text-xs text-red-600 mt-1"><?= Security::escape($errors['udyam_registration_number']) ?></p><?php endif; ?>
+                </div>
+                <div>
+                    <label class="at-label" for="udyam_enterprise_name">Enterprise name (as on certificate)</label>
+                    <input id="udyam_enterprise_name" name="udyam_enterprise_name" class="at-input at-focusable" maxlength="160"
+                           value="<?= Security::escape($form['udyam_enterprise_name'] ?? '') ?>">
+                    <?php if (isset($errors['udyam_enterprise_name'])): ?><p class="text-xs text-red-600 mt-1"><?= Security::escape($errors['udyam_enterprise_name']) ?></p><?php endif; ?>
+                </div>
+                <div class="md:col-span-2">
+                    <label class="at-label" for="udyam_verify_url">Official verification URL</label>
+                    <input id="udyam_verify_url" name="udyam_verify_url" type="url" class="at-input at-focusable" maxlength="500"
+                           value="<?= Security::escape($form['udyam_verify_url'] ?? '') ?>"
+                           placeholder="<?= Security::escape(BusinessSettings::DEFAULT_UDYAM_VERIFY_URL) ?>">
+                    <p class="text-xs at-muted mt-1">Linked from the footer “Verify” action. Leave blank to use the default government URL.</p>
+                    <?php if (isset($errors['udyam_verify_url'])): ?><p class="text-xs text-red-600 mt-1"><?= Security::escape($errors['udyam_verify_url']) ?></p><?php endif; ?>
+                </div>
+                <div class="md:col-span-2 flex flex-wrap items-start gap-4">
+                    <?php if ($udyamCertOnFile): ?>
+                        <span class="text-sm">A Udyam certificate PDF is on file (admin only).</span>
+                        <label class="flex gap-2 text-sm"><input type="checkbox" name="remove_udyam_certificate" value="1"> Remove stored certificate</label>
+                    <?php else: ?>
+                        <span class="text-sm at-muted">Optional: upload the Udyam certificate PDF for your records.</span>
+                    <?php endif; ?>
+                    <div class="min-w-[16rem] flex-1">
+                        <label class="at-label" for="udyam_certificate">Udyam certificate (PDF, max 2 MB)</label>
+                        <input id="udyam_certificate" type="file" name="udyam_certificate" accept="application/pdf" class="at-input at-focusable !py-2">
+                        <?php if (isset($errors['udyam_certificate'])): ?><p class="text-xs text-red-600 mt-1"><?= Security::escape($errors['udyam_certificate']) ?></p><?php endif; ?>
+                    </div>
                 </div>
             </div>
 

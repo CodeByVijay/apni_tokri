@@ -100,6 +100,9 @@ foreach ($cmsFooterLinks as $cmsFooterLink) {
                 <?php $fssai = BusinessSettings::fssaiLicence(); if ($fssai !== null): ?>
                     <span class="block sm:inline sm:ml-2">FSSAI Lic. No. <?= Security::escape($fssai) ?></span>
                 <?php endif; ?>
+                <?php $udyam = BusinessSettings::udyamPublicDisplay(); if ($udyam !== null): ?>
+                    <span class="block sm:inline sm:ml-2">Udyam <?= Security::escape($udyam['number']) ?><?php if (!empty($udyam['enterprise_name'])): ?> (<?= Security::escape($udyam['enterprise_name']) ?>)<?php endif; ?> · <a href="<?= Security::escape($udyam['verify_url']) ?>" class="underline at-focusable" rel="noopener noreferrer" target="_blank">Verify</a></span>
+                <?php endif; ?>
             </span>
             <?php if (AppEnvironment::allowsStorefrontDevelopmentLinks()): ?>
             <span>

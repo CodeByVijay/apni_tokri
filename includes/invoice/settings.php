@@ -89,8 +89,15 @@ final class InvoiceSettings
             'email' => BusinessSettings::supportEmail(),
             'website' => BusinessSettings::websiteUrl(),
             'fssai' => BusinessSettings::fssaiLicence(),
+            'udyam_number' => null,
+            'udyam_enterprise' => null,
             'gstin' => null,
         ];
+        $udyam = BusinessSettings::udyamForInvoice();
+        if ($udyam !== null) {
+            $s['udyam_number'] = $udyam['number'];
+            $s['udyam_enterprise'] = $udyam['enterprise_name'];
+        }
         foreach ($s as $k => $v) {
             if ($v === '') {
                 $s[$k] = null;

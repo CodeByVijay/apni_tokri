@@ -205,4 +205,34 @@ final class InvoiceStorage
 
         return ['ok' => true, 'file' => $name];
     }
+
+    /**
+     * Admin-only PDF asset (e.g. Udyam certificate). Stored under private invoice assets — not web-served.
+     *
+     * @param array<string, mixed> $file $_FILES entry
+     * @return array{ok: bool, file?: string, message?: string}
+     */
+    public static function storeUdyamCertificateUpload(array $file): array
+    {
+        if ((int) ($file['error'] ?? 0) !== UPLOAD_ERR_OK || !is_uploaded_file((string) ($file['tmp_name'] ?? ''))) {
+            return ['ok' => false, 'message' => 'Certificate upload failed.'];
+        }
+        $tmp = (string) $file['tmp_name'];
+        $size = (int) ($file['size'] ?? 0);
+        if ($size <= 0 || $size > 2 * 1024 * 1024) {
+            return ['ok' => false, 'message' => 'Certificate PDF must be 2 MB or smaller.'];
+        }
+        $head = @file_get_contents($tmp, false, null, 0, 8);
+        if ($head === false || strncmp($head, '%PDF-', 5) !== 0) {
+            return ['ok' => false, 'message' => 'Certificate must be a PDF file.'];
+        }
+        $name = bin2hex(random_bytes(12)) . '.pdf';
+        $dest = self::assetDir() . '/' . $name;
+        if (!@move_uploaded_file($tmp, $dest)) {
+            return ['ok' => false, 'message' => 'Could not store certificate.'];
+        }
+        @chmod($dest, 0640);
+
+        return ['ok' => true, 'file' => $name];
+    }
 }
