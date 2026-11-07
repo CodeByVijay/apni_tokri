@@ -2777,6 +2777,27 @@ body.at-gallery-lightbox-open {
   justify-content: center;
 }
 
+/* Contact email — full width, same field rhythm as .at-addr-form inputs */
+.at-checkout-block > div:has(#checkout-customer-email) {
+  width: 100%;
+  max-width: none;
+  margin-top: 1rem;
+}
+.at-checkout-block > div:has(#checkout-customer-email) .at-label {
+  margin-bottom: 0.375rem;
+}
+.at-checkout-block > div:has(#checkout-customer-email) #checkout-customer-email {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.at-checkout-block > div:has(#checkout-customer-email) > p {
+  margin-top: 0.25rem;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--at-muted);
+}
+
 /* ------------------------------------------------ 12 SUPPORT / REVIEWS */
 .at-review {
   padding: 1.25rem;
