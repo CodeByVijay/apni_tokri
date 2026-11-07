@@ -32,6 +32,8 @@ ok(str_contains($checkoutPhp, 'AT_CHECKOUT'), 'Checkout exposes quote AJAX confi
 ok(str_contains($checkoutPhp, 'data-at-quote-ready'), 'Proceed to pay gated on quote readiness');
 ok(str_contains($cartJs, 'initCheckoutQuote'), 'Checkout quote listener registered');
 ok(str_contains($cartJs, 'quoteSeq'), 'Stale quote responses ignored via sequence');
+ok(!str_contains($checkoutPhp, 'at-addr-card<?= $isSel ? \' is-selected\''), 'Checkout address cards do not bake static is-selected');
+ok(str_contains($checkoutPhp, 'syncAddressSelection'), 'Checkout syncs address card selection styling');
 
 if (Install::isSchemaReady()) {
     Install::ensureConnection();

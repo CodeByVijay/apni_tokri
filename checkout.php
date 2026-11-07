@@ -205,7 +205,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
                 <?php if ($addresses !== []): ?>
                     <div class="grid gap-3" role="radiogroup" aria-label="Saved delivery addresses">
                         <?php foreach ($addressRows as $addr): $isSel = (string) $addr['id'] === $selectedAddressId; $pinOk = AddressInput::hasPin($addr); ?>
-                            <label class="at-addr-card<?= $isSel ? ' is-selected' : '' ?>">
+                            <label class="at-addr-card">
                                 <input type="radio" name="address_id" value="<?= (int) $addr['id'] ?>" class="mt-1" form="checkout-form" <?= $isSel ? 'checked' : '' ?>>
                                 <span class="at-addr-card__body">
                                     <?= at_address_summary_html($addr) ?>
@@ -370,18 +370,28 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
 <?php if ($dbAddressMode): ?>
 <script>
 (function () {
-    // Keep "Edit selected address" / "Change delivery location" pointed at the checked card.
-    var radios = document.querySelectorAll('input[name="address_id"][form="checkout-form"]');
     var links = document.querySelectorAll('[data-checkout-edit]');
-    function sync() {
+    function syncAddressSelection() {
+        var cards = document.querySelectorAll('label.at-addr-card');
         var sel = document.querySelector('input[name="address_id"][form="checkout-form"]:checked');
-        if (!sel) { return; }
-        for (var i = 0; i < links.length; i++) {
-            links[i].href = links[i].href.replace(/edit_address=\d+/, 'edit_address=' + sel.value);
+        for (var i = 0; i < cards.length; i++) {
+            var radio = cards[i].querySelector('input[type="radio"][name="address_id"]');
+            cards[i].classList.toggle('is-selected', !!(radio && sel && radio === sel));
+        }
+        if (sel) {
+            for (var j = 0; j < links.length; j++) {
+                links[j].href = links[j].href.replace(/edit_address=\d+/, 'edit_address=' + sel.value);
+            }
         }
     }
-    for (var i = 0; i < radios.length; i++) { radios[i].addEventListener('change', sync); }
-    sync();
+    document.addEventListener('change', function (e) {
+        var t = e.target;
+        if (t && t.matches && t.matches('input[name="address_id"][form="checkout-form"]')) {
+            syncAddressSelection();
+        }
+    });
+    window.addEventListener('pageshow', syncAddressSelection);
+    syncAddressSelection();
 })();
 </script>
 <?php endif; ?>
