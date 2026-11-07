@@ -168,6 +168,8 @@ require_once APNI_TOKRI_ROOT . '/includes/seo/resolver.php';
 require_once APNI_TOKRI_ROOT . '/includes/seo/redirect_path.php';
 require_once APNI_TOKRI_ROOT . '/includes/seo/redirect_repository.php';
 require_once APNI_TOKRI_ROOT . '/includes/seo/redirect_service.php';
+require_once APNI_TOKRI_ROOT . '/includes/seo/not_found_log.php';
+require_once APNI_TOKRI_ROOT . '/includes/seo/admin_center.php';
 require_once APNI_TOKRI_ROOT . '/includes/seo/sitemap.php';
 require_once APNI_TOKRI_ROOT . '/includes/seo/robots.php';
 require_once APNI_TOKRI_ROOT . '/includes/seo/json_ld.php';

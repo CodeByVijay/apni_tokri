@@ -4461,6 +4461,37 @@ body.at-gallery-lightbox-open {
   padding: 1rem;
   background: var(--at-paper);
 }
+.at-seo-center-tabs {
+  overflow-x: auto;
+  flex-wrap: nowrap;
+  max-width: 100%;
+  padding-bottom: 0.25rem;
+}
+.at-seo-preview {
+  border: 1px solid var(--at-line);
+  border-radius: var(--at-radius);
+  padding: 1rem 1.1rem;
+  background: #fff;
+  max-width: 36rem;
+}
+.at-seo-preview__title {
+  color: #1a0dab;
+  font-size: 1.125rem;
+  line-height: 1.3;
+  margin: 0 0 0.15rem;
+}
+.at-seo-preview__url {
+  color: #006621;
+  font-size: 0.8125rem;
+  margin: 0 0 0.35rem;
+  word-break: break-all;
+}
+.at-seo-preview__desc {
+  color: #545454;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  margin: 0;
+}
 
 /* Status pills used in admin tables and customer order lists */
 .at-status {

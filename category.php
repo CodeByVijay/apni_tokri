@@ -26,6 +26,7 @@ $category = $catalogue->category($slug);
 $loadCatalogueJs = true;
 
 if ($category === null) {
+    SeoNotFoundLog::recordCurrentRequest();
     http_response_code(404);
     layout_public_start(['seo' => SeoResolver::notFound(), 'activeNav' => 'categories']);
     require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';

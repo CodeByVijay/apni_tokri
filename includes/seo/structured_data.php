@@ -17,11 +17,40 @@ final class SeoStructuredData
             return null;
         }
         $name = SeoUrl::siteName();
-        $graph->add([
+        $org = [
             '@type' => 'Organization',
-            'name' => $name,
+            'name' => BusinessSettings::legalName(),
             'url' => $siteUrl,
-        ]);
+        ];
+        $phone = BusinessSettings::supportPhoneDisplay();
+        if ($phone !== null && $phone !== '') {
+            $org['telephone'] = $phone;
+        }
+        $email = BusinessSettings::supportEmail();
+        if ($email !== null && $email !== '') {
+            $org['email'] = $email;
+        }
+        $street = BusinessSettings::addressLine();
+        $city = BusinessSettings::city();
+        if ($street !== null && $street !== '' && $city !== null && $city !== '') {
+            $org['address'] = array_filter([
+                '@type' => 'PostalAddress',
+                'streetAddress' => $street,
+                'addressLocality' => $city,
+                'addressRegion' => BusinessSettings::state(),
+                'postalCode' => BusinessSettings::pincode(),
+                'addressCountry' => 'IN',
+            ], static fn ($v) => $v !== null && $v !== '');
+        }
+        $hours = trim(AppSettings::get(SeoAdminCenter::KEY_LOCAL_HOURS, '') ?? '');
+        if ($hours !== '') {
+            $org['openingHours'] = $hours;
+        }
+        $area = trim(AppSettings::get(SeoAdminCenter::KEY_LOCAL_SERVICE_AREA, '') ?? '');
+        if ($area !== '') {
+            $org['areaServed'] = $area;
+        }
+        $graph->add($org);
         $website = [
             '@type' => 'WebSite',
             'name' => $name,

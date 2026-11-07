@@ -9,6 +9,7 @@ Security::sendSecurityHeaders(Security::isHttps());
 $slug = isset($_GET['slug']) && is_string($_GET['slug']) ? trim($_GET['slug']) : '';
 
 if ($slug === '' || !Validation::slug($slug)) {
+    SeoNotFoundLog::recordCurrentRequest();
     http_response_code(404);
     layout_public_start(['seo' => SeoResolver::notFound(), 'activeNav' => '']);
     $emptyTitle = 'Page not found';
@@ -24,6 +25,7 @@ if ($slug === '' || !Validation::slug($slug)) {
 }
 
 if (!CmsPageService::schemaReady()) {
+    SeoNotFoundLog::recordCurrentRequest();
     http_response_code(404);
     layout_public_start(['seo' => SeoResolver::notFound(), 'activeNav' => '']);
     $emptyTitle = 'Page not found';
@@ -35,6 +37,7 @@ if (!CmsPageService::schemaReady()) {
 
 $row = CmsPageRepository::findBySlug($slug);
 if ($row === null) {
+    SeoNotFoundLog::recordCurrentRequest();
     http_response_code(404);
     layout_public_start(['seo' => SeoResolver::notFound(), 'activeNav' => '']);
     $emptyTitle = 'Page not found';

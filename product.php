@@ -12,6 +12,7 @@ $product = $slug !== '' ? demo_catalogue()->product($slug) : null;
 $loadCatalogueJs = true;
 
 if ($product === null) {
+    SeoNotFoundLog::recordCurrentRequest();
     http_response_code(404);
     layout_public_start(['seo' => SeoResolver::notFound(), 'activeNav' => '']);
     require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';

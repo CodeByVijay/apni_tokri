@@ -30,7 +30,7 @@ final class OrderRepository
 
         return "(CASE
             WHEN {$a}.payment_status = 'failed' OR {$a}.status = 'payment_failed' THEN 'payment_failed'
-            WHEN {$a}.status IN ('delivered','partially_refunded','refunded') THEN {$a}.status
+            WHEN {$a}.status IN ('delivered','partially_refunded','refunded','cancelled') THEN {$a}.status
             WHEN {$a}.payment_status = 'paid' OR {$a}.status = 'confirmed' THEN 'confirmed'
             ELSE {$a}.status END)";
     }
@@ -313,11 +313,16 @@ final class OrderRepository
         if ($paymentStatus === 'failed' || $status === 'payment_failed') {
             return 'payment_failed';
         }
-        if (in_array($status, [OrderStatus::DELIVERED, OrderStatus::PARTIALLY_REFUNDED, OrderStatus::REFUNDED], true)) {
+        if (in_array($status, [
+            OrderStatus::DELIVERED,
+            OrderStatus::PARTIALLY_REFUNDED,
+            OrderStatus::REFUNDED,
+            OrderStatus::CANCELLED,
+        ], true)) {
             return $status;
         }
-        if ($paymentStatus === 'paid' || $status === 'confirmed') {
-            return 'confirmed';
+        if ($paymentStatus === 'paid' || $status === OrderStatus::CONFIRMED) {
+            return OrderStatus::CONFIRMED;
         }
 
         return $status;

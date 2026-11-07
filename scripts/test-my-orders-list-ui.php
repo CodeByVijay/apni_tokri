@@ -100,7 +100,7 @@ foreach ([
     ['PEND', 'pending_payment', 'pending'],
     ['CONF', 'confirmed', 'paid'],
     ['DELV', 'delivered', 'paid'],
-    ['CANC', 'cancelled', 'pending'],
+    ['CANC', 'cancelled', 'paid'],
     ['FAIL', 'payment_failed', 'failed'],
 ] as [$k, $st, $pay]) {
     $n = 'UI-' . $tok . '-' . $k;
@@ -132,6 +132,25 @@ try {
     okOrd(OrderRepository::listForCustomer($cidA, 1, 2, null)['total_pages'] === 3, 'Unfiltered pagination unchanged (5 orders / 2 per page = 3)');
     okOrd(OrderRepository::statusCountsForCustomer($cidB)['all'] === 1, 'Other customer counts are isolated');
     okOrd(OrderRepository::forCustomerByNumber($numbers['CONF'], $cidB) === null, 'Ownership check unchanged: other customer cannot load order');
+
+    $detailCancelled = OrderRepository::forCustomerDetail($numbers['CANC'], $cidA);
+    okOrd($detailCancelled !== null && ($detailCancelled['status'] ?? '') === 'cancelled', 'Detail: cancelled+paid shows cancelled badge status');
+    $summaryCancelled = null;
+    foreach (OrderRepository::listForCustomer($cidA, 1, 20, 'cancelled')['rows'] as $row) {
+        if (($row['id'] ?? '') === $numbers['CANC']) {
+            $summaryCancelled = $row;
+            break;
+        }
+    }
+    okOrd($summaryCancelled !== null && ($summaryCancelled['status'] ?? '') === 'cancelled', 'List card: cancelled+paid maps to cancelled');
+
+    $cidC = $mkCustomer('C-refund');
+    $refundDoneNum = 'UI-' . $tok . '-CANREF';
+    $mkOrder($cidC, $refundDoneNum, 'cancelled', 'refunded');
+    $countsC = OrderRepository::statusCountsForCustomer($cidC);
+    okOrd($countsC['cancelled'] === 1 && $countsC['all'] === 1, 'Cancelled count with payment_status refunded');
+    $pdo->prepare('DELETE FROM orders WHERE order_number = ?')->execute([$refundDoneNum]);
+    $pdo->prepare('DELETE FROM customers WHERE id = ?')->execute([$cidC]);
 } finally {
     $in = implode(',', array_fill(0, 6, '?'));
     $pdo->prepare('DELETE FROM orders WHERE order_number IN (' . $in . ')')->execute(array_merge(array_values($numbers), [$otherNum]));

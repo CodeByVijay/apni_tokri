@@ -18,6 +18,18 @@ final class SeoRobots
         foreach (self::disallowPaths() as $path) {
             $lines[] = 'Disallow: ' . $path;
         }
+        $extra = trim(AppSettings::get(SeoAdminCenter::KEY_ROBOTS_EXTRA, '') ?? '');
+        if ($extra !== '') {
+            $check = SeoAdminCenter::validateRobotsExtra($extra);
+            if ($check['ok'] && ($check['lines'] ?? '') !== '') {
+                foreach (explode("\n", (string) $check['lines']) as $line) {
+                    $line = trim($line);
+                    if ($line !== '') {
+                        $lines[] = $line;
+                    }
+                }
+            }
+        }
         $lines[] = 'Sitemap: ' . self::sitemapAbsoluteUrl();
         $lines[] = '';
 

@@ -14,7 +14,26 @@ $locale = Lang::locale();
     <meta name="csrf-token" content="<?= Security::escape(Csrf::token()) ?>">
     <link rel="icon" href="<?= Security::escape(BrandingSettings::faviconUrl()) ?>" sizes="any">
     <title><?= Security::escape($seo->documentTitle) ?></title>
+    <?php
+    $gscMeta = SeoAdminCenter::gscVerificationMeta();
+    if ($gscMeta !== null): ?>
+    <meta name="google-site-verification" content="<?= Security::escape($gscMeta) ?>">
+    <?php endif; ?>
     <?= $seo->renderHeadTags() ?>
+    <?php
+    $gtmId = SeoAdminCenter::gtmEnabled() ? SeoAdminCenter::gtmContainerId() : null;
+    $ga4Id = $gtmId === null ? SeoAdminCenter::ga4MeasurementId() : null;
+    if ($gtmId !== null): ?>
+    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer',<?= json_encode($gtmId, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>);</script>
+    <?php elseif ($ga4Id !== null): ?>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=<?= Security::escape($ga4Id) ?>"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', <?= json_encode($ga4Id, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>);
+    </script>
+    <?php endif; ?>
     <?php if (isset($jsonLd) && $jsonLd instanceof SeoJsonLd && !$jsonLd->isEmpty()): ?>
     <?= $jsonLd->renderScriptTag() ?>
     <?php endif; ?>
