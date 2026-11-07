@@ -5,6 +5,71 @@ declare(strict_types=1);
 final class OrderRepository
 {
     /**
+     * Customer list filter chips → public status values (same mapping as publicStatus()).
+     *
+     * @var array<string, list<string>>
+     */
+    public const LIST_BUCKETS = [
+        'processing' => ['pending_payment', 'accepted', 'preparing', 'ready', 'out_for_delivery', 'delivery_exception'],
+        'confirmed' => ['confirmed'],
+        'delivered' => ['delivered'],
+        'cancelled' => ['cancelled'],
+    ];
+
+    public static function normalizeListBucket(?string $bucket): ?string
+    {
+        $bucket = strtolower(trim((string) $bucket));
+
+        return isset(self::LIST_BUCKETS[$bucket]) ? $bucket : null;
+    }
+
+    /** SQL expression equivalent to {@see publicStatus()} for alias $alias. */
+    private static function publicStatusSql(string $alias): string
+    {
+        $a = $alias;
+
+        return "(CASE
+            WHEN {$a}.payment_status = 'failed' OR {$a}.status = 'payment_failed' THEN 'payment_failed'
+            WHEN {$a}.status IN ('delivered','partially_refunded','refunded') THEN {$a}.status
+            WHEN {$a}.payment_status = 'paid' OR {$a}.status = 'confirmed' THEN 'confirmed'
+            ELSE {$a}.status END)";
+    }
+
+    private static function bucketStatusPlaceholders(string $bucket): string
+    {
+        return implode(',', array_fill(0, count(self::LIST_BUCKETS[$bucket]), '?'));
+    }
+
+    /**
+     * Counts for the My Orders filter chips (own orders only).
+     *
+     * @return array{all: int, processing: int, confirmed: int, delivered: int, cancelled: int}
+     */
+    public static function statusCountsForCustomer(int $customerId): array
+    {
+        $out = ['all' => 0, 'processing' => 0, 'confirmed' => 0, 'delivered' => 0, 'cancelled' => 0];
+        if ($customerId <= 0) {
+            return $out;
+        }
+        Install::ensureConnection();
+        $stmt = Database::pdo()->prepare(
+            'SELECT ' . self::publicStatusSql('o') . ' AS pub, COUNT(*) AS c FROM orders o WHERE o.customer_id = ? GROUP BY pub'
+        );
+        $stmt->execute([$customerId]);
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $n = (int) $row['c'];
+            $out['all'] += $n;
+            foreach (self::LIST_BUCKETS as $key => $statuses) {
+                if (in_array((string) $row['pub'], $statuses, true)) {
+                    $out[$key] += $n;
+                }
+            }
+        }
+
+        return $out;
+    }
+
+    /**
      * Paginated order list for the authenticated customer (newest first).
      *
      * @return array{rows: list<array<string, mixed>>, total: int, page: int, per_page: int, total_pages: int}
@@ -12,7 +77,8 @@ final class OrderRepository
     public static function listForCustomer(
         int $customerId,
         int $page = 1,
-        int $perPage = AccountListPagination::DEFAULT_PER_PAGE
+        int $perPage = AccountListPagination::DEFAULT_PER_PAGE,
+        ?string $bucket = null
     ): array {
         Install::ensureConnection();
         $norm = AccountListPagination::normalize($page, $perPage, true);
@@ -20,26 +86,31 @@ final class OrderRepository
             return AccountListPagination::emptyResult($norm['unlimited'] ? AccountListPagination::DEFAULT_PER_PAGE : $norm['per_page']);
         }
 
+        $bucket = self::normalizeListBucket($bucket);
+        $bucketSql = $bucket !== null ? ' AND ' . self::publicStatusSql('o') . ' IN (' . self::bucketStatusPlaceholders($bucket) . ')' : '';
+        $bucketParams = $bucket !== null ? self::LIST_BUCKETS[$bucket] : [];
+
         $pdo = Database::pdo();
-        $countStmt = $pdo->prepare('SELECT COUNT(*) FROM orders WHERE customer_id = ?');
-        $countStmt->execute([$customerId]);
+        $countStmt = $pdo->prepare('SELECT COUNT(*) FROM orders o WHERE o.customer_id = ?' . $bucketSql);
+        $countStmt->execute(array_merge([$customerId], $bucketParams));
         $total = (int) $countStmt->fetchColumn();
         if ($total === 0) {
             return AccountListPagination::emptyResult($norm['unlimited'] ? AccountListPagination::DEFAULT_PER_PAGE : $norm['per_page']);
         }
 
+        $params = array_merge([$customerId], $bucketParams);
         if ($norm['unlimited']) {
             $pageNum = 1;
             $per = 0;
             $limitSql = '';
-            $params = [$customerId];
         } else {
             $totalPages = AccountListPagination::totalPages($total, $norm['per_page']);
             $pageNum = AccountListPagination::clampPage($norm['page'], $totalPages);
             $per = $norm['per_page'];
             $offset = ($pageNum - 1) * $per;
             $limitSql = ' LIMIT ? OFFSET ?';
-            $params = [$customerId, $per, $offset];
+            $params[] = $per;
+            $params[] = $offset;
         }
 
         $stmt = $pdo->prepare(
@@ -47,7 +118,7 @@ final class OrderRepository
                     o.placed_at, o.created_at, COALESCE(SUM(oi.quantity), 0) AS item_qty
              FROM orders o
              LEFT JOIN order_items oi ON oi.order_id = o.id
-             WHERE o.customer_id = ?
+             WHERE o.customer_id = ?' . $bucketSql . '
              GROUP BY o.id
              ORDER BY COALESCE(o.placed_at, o.created_at) DESC, o.id DESC' . $limitSql
         );

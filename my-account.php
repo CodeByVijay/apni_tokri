@@ -13,18 +13,31 @@ if (!CustomerService::isLoggedIn()) {
 }
 
 $p = CustomerService::profile();
-$orders = CustomerService::orders();
 $addresses = CustomerService::addresses();
-$latest = $orders[0] ?? null;
 $base = url_base();
 
 $activeSubCount = 0;
+$subscriptionTotal = 0;
 $latestSub = null;
 $customerId = CustomerAuth::id();
-if ($customerId !== null && AppEnvironment::usePersistedStorefront()) {
+$persisted = $customerId !== null && AppEnvironment::usePersistedStorefront();
+if ($persisted) {
+    $orderPage = OrderRepository::listForCustomer($customerId, 1, 2);
+    $recentOrders = $orderPage['rows'];
+    $orderTotal = (int) $orderPage['total'];
     $activeSubCount = CustomerSubscriptionRepository::countActiveForCustomer($customerId);
+    $subscriptionTotal = (int) CustomerSubscriptionRepository::listForCustomer($customerId, 1, 1)['total'];
     $latestSub = CustomerSubscriptionRepository::findLatestForCustomer($customerId);
+} else {
+    $sessionOrders = CustomerService::orders();
+    $recentOrders = array_slice($sessionOrders, 0, 2);
+    $orderTotal = count($sessionOrders);
 }
+$latest = $recentOrders[0] ?? null;
+$profileName = trim((string) ($p['name'] ?? ''));
+$profileMobile = trim((string) ($p['mobile'] ?? ''));
+$profileEmail = trim((string) ($p['email'] ?? ''));
+$profileInitial = $profileName !== '' ? mb_strtoupper(mb_substr($profileName, 0, 1)) : '?';
 
 layout_public_start([
     'pageTitle' => 'My account — Veggie Tokri',
@@ -35,13 +48,18 @@ $accountTitle = 'Hello, ' . ($p['name'] ?? 'there');
 $accountSub = (string) ($p['mobile'] ?? '');
 require APNI_TOKRI_ROOT . '/includes/partials/account-shell-start.php';
 ?>
-<div class="grid sm:grid-cols-3 gap-3">
-    <div class="at-stat"><small>Orders</small><strong><?= count($orders) ?></strong></div>
+<?php
+// Mobile Account Hub (<768px); desktop keeps the sidebar + sections below.
+require APNI_TOKRI_ROOT . '/includes/partials/account-hub.php';
+?>
+
+<div class="grid sm:grid-cols-3 gap-3 at-hub-desktop-only">
+    <div class="at-stat"><small>Orders</small><strong><?= (int) $orderTotal ?></strong></div>
     <div class="at-stat"><small>Active subscriptions</small><strong><?= (int) $activeSubCount ?></strong></div>
     <div class="at-stat"><small>Saved addresses</small><strong><?= count($addresses) ?></strong></div>
 </div>
 
-<section class="at-card">
+<section class="at-card at-hub-desktop-only">
     <div class="at-card__body">
         <div class="flex items-center justify-between gap-3">
             <h2 class="at-h3">Latest order</h2>
@@ -95,7 +113,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/account-shell-start.php';
     </div>
 </section>
 
-<section class="at-card">
+<section class="at-card at-hub-desktop-only">
     <div class="at-card__body">
         <div class="flex items-center justify-between gap-3">
             <h2 class="at-h3">Saved addresses</h2>

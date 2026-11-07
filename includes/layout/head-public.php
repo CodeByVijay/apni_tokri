@@ -10,7 +10,7 @@ $locale = Lang::locale();
 <html lang="<?= Security::escape($locale === 'hi' ? 'hi' : 'en') ?>">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="csrf-token" content="<?= Security::escape(Csrf::token()) ?>">
     <link rel="icon" href="<?= Security::escape(BrandingSettings::faviconUrl()) ?>" sizes="any">
     <title><?= Security::escape($seo->documentTitle) ?></title>
