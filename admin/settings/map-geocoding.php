@@ -115,7 +115,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/settings-nav.php';
 
         <hr class="border-neutral-200">
         <h3 class="font-bold">Google Places API</h3>
-        <p class="text-xs at-muted">Enable <strong>Places API</strong> for the key’s project. The key is stored encrypted; leave blank when updating other fields to keep the existing key.</p>
+        <p class="text-xs at-muted">Enable <strong>Places API (New)</strong> for the key’s project. The key is stored encrypted; leave blank when updating other fields to keep the existing key.</p>
         <?php
         $credId = 'google_places_api_key';
         $credName = 'google_places_api_key';

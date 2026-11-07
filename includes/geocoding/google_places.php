@@ -3,19 +3,22 @@
 declare(strict_types=1);
 
 /**
- * Google Places API (server-side only). Autocomplete + Place Details.
+ * Google Places API (New) — server-side only. Autocomplete + Place Details.
  * Key from AppSettings encrypted secret — never sent to the browser.
  *
- * @see https://developers.google.com/maps/documentation/places/web-service/autocomplete
+ * @see https://developers.google.com/maps/documentation/places/web-service/place-autocomplete
+ * @see https://developers.google.com/maps/documentation/places/web-service/place-details
  */
 final class GooglePlacesGeocoder
 {
-    private const AUTOCOMPLETE_URL = 'https://maps.googleapis.com/maps/api/place/autocomplete/json';
-    private const DETAILS_URL = 'https://maps.googleapis.com/maps/api/place/details/json';
+    private const AUTOCOMPLETE_URL = 'https://places.googleapis.com/v1/places:autocomplete';
+    private const PLACE_BASE_URL = 'https://places.googleapis.com/v1/places/';
+    private const AUTOCOMPLETE_FIELD_MASK = 'suggestions.placePrediction.placeId,suggestions.placePrediction.text.text';
+    private const PLACE_DETAILS_FIELD_MASK = 'id,formattedAddress,addressComponents,location';
 
     /**
      * @param list<string> $countries ISO 3166-1 alpha-2 uppercase
-     * @return array{ok: bool, error?: string, predictions?: list<array<string, mixed>>}
+     * @return array{ok: bool, error?: string, predictions?: list<array<string, mixed>>, diagnostic?: array<string, mixed>}
      */
     public static function autocomplete(
         string $input,
@@ -39,32 +42,59 @@ final class GooglePlacesGeocoder
             $input = mb_substr($input, 0, 200);
         }
 
-        $params = [
+        $body = [
             'input' => $input,
-            'key' => $key,
+            'languageCode' => 'en-IN',
+            'locationBias' => [
+                'circle' => [
+                    'center' => [
+                        'latitude' => $biasLat,
+                        'longitude' => $biasLng,
+                    ],
+                    'radius' => 25000.0,
+                ],
+            ],
         ];
-        if ($sessionToken !== null && $sessionToken !== '' && strlen($sessionToken) <= 128) {
-            $params['sessiontoken'] = $sessionToken;
-        }
         if ($countries !== []) {
-            $parts = [];
+            $regions = [];
             foreach ($countries as $c) {
-                $parts[] = 'country:' . strtolower($c);
+                $c = strtoupper(trim($c));
+                if (preg_match('/^[A-Z]{2}$/', $c)) {
+                    $regions[] = strtolower($c);
+                }
             }
-            $params['components'] = implode('|', $parts);
+            if ($regions !== []) {
+                $body['includedRegionCodes'] = array_slice(array_values(array_unique($regions)), 0, 15);
+            }
         }
-        // Circle bias ~25 km
-        $params['location'] = sprintf('%.6f,%.6f', $biasLat, $biasLng);
-        $params['radius'] = '25000';
-        $params['strictbounds'] = 'false';
+        if ($sessionToken !== null && $sessionToken !== '' && strlen($sessionToken) <= 128) {
+            $body['sessionToken'] = $sessionToken;
+        }
 
-        $url = self::AUTOCOMPLETE_URL . '?' . http_build_query($params, '', '&', PHP_QUERY_RFC3986);
+        $res = self::requestJson(
+            'POST',
+            self::AUTOCOMPLETE_URL,
+            $key,
+            $body,
+            self::AUTOCOMPLETE_FIELD_MASK,
+            $timeoutSeconds,
+            'place_autocomplete'
+        );
+        if (empty($res['ok'])) {
+            return $res;
+        }
+        $json = $res['json'] ?? [];
+        $predictions = self::predictionsFromAutocompleteNew(is_array($json) ? $json : []);
 
-        return self::httpJson($url, $timeoutSeconds, 'predictions', 'place_autocomplete');
+        return [
+            'ok' => true,
+            'predictions' => array_slice($predictions, 0, max(1, $limit)),
+            'diagnostic' => $res['diagnostic'] ?? null,
+        ];
     }
 
     /**
-     * @return array{ok: bool, error?: string, place?: array<string, mixed>}
+     * @return array{ok: bool, error?: string, place?: array<string, mixed>, diagnostic?: array<string, mixed>}
      */
     public static function placeDetails(string $placeId, ?string $sessionToken, int $timeoutSeconds, ?string $apiKey): array
     {
@@ -76,116 +106,202 @@ final class GooglePlacesGeocoder
         if ($placeId === '') {
             return ['ok' => false, 'error' => 'Place id is required.'];
         }
-
-        $params = [
-            'place_id' => $placeId,
-            'key' => $key,
-            'fields' => 'address_components,formatted_address,geometry/location,place_id,name',
-        ];
-        if ($sessionToken !== null && $sessionToken !== '' && strlen($sessionToken) <= 128) {
-            $params['sessiontoken'] = $sessionToken;
+        if (str_starts_with($placeId, 'places/')) {
+            $placeId = substr($placeId, strlen('places/'));
         }
-        $url = self::DETAILS_URL . '?' . http_build_query($params, '', '&', PHP_QUERY_RFC3986);
 
-        return self::httpJson($url, $timeoutSeconds, 'result', 'place_details');
+        $url = self::PLACE_BASE_URL . rawurlencode($placeId);
+        if ($sessionToken !== null && $sessionToken !== '' && strlen($sessionToken) <= 128) {
+            $url .= '?' . http_build_query(['sessionToken' => $sessionToken], '', '&', PHP_QUERY_RFC3986);
+        }
+
+        $res = self::requestJson(
+            'GET',
+            $url,
+            $key,
+            null,
+            self::PLACE_DETAILS_FIELD_MASK,
+            $timeoutSeconds,
+            'place_details'
+        );
+        if (empty($res['ok'])) {
+            return $res;
+        }
+        $json = $res['json'] ?? [];
+
+        return [
+            'ok' => true,
+            'place' => is_array($json) ? $json : [],
+            'diagnostic' => $res['diagnostic'] ?? null,
+        ];
     }
 
     /**
-     * Legacy Places Web Service (not Places API New). Query-string `key=` authentication.
-     *
+     * @param array<string, mixed> $json Autocomplete (New) response
+     * @return list<array{place_id: string, description: string}>
+     */
+    private static function predictionsFromAutocompleteNew(array $json): array
+    {
+        $suggestions = isset($json['suggestions']) && is_array($json['suggestions']) ? $json['suggestions'] : [];
+        $out = [];
+        foreach ($suggestions as $row) {
+            if (!is_array($row) || !isset($row['placePrediction']) || !is_array($row['placePrediction'])) {
+                continue;
+            }
+            $pred = $row['placePrediction'];
+            $pid = '';
+            if (isset($pred['placeId']) && is_string($pred['placeId']) && $pred['placeId'] !== '') {
+                $pid = $pred['placeId'];
+            } elseif (isset($pred['place']) && is_string($pred['place']) && $pred['place'] !== '') {
+                $pid = str_starts_with($pred['place'], 'places/') ? substr($pred['place'], 7) : $pred['place'];
+            }
+            $desc = '';
+            if (isset($pred['text']) && is_array($pred['text']) && isset($pred['text']['text']) && is_string($pred['text']['text'])) {
+                $desc = trim($pred['text']['text']);
+            }
+            if ($pid === '' || $desc === '') {
+                continue;
+            }
+            $out[] = [
+                'place_id' => $pid,
+                'description' => $desc,
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param array<string, mixed>|null $body
      * @return array{
      *   ok: bool,
      *   error?: string,
-     *   predictions?: list<array<string, mixed>>,
-     *   place?: array<string, mixed>,
+     *   json?: array<string, mixed>,
      *   diagnostic?: array<string, mixed>
      * }
      */
-    private static function httpJson(string $url, int $timeoutSeconds, string $dataKey, string $operation): array
-    {
+    private static function requestJson(
+        string $method,
+        string $url,
+        string $apiKey,
+        ?array $body,
+        string $fieldMask,
+        int $timeoutSeconds,
+        string $operation
+    ): array {
         $base = App::baseUrl();
-        $ua = 'VeggieTokriGooglePlaces/1.0 (+' . ($base !== '' ? $base : 'https://veggietokri.com') . ')';
-
+        $ua = 'VeggieTokriGooglePlaces/2.0 (+' . ($base !== '' ? $base : 'https://veggietokri.com') . ')';
         $endpointSafe = self::safeEndpointForLog($url);
+        $provider = 'google_places_v1';
+
+        $headers = [
+            'Accept: application/json',
+            'Content-Type: application/json',
+            'X-Goog-Api-Key: ' . $apiKey,
+            'User-Agent: ' . $ua,
+        ];
+        if ($fieldMask !== '') {
+            $headers[] = 'X-Goog-FieldMask: ' . $fieldMask;
+        }
 
         $ch = curl_init($url);
         if ($ch === false) {
-            $diag = self::baseDiagnostic('google_places_legacy', $operation, $endpointSafe, 0, '', '', 'Could not initialise HTTP client.');
+            $diag = self::baseDiagnostic($provider, $operation, $endpointSafe, 0, '', '', 'Could not initialise HTTP client.');
             self::logPlacesDiagnostic($diag, false);
 
             return ['ok' => false, 'error' => 'Could not reach Google Places.', 'diagnostic' => $diag];
         }
-        curl_setopt_array($ch, [
+        $opts = [
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_HTTPHEADER => ['Accept: application/json', 'User-Agent: ' . $ua],
+            CURLOPT_HTTPHEADER => $headers,
             CURLOPT_TIMEOUT => max(3, min(25, $timeoutSeconds)),
             CURLOPT_CONNECTTIMEOUT => min(8, max(3, $timeoutSeconds)),
-        ]);
-        $body = curl_exec($ch);
+            CURLOPT_CUSTOMREQUEST => $method,
+        ];
+        if ($method === 'POST' && $body !== null) {
+            $opts[CURLOPT_POSTFIELDS] = json_encode($body, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        }
+        curl_setopt_array($ch, $opts);
+        $rawBody = curl_exec($ch);
         $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
 
-        if (!is_string($body) || $body === '') {
-            $diag = self::baseDiagnostic('google_places_legacy', $operation, $endpointSafe, $status, '', '', 'Empty response body.');
+        if (!is_string($rawBody) || $rawBody === '') {
+            $diag = self::baseDiagnostic($provider, $operation, $endpointSafe, $status, '', '', 'Empty response body.');
             self::logPlacesDiagnostic($diag, false);
 
             return ['ok' => false, 'error' => 'Empty response from Google Places.', 'diagnostic' => $diag];
         }
         try {
-            $json = json_decode($body, true, 512, JSON_THROW_ON_ERROR);
+            $json = json_decode($rawBody, true, 512, JSON_THROW_ON_ERROR);
         } catch (Throwable $e) {
-            $diag = self::baseDiagnostic('google_places_legacy', $operation, $endpointSafe, $status, '', '', 'JSON decode failed.');
+            $diag = self::baseDiagnostic($provider, $operation, $endpointSafe, $status, '', '', 'JSON decode failed.');
             self::logPlacesDiagnostic($diag, false);
 
             return ['ok' => false, 'error' => 'Invalid response from Google Places.', 'diagnostic' => $diag];
         }
         if (!is_array($json)) {
-            $diag = self::baseDiagnostic('google_places_legacy', $operation, $endpointSafe, $status, '', '', 'Response is not a JSON object.');
+            $diag = self::baseDiagnostic($provider, $operation, $endpointSafe, $status, '', '', 'Response is not a JSON object.');
             self::logPlacesDiagnostic($diag, false);
 
             return ['ok' => false, 'error' => 'Invalid response from Google Places.', 'diagnostic' => $diag];
         }
+
         if ($status < 200 || $status >= 300) {
-            $fallback = isset($json['status']) && is_string($json['status']) ? (string) $json['status'] : 'HTTP_' . $status;
-            $gErrRaw = isset($json['error_message']) && is_string($json['error_message']) ? trim($json['error_message']) : '';
+            [$gStatus, $gErrRaw] = self::extractGoogleError($json);
             $gErrSan = self::sanitizeGoogleErrorMessage($gErrRaw);
-            $token = self::classifyGoogleError($fallback, $gErrSan);
-            $msg = self::formatAdminFacingError($fallback, $gErrSan, $token !== '' ? $token : 'UNKNOWN');
-            $diag = self::baseDiagnostic('google_places_legacy', $operation, $endpointSafe, $status, $fallback, $gErrSan, $token !== '' ? $token : null);
+            $token = self::classifyGoogleError($gStatus, $gErrSan);
+            $msg = self::formatAdminFacingError($gStatus, $gErrSan, $token !== '' ? $token : 'UNKNOWN');
+            $diag = self::baseDiagnostic($provider, $operation, $endpointSafe, $status, $gStatus, $gErrSan, $token !== '' ? $token : null);
             self::logPlacesDiagnostic($diag, false);
 
             return ['ok' => false, 'error' => $msg, 'diagnostic' => $diag];
         }
-        $gStatus = (string) ($json['status'] ?? '');
-        $gErrRaw = isset($json['error_message']) && is_string($json['error_message']) ? trim($json['error_message']) : '';
-        $gErrSan = self::sanitizeGoogleErrorMessage($gErrRaw);
-        if ($gStatus === 'OK' || $gStatus === 'ZERO_RESULTS') {
-            if ($dataKey === 'predictions') {
-                $pred = isset($json['predictions']) && is_array($json['predictions']) ? $json['predictions'] : [];
-                $diag = self::baseDiagnostic('google_places_legacy', $operation, $endpointSafe, $status, $gStatus, $gErrSan, null);
-                self::logPlacesDiagnostic($diag, true);
 
-                return ['ok' => true, 'predictions' => $pred, 'diagnostic' => $diag];
-            }
-            $res = $json['result'] ?? null;
-            $diag = self::baseDiagnostic('google_places_legacy', $operation, $endpointSafe, $status, $gStatus, $gErrSan, null);
-            self::logPlacesDiagnostic($diag, true);
+        if (isset($json['error']) && is_array($json['error'])) {
+            [$gStatus, $gErrRaw] = self::extractGoogleError($json);
+            $gErrSan = self::sanitizeGoogleErrorMessage($gErrRaw);
+            $token = self::classifyGoogleError($gStatus, $gErrSan);
+            $msg = self::formatAdminFacingError($gStatus, $gErrSan, $token !== '' ? $token : 'UNKNOWN');
+            $diag = self::baseDiagnostic($provider, $operation, $endpointSafe, $status, $gStatus, $gErrSan, $token);
+            self::logPlacesDiagnostic($diag, false);
 
-            return ['ok' => true, 'place' => is_array($res) ? $res : [], 'diagnostic' => $diag];
+            return ['ok' => false, 'error' => $msg, 'diagnostic' => $diag];
         }
-        $token = self::classifyGoogleError($gStatus, $gErrSan);
-        $msg = self::formatAdminFacingError($gStatus, $gErrSan, $token);
-        $diag = self::baseDiagnostic('google_places_legacy', $operation, $endpointSafe, $status, $gStatus, $gErrSan, $token);
-        self::logPlacesDiagnostic($diag, false);
 
-        return ['ok' => false, 'error' => $msg, 'diagnostic' => $diag];
+        $diag = self::baseDiagnostic($provider, $operation, $endpointSafe, $status, 'OK', '', null);
+        self::logPlacesDiagnostic($diag, true);
+
+        return ['ok' => true, 'json' => $json, 'diagnostic' => $diag];
+    }
+
+    /**
+     * @param array<string, mixed> $json
+     * @return array{0: string, 1: string}
+     */
+    private static function extractGoogleError(array $json): array
+    {
+        if (isset($json['error']) && is_array($json['error'])) {
+            $err = $json['error'];
+            $status = isset($err['status']) && is_string($err['status']) ? $err['status'] : '';
+            $message = isset($err['message']) && is_string($err['message']) ? trim($err['message']) : '';
+            if ($status === '' && isset($err['code'])) {
+                $status = 'HTTP_' . (string) $err['code'];
+            }
+
+            return [$status, $message];
+        }
+        $status = isset($json['status']) && is_string($json['status']) ? (string) $json['status'] : '';
+        $message = isset($json['error_message']) && is_string($json['error_message']) ? trim($json['error_message']) : '';
+
+        return [$status, $message];
     }
 
     private static function safeEndpointForLog(string $url): string
     {
         $p = parse_url($url);
         if (!is_array($p)) {
-            return 'places_legacy';
+            return 'places_v1';
         }
         $scheme = isset($p['scheme']) && is_string($p['scheme']) ? $p['scheme'] : 'https';
         $host = isset($p['host']) && is_string($p['host']) ? $p['host'] : '';
@@ -236,22 +352,21 @@ final class GooglePlacesGeocoder
         if ($msg === '') {
             return '';
         }
-        // Strip query strings from URLs so key= never appears in logs/UI.
         $msg = preg_replace('/\bkey=[^&\s]+/iu', 'key=[redacted]', $msg) ?? $msg;
 
         return mb_substr($msg, 0, 500);
     }
 
-    /**
-     * Conservative labels only when Google's error_message matches known phrases (not guessing from our generic copy).
-     */
     private static function classifyGoogleError(string $status, string $errorMessage): string
     {
         $m = mb_strtolower($errorMessage);
         if ($status === 'OVER_QUERY_LIMIT' || str_contains($m, 'quota')) {
             return 'QUOTA_EXCEEDED';
         }
-        if ($status === 'REQUEST_DENIED') {
+        if ($status === 'REQUEST_DENIED' || $status === 'PERMISSION_DENIED') {
+            if (str_contains($m, 'legacyapinotactivated') || str_contains($m, 'legacy api')) {
+                return 'API_NOT_ENABLED';
+            }
             if (str_contains($m, 'permission denied') || str_contains($m, 'permission_denied')) {
                 return 'PERMISSION_DENIED';
             }
@@ -259,22 +374,17 @@ final class GooglePlacesGeocoder
                 return 'API_KEY_INVALID';
             }
             if (str_contains($m, 'this api project is not authorized to use this api')
-                || str_contains($m, 'has not been used') || str_contains($m, 'is disabled')) {
+                || str_contains($m, 'has not been used') || str_contains($m, 'is disabled')
+                || str_contains($m, 'service is disabled')) {
                 return 'API_NOT_ENABLED';
             }
             if (str_contains($m, 'billing') || str_contains($m, 'billingenabled')) {
                 return 'BILLING_NOT_ENABLED';
             }
-            if (str_contains($m, 'ip') && str_contains($m, 'restriction')) {
-                return 'REQUEST_DENIED';
-            }
-            if (str_contains($m, 'referer') || str_contains($m, 'referrer')) {
-                return 'REQUEST_DENIED';
-            }
 
             return 'REQUEST_DENIED';
         }
-        if ($status === 'INVALID_REQUEST') {
+        if ($status === 'INVALID_REQUEST' || $status === 'INVALID_ARGUMENT') {
             return 'INVALID_REQUEST';
         }
 
@@ -297,11 +407,15 @@ final class GooglePlacesGeocoder
     }
 
     /**
-     * @param array<string, mixed> $result Place Details result
+     * @param array<string, mixed> $result Place Details result (New or legacy shape)
      * @return array<string, string|null>
      */
     public static function normalizePlaceDetails(array $result): array
     {
+        if (isset($result['addressComponents']) && is_array($result['addressComponents'])) {
+            $result = self::legacyShapeFromNewPlace($result);
+        }
+
         $lat = null;
         $lng = null;
         $geom = $result['geometry'] ?? null;
@@ -369,6 +483,49 @@ final class GooglePlacesGeocoder
             'latitude' => $lat !== null ? (string) round($lat, 7) : null,
             'longitude' => $lng !== null ? (string) round($lng, 7) : null,
             'formatted_address' => $formatted,
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $place Place Details (New) resource
+     * @return array<string, mixed>
+     */
+    private static function legacyShapeFromNewPlace(array $place): array
+    {
+        $components = [];
+        foreach ($place['addressComponents'] as $c) {
+            if (!is_array($c)) {
+                continue;
+            }
+            $types = isset($c['types']) && is_array($c['types']) ? $c['types'] : [];
+            $components[] = [
+                'long_name' => isset($c['longText']) && is_string($c['longText']) ? $c['longText'] : '',
+                'short_name' => isset($c['shortText']) && is_string($c['shortText']) ? $c['shortText'] : '',
+                'types' => $types,
+            ];
+        }
+        $lat = null;
+        $lng = null;
+        if (isset($place['location']) && is_array($place['location'])) {
+            if (isset($place['location']['latitude'])) {
+                $lat = (float) $place['location']['latitude'];
+            }
+            if (isset($place['location']['longitude'])) {
+                $lng = (float) $place['location']['longitude'];
+            }
+        }
+
+        return [
+            'place_id' => isset($place['id']) && is_string($place['id']) ? $place['id'] : '',
+            'formatted_address' => isset($place['formattedAddress']) && is_string($place['formattedAddress'])
+                ? $place['formattedAddress'] : '',
+            'address_components' => $components,
+            'geometry' => [
+                'location' => [
+                    'lat' => $lat,
+                    'lng' => $lng,
+                ],
+            ],
         ];
     }
 }
