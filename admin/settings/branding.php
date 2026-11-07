@@ -46,6 +46,13 @@ if (!empty($_SESSION['branding_form_post']) && is_array($_SESSION['branding_form
             $form[$socialField] = trim((string) $posted[$socialField]);
         }
     }
+    foreach (['app_google_play_url', 'app_apple_app_store_url'] as $appField) {
+        if (array_key_exists($appField, $posted)) {
+            $form[$appField] = trim((string) $posted[$appField]);
+        }
+    }
+    $form['app_google_enabled'] = !empty($posted['app_google_enabled']) ? '1' : '0';
+    $form['app_apple_enabled'] = !empty($posted['app_apple_enabled']) ? '1' : '0';
 }
 if (!empty($_SESSION['branding_form_errors']) && is_array($_SESSION['branding_form_errors'])) {
     $errors = $_SESSION['branding_form_errors'];
@@ -148,6 +155,45 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/settings-nav.php';
                     <?php if (isset($errors[$fieldName])): ?><p class="text-xs text-red-600 mt-1"><?= Security::escape($errors[$fieldName]) ?></p><?php endif; ?>
                 </div>
                 <?php endforeach; ?>
+            </div>
+        </div>
+    </div>
+
+    <div class="at-card lg:col-span-2">
+        <div class="at-card__body space-y-4">
+            <h3 class="font-bold">Mobile Apps / App Store Links</h3>
+            <p class="text-sm at-muted">Show official store badges in the footer when published. Each store can be enabled independently. Leave a URL empty to hide that badge even when enabled.</p>
+            <div class="grid md:grid-cols-2 gap-6">
+                <div class="space-y-3">
+                    <label class="flex gap-2 text-sm items-start">
+                        <input type="checkbox" name="app_google_enabled" value="1" class="mt-1"
+                            <?= ($form['app_google_enabled'] ?? '0') === '1' ? ' checked' : '' ?>>
+                        <span class="font-medium">Show Google Play badge</span>
+                    </label>
+                    <div>
+                        <label class="at-label" for="app_google_play_url">Google Play Store URL</label>
+                        <input id="app_google_play_url" name="app_google_play_url" type="url" inputmode="url"
+                               class="at-input at-focusable" maxlength="500" autocomplete="off"
+                               placeholder="https://play.google.com/store/apps/details?id=com.example.app"
+                               value="<?= Security::escape((string) ($form['app_google_play_url'] ?? '')) ?>">
+                        <?php if (isset($errors['app_google_play_url'])): ?><p class="text-xs text-red-600 mt-1"><?= Security::escape($errors['app_google_play_url']) ?></p><?php endif; ?>
+                    </div>
+                </div>
+                <div class="space-y-3">
+                    <label class="flex gap-2 text-sm items-start">
+                        <input type="checkbox" name="app_apple_enabled" value="1" class="mt-1"
+                            <?= ($form['app_apple_enabled'] ?? '0') === '1' ? ' checked' : '' ?>>
+                        <span class="font-medium">Show Apple App Store badge</span>
+                    </label>
+                    <div>
+                        <label class="at-label" for="app_apple_app_store_url">Apple App Store URL</label>
+                        <input id="app_apple_app_store_url" name="app_apple_app_store_url" type="url" inputmode="url"
+                               class="at-input at-focusable" maxlength="500" autocomplete="off"
+                               placeholder="https://apps.apple.com/app/veggie-tokri/id0000000000"
+                               value="<?= Security::escape((string) ($form['app_apple_app_store_url'] ?? '')) ?>">
+                        <?php if (isset($errors['app_apple_app_store_url'])): ?><p class="text-xs text-red-600 mt-1"><?= Security::escape($errors['app_apple_app_store_url']) ?></p><?php endif; ?>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

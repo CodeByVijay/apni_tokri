@@ -192,7 +192,7 @@ final class BrandingSettings
             'using_default_footer_logo' => self::storedPath(self::KEY_FOOTER_LOGO_PATH) === '',
             'using_default_favicon' => self::storedPath(self::KEY_FAVICON_PATH) === '',
             'using_default_og' => self::storedPath(self::KEY_OG_IMAGE_PATH) === '',
-        ] + BrandingSocialLinks::adminFormValues();
+        ] + BrandingSocialLinks::adminFormValues() + BrandingAppStores::adminFormValues();
     }
 
     /**
@@ -236,6 +236,10 @@ final class BrandingSettings
         if ($social['errors'] !== []) {
             $errors = array_merge($errors, $social['errors']);
         }
+        $apps = BrandingAppStores::validateFromPost($post);
+        if ($apps['errors'] !== []) {
+            $errors = array_merge($errors, $apps['errors']);
+        }
 
         if ($errors !== []) {
             return ['ok' => false, 'message' => 'Fix the highlighted fields.', 'errors' => $errors];
@@ -251,6 +255,9 @@ final class BrandingSettings
         ];
         foreach ($social['normalized'] as $socialKey => $socialUrl) {
             $settingsBatch[$socialKey] = ['value' => $socialUrl];
+        }
+        foreach ($apps['normalized'] as $appKey => $appVal) {
+            $settingsBatch[$appKey] = ['value' => $appVal];
         }
         AppSettings::setMany($settingsBatch);
 

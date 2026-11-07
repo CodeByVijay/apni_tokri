@@ -135,6 +135,7 @@ require_once APNI_TOKRI_ROOT . '/includes/encryption.php';
 require_once APNI_TOKRI_ROOT . '/includes/settings/store.php';
 require_once APNI_TOKRI_ROOT . '/includes/settings/branding.php';
 require_once APNI_TOKRI_ROOT . '/includes/settings/branding_social.php';
+require_once APNI_TOKRI_ROOT . '/includes/settings/branding_app_stores.php';
 require_once APNI_TOKRI_ROOT . '/includes/settings/business.php';
 require_once APNI_TOKRI_ROOT . '/includes/settings/order_number.php';
 require_once APNI_TOKRI_ROOT . '/includes/settings/marketing.php';

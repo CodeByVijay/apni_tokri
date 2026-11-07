@@ -92,6 +92,26 @@ foreach ($cmsFooterLinks as $cmsFooterLink) {
                 <?php endif; ?>
             </ul>
             <a href="<?= Security::escape($base) ?>/support.php" class="at-btn at-btn--light at-btn--sm at-focusable mt-4">Raise a ticket</a>
+            <?php $footerAppBadges = BrandingAppStores::visibleFooterBadges(); ?>
+            <?php if ($footerAppBadges !== []): ?>
+            <section class="at-footer-apps mt-8" aria-labelledby="at-footer-apps-heading">
+                <h3 id="at-footer-apps-heading">Download Our App</h3>
+                <p class="at-footer-apps__desc">Get fresh vegetables and daily essentials delivered to your doorstep.</p>
+                <div class="at-footer-apps__badges">
+                    <?php foreach ($footerAppBadges as $storeBadge): ?>
+                    <a href="<?= Security::escape($storeBadge['url']) ?>"
+                       class="at-footer-apps__badge at-focusable"
+                       target="_blank" rel="noopener noreferrer"
+                       aria-label="<?= Security::escape($storeBadge['badge_alt']) ?>">
+                        <img src="<?= Security::escape($storeBadge['badge_src']) ?>"
+                             alt="<?= Security::escape($storeBadge['badge_alt']) ?>"
+                             width="155" height="60" loading="lazy" decoding="async"
+                             class="at-footer-apps__badge-img">
+                    </a>
+                    <?php endforeach; ?>
+                </div>
+            </section>
+            <?php endif; ?>
         </div>
     </div>
     <div class="border-t border-white/10">
