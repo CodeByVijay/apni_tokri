@@ -218,9 +218,28 @@ if ($errors !== []): ?>
             <?php endif; ?>
         </form>
     </div>
-    <div class="at-admin-table-wrap">
-        <table class="at-admin-table">
-            <thead><tr><th>Name</th><th>Slug</th><th>Window</th><th>Legacy cutoff</th><th class="is-num">Cap</th><th class="is-num" title="Paid non-cancelled orders plus active checkout holds, summed across all delivery dates (per-date counts are in the grid above)">Orders (all dates)</th><th>Active</th><th class="is-actions">Actions</th></tr></thead>
+    <div class="at-admin-table-wrap at-admin-table-wrap--delivery-slots">
+        <table class="at-admin-table at-admin-table--delivery-slots">
+            <colgroup>
+                <col style="width:11%">
+                <col style="width:12%">
+                <col style="width:18%">
+                <col style="width:13%">
+                <col style="width:7%">
+                <col style="width:15%">
+                <col style="width:9%">
+                <col style="width:15%">
+            </colgroup>
+            <thead><tr>
+                <th class="at-dslots-col-name">Name</th>
+                <th class="at-dslots-col-slug">Slug</th>
+                <th class="at-dslots-col-window">Window</th>
+                <th class="at-dslots-col-cutoff">Legacy cutoff</th>
+                <th class="is-num at-dslots-col-cap">Cap</th>
+                <th class="is-num at-dslots-col-orders" title="Paid non-cancelled orders plus active checkout holds, summed across all delivery dates (per-date counts are in the grid above)">Orders (all dates)</th>
+                <th class="at-dslots-col-active">Active</th>
+                <th class="is-actions at-dslots-col-actions">Actions</th>
+            </tr></thead>
             <tbody>
             <?php if ($slotList['rows'] === []): ?>
                 <tr><td colspan="8" class="text-sm at-muted">No slots match your search.</td></tr>
@@ -230,16 +249,30 @@ if ($errors !== []): ?>
                 $label = (string) ($s['label'] ?? $s['slug']);
                 $deleteConfirm = 'Delete delivery slot “' . str_replace(['"', "\r", "\n"], '', $label) . '”? This cannot be undone.';
                 ?>
+                <?php
+                $winLabel = trim((string) ($s['window_label'] ?? ''));
+                $winStart = DeliveryAdminUi::formatClockTime12h((string) ($s['start_time'] ?? ''));
+                $winEnd = DeliveryAdminUi::formatClockTime12h((string) ($s['end_time'] ?? ''));
+                $cutoffClock = DeliveryAdminUi::formatClockTime12h((string) ($s['cutoff_time'] ?? ''));
+                ?>
                 <tr>
-                    <td><?= Security::escape($label) ?></td>
-                    <td><?= Security::escape((string) $s['slug']) ?></td>
-                    <td><?= Security::escape((string) $s['window_label']) ?> · <?= Security::escape(DeliveryAdminUi::formatClockTime12h((string) ($s['start_time'] ?? ''))) ?>–<?= Security::escape(DeliveryAdminUi::formatClockTime12h((string) ($s['end_time'] ?? ''))) ?></td>
-                    <td><?= Security::escape(DeliveryAdminUi::formatClockTime12h((string) ($s['cutoff_time'] ?? ''))) ?><span class="at-muted text-xs block">Asia/Kolkata</span></td>
-                    <td class="is-num"><?= (int) $s['capacity'] ?></td>
-                    <td class="is-num"><?= DeliverySlotRepository::capacityConsumingOrderCount($sid) ?></td>
-                    <td><?= admin_status_badge(!empty($s['is_active']) ? 'active' : 'inactive', !empty($s['is_active']) ? 'Active' : 'Inactive') ?></td>
-                    <td class="is-actions">
-                        <span class="at-admin-actions">
+                    <td class="at-dslots-col-name"><?= Security::escape($label) ?></td>
+                    <td class="at-dslots-col-slug"><?= Security::escape((string) $s['slug']) ?></td>
+                    <td class="at-dslots-col-window">
+                        <?php if ($winLabel !== ''): ?>
+                            <span class="at-dslots-window__label"><?= Security::escape($winLabel) ?></span>
+                        <?php endif; ?>
+                        <span class="at-dslots-window__times"><?= Security::escape($winStart) ?> – <?= Security::escape($winEnd) ?></span>
+                    </td>
+                    <td class="at-dslots-col-cutoff">
+                        <span class="at-dslots-cutoff__time"><?= Security::escape($cutoffClock) ?></span>
+                        <span class="at-dslots-cutoff__tz at-muted">Asia/Kolkata</span>
+                    </td>
+                    <td class="is-num at-dslots-col-cap"><?= (int) $s['capacity'] ?></td>
+                    <td class="is-num at-dslots-col-orders"><?= DeliverySlotRepository::capacityConsumingOrderCount($sid) ?></td>
+                    <td class="at-dslots-col-active"><?= admin_status_badge(!empty($s['is_active']) ? 'active' : 'inactive', !empty($s['is_active']) ? 'Active' : 'Inactive') ?></td>
+                    <td class="is-actions at-dslots-col-actions">
+                        <span class="at-admin-actions at-admin-actions--delivery-slots">
                             <?= admin_action_edit_link('?edit=' . $sid . ($listQ !== '' ? '&q=' . rawurlencode($listQ) : '') . '&page=' . (int) $slotList['page'] . '&per_page=' . (int) $slotList['per_page'], 'Edit slot') ?>
                             <form method="post" class="at-admin-actions__form" onsubmit="return confirm(<?= json_encode($deleteConfirm, JSON_UNESCAPED_UNICODE) ?>);">
                                 <?= Csrf::field() ?>
@@ -250,13 +283,13 @@ if ($errors !== []): ?>
                                 <input type="hidden" name="list_per_page" value="<?= (int) $slotList['per_page'] ?>">
                                 <?= admin_icon_delete_button('Delete slot') ?>
                             </form>
+                            <form method="post" class="at-admin-actions__form">
+                                <?= Csrf::field() ?>
+                                <input type="hidden" name="slot_id" value="<?= $sid ?>">
+                                <input type="hidden" name="action" value="<?= !empty($s['is_active']) ? 'deactivate' : 'activate' ?>">
+                                <button type="submit" class="at-btn at-btn--sm <?= !empty($s['is_active']) ? 'at-btn--danger' : 'at-btn--ghost' ?> at-focusable"><?= !empty($s['is_active']) ? 'Deactivate' : 'Activate' ?></button>
+                            </form>
                         </span>
-                        <form method="post" class="mt-2 sm:mt-1">
-                            <?= Csrf::field() ?>
-                            <input type="hidden" name="slot_id" value="<?= $sid ?>">
-                            <input type="hidden" name="action" value="<?= !empty($s['is_active']) ? 'deactivate' : 'activate' ?>">
-                            <button type="submit" class="at-btn at-btn--sm <?= !empty($s['is_active']) ? 'at-btn--danger' : 'at-btn--ghost' ?> at-focusable"><?= !empty($s['is_active']) ? 'Deactivate' : 'Activate' ?></button>
-                        </form>
                     </td>
                 </tr>
             <?php endforeach; ?>

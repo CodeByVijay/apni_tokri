@@ -318,6 +318,8 @@ final class CustomerAuth
             throw new OtpRequestException(OtpSmsService::ERR_SMS_DISABLED);
         }
 
+        self::assertExistingCustomerActiveForOtp($mobile);
+
         OtpRateLimit::assertWithinLimits($mobile);
 
         $pdo = Database::pdo();
@@ -367,6 +369,38 @@ final class CustomerAuth
         }
     }
 
+    /** True when a customer row exists for this mobile and is_active is off. */
+    public static function isExistingInactiveCustomer(string $mobile): bool
+    {
+        $mobile = Validation::normalizeMobileIndia($mobile) ?? '';
+        if ($mobile === '' || !Install::isSchemaReady()) {
+            return false;
+        }
+        try {
+            Install::ensureConnection();
+            $stmt = Database::pdo()->prepare('SELECT is_active FROM customers WHERE mobile = ? LIMIT 1');
+            $stmt->execute([$mobile]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$row) {
+                return false;
+            }
+
+            return (int) ($row['is_active'] ?? 1) !== 1;
+        } catch (Throwable $e) {
+            return false;
+        }
+    }
+
+    /**
+     * @throws OtpRequestException when an existing customer account is deactivated
+     */
+    private static function assertExistingCustomerActiveForOtp(string $mobile): void
+    {
+        if (self::isExistingInactiveCustomer($mobile)) {
+            throw new OtpRequestException(OtpSmsService::ERR_ACCOUNT_INACTIVE);
+        }
+    }
+
     /** Saved name for a mobile from the server-side customer record ('' when none/unknown). */
     public static function savedNameForMobile(string $mobile): string
     {
@@ -403,20 +437,27 @@ final class CustomerAuth
             return false;
         }
         $ok = password_verify($otp, (string) $row['otp_hash']);
-        $upd = Database::pdo()->prepare(
-            'UPDATE customer_otp_attempts SET attempt_count = attempt_count + 1, verified_at = IF(?, NOW(), verified_at) WHERE id = ?'
-        );
-        $upd->execute([$ok ? 1 : 0, (int) $row['id']]);
         if (!$ok) {
+            Database::pdo()->prepare(
+                'UPDATE customer_otp_attempts SET attempt_count = attempt_count + 1 WHERE id = ?'
+            )->execute([(int) $row['id']]);
+
             return false;
         }
+        if (self::isExistingInactiveCustomer($mobile)) {
+            Database::pdo()->prepare(
+                'UPDATE customer_otp_attempts SET attempt_count = attempt_count + 1 WHERE id = ?'
+            )->execute([(int) $row['id']]);
+
+            return false;
+        }
+        Database::pdo()->prepare(
+            'UPDATE customer_otp_attempts SET attempt_count = attempt_count + 1, verified_at = NOW() WHERE id = ?'
+        )->execute([(int) $row['id']]);
 
         $cust = Database::pdo()->prepare('SELECT id, name, is_active FROM customers WHERE mobile = ? LIMIT 1');
         $cust->execute([$mobile]);
         $custRow = $cust->fetch(PDO::FETCH_ASSOC);
-        if ($custRow && (int) ($custRow['is_active'] ?? 1) !== 1) {
-            return false;
-        }
         $customerId = $custRow ? $custRow['id'] : null;
         $savedName = $custRow ? trim((string) ($custRow['name'] ?? '')) : '';
         if (!$customerId) {

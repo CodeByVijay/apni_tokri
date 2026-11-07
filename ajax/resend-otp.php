@@ -28,6 +28,10 @@ try {
         'cooldown_seconds' => OtpResendCooldown::cooldownSeconds(),
     ], 'A new OTP has been sent.');
 } catch (OtpRequestException $e) {
+    if ($e->errorCode() === OtpSmsService::ERR_ACCOUNT_INACTIVE) {
+        unset($_SESSION['otp_pending_mobile'], $_SESSION['otp_debug_plain'], $_SESSION['otp_demo_code']);
+        Ajax::error($e->getMessage(), 403, 'account_inactive');
+    }
     if ($e->errorCode() === OtpSmsService::ERR_RESEND_COOLDOWN
         || $e->errorCode() === OtpSmsService::ERR_RATE_LIMITED) {
         http_response_code(429);

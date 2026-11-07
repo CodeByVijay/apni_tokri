@@ -12,15 +12,20 @@ if (!is_string($mobile) || $mobile === '') {
     exit;
 }
 
+$accountInactive = Install::isSchemaReady() && CustomerAuth::isExistingInactiveCustomer($mobile);
+if ($accountInactive) {
+    unset($_SESSION['otp_pending_mobile'], $_SESSION['otp_debug_plain'], $_SESSION['otp_demo_code']);
+}
+
 $savedName = '';
-if (Install::isSchemaReady()) {
+if (Install::isSchemaReady() && !$accountInactive) {
     $savedName = CustomerAuth::savedNameForMobile($mobile);
 }
 
 $error = '';
 $resendNotice = '';
-$verifyPageTestOtp = OtpSmsService::fixedTestOtpForVerifyPageDisplay();
-$resendRemaining = Install::isSchemaReady() ? OtpResendCooldown::remainingSeconds($mobile) : 0;
+$verifyPageTestOtp = $accountInactive ? null : OtpSmsService::fixedTestOtpForVerifyPageDisplay();
+$resendRemaining = Install::isSchemaReady() && !$accountInactive ? OtpResendCooldown::remainingSeconds($mobile) : 0;
 $resendUntil = $resendRemaining > 0 ? time() + $resendRemaining : 0;
 if (AppEnvironment::allowsDebugOtpDisplay() && !empty($_SESSION['otp_debug_plain'])) {
     unset($_SESSION['otp_debug_plain']);
@@ -28,13 +33,19 @@ if (AppEnvironment::allowsDebugOtpDisplay() && !empty($_SESSION['otp_debug_plain
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     Csrf::requireValid();
-    if (!empty($_POST['resend_otp']) && Install::isSchemaReady()) {
+    if ($accountInactive) {
+        // Blocked account — ignore OTP resend and verification attempts.
+    } elseif (!empty($_POST['resend_otp']) && Install::isSchemaReady()) {
         try {
             CustomerAuth::issueOtp($mobile);
             $resendNotice = 'A new OTP has been sent.';
             $resendRemaining = OtpResendCooldown::remainingSeconds($mobile);
             $resendUntil = $resendRemaining > 0 ? time() + $resendRemaining : 0;
         } catch (OtpRequestException $e) {
+            if ($e->errorCode() === OtpSmsService::ERR_ACCOUNT_INACTIVE) {
+                $accountInactive = true;
+                unset($_SESSION['otp_pending_mobile'], $_SESSION['otp_debug_plain'], $_SESSION['otp_demo_code']);
+            }
             $error = $e->getMessage();
             $resendRemaining = $e->errorCode() === OtpSmsService::ERR_RESEND_COOLDOWN
                 ? $e->remainingSeconds()
@@ -51,20 +62,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Existing customer: the server-side name is authoritative; ignore any submitted value.
         $name = '';
     }
-    if (!empty($_POST['resend_otp'])) {
+    if ($accountInactive) {
+        // No OTP processing for deactivated accounts.
+    } elseif (!empty($_POST['resend_otp'])) {
         // Resend-only submit; skip OTP verification on this request.
     } elseif (strlen($otp) !== 6) {
         $error = 'Enter the 6-digit OTP.';
     } elseif (Install::isSchemaReady()) {
-        if (CustomerAuth::verifyOtp($mobile, $otp, $name !== '' ? $name : null)) {
+        if (CustomerAuth::isExistingInactiveCustomer($mobile)) {
+            $accountInactive = true;
+            unset($_SESSION['otp_pending_mobile'], $_SESSION['otp_debug_plain'], $_SESSION['otp_demo_code']);
+        } elseif (CustomerAuth::verifyOtp($mobile, $otp, $name !== '' ? $name : null)) {
             unset($_SESSION['otp_pending_mobile']);
             OtpResendCooldown::clear();
             $return = $_SESSION['checkout_return'] ?? url_base() . '/my-account.php';
             unset($_SESSION['checkout_return']);
             header('Location: ' . $return, true, 302);
             exit;
+        } elseif (CustomerAuth::isExistingInactiveCustomer($mobile)) {
+            $accountInactive = true;
+            unset($_SESSION['otp_pending_mobile'], $_SESSION['otp_debug_plain'], $_SESSION['otp_demo_code']);
+        } else {
+            $error = 'Incorrect or expired OTP.';
         }
-        $error = 'Incorrect or expired OTP.';
     } elseif (!AppEnvironment::isProduction() && Security::hashEquals((string) ($_SESSION['otp_demo_code'] ?? '123456'), $otp)) {
         CustomerService::loginDemoSession($mobile, $name);
         unset($_SESSION['otp_pending_mobile'], $_SESSION['otp_demo_code']);
@@ -95,6 +115,15 @@ layout_public_start([
             </div>
         </div>
         <div>
+            <?php if ($accountInactive): ?>
+            <h1 class="at-h1"><?= Security::escape(OtpSmsService::inactiveAccountHeading()) ?></h1>
+            <div class="at-card mt-6">
+                <div class="at-card__body grid gap-4 text-sm">
+                    <p><?= Security::escape(OtpSmsService::inactiveAccountCustomerMessage()) ?></p>
+                    <a href="<?= Security::escape(url_base()) ?>/login.php" class="at-btn at-btn--primary at-btn--lg at-btn--block at-focusable">Back to login</a>
+                </div>
+            </div>
+            <?php else: ?>
             <h1 class="at-h1">Verify your number</h1>
             <p class="mt-2 at-muted">Code sent to <strong class="text-[var(--at-ink)]">+91 <?= Security::escape($mobile) ?></strong></p>
             <?php if ($verifyPageTestOtp !== null): ?>
@@ -166,9 +195,11 @@ layout_public_start([
                     <a href="<?= Security::escape(url_base()) ?>/login.php" class="at-btn at-btn--ghost at-btn--sm at-focusable self-center">Use a different number</a>
                 </div>
             </form>
+            <?php endif; ?>
         </div>
     </div>
 </div>
+<?php if (!$accountInactive): ?>
 <script src="<?= Security::escape(asset_url('assets/js/otp-input.js')) ?>"></script>
 <script src="<?= Security::escape(asset_url('assets/js/otp-resend.js')) ?>"></script>
 <script>
@@ -178,4 +209,5 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 });
 </script>
+<?php endif; ?>
 <?php layout_public_end(); ?>

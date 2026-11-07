@@ -45,6 +45,7 @@ final class OtpSmsService
     public const ERR_SERVER_ERROR = 'SERVER_ERROR';
     public const ERR_SMS_TEST_NOT_ALLOWED = 'SMS_TEST_NOT_ALLOWED';
     public const ERR_RESEND_COOLDOWN = 'RESEND_COOLDOWN';
+    public const ERR_ACCOUNT_INACTIVE = 'ACCOUNT_INACTIVE';
 
     public static function operationMode(): string
     {
@@ -227,6 +228,8 @@ final class OtpSmsService
                 return 'Something went wrong while requesting your OTP. Please try again.';
             case self::ERR_RESEND_COOLDOWN:
                 return 'Please wait before requesting another OTP.';
+            case self::ERR_ACCOUNT_INACTIVE:
+                return self::inactiveAccountCustomerMessage();
             default:
                 if (strpos(strtolower($errorCode), 'too many otp') !== false) {
                     return self::publicErrorMessage(self::ERR_RATE_LIMITED);
@@ -234,6 +237,16 @@ final class OtpSmsService
 
                 return self::publicErrorMessage(self::ERR_SERVER_ERROR);
         }
+    }
+
+    public static function inactiveAccountHeading(): string
+    {
+        return 'Account temporarily unavailable';
+    }
+
+    public static function inactiveAccountCustomerMessage(): string
+    {
+        return 'Your account has been deactivated. You cannot sign in at this time. Please contact Veggie Tokri customer support for assistance.';
     }
 
     /**

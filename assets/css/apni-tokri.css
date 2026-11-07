@@ -4481,10 +4481,84 @@ body.at-gallery-lightbox-open {
 }
 /* horizontal scroll (not squashed columns) on narrow screens for non-card tables */
 @media (max-width: 1023px) {
-  .at-admin-table:not(.at-admin-table--cards):not(.at-admin-table--fixed),
+  .at-admin-table:not(.at-admin-table--cards):not(.at-admin-table--fixed):not(.at-admin-table--delivery-slots),
   .at-admin-main .at-table {
     min-width: 40rem;
   }
+  .at-admin-table-wrap--delivery-slots .at-admin-table--delivery-slots {
+    min-width: 52rem;
+  }
+}
+/* Delivery settings — All slots table (admin/settings/delivery/slots.php) */
+.at-admin-table--delivery-slots {
+  table-layout: fixed;
+  width: 100%;
+}
+.at-admin-table--delivery-slots th,
+.at-admin-table--delivery-slots td {
+  padding: 0.55rem 0.65rem;
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: manual;
+}
+.at-admin-table--delivery-slots th.at-dslots-col-orders {
+  white-space: normal;
+  line-height: 1.25;
+}
+.at-admin-table--delivery-slots td.at-dslots-col-slug {
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
+}
+.at-admin-table--delivery-slots .at-dslots-window__label {
+  display: block;
+  line-height: 1.3;
+}
+.at-admin-table--delivery-slots .at-dslots-window__times {
+  display: block;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.at-admin-table--delivery-slots .at-dslots-cutoff__time {
+  display: block;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.at-admin-table--delivery-slots .at-dslots-cutoff__tz {
+  display: block;
+  font-size: 0.6875rem;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.at-admin-table--delivery-slots th.at-dslots-col-active,
+.at-admin-table--delivery-slots td.at-dslots-col-active {
+  text-align: center;
+}
+.at-admin-table--delivery-slots th.is-actions.at-dslots-col-actions,
+.at-admin-table--delivery-slots td.is-actions.at-dslots-col-actions {
+  width: 15%;
+  min-width: 11.5rem;
+  max-width: none;
+  padding-left: 0.35rem;
+  padding-right: 0.35rem;
+}
+.at-admin-table--delivery-slots td.is-actions > .at-admin-actions--delivery-slots {
+  margin: 0;
+}
+.at-admin-table--delivery-slots .at-admin-actions--delivery-slots {
+  display: inline-flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  max-width: 100%;
+}
+.at-admin-table--delivery-slots .at-admin-actions--delivery-slots .at-btn {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.at-admin-table--delivery-slots td.is-actions > * + * {
+  margin-left: 0;
 }
 .at-admin-table--dense th,
 .at-admin-table--dense td {

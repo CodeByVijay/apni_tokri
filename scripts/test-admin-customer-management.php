@@ -26,6 +26,9 @@ ok(str_contains((string) file_get_contents($root . '/includes/admin/customer_adm
 ok(!str_contains((string) file_get_contents($root . '/includes/admin/customer_admin.php'), 'start_date, end_date'), 'Customer subscriptions query does not reference missing end_date');
 ok(str_contains((string) file_get_contents($root . '/admin/customers/edit.php'), 'Mobile cannot be changed'), 'Edit blocks mobile POST');
 ok(str_contains((string) file_get_contents($root . '/includes/auth.php'), 'customerIsActive'), 'CustomerAuth enforces is_active on check');
+ok(str_contains((string) file_get_contents($root . '/includes/auth.php'), 'assertExistingCustomerActiveForOtp'), 'issueOtp checks customer is_active before OTP');
+ok(str_contains((string) file_get_contents($root . '/includes/notifications/otp_sms.php'), 'ERR_ACCOUNT_INACTIVE'), 'OTP SMS defines inactive account error');
+ok(str_contains((string) file_get_contents($root . '/verify-otp.php'), 'inactiveAccountHeading'), 'Verify OTP shows inactive account state');
 ok(str_contains((string) file_get_contents($root . '/includes/commerce/checkout.php'), 'Your account is inactive'), 'Checkout blocks inactive customers');
 
 if (!Install::isSchemaReady()) {
@@ -79,8 +82,35 @@ ok(!CustomerAuth::check(), 'Login session not treated as active when customer in
 $otpOk = CustomerAuth::verifyOtp($mobileA, '000000');
 ok($otpOk === false, 'OTP verify does not log in inactive customer without valid otp');
 
+OtpResendCooldown::$bypassForTests = true;
+$otpRowsBefore = (int) $pdo->query('SELECT COUNT(*) FROM customer_otp_attempts WHERE mobile = ' . $pdo->quote($mobileA))->fetchColumn();
+$issueBlocked = false;
+try {
+    CustomerAuth::issueOtp($mobileA);
+} catch (OtpRequestException $e) {
+    $issueBlocked = $e->errorCode() === OtpSmsService::ERR_ACCOUNT_INACTIVE;
+}
+ok($issueBlocked, 'issueOtp blocked for inactive customer');
+$otpRowsAfter = (int) $pdo->query('SELECT COUNT(*) FROM customer_otp_attempts WHERE mobile = ' . $pdo->quote($mobileA))->fetchColumn();
+ok($otpRowsBefore === $otpRowsAfter, 'Inactive customer issueOtp does not insert OTP attempts');
+
+$staleOtp = '442211';
+$pdo->prepare(
+    'INSERT INTO customer_otp_attempts (mobile, otp_hash, expires_at) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 300 SECOND))'
+)->execute([$mobileA, password_hash($staleOtp, PASSWORD_DEFAULT)]);
+ok(!CustomerAuth::verifyOtp($mobileA, $staleOtp), 'Stale valid OTP cannot log in inactive customer');
+ok(!CustomerAuth::check(), 'Inactive customer remains logged out after OTP attempt');
+
 $react = AdminCustomerService::setActive($idA, true, 1);
 ok(!empty($react['ok']), 'Reactivate succeeds');
+$reactIssueOk = false;
+try {
+    CustomerAuth::issueOtp($mobileA);
+    $reactIssueOk = true;
+} catch (OtpRequestException $e) {
+    $reactIssueOk = $e->errorCode() !== OtpSmsService::ERR_ACCOUNT_INACTIVE;
+}
+ok($reactIssueOk, 'Reactivated customer is not blocked by inactive OTP guard');
 CustomerAuth::loginById($idA);
 ok(CustomerAuth::check(), 'Reactivated customer can hold session');
 
@@ -104,6 +134,7 @@ ok((int) $audit->fetchColumn() >= 2, 'Audit log records customer admin actions')
 $idor = AdminCustomerService::findById(999999999);
 ok($idor === null, 'Missing customer id returns null');
 
+$pdo->exec('DELETE FROM customer_otp_attempts WHERE mobile IN (' . $pdo->quote($mobileA) . ', ' . $pdo->quote($mobileB) . ')');
 $pdo->exec('DELETE FROM admin_audit_logs WHERE entity_type = \'customers\' AND entity_id IN (' . $idA . ',' . $idB . ')');
 $pdo->exec('DELETE FROM customers WHERE id IN (' . $idA . ',' . $idB . ')');
 
