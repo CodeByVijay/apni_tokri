@@ -4486,28 +4486,41 @@ body.at-gallery-lightbox-open {
     min-width: 40rem;
   }
   .at-admin-table-wrap--delivery-slots .at-admin-table--delivery-slots {
-    min-width: 52rem;
+    min-width: 46rem;
   }
 }
-/* Delivery settings — All slots table (admin/settings/delivery/slots.php) */
+/* Delivery settings — All slots (auto column sizing; avoid fixed % + min-width fights) */
 .at-admin-table--delivery-slots {
-  table-layout: fixed;
   width: 100%;
+  table-layout: auto;
 }
 .at-admin-table--delivery-slots th,
 .at-admin-table--delivery-slots td {
-  padding: 0.55rem 0.65rem;
   overflow-wrap: normal;
   word-break: normal;
-  hyphens: manual;
+  vertical-align: middle;
+}
+.at-admin-table--delivery-slots th.at-dslots-col-name,
+.at-admin-table--delivery-slots td.at-dslots-col-name {
+  min-width: 7.5rem;
+}
+.at-admin-table--delivery-slots td.at-dslots-col-slug {
+  font-size: 0.8125rem;
+  min-width: 5.5rem;
+  overflow-wrap: anywhere;
+}
+.at-admin-table--delivery-slots th.at-dslots-col-window,
+.at-admin-table--delivery-slots td.at-dslots-col-window {
+  min-width: 9.5rem;
+}
+.at-admin-table--delivery-slots th.at-dslots-col-cutoff,
+.at-admin-table--delivery-slots td.at-dslots-col-cutoff {
+  min-width: 6.5rem;
 }
 .at-admin-table--delivery-slots th.at-dslots-col-orders {
   white-space: normal;
   line-height: 1.25;
-}
-.at-admin-table--delivery-slots td.at-dslots-col-slug {
-  font-size: 0.8125rem;
-  overflow-wrap: anywhere;
+  min-width: 5.5rem;
 }
 .at-admin-table--delivery-slots .at-dslots-window__label {
   display: block;
@@ -4532,33 +4545,27 @@ body.at-gallery-lightbox-open {
 .at-admin-table--delivery-slots th.at-dslots-col-active,
 .at-admin-table--delivery-slots td.at-dslots-col-active {
   text-align: center;
-}
-.at-admin-table--delivery-slots th.is-actions.at-dslots-col-actions,
-.at-admin-table--delivery-slots td.is-actions.at-dslots-col-actions {
-  width: 15%;
-  min-width: 11.5rem;
-  max-width: none;
-  padding-left: 0.35rem;
-  padding-right: 0.35rem;
-}
-.at-admin-table--delivery-slots td.is-actions > .at-admin-actions--delivery-slots {
-  margin: 0;
-}
-.at-admin-table--delivery-slots .at-admin-actions--delivery-slots {
-  display: inline-flex;
-  flex-direction: row;
-  flex-wrap: nowrap;
-  align-items: center;
-  justify-content: center;
-  gap: 0.35rem;
-  max-width: 100%;
-}
-.at-admin-table--delivery-slots .at-admin-actions--delivery-slots .at-btn {
+  width: 1%;
   white-space: nowrap;
-  flex-shrink: 0;
+  padding-left: 0.75rem;
+  padding-right: 0.75rem;
 }
-.at-admin-table--delivery-slots td.is-actions > * + * {
-  margin-left: 0;
+.at-admin-table--delivery-slots th.is-actions,
+.at-admin-table--delivery-slots td.is-actions {
+  width: auto;
+  min-width: 13.75rem;
+  max-width: none;
+  white-space: nowrap;
+  text-align: center;
+  padding-left: 0.65rem;
+  padding-right: 0.65rem;
+}
+.at-admin-table--delivery-slots td.is-actions .at-admin-actions {
+  flex-wrap: nowrap;
+  justify-content: center;
+}
+.at-admin-table--delivery-slots td.is-actions .at-btn {
+  white-space: nowrap;
 }
 .at-admin-table--dense th,
 .at-admin-table--dense td {

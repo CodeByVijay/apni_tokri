@@ -220,16 +220,6 @@ if ($errors !== []): ?>
     </div>
     <div class="at-admin-table-wrap at-admin-table-wrap--delivery-slots">
         <table class="at-admin-table at-admin-table--delivery-slots">
-            <colgroup>
-                <col style="width:11%">
-                <col style="width:12%">
-                <col style="width:18%">
-                <col style="width:13%">
-                <col style="width:7%">
-                <col style="width:15%">
-                <col style="width:9%">
-                <col style="width:15%">
-            </colgroup>
             <thead><tr>
                 <th class="at-dslots-col-name">Name</th>
                 <th class="at-dslots-col-slug">Slug</th>
@@ -272,7 +262,7 @@ if ($errors !== []): ?>
                     <td class="is-num at-dslots-col-orders"><?= DeliverySlotRepository::capacityConsumingOrderCount($sid) ?></td>
                     <td class="at-dslots-col-active"><?= admin_status_badge(!empty($s['is_active']) ? 'active' : 'inactive', !empty($s['is_active']) ? 'Active' : 'Inactive') ?></td>
                     <td class="is-actions at-dslots-col-actions">
-                        <span class="at-admin-actions at-admin-actions--delivery-slots">
+                        <span class="at-admin-actions">
                             <?= admin_action_edit_link('?edit=' . $sid . ($listQ !== '' ? '&q=' . rawurlencode($listQ) : '') . '&page=' . (int) $slotList['page'] . '&per_page=' . (int) $slotList['per_page'], 'Edit slot') ?>
                             <form method="post" class="at-admin-actions__form" onsubmit="return confirm(<?= json_encode($deleteConfirm, JSON_UNESCAPED_UNICODE) ?>);">
                                 <?= Csrf::field() ?>
