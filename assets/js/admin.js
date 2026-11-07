@@ -378,6 +378,46 @@
     });
   }
 
+  function initSettingsTabsNav() {
+    var $wrap = $('[data-at-settings-tabs]');
+    if (!$wrap.length) {
+      return;
+    }
+    var mq = window.matchMedia('(max-width: 1023px)');
+
+    function scrollActiveIntoView($link, smooth) {
+      if (!mq.matches || !$link.length) {
+        return;
+      }
+      var el = $link[0];
+      var wrap = $wrap[0];
+      var target =
+        el.offsetLeft - wrap.clientWidth / 2 + el.offsetWidth / 2;
+      var max = Math.max(0, wrap.scrollWidth - wrap.clientWidth);
+      target = Math.max(0, Math.min(target, max));
+      if (typeof wrap.scrollTo === 'function') {
+        wrap.scrollTo({ left: target, behavior: smooth ? 'smooth' : 'auto' });
+      } else {
+        wrap.scrollLeft = target;
+      }
+    }
+
+    var $active = $wrap.find('.at-admin-tabs a.is-active').first();
+    scrollActiveIntoView($active, false);
+
+    $wrap.on('focusin', 'a', function () {
+      scrollActiveIntoView($(this), true);
+    });
+
+    var resizeTimer;
+    $(window).on('resize', function () {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(function () {
+        scrollActiveIntoView($wrap.find('.at-admin-tabs a.is-active').first(), false);
+      }, 120);
+    });
+  }
+
   function initSubmitOnce() {
     $(document).on('click', 'button[type="submit"][data-at-submit-once], input[type="submit"][data-at-submit-once]', function () {
       var $btn = $(this);
@@ -422,5 +462,6 @@
     initAdminProductDynamicRows();
     initSubmitOnce();
     initAdminFlashDismiss();
+    initSettingsTabsNav();
   });
 })(jQuery);

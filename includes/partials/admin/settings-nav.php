@@ -6,7 +6,8 @@ declare(strict_types=1);
 $settingsTab = $settingsTab ?? '';
 $base = url_base() . '/admin/settings';
 ?>
-<nav class="at-admin-tabs mb-4">
+<div class="at-admin-tabs-wrap at-admin-tabs-wrap--settings" data-at-settings-tabs>
+<nav class="at-admin-tabs at-admin-tabs--settings" aria-label="Settings sections">
     <a href="<?= Security::escape($base) ?>/index.php" class="<?= $settingsTab === 'business' ? 'is-active' : '' ?> at-focusable">Business profile</a>
     <a href="<?= Security::escape($base) ?>/branding.php" class="<?= $settingsTab === 'branding' ? 'is-active' : '' ?> at-focusable">Website branding</a>
     <a href="<?= Security::escape($base) ?>/gateways.php" class="<?= $settingsTab === 'gateways' ? 'is-active' : '' ?> at-focusable">Payment gateways</a>
@@ -20,3 +21,4 @@ $base = url_base() . '/admin/settings';
     <a href="<?= Security::escape($base) ?>/delivery.php" class="<?= $settingsTab === 'delivery' ? 'is-active' : '' ?> at-focusable">Delivery</a>
     <a href="<?= Security::escape($base) ?>/map-geocoding.php" class="<?= $settingsTab === 'map_geocoding' ? 'is-active' : '' ?> at-focusable">Map &amp; Geocoding</a>
 </nav>
+</div>
