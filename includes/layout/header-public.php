@@ -6,7 +6,6 @@ declare(strict_types=1);
 $activeNav = $activeNav ?? '';
 $cartCount = isset($cartCount) ? (int) $cartCount : 0;
 $base = url_base();
-$otherLang = Lang::locale() === 'en' ? 'hi' : 'en';
 $deliveryPin = DeliveryContext::sessionPin();
 $currentSlug = isset($_GET['slug']) && is_string($_GET['slug']) ? $_GET['slug'] : '';
 
@@ -70,10 +69,6 @@ $navIsCategoryPage = $activeNav === 'categories';
                     <span class="at-location__pin"><?= at_icon('pin', 'w-4 h-4') ?></span>
                     <span><small><?= Security::escape(__('delivery_to')) ?></small><strong>Indore<span data-at-loc-pin><?= $deliveryPin !== null ? ' · ' . Security::escape($deliveryPin) : '' ?></span></strong></span>
                 </button>
-                <a href="<?= Security::escape($base) ?>/index.php?lang=<?= Security::escape($otherLang) ?>"
-                   class="at-iconbtn at-focusable hidden sm:inline-flex" hreflang="<?= Security::escape($otherLang) ?>" rel="alternate">
-                    <?= Lang::locale() === 'en' ? 'हिंदी' : 'EN' ?>
-                </a>
                 <?php
                 $atLoggedIn = CustomerService::isLoggedIn();
                 $atAuthLabel = $atLoggedIn ? 'My account' : __('nav_login');
@@ -140,7 +135,6 @@ $navIsCategoryPage = $activeNav === 'categories';
             <a href="<?= Security::escape($base) ?>/my-subscriptions.php" class="at-drawer-link at-focusable"><?= at_icon('repeat') ?>My subscriptions</a>
             <a href="<?= Security::escape($base) ?>/faqs.php" class="at-drawer-link at-focusable"><?= at_icon('help') ?><?= Security::escape(__('nav_faqs')) ?></a>
             <a href="<?= Security::escape($base) ?>/contact.php" class="at-drawer-link at-focusable"><?= at_icon('chat') ?><?= Security::escape(__('nav_contact')) ?></a>
-            <a href="<?= Security::escape($base) ?>/index.php?lang=<?= Security::escape($otherLang) ?>" class="at-drawer-link at-focusable"><?= at_icon('sparkle') ?><?= Lang::locale() === 'en' ? 'हिंदी में देखें' : 'View in English' ?></a>
             <a href="<?= Security::escape($base . $atAuthHref) ?>" class="at-btn at-btn--primary at-btn--block at-focusable mt-4"><?= Security::escape($atAuthLabel) ?></a>
         </div>
     </div>

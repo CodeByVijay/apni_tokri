@@ -53,6 +53,8 @@ foreach ($product['attributes'] ?? [] as $attr) {
     }
 }
 $isPackaged = ($product['type'] ?? '') === 'packaged';
+$pdpVariantsInCart = DemoCart::variantIdsForProduct($slug);
+$pdpCartUrl = url_base() . '/cart.php';
 ?>
 <div class="at-container">
     <nav class="at-breadcrumb" aria-label="Breadcrumb">
@@ -103,7 +105,9 @@ $isPackaged = ($product['type'] ?? '') === 'packaged';
 
         <form class="space-y-5" data-at-product-form action="#" method="post"
             data-product-slug="<?= Security::escape((string) $product['slug']) ?>"
-            data-checkout-url="<?= Security::escape(url_base()) ?>/checkout.php">
+            data-checkout-url="<?= Security::escape(url_base()) ?>/checkout.php"
+            data-cart-url="<?= Security::escape($pdpCartUrl) ?>"
+            data-variants-in-cart="<?= Security::escape(json_encode($pdpVariantsInCart, JSON_THROW_ON_ERROR)) ?>">
             <?= Csrf::field() ?>
             <?php if (count($variants) > 1): ?>
                 <fieldset>

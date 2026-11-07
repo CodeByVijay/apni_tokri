@@ -44,6 +44,12 @@ final class DemoCart
         return CartService::items();
     }
 
+    /** @return list<string> */
+    public static function variantIdsForProduct(string $productSlug): array
+    {
+        return CartService::variantIdsForProduct($productSlug);
+    }
+
     public static function itemCount(): int
     {
         return CartService::itemCount();

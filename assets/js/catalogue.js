@@ -233,6 +233,17 @@
     }
   }
 
+  function csrfToken() {
+    return $('meta[name="csrf-token"]').attr('content') || '';
+  }
+
+  function cartAjaxUrl(route) {
+    var path = window.location.pathname;
+    var idx = path.indexOf('/ajax/');
+    var base = idx !== -1 ? path.substring(0, idx) : path.substring(0, path.lastIndexOf('/'));
+    return base + '/ajax/cart/' + route;
+  }
+
   function initVariantPicker() {
     var $form = $('[data-at-product-form]');
     if (!$form.length) return;
@@ -242,6 +253,92 @@
     var $stock = $('#at-product-stock-msg');
     var $add = $('#at-add-cart');
     var $buy = $('#at-buy-now');
+    var $stickyAdd = $('[data-sticky-add]');
+    var cartUrl = String($form.data('cart-url') || '');
+    var productSlug = String($form.data('product-slug') || '');
+
+    var variantsInCart = [];
+    try {
+      variantsInCart = JSON.parse($form.attr('data-variants-in-cart') || '[]');
+    } catch (e) {
+      variantsInCart = [];
+    }
+    variantsInCart = variantsInCart.map(String);
+
+    var addBtnHtml = $add.html();
+    var stickyAddText = $stickyAdd.length ? $stickyAdd.text() : 'Add to cart';
+
+    function selectedVariantId() {
+      var $variant = $form.find('input[name=variant_id]:checked');
+      if (!$variant.length) {
+        $variant = $form.find('input[name=variant_id]').first();
+      }
+      return $variant.length ? String($variant.val()) : '';
+    }
+
+    function variantInCart(variantId) {
+      return variantsInCart.indexOf(String(variantId)) !== -1;
+    }
+
+    function setPdpCartButtonMode(inCart) {
+      if (!$add.length) return;
+      if (inCart) {
+        $add.attr('data-pdp-cart-mode', 'go').html(addBtnHtml.replace(/Add to cart/i, 'Go to cart'));
+        if ($stickyAdd.length) {
+          $stickyAdd.text('Go to cart');
+        }
+      } else {
+        $add.attr('data-pdp-cart-mode', 'add').html(addBtnHtml);
+        if ($stickyAdd.length) {
+          $stickyAdd.text(stickyAddText);
+        }
+      }
+    }
+
+    function refreshPdpCartButton() {
+      var vid = selectedVariantId();
+      setPdpCartButtonMode(vid !== '' && variantInCart(vid));
+    }
+
+    function fetchVariantsInCart(done) {
+      if (!productSlug) {
+        if (typeof done === 'function') done();
+        return;
+      }
+      $.ajax({
+        url: cartAjaxUrl('variants-in-product'),
+        method: 'POST',
+        dataType: 'json',
+        data: {
+          _csrf_token: csrfToken(),
+          product_slug: productSlug
+        }
+      })
+        .done(function (res) {
+          if (res && res.success && res.data && res.data.variants_in_cart) {
+            variantsInCart = res.data.variants_in_cart.map(String);
+          }
+          if (typeof done === 'function') done();
+        })
+        .fail(function () {
+          if (typeof done === 'function') done();
+        });
+    }
+
+    $form.data('pdpRefreshCartButton', function () {
+      fetchVariantsInCart(refreshPdpCartButton);
+    });
+    $form.data('pdpApplyVariantsInCart', function (ids) {
+      if (ids && ids.length) {
+        variantsInCart = ids.map(String);
+      } else {
+        var vid = selectedVariantId();
+        if (vid && variantsInCart.indexOf(vid) === -1) {
+          variantsInCart.push(vid);
+        }
+      }
+      refreshPdpCartButton();
+    });
 
     function updateFromVariant($opt) {
       var price = parseFloat($opt.data('price'));
@@ -272,17 +369,25 @@
         $buy.prop('disabled', false);
       }
       $('#at-sticky-price').text($price.text());
-      $('[data-sticky-add]').prop('disabled', stock <= 0);
+      $stickyAdd.prop('disabled', stock <= 0);
+      refreshPdpCartButton();
     }
 
     $form.find('input[name=variant_id]').on('change', function () {
       updateFromVariant($(this));
+      fetchVariantsInCart(refreshPdpCartButton);
     });
     var $checked = $form.find('input[name=variant_id]:checked');
     if (!$checked.length) {
       $checked = $form.find('input[name=variant_id]').first();
     }
     if ($checked.length) updateFromVariant($checked);
+    else refreshPdpCartButton();
+
+    window.addEventListener('pageshow', function (ev) {
+      if (!ev.persisted) return;
+      fetchVariantsInCart(refreshPdpCartButton);
+    });
   }
 
   function toast(msg, type) {
@@ -296,20 +401,13 @@
     initGallery();
     initVariantPicker();
 
-    $('.js-demo-add-cart, #at-add-cart').on('click', function (e) {
+    $('.js-demo-add-cart').on('click', function (e) {
       if ($(this).prop('disabled')) return;
       e.preventDefault();
       var $btn = $(this);
-      var $form = $('[data-at-product-form]');
-      var isCardAdd = $btn.hasClass('js-demo-add-cart');
-      // Card quick-add always uses the card's own product/variant (never the PDP form).
-      var slug = isCardAdd ? $btn.data('product') : $form.data('product-slug');
-      var $variant = $form.find('input[name=variant_id]:checked');
-      if (!$variant.length) {
-        $variant = $form.find('input[name=variant_id]').first();
-      }
-      var variantId = isCardAdd ? $btn.data('variant-id') : $variant.val();
-      var qty = isCardAdd ? 1 : (parseInt($('#qty').val(), 10) || 1);
+      var slug = $btn.data('product');
+      var variantId = $btn.data('variant-id');
+      var qty = 1;
       if (!slug || !variantId) {
         toast('Select a variant first.', 'error');
         return;
@@ -329,6 +427,52 @@
           }
         });
       }
+    });
+
+    $('#at-add-cart').on('click', function (e) {
+      if ($(this).prop('disabled')) return;
+      e.preventDefault();
+      var $form = $('[data-at-product-form]');
+      if (!$form.length) return;
+
+      if ($(this).attr('data-pdp-cart-mode') === 'go') {
+        var goUrl = String($form.data('cart-url') || '');
+        if (goUrl) {
+          window.location.href = goUrl;
+        }
+        return;
+      }
+
+      var slug = $form.data('product-slug');
+      var $variant = $form.find('input[name=variant_id]:checked');
+      if (!$variant.length) {
+        $variant = $form.find('input[name=variant_id]').first();
+      }
+      var variantId = $variant.val();
+      var qty = parseInt($('#qty').val(), 10) || 1;
+      if (!slug || !variantId) {
+        toast('Select a variant first.', 'error');
+        return;
+      }
+      var cartApi = window.VeggieTokriCart || window.ApniTokriCart;
+      if (!cartApi) return;
+      cartApi.add(slug, variantId, qty, function (err, res) {
+        if (err) {
+          toast(err.message, 'error');
+        } else {
+          toast(res.message || 'Added to cart');
+          var apply = $form.data('pdpApplyVariantsInCart');
+          if (typeof apply === 'function') {
+            if (res && res.data && res.data.variants_in_cart) {
+              apply(res.data.variants_in_cart);
+            } else {
+              apply(null);
+              var refresh = $form.data('pdpRefreshCartButton');
+              if (typeof refresh === 'function') refresh();
+            }
+          }
+        }
+      });
     });
     $('#at-buy-now').on('click', function (e) {
       if ($(this).prop('disabled')) return;

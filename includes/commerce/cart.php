@@ -119,6 +119,27 @@ final class CartService
         return SessionCartBackend::items();
     }
 
+    /** @return list<string> */
+    public static function variantIdsForProduct(string $productSlug): array
+    {
+        $productSlug = trim($productSlug);
+        if ($productSlug === '') {
+            return [];
+        }
+        $ids = [];
+        foreach (self::items() as $item) {
+            if ((string) ($item['product_slug'] ?? '') !== $productSlug) {
+                continue;
+            }
+            $vid = (string) ($item['variant_id'] ?? '');
+            if ($vid !== '') {
+                $ids[$vid] = true;
+            }
+        }
+
+        return array_keys($ids);
+    }
+
     /**
      * Pricing lines for the current cart (same shape used by PricingService / CouponService).
      *

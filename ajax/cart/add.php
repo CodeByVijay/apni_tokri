@@ -22,4 +22,5 @@ if (!$result['ok']) {
 Ajax::success([
     'count' => DemoCart::itemCount(),
     'totals' => DemoCart::totals(),
+    'variants_in_cart' => DemoCart::variantIdsForProduct($slug),
 ], $result['message']);
