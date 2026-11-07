@@ -99,25 +99,8 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
 <form method="post" class="at-admin-order-detail__layout">
     <?= Csrf::field() ?>
     <div class="at-admin-order-detail__main">
-        <div class="at-card"><div class="at-card__body text-sm space-y-2">
-            <p><strong>Customer:</strong>
-                <?= Security::escape(trim((string) ($order['customer_name'] ?? '')) !== '' ? (string) $order['customer_name'] : 'Guest') ?>
-                <?php if ((string) ($order['customer_mobile'] ?? '') !== ''): ?>
-                    · <?= Security::escape((string) $order['customer_mobile']) ?>
-                <?php endif; ?>
-            </p>
-            <?php if ((string) ($order['customer_email'] ?? '') !== ''): ?>
-                <p><strong>Email:</strong> <?= Security::escape((string) $order['customer_email']) ?></p>
-            <?php endif; ?>
-            <p><strong>Address<?= (string) ($order['address_label'] ?? '') !== '' ? ' (' . Security::escape((string) $order['address_label']) . ')' : '' ?>:</strong>
-                <?= Security::escape((string) ($order['address_line'] ?? '—')) ?></p>
-            <p><strong>Delivery:</strong>
-                <?= Security::escape((string) ($order['delivery_slot'] ?? '—')) ?>
-                <?php if ((string) ($order['delivery_date'] ?? '') !== ''): ?>
-                    · <?= Security::escape((string) $order['delivery_date']) ?>
-                <?php endif; ?>
-            </p>
-            <p class="flex flex-wrap gap-2 items-center">
+        <div class="at-card"><div class="at-card__body at-admin-order-detail__summary text-sm">
+            <p class="at-admin-order-detail__status-line">
                 <strong>Order status:</strong> <?= admin_status_badge((string) $order['status']) ?>
                 <strong>Payment:</strong> <?= admin_status_badge((string) $order['payment_status']) ?>
                 <span class="at-muted">· <?= Security::escape((string) ($order['order_source'] ?? '')) ?></span>
@@ -161,7 +144,9 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
             <?php if (($order['items'] ?? []) === []): ?>
                 <p class="text-sm at-muted mt-2">No line items recorded.</p>
             <?php else: ?>
+                <div class="at-admin-order-detail__items">
                 <?php $orderItems = $order['items']; require APNI_TOKRI_ROOT . '/includes/partials/order-items.php'; ?>
+                </div>
             <?php endif; ?>
             <dl class="at-order-totals">
                 <div><dt>Subtotal</dt><dd><?= Security::escape(catalogue_format_price((float) ($order['subtotal'] ?? 0))) ?></dd></div>
@@ -293,7 +278,27 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
     </div>
 
     <aside class="at-admin-order-detail__aside">
-    <div class="at-card at-admin-order-detail__status-card"><div class="at-card__body space-y-3">
+    <div class="at-card at-admin-order-detail__customer-card"><div class="at-card__body at-admin-order-detail__customer text-sm">
+        <h3 class="font-bold">Customer &amp; delivery</h3>
+        <p><strong>Customer:</strong>
+            <?= Security::escape(trim((string) ($order['customer_name'] ?? '')) !== '' ? (string) $order['customer_name'] : 'Guest') ?>
+            <?php if ((string) ($order['customer_mobile'] ?? '') !== ''): ?>
+                · <?= Security::escape((string) $order['customer_mobile']) ?>
+            <?php endif; ?>
+        </p>
+        <?php if ((string) ($order['customer_email'] ?? '') !== ''): ?>
+            <p><strong>Email:</strong> <?= Security::escape((string) $order['customer_email']) ?></p>
+        <?php endif; ?>
+        <p><strong>Address<?= (string) ($order['address_label'] ?? '') !== '' ? ' (' . Security::escape((string) $order['address_label']) . ')' : '' ?>:</strong>
+            <?= Security::escape((string) ($order['address_line'] ?? '—')) ?></p>
+        <p><strong>Delivery:</strong>
+            <?= Security::escape((string) ($order['delivery_slot'] ?? '—')) ?>
+            <?php if ((string) ($order['delivery_date'] ?? '') !== ''): ?>
+                · <?= Security::escape((string) $order['delivery_date']) ?>
+            <?php endif; ?>
+        </p>
+    </div></div>
+    <div class="at-card at-admin-order-detail__status-card"><div class="at-card__body at-admin-order-detail__status-form">
         <h3 class="font-bold">Update status</h3>
         <label class="at-label" for="status">Order status</label>
         <select id="status" name="status" class="at-select at-focusable" required>

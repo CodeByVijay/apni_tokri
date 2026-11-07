@@ -67,6 +67,7 @@ ok(
     'Order detail retains two-column desktop layout (scoped grid)'
 );
 ok(str_contains($viewPhp, 'at-admin-order-recon'), 'Reconciliation panel uses scoped admin order classes');
+ok(str_contains($viewPhp, 'at-admin-order-detail__customer-card'), 'Customer/delivery card lives in sidebar column');
 ok(str_contains($viewPhp, 'refresh_cashfree_payment'), 'Cashfree refresh action preserved');
 ok(str_contains($viewPhp, 'form="admin-order-refresh-cashfree"'), 'Refresh button targets external form');
 ok(!preg_match('/<form[^>]*>\s*<form/s', $viewPhp), 'No nested form elements');
