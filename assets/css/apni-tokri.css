@@ -5905,6 +5905,49 @@ body.at-map-viewer-open { overflow: hidden; }
     font-size: 0.875rem;
   }
 }
+.at-order-retry-pay {
+  margin-bottom: 1rem;
+  padding: 1rem 1.1rem;
+  border-radius: var(--at-radius);
+  border: 1px solid rgba(36, 92, 58, 0.22);
+  background: linear-gradient(180deg, #f4faf6 0%, #fff 100%);
+  box-shadow: 0 2px 10px rgba(27, 74, 46, 0.08);
+}
+.at-order-retry-pay__lead {
+  margin: 0 0 0.75rem;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: var(--at-ink-2);
+}
+.at-order-retry-pay__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  width: 100%;
+  min-height: 3rem;
+  font-size: 1rem;
+  font-weight: 800;
+  text-decoration: none;
+  padding: 0.75rem 1rem;
+}
+.at-order-retry-pay__btn.is-busy {
+  opacity: 0.85;
+  pointer-events: none;
+}
+.at-order-retry-pay__amount {
+  font-weight: 700;
+  opacity: 0.95;
+}
+@media (min-width: 768px) {
+  .at-order-retry-pay {
+    max-width: 28rem;
+  }
+  .at-order-retry-pay__btn {
+    width: auto;
+    min-width: 16rem;
+  }
+}
 .at-order-detail__timeline .at-card__body {
   min-width: 0;
   overflow-x: hidden;

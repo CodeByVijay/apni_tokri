@@ -153,6 +153,26 @@ $currentStatus = is_array($order['current_status'] ?? null) ? $order['current_st
 $orderStatus = (string) ($currentStatus['status'] ?? $overview['status_public'] ?? $order['status'] ?? '');
 $paymentStatusLabel = (string) ($overview['payment_status_label'] ?? '');
 
+$showRetryPayment = false;
+$retryPaymentUrl = '';
+$retryPaymentAmount = (float) ($totals['grand_total'] ?? $totals['total'] ?? 0);
+if (CommerceGateway::useDatabase() && CustomerAuth::id() !== null && $id !== '') {
+    $orderRowForRetry = isset($row) && is_array($row)
+        ? $row
+        : OrderFulfillmentService::orderRowForCustomer($id, CustomerAuth::id());
+    if ($orderRowForRetry !== null && PaymentService::customerCanRetryStorefrontPayment($orderRowForRetry)) {
+        $showRetryPayment = true;
+        $retryPaymentUrl = url_base() . '/payment.php?order=' . rawurlencode($displayId);
+        if ((string) ($orderRowForRetry['payment_status'] ?? '') === 'failed') {
+            $retryPaymentUrl .= '&retry=1';
+        }
+        $retryPaymentAmount = (float) ($orderRowForRetry['grand_total'] ?? $retryPaymentAmount);
+        if ($paySummary !== null && isset($paySummary['amount']) && (float) $paySummary['amount'] > 0) {
+            $retryPaymentAmount = (float) $paySummary['amount'];
+        }
+    }
+}
+
 layout_public_start(['pageTitle' => 'Order ' . $displayId . ' — Veggie Tokri', 'activeNav' => 'account']);
 $accountActive = 'orders';
 $accountTitle = 'Order ' . $displayId;
@@ -209,6 +229,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/customer-order-cancel.php';
 ?>
 
 <?php require APNI_TOKRI_ROOT . '/includes/partials/order-current-status.php'; ?>
+<?php require APNI_TOKRI_ROOT . '/includes/partials/order-retry-payment-cta.php'; ?>
 
 <section class="at-card at-order-detail__timeline">
     <div class="at-card__body">
@@ -334,15 +355,8 @@ require APNI_TOKRI_ROOT . '/includes/partials/customer-order-cancel.php';
                     <?php if (count($payments) > 1): ?>
                         <p class="text-xs at-muted mt-3"><?= (int) count($payments) ?> payment attempts on this order.</p>
                     <?php endif; ?>
-                    <?php
-                    $orderRowForRetry = CommerceGateway::useDatabase() && CustomerAuth::id() !== null
-                        ? OrderFulfillmentService::orderRowForCustomer($displayId, CustomerAuth::id())
-                        : null;
-                    if ($orderRowForRetry !== null && PaymentService::customerCanRetryStorefrontPayment($orderRowForRetry)):
-                        ?>
-                        <p class="mt-4">
-                            <a class="at-btn at-btn--primary at-btn--sm at-focusable" href="<?= Security::escape(url_base()) ?>/payment.php?order=<?= rawurlencode($displayId) ?><?= (string) ($orderRowForRetry['payment_status'] ?? '') === 'failed' ? '&amp;retry=1' : '' ?>">Retry payment</a>
-                        </p>
+                    <?php if ($showRetryPayment): ?>
+                        <p class="text-xs at-muted mt-3">Use the <strong>Retry Payment</strong> button at the top of this page to pay securely.</p>
                     <?php endif; ?>
                 <?php elseif ($paySummary !== null): ?>
                     <dl class="at-order-detail__dl mt-3">
