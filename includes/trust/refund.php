@@ -336,12 +336,11 @@ final class RefundRequestService
         if ($orderId <= 0) {
             return 0.0;
         }
-        $refundable = self::capturedAmountForOrder($orderId);
-        $alreadyRefunded = self::completedRefundTotalForOrder($orderId);
+        $remainingCaptured = self::capturedAmountForOrder($orderId);
         $pendingAll = self::pendingRefundTotalForOrder($orderId);
         $selfPending = self::pendingContributionForRequest($requestId);
         $otherPending = max(0.0, $pendingAll - $selfPending);
-        $available = $refundable - $alreadyRefunded - $otherPending;
+        $available = $remainingCaptured - $otherPending;
 
         return round(max(0.0, $available), 2);
     }
@@ -355,11 +354,10 @@ final class RefundRequestService
             return ['ok' => false, 'message' => 'Approve a positive amount.'];
         }
         $orderId = (int) $req['order_id'];
-        $refundable = self::capturedAmountForOrder($orderId);
-        $alreadyRefunded = self::completedRefundTotalForOrder($orderId);
+        $remainingCaptured = self::capturedAmountForOrder($orderId);
         $requestId = (int) ($req['id'] ?? 0);
         $otherApproved = max(0.0, self::pendingRefundTotalForOrder($orderId) - self::pendingContributionForRequest($requestId));
-        if ($amountInr + $alreadyRefunded + $otherApproved > $refundable + 0.01) {
+        if ($amountInr + $otherApproved > $remainingCaptured + 0.01) {
             return ['ok' => false, 'message' => 'Amount exceeds refundable balance.'];
         }
 

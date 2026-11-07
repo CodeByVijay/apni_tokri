@@ -15,10 +15,14 @@ if (!Install::isSchemaReady()) {
 require_once __DIR__ . '/includes/stage12_phase_c1_fixture.php';
 
 $fail = 0;
-$ok = static function (bool $cond, string $msg) use (&$fail): void {
+$debugRefundTests = getenv('APNI_TOKRI_REFUND_TEST_DEBUG') === '1';
+$ok = static function (bool $cond, string $msg, array $debug = []) use (&$fail, $debugRefundTests): void {
     echo ($cond ? 'OK' : 'FAIL') . ': ' . $msg . "\n";
     if (!$cond) {
         $fail++;
+        if ($debugRefundTests && $debug !== []) {
+            fwrite(STDERR, 'DEBUG: ' . $msg . ' → ' . json_encode($debug, JSON_UNESCAPED_UNICODE) . "\n");
+        }
     }
 };
 
@@ -86,18 +90,24 @@ $pdo->prepare(
 )->execute([$requestIdFail, (int) $fixture['order_item_id'], 25.00]);
 $pdo->prepare("UPDATE payments SET gateway = 'unsupported_gw' WHERE order_id = ?")->execute([$orderId]);
 $failRes = RefundRequestService::approveAndProcessGatewayRefund($requestIdFail, 25.0, 'gw fail');
-$ok(empty($failRes['ok']) && !empty($failRes['approved_saved']), 'Gateway fail keeps approval');
+$st->execute([$requestIdFail]);
+$rowFailPre = $st->fetch(PDO::FETCH_ASSOC) ?: [];
+$ok(
+    empty($failRes['ok']) && !empty($failRes['approved_saved']),
+    'Gateway fail keeps approval',
+    ['result' => $failRes, 'db' => $rowFailPre, 'payment_gateway' => $pdo->query('SELECT gateway FROM payments WHERE order_id = ' . (int) $orderId)->fetchColumn()]
+);
 $st->execute([$requestIdFail]);
 $rowFail = $st->fetch(PDO::FETCH_ASSOC) ?: [];
-$ok((string) ($rowFail['status'] ?? '') === RefundStatus::REFUND_FAILED, 'Status refund_failed after gateway error');
-$ok(abs((float) ($rowFail['approved_amount_inr'] ?? 0) - 25.0) < 0.01, 'Approved amount preserved on gateway failure');
+$ok((string) ($rowFail['status'] ?? '') === RefundStatus::REFUND_FAILED, 'Status refund_failed after gateway error', ['row' => $rowFail]);
+$ok(abs((float) ($rowFail['approved_amount_inr'] ?? 0) - 25.0) < 0.01, 'Approved amount preserved on gateway failure', ['row' => $rowFail]);
 $pdo->prepare("UPDATE payments SET gateway = 'simulate' WHERE order_id = ?")->execute([$orderId]);
 
 $retry = RefundRequestService::retryGatewayRefund($requestIdFail);
-$ok(!empty($retry['ok']), 'Manual retry after failure succeeds');
+$ok(!empty($retry['ok']), 'Manual retry after failure succeeds', ['retry' => $retry]);
 $st->execute([$requestIdFail]);
 $rowRetry = $st->fetch(PDO::FETCH_ASSOC) ?: [];
-$ok((string) ($rowRetry['status'] ?? '') === RefundStatus::REFUNDED, 'Retry completes refund');
+$ok((string) ($rowRetry['status'] ?? '') === RefundStatus::REFUNDED, 'Retry completes refund', ['row' => $rowRetry]);
 
 $over = RefundRequestService::approveAndProcessGatewayRefund($requestId, 99999.0, null);
 $ok(empty($over['ok']) && empty($over['approved_saved'] ?? false), 'Excessive amount rejected without approval');
@@ -135,8 +145,18 @@ $pend = RefundRequestService::approveAndProcessGatewayRefund($requestIdPend, 30.
 PaymentHttp::$testHandler = $prevHandler;
 $pdo->prepare("UPDATE payments SET gateway = 'simulate' WHERE order_id = ?")->execute([$orderId]);
 $st->execute([$requestIdPend]);
-$ok(!empty($pend['ok']), 'Cashfree pending response treated as success initiation');
-$ok((string) ($st->fetchColumn() ?: '') === RefundStatus::PROCESSING, 'Pending gateway leaves request processing');
+$rowPend = $st->fetch(PDO::FETCH_ASSOC) ?: [];
+$gwPend = RefundRequestService::latestPaymentRefundForRequest($requestIdPend);
+$ok(!empty($pend['ok']), 'Cashfree pending response treated as success initiation', [
+    'result' => $pend,
+    'row' => $rowPend,
+    'cashfree_configured' => CashfreeGateway::isConfigured(),
+    'handler_set' => PaymentHttp::$testHandler !== null,
+]);
+$ok((string) ($rowPend['status'] ?? '') === RefundStatus::PROCESSING, 'Pending gateway leaves request processing', [
+    'row' => $rowPend,
+    'payment_refund' => $gwPend,
+]);
 $block = RefundRequestService::initiateGatewayRefund($requestIdPend);
 $ok(empty($block['ok']), 'In-progress gateway refund cannot be duplicated');
 

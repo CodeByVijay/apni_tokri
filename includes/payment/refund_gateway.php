@@ -98,6 +98,11 @@ final class GatewayRefundService
         if (!CashfreeGateway::isConfigured()) {
             return ['ok' => false, 'message' => 'Cashfree is not configured.'];
         }
+        try {
+            $refundUrl = CashfreeGateway::ordersRefundApiPath($merchantOrderId);
+        } catch (RuntimeException $e) {
+            return ['ok' => false, 'message' => 'Cashfree is not configured.'];
+        }
         $body = [
             'refund_amount' => round($amountInr, 2),
             'refund_id' => substr(preg_replace('/[^a-zA-Z0-9_]/', '_', $idempotencyKey), 0, 40),
@@ -111,7 +116,7 @@ final class GatewayRefundService
         ];
         $resp = PaymentHttp::request(
             'POST',
-            CashfreeGateway::ordersRefundApiPath($merchantOrderId),
+            $refundUrl,
             $body,
             $headers
         );
