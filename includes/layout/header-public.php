@@ -154,21 +154,12 @@ $navIsCategoryPage = $activeNav === 'categories';
             <button type="button" class="at-close at-focusable" data-at-modal-close aria-label="<?= Security::escape(__('menu_close')) ?>"><?= at_icon('close', 'w-5 h-5') ?></button>
         </div>
         <div class="at-modal__body space-y-3">
-            <div id="at-delivery-pin-step" data-at-delivery-pin-step>
-                <p class="text-sm at-muted">We currently plan to deliver in select Indore areas. Enter your pincode to see if we reach you.</p>
-                <div class="mt-3">
-                    <label class="at-label" for="at-pincode">Pincode / area</label>
-                    <input id="at-pincode" type="text" class="at-input at-focusable" placeholder="e.g. 452001" inputmode="numeric" maxlength="6" autocomplete="postal-code" value="<?= Security::escape((string) ($deliveryPin ?? '')) ?>">
-                    <div id="at-pin-feedback" class="mt-2 space-y-2" role="status" aria-live="polite">
-                        <p class="at-field-hint" id="at-pin-result"></p>
-                        <p class="text-sm at-muted hidden" id="at-pin-result-detail"></p>
-                        <button type="button" class="at-btn at-btn--secondary at-btn--sm at-focusable hidden" id="at-pin-map-action">Select delivery location on map</button>
-                    </div>
-                </div>
+            <p class="text-sm at-muted">We currently plan to deliver in select Indore areas. Enter your pincode to see if we reach you.</p>
+            <div>
+                <label class="at-label" for="at-pincode">Pincode / area</label>
+                <input id="at-pincode" type="text" class="at-input at-focusable" placeholder="e.g. 452001" inputmode="numeric" maxlength="6" autocomplete="postal-code" value="<?= Security::escape((string) ($deliveryPin ?? '')) ?>">
+                <p class="at-field-hint" id="at-pin-result" role="status" aria-live="polite"></p>
             </div>
-            <?php if (DeliveryPolicies::isDistanceHybridEnabled()): ?>
-                <?php require APNI_TOKRI_ROOT . '/includes/partials/delivery-modal-map.php'; ?>
-            <?php endif; ?>
         </div>
         <div class="at-modal__footer">
             <button type="button" class="at-btn at-btn--secondary at-focusable" data-at-modal-close>Close</button>

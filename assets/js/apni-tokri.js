@@ -264,10 +264,6 @@
     var $btn = $('#at-pin-check-btn');
     var $input = $('#at-pincode');
     var $result = $('#at-pin-result');
-    var $resultDetail = $('#at-pin-result-detail');
-    var $mapAction = $('#at-pin-map-action');
-    var $pinStep = $('[data-at-delivery-pin-step]');
-    var $mapStep = $('[data-at-delivery-map-step]');
     var $heroForm = $('#at-hero-pin-form');
     var $heroInput = $('#hero-pincode');
     var $heroBtn = $('#hero-pin-check');
@@ -276,7 +272,6 @@
 
     var currentPin = ($modal.attr('data-current-pin') || '').replace(/\D/g, '');
     var inFlight = false;
-    var lastNeedsMap = false;
 
     function baseUrl() {
       var path = window.location.pathname;
@@ -295,95 +290,25 @@
       $('[data-at-loc-pin]').text(' \u00b7 ' + pin);
     }
 
-    function clearModalFeedback() {
-      $result.text('').css('color', '');
-      $resultDetail.addClass('hidden').text('');
-      $mapAction.addClass('hidden');
-      lastNeedsMap = false;
+    function formatCheckMessage(data) {
+      if (!data) return '';
+      var msg = data.message || '';
+      if (data.message_detail) {
+        msg = msg + (msg ? ' ' : '') + data.message_detail;
+      }
+      return msg;
     }
 
-    function showModalFeedback(data, loading) {
-      if (loading) {
-        clearModalFeedback();
-        $result.text('Checking\u2026').css('color', '');
-        return;
-      }
-      var ok = !!(data && data.serviceable);
-      var needsMap = !!(data && data.requires_map_pin);
-      lastNeedsMap = needsMap;
-      $result.text((data && data.message) || '').css('color', ok ? 'var(--at-success)' : 'var(--at-danger)');
-      if (needsMap && data.message_detail) {
-        $resultDetail.removeClass('hidden').text(data.message_detail);
-        $mapAction.removeClass('hidden');
-      } else {
-        $resultDetail.addClass('hidden').text('');
-        $mapAction.addClass('hidden');
-      }
-    }
-
-    function showHero(pin, state, payload) {
+    function showHero(pin, state, message) {
       if (!$heroResult.length) return;
-      payload = payload || {};
       var ok = state === 'ok';
       var err = state === 'invalid';
-      var needsMap = !!payload.requires_map_pin;
       $heroResult.removeClass('hidden is-ok is-bad').addClass(ok ? 'is-ok' : (state === 'loading' ? '' : 'is-bad'));
-      var title = state === 'loading' ? 'Checking delivery\u2026' : (ok ? 'Delivery available' : (err ? 'Invalid pincode' : (needsMap ? 'Location needed on map' : 'Delivery not available in this area')));
+      var title = state === 'loading' ? 'Checking delivery\u2026' : (ok ? 'Delivery available' : (err ? 'Invalid pincode' : 'Delivery not available in this area'));
       $heroResult.find('.at-pin-result__status').text(title + (pin && !err && state !== 'loading' ? ' \u2014 ' + pin : ''));
-      var msg = payload.message || '';
-      if (needsMap && payload.message_detail) {
-        msg = msg + (msg ? ' ' : '') + payload.message_detail;
-      }
-      $heroResult.find('.at-pin-result__msg').text(state === 'loading' ? '' : msg);
+      $heroResult.find('.at-pin-result__msg').text(state === 'loading' ? '' : (message || ''));
       $heroResult.find('[data-pin-continue]').toggleClass('hidden', !ok);
-      $heroResult.find('[data-pin-map-select]').toggleClass('hidden', !needsMap || state === 'loading');
       $heroResult.find('[data-pin-change]').toggleClass('hidden', state === 'loading');
-    }
-
-    function showPinStep() {
-      $pinStep.removeClass('hidden');
-      $mapStep.addClass('hidden');
-    }
-
-    function mapCoordsPayload() {
-      var $f = $('#at-delivery-map-form');
-      if (!$f.length) return {};
-      var lat = ($f.find('[name="latitude"]').val() || '').trim();
-      var lng = ($f.find('[name="longitude"]').val() || '').trim();
-      if (lat === '' || lng === '') return {};
-      return { latitude: lat, longitude: lng };
-    }
-
-    function ensureDeliveryMapReady(done) {
-      if (window.AtAddressMap && window.AtAddressMap.init) {
-        window.AtAddressMap.init();
-        $(document).trigger('at:address-map-show');
-        if (typeof done === 'function') done();
-        return;
-      }
-      if (typeof done === 'function') done();
-    }
-
-    function focusPageAddressMap() {
-      var $loc = $('[data-at-address-form]:visible [data-addr-step="location"]').first();
-      if (!$loc.length) return false;
-      closeModal($modal);
-      $loc[0].scrollIntoView({ behavior: 'smooth', block: 'start' });
-      ensureDeliveryMapReady(function () {
-        $loc.find('[data-addr-gps], [data-addr-map]').first().trigger('focus');
-      });
-      return true;
-    }
-
-    function openDeliveryMapStep() {
-      if (focusPageAddressMap()) return;
-      if (!$mapStep.length) return;
-      $pinStep.addClass('hidden');
-      $mapStep.removeClass('hidden');
-      ensureDeliveryMapReady(function () {
-        var $map = $mapStep.find('[data-addr-map]');
-        if ($map.length) $map.trigger('focus');
-      });
     }
 
     function setBusy(busy) {
@@ -392,64 +317,51 @@
       $heroBtn.prop('disabled', busy);
     }
 
-    function check(pinRaw, source, extra) {
+    function check(pinRaw, source) {
       if (inFlight) return;
       var pin = (pinRaw || '').replace(/\D/g, '');
       if (pin.length !== 6) {
         var msg = pin.length === 0 ? 'Enter your 6-digit pincode.' : 'Enter a valid 6-digit pincode.';
         if (source === 'modal') {
-          clearModalFeedback();
           $result.text(msg).css('color', 'var(--at-danger)');
         } else {
-          showHero(pin, 'invalid', { message: msg });
+          showHero(pin, 'invalid', msg);
         }
         return;
       }
       setBusy(true);
-      if (source === 'modal') showModalFeedback(null, true);
-      else showHero(pin, 'loading', {});
-      var postData = $.extend({
-        _csrf_token: $('meta[name="csrf-token"]').attr('content'),
-        pincode: pin
-      }, extra || mapCoordsPayload());
+      if (source === 'modal') $result.text('Checking\u2026').css('color', '');
+      else showHero(pin, 'loading', '');
       $.ajax({
         url: baseUrl() + '/ajax/delivery/check-pin',
         method: 'POST',
         dataType: 'json',
-        data: postData
+        data: { _csrf_token: $('meta[name="csrf-token"]').attr('content'), pincode: pin }
       }).done(function (res) {
         if (!res || !res.success) {
           var m = (res && res.error && res.error.message) || (res && res.message) || 'Could not check pincode. Try again.';
-          if (source === 'modal') {
-            clearModalFeedback();
-            $result.text(m).css('color', 'var(--at-danger)');
-          } else {
-            showHero(pin, 'bad', { message: m });
-          }
+          if (source === 'modal') $result.text(m).css('color', 'var(--at-danger)');
+          else showHero(pin, 'bad', m);
           return;
         }
         var data = res.data || {};
         var ok = !!data.serviceable;
+        var userMsg = formatCheckMessage(data) || res.message || '';
         currentPin = pin;
         syncInputs(pin);
-        if (ok) {
-          updateHeader(pin);
-          showPinStep();
+        if (ok) updateHeader(pin);
+        if (source === 'modal') {
+          $result.text(userMsg).css('color', ok ? 'var(--at-success)' : 'var(--at-danger)');
         }
-        if (source === 'modal') showModalFeedback(data, false);
-        showHero(pin, ok ? 'ok' : 'bad', data);
+        showHero(pin, ok ? 'ok' : 'bad', userMsg);
         var uiToast = (window.VeggieTokri && window.VeggieTokri.toast) ? window.VeggieTokri : window.ApniTokri;
-        if (uiToast && uiToast.toast && data.message) {
-          uiToast.toast(data.message, ok ? 'success' : (data.requires_map_pin ? 'info' : 'error'));
+        if (uiToast && uiToast.toast && userMsg) {
+          uiToast.toast(userMsg, ok ? 'success' : 'error');
         }
       }).fail(function () {
         var m = 'Could not check pincode. Try again.';
-        if (source === 'modal') {
-          clearModalFeedback();
-          $result.text(m).css('color', 'var(--at-danger)');
-        } else {
-          showHero(pin, 'bad', { message: m });
-        }
+        if (source === 'modal') $result.text(m).css('color', 'var(--at-danger)');
+        else showHero(pin, 'bad', m);
       }).always(function () {
         setBusy(false);
       });
@@ -459,31 +371,12 @@
     $(document).on('click', '[data-at-open-modal="#at-delivery-modal"]', function () {
       var v = ($heroInput.val() || '').replace(/\D/g, '') || currentPin;
       $input.val(v);
-      clearModalFeedback();
-      showPinStep();
+      $result.text('');
     });
 
     $btn.on('click', function () { check($input.val(), 'modal'); });
     $input.on('keydown', function (e) {
       if (e.key === 'Enter') { e.preventDefault(); check($input.val(), 'modal'); }
-    });
-
-    $mapAction.on('click', openDeliveryMapStep);
-    $(document).on('click', '[data-pin-map-select]', function () {
-      var v = ($heroInput.val() || '').replace(/\D/g, '') || currentPin;
-      $input.val(v);
-      clearModalFeedback();
-      showPinStep();
-      openModal('#at-delivery-modal');
-      openDeliveryMapStep();
-    });
-    $(document).on('click', '[data-at-delivery-back-pin]', showPinStep);
-
-    $(document).on('click', '#at-delivery-map-form [data-addr-confirm-loc]', function () {
-      window.setTimeout(function () {
-        var pin = ($input.val() || '').replace(/\D/g, '') || currentPin;
-        check(pin, 'modal', mapCoordsPayload());
-      }, 0);
     });
 
     $heroForm.on('submit', function (e) {
@@ -497,8 +390,7 @@
     $heroResult.on('click', '[data-pin-change]', function () {
       var v = ($heroInput.val() || '').replace(/\D/g, '') || currentPin;
       $input.val(v);
-      clearModalFeedback();
-      showPinStep();
+      $result.text('');
       openModal('#at-delivery-modal');
       $input.focus();
     });
