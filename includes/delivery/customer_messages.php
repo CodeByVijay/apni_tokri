@@ -5,6 +5,11 @@ declare(strict_types=1);
 /** Storefront copy when distance-based delivery needs a map pin (not a pricing rule). */
 final class DeliveryCustomerMessages
 {
+    public static function pinCheckUnavailable(): string
+    {
+        return 'Delivery not available at this location. Please try another pincode.';
+    }
+
     public static function mapPinRequiredHeadline(): string
     {
         return 'Your pincode is valid, but we need your exact delivery location to check whether we can deliver to your address.';

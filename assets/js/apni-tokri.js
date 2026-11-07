@@ -290,23 +290,16 @@
       $('[data-at-loc-pin]').text(' \u00b7 ' + pin);
     }
 
-    function formatCheckMessage(data) {
-      if (!data) return '';
-      var msg = data.message || '';
-      if (data.message_detail) {
-        msg = msg + (msg ? ' ' : '') + data.message_detail;
-      }
-      return msg;
-    }
-
     function showHero(pin, state, message) {
       if (!$heroResult.length) return;
       var ok = state === 'ok';
       var err = state === 'invalid';
+      var bad = state === 'bad';
       $heroResult.removeClass('hidden is-ok is-bad').addClass(ok ? 'is-ok' : (state === 'loading' ? '' : 'is-bad'));
-      var title = state === 'loading' ? 'Checking delivery\u2026' : (ok ? 'Delivery available' : (err ? 'Invalid pincode' : 'Delivery not available in this area'));
-      $heroResult.find('.at-pin-result__status').text(title + (pin && !err && state !== 'loading' ? ' \u2014 ' + pin : ''));
-      $heroResult.find('.at-pin-result__msg').text(state === 'loading' ? '' : (message || ''));
+      var title = state === 'loading' ? 'Checking delivery\u2026' : (ok ? 'Delivery available' : (err ? 'Invalid pincode' : (bad ? (message || '') : 'Delivery not available')));
+      if (ok && pin) title += ' \u2014 ' + pin;
+      $heroResult.find('.at-pin-result__status').text(title);
+      $heroResult.find('.at-pin-result__msg').text(state === 'loading' || bad || err ? '' : (message || ''));
       $heroResult.find('[data-pin-continue]').toggleClass('hidden', !ok);
       $heroResult.find('[data-pin-change]').toggleClass('hidden', state === 'loading');
     }
@@ -346,7 +339,7 @@
         }
         var data = res.data || {};
         var ok = !!data.serviceable;
-        var userMsg = formatCheckMessage(data) || res.message || '';
+        var userMsg = ok ? (data.message || res.message || '') : (data.message || '');
         currentPin = pin;
         syncInputs(pin);
         if (ok) updateHeader(pin);
@@ -354,9 +347,11 @@
           $result.text(userMsg).css('color', ok ? 'var(--at-success)' : 'var(--at-danger)');
         }
         showHero(pin, ok ? 'ok' : 'bad', userMsg);
-        var uiToast = (window.VeggieTokri && window.VeggieTokri.toast) ? window.VeggieTokri : window.ApniTokri;
-        if (uiToast && uiToast.toast && userMsg) {
-          uiToast.toast(userMsg, ok ? 'success' : 'error');
+        if (ok) {
+          var uiToast = (window.VeggieTokri && window.VeggieTokri.toast) ? window.VeggieTokri : window.ApniTokri;
+          if (uiToast && uiToast.toast && userMsg) {
+            uiToast.toast(userMsg, 'success');
+          }
         }
       }).fail(function () {
         var m = 'Could not check pincode. Try again.';

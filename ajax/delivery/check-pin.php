@@ -22,13 +22,16 @@ if ($result['serviceable']) {
 }
 
 $requiresMap = !empty($result['requires_map_pin']);
+$customerMessage = $result['serviceable']
+    ? (string) $result['message']
+    : DeliveryCustomerMessages::pinCheckUnavailable();
 $data = [
     'serviceable' => $result['serviceable'],
     'requires_map_pin' => $requiresMap,
-    'message' => $result['message'],
-    'message_detail' => $requiresMap ? (string) ($result['message_detail'] ?? DeliveryCustomerMessages::mapPinRequiredDetail()) : null,
+    'message' => $customerMessage,
+    'message_detail' => null,
     'zone' => $result['zone']['name'] ?? null,
     'totals' => CartService::itemCount() > 0 ? CartService::totals() : null,
 ];
 
-Ajax::success($data, $result['message']);
+Ajax::success($data, $customerMessage);
