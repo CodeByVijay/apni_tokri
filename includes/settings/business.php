@@ -184,11 +184,40 @@ final class BusinessSettings
     public static function udyamVerifyUrl(): string
     {
         $v = trim(AppSettings::get(self::KEY_UDYAM_VERIFY_URL, '') ?? '');
-        if ($v !== '' && filter_var($v, FILTER_VALIDATE_URL) !== false && preg_match('#^https?://#i', $v) === 1) {
-            return $v;
+        if ($v === '') {
+            return self::DEFAULT_UDYAM_VERIFY_URL;
+        }
+        if (filter_var($v, FILTER_VALIDATE_URL) === false || preg_match('#^https?://#i', $v) !== 1) {
+            return self::DEFAULT_UDYAM_VERIFY_URL;
         }
 
-        return self::DEFAULT_UDYAM_VERIFY_URL;
+        return self::canonicalUdyamVerifyUrl($v);
+    }
+
+    /**
+     * Official portal paths are case-sensitive; common typos (e.g. Udyam_Verify.aspx) redirect to Default.aspx.
+     * Custom third-party URLs are returned unchanged.
+     */
+    public static function canonicalUdyamVerifyUrl(string $url): string
+    {
+        $url = trim($url);
+        if ($url === '') {
+            return self::DEFAULT_UDYAM_VERIFY_URL;
+        }
+        $parts = parse_url($url);
+        if ($parts === false || !isset($parts['host'])) {
+            return $url;
+        }
+        $host = strtolower((string) $parts['host']);
+        if ($host !== 'udyamregistration.gov.in' && $host !== 'www.udyamregistration.gov.in') {
+            return $url;
+        }
+        $path = (string) ($parts['path'] ?? '');
+        if (preg_match('#^/Udyam[_\-]?[Vv]erify\.aspx$#', $path) === 1) {
+            return self::DEFAULT_UDYAM_VERIFY_URL;
+        }
+
+        return $url;
     }
 
     /** Admin reference only — certificate PDF is not exposed on the storefront. */
@@ -208,9 +237,30 @@ final class BusinessSettings
         if ($file === null) {
             return null;
         }
-        $path = InvoiceStorage::assetDir() . '/' . $file;
 
-        return is_file($path) ? $path : null;
+        return InvoiceStorage::resolveAdminAssetPdf($file);
+    }
+
+    /**
+     * Stream the stored Udyam certificate PDF (caller must enforce admin auth).
+     */
+    public static function streamUdyamCertificate(bool $inline): void
+    {
+        $stored = self::udyamCertificateStoredFile();
+        if ($stored === null) {
+            http_response_code(404);
+            header('Content-Type: text/plain; charset=utf-8');
+            echo 'Certificate not available.';
+            exit;
+        }
+        $read = InvoiceStorage::readAdminAssetPdf($stored);
+        if (!$read['ok']) {
+            http_response_code(404);
+            header('Content-Type: text/plain; charset=utf-8');
+            echo 'Certificate not available.';
+            exit;
+        }
+        InvoiceStorage::streamPdfBytes((string) $read['bytes'], 'udyam-certificate', $inline);
     }
 
     /**
@@ -450,6 +500,8 @@ final class BusinessSettings
         if ($udyamVerifyUrl !== '') {
             if (filter_var($udyamVerifyUrl, FILTER_VALIDATE_URL) === false || !preg_match('#^https?://#i', $udyamVerifyUrl)) {
                 $errors['udyam_verify_url'] = 'Enter a full http(s) verification URL, or leave blank for the official default.';
+            } else {
+                $udyamVerifyUrl = self::canonicalUdyamVerifyUrl($udyamVerifyUrl);
             }
         }
 

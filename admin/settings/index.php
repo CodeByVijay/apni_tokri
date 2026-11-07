@@ -169,7 +169,13 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/settings-nav.php';
                 </div>
                 <div class="md:col-span-2 flex flex-wrap items-start gap-4">
                     <?php if ($udyamCertOnFile): ?>
-                        <span class="text-sm">A Udyam certificate PDF is on file (admin only).</span>
+                        <div class="flex flex-col gap-2 w-full sm:w-auto">
+                            <span class="text-sm">A Udyam certificate PDF is on file (admin only).</span>
+                            <div class="flex flex-wrap gap-2">
+                                <a class="at-btn at-btn--sm at-btn--secondary at-focusable" href="<?= Security::escape($settingsBase) ?>/udyam-certificate.php?inline=1" target="_blank" rel="noopener">View certificate</a>
+                                <a class="at-btn at-btn--sm at-btn--secondary at-focusable" href="<?= Security::escape($settingsBase) ?>/udyam-certificate.php">Download certificate</a>
+                            </div>
+                        </div>
                         <label class="flex gap-2 text-sm"><input type="checkbox" name="remove_udyam_certificate" value="1"> Remove stored certificate</label>
                     <?php else: ?>
                         <span class="text-sm at-muted">Optional: upload the Udyam certificate PDF for your records.</span>

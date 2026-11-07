@@ -14,6 +14,7 @@ declare(strict_types=1);
 final class InvoiceStorage
 {
     private const FILE_PATTERN = '/^[a-f0-9]{40}\.pdf$/';
+    private const ADMIN_ASSET_PDF_PATTERN = '/^[a-f0-9]{24}\.pdf$/';
 
     public static function baseDir(): string
     {
@@ -157,6 +158,50 @@ final class InvoiceStorage
             $bytes = (string) $read['bytes'];
         }
         $label = $fileLabel ?? preg_replace('/[^A-Za-z0-9_\-]+/', '-', (string) ($invoice['invoice_number'] ?? 'invoice')) ?? 'invoice';
+        self::streamPdfBytes($bytes, $label, $inline);
+    }
+
+    /** Absolute path for a stored admin asset PDF filename, or null when invalid / outside root / missing. */
+    public static function resolveAdminAssetPdf(string $file): ?string
+    {
+        if (preg_match(self::ADMIN_ASSET_PDF_PATTERN, $file) !== 1) {
+            return null;
+        }
+        $root = realpath(self::assetDir());
+        if ($root === false) {
+            return null;
+        }
+        $real = realpath($root . '/' . $file);
+        if ($real === false || strpos($real, $root . DIRECTORY_SEPARATOR) !== 0 || !is_file($real)) {
+            return null;
+        }
+
+        return $real;
+    }
+
+    /**
+     * @return array{ok: bool, bytes?: string, error?: string}
+     */
+    public static function readAdminAssetPdf(string $storedFile): array
+    {
+        $path = self::resolveAdminAssetPdf($storedFile);
+        if ($path === null) {
+            return ['ok' => false, 'error' => 'missing'];
+        }
+        $bytes = @file_get_contents($path);
+        if ($bytes === false || strncmp($bytes, '%PDF-', 5) !== 0) {
+            return ['ok' => false, 'error' => 'invalid_pdf'];
+        }
+
+        return ['ok' => true, 'bytes' => $bytes];
+    }
+
+    public static function streamPdfBytes(string $bytes, string $safeLabel, bool $inline): void
+    {
+        $label = preg_replace('/[^A-Za-z0-9_\-]+/', '-', $safeLabel) ?? 'document';
+        if ($label === '') {
+            $label = 'document';
+        }
         while (ob_get_level() > 0) {
             ob_end_clean();
         }

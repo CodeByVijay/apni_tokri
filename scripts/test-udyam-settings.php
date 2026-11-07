@@ -74,7 +74,21 @@ require APNI_TOKRI_ROOT . '/includes/layout/footer-public.php';
 $footerOn = (string) ob_get_clean();
 ok(str_contains($footerOn, $validUdyam), 'Footer shows Udyam number when enabled');
 ok(str_contains($footerOn, 'Test MSME Unit'), 'Footer shows enterprise name');
-ok(str_contains($footerOn, 'udyamregistration.gov.in'), 'Footer verify link uses default URL');
+ok(str_contains($footerOn, 'href="' . BusinessSettings::DEFAULT_UDYAM_VERIFY_URL . '"'), 'Footer verify href uses canonical default URL');
+
+AppSettings::resetCache();
+BusinessSettings::saveFromPost(array_merge(BusinessSettings::adminFormState(), [
+    'udyam_enabled' => '1',
+    'udyam_registration_number' => $validUdyam,
+    'udyam_verify_url' => 'https://udyamregistration.gov.in/Udyam_Verify.aspx',
+]));
+AppSettings::resetCache();
+ok(BusinessSettings::udyamVerifyUrl() === BusinessSettings::DEFAULT_UDYAM_VERIFY_URL, 'Canonicalize official verify URL with wrong path casing');
+ob_start();
+require APNI_TOKRI_ROOT . '/includes/layout/footer-public.php';
+$footerCanonical = (string) ob_get_clean();
+ok(str_contains($footerCanonical, 'href="' . BusinessSettings::DEFAULT_UDYAM_VERIFY_URL . '"'), 'Footer verify href canonicalizes saved Udyam_Verify.aspx');
+ok(BusinessSettings::canonicalUdyamVerifyUrl('https://verify.example.test/udyam') === 'https://verify.example.test/udyam', 'Custom verify URL preserved');
 ok(!str_contains($footerOn, '.pdf'), 'Footer does not expose certificate filename');
 
 $bad = BusinessSettings::saveFromPost(array_merge(BusinessSettings::adminFormState(), [
