@@ -607,10 +607,22 @@ final class PaymentService
         }
         $recordedEnv = self::paymentRecordedEnvironmentFromPaymentRow($targetRow);
         if ($recordedEnv !== null && !self::razorpayCredentialsMatchRecordedEnvironment($recordedEnv)) {
+            $keyHint = self::razorpayKeyEnvironmentHint();
+            error_log(
+                'Unpaid expiry deferred: Razorpay credential/environment mismatch order='
+                . $orderNumber
+                . ' recorded_env=' . $recordedEnv
+                . ' active_key=' . $keyHint
+            );
+
             return [
                 'ok' => false,
                 'state' => 'defer',
-                'message' => 'Razorpay API credentials do not match the stored payment environment.',
+                'message' => 'Expiry verification deferred: Razorpay credentials ('
+                    . $keyHint
+                    . ') do not match payment environment “'
+                    . $recordedEnv
+                    . '”. Align gateway settings — order not auto-cancelled.',
             ];
         }
         $gwOrderId = trim((string) ($targetRow['gateway_order_id'] ?? ''));
@@ -682,6 +694,19 @@ final class PaymentService
         }
 
         return true;
+    }
+
+    private static function razorpayKeyEnvironmentHint(): string
+    {
+        $kid = RazorpayGateway::keyId();
+        if (str_starts_with($kid, 'rzp_test_')) {
+            return 'test';
+        }
+        if (str_starts_with($kid, 'rzp_live_')) {
+            return 'live';
+        }
+
+        return 'unknown';
     }
 
     /**

@@ -164,6 +164,8 @@ final class UnpaidOrderExpiryService
             return ['action' => 'completed_payment', 'message' => 'payment_confirmed'];
         }
         if ($reconcile === 'defer') {
+            self::logExpiryDeferral((int) ($preOrder['id'] ?? 0), (string) ($preOrder['order_number'] ?? ''), 'pre_cancel_gateway_verify');
+
             return ['action' => 'defer', 'message' => 'verification_deferred'];
         }
 
@@ -411,6 +413,27 @@ final class UnpaidOrderExpiryService
         $got = (int) ($stmt ? $stmt->fetchColumn() : 0);
 
         return $got === 1;
+    }
+
+    private static function logExpiryDeferral(int $orderId, string $orderNumber, string $phase): void
+    {
+        if ($orderId <= 0) {
+            return;
+        }
+        error_log(
+            'UnpaidOrderExpiry defer order_id=' . $orderId
+            . ' order_number=' . $orderNumber
+            . ' phase=' . $phase
+            . ' (payment window expired; gateway verify inconclusive — not cancelled)'
+        );
+        try {
+            AuditLog::write('order.expiry_deferred', 'orders', (string) $orderId, [
+                'order_number' => $orderNumber,
+                'phase' => $phase,
+            ]);
+        } catch (Throwable $e) {
+            // non-fatal
+        }
     }
 
     public static function releaseCronLock(): void

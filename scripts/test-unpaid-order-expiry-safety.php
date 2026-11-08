@@ -178,10 +178,21 @@ try {
     )->execute([$canOid, $variantId, 'T', 'V']);
     $comp = PaymentService::completePayment($canNum, 'razorpay', 'pay_can_' . $tag, 'order_can_' . $tag, 100, 'INR', 'pay_' . $canNum, 'test:cancelled');
     oks(empty($comp['ok']), 'completePayment rejects cancelled order (reconciliation)');
+    oks(!empty($comp['reconciliation']), 'Late capture returns reconciliation flag');
     oks(
         (string) $pdo->query('SELECT payment_status FROM orders WHERE id = ' . $canOid)->fetchColumn() !== 'paid',
         'Cancelled order not flipped to paid after late webhook path'
     );
+    $excCnt = PaymentCompletionExceptionService::tableReady()
+        ? (int) $pdo->query(
+            "SELECT COUNT(*) FROM payment_completion_exceptions WHERE order_id = {$canOid} AND status = 'open'"
+        )->fetchColumn()
+        : 0;
+    oks($excCnt === 1, 'payment_completion_exceptions row persisted for late capture on cancelled order');
+    $paySt = (string) $pdo->query('SELECT status FROM payments WHERE order_id = ' . $canOid . ' LIMIT 1')->fetchColumn();
+    oks($paySt === 'reconciliation_required', 'Payment row marked reconciliation_required');
+    $refCnt = (int) $pdo->query('SELECT COUNT(*) FROM refund_requests WHERE order_id = ' . $canOid)->fetchColumn();
+    oks($refCnt === 0, 'No automatic refund request on reconciliation exception');
 } finally {
     PaymentHttp::$testHandler = null;
     TestScriptSafety::restorePaymentGatewaySettings($settingsBefore);

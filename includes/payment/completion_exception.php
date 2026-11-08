@@ -16,6 +16,7 @@ final class PaymentCompletionExceptionService
     public const CATEGORY_DELIVERY = 'delivery';
     public const CATEGORY_INVENTORY = 'inventory';
     public const CATEGORY_ADDRESS_DRIFT = 'address_drift';
+    public const CATEGORY_ORDER_CANCELLED = 'order_cancelled';
     public const CATEGORY_OTHER = 'other';
 
     /**
@@ -47,6 +48,9 @@ final class PaymentCompletionExceptionService
 
     public static function classifyFailureReason(string $message): string
     {
+        if (stripos($message, 'already cancelled') !== false) {
+            return self::CATEGORY_ORDER_CANCELLED;
+        }
         if (stripos($message, '[address_drift]') !== false || stripos($message, 'address changed') !== false) {
             return self::CATEGORY_ADDRESS_DRIFT;
         }
@@ -72,7 +76,9 @@ final class PaymentCompletionExceptionService
 
             return stripos($msg, '[inventory]') === 0
                 || stripos($msg, 'Insufficient stock') !== false
-                || stripos($msg, 'Stock decrement failed') !== false;
+                || stripos($msg, 'Stock decrement failed') !== false
+                || stripos($msg, '[reconciliation]') === 0
+                || stripos($msg, 'already cancelled') !== false;
         }
 
         return false;
