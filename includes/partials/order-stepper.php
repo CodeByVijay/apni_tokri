@@ -25,6 +25,7 @@ if ($total === 0) {
 }
 
 $statusKey = strtolower(str_replace(' ', '_', trim((string) ($resolvedOrderStatus ?? $orderStatus ?? ''))));
+$isCancelledOrder = ($statusKey === 'cancelled');
 $terminalBad = in_array($statusKey, ['cancelled', 'payment_failed', 'refunded', 'partially_refunded', 'delivery_exception'], true);
 $badLabel = static function (string $label): bool {
     return (bool) preg_match('/cancel|fail|could not|refund|exception|declin/i', $label);
@@ -74,7 +75,7 @@ $countLabel = $allDone ? ($total . ' of ' . $total) : (min($doneCount + 1, $tota
 $summaryBad = $currentStep['state'] === 'is-bad';
 $panelId = 'at-order-tracking-panel';
 ?>
-<div class="at-stepper at-stepper--collapsible" data-at-stepper data-at-order-tracking>
+<div class="at-stepper at-stepper--collapsible<?= $isCancelledOrder ? ' at-stepper--cancelled' : '' ?>" data-at-stepper data-at-order-tracking>
     <div class="at-stepper__collapse-bar">
         <p class="at-stepper__mobile-status" role="status">
             <span class="at-stepper__mobile-status-label">Current status</span>

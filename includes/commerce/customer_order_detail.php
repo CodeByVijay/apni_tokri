@@ -723,9 +723,13 @@ final class CustomerOrderTimeline
         });
 
         $hasDeliveredMilestone = self::hasSemanticKey($events, 'milestone.delivered');
+        $orderStatus = (string) ($orderRow['status'] ?? '');
+        if ($orderStatus === OrderStatus::CANCELLED && !$hasDeliveredMilestone) {
+            $events = self::stripCancelledOrderFulfilmentSteps($events);
+        }
         $events = self::stripInternalFields($events);
 
-        $status = (string) ($orderRow['status'] ?? '');
+        $status = $orderStatus;
         $paymentStatus = (string) ($orderRow['payment_status'] ?? '');
         $orderTerminal = in_array($status, [
             OrderStatus::DELIVERED,
@@ -931,11 +935,45 @@ final class CustomerOrderTimeline
             return $note;
         }
         $norm = str_replace(' ', '_', strtolower($status));
+        if ($norm === OrderStatus::CANCELLED && $note !== '') {
+            return $note;
+        }
         if (in_array($norm, OrderStatus::all(), true)) {
             return ucwords(str_replace('_', ' ', $norm));
         }
 
         return $status;
+    }
+
+    /**
+     * @param list<array{status: string, at: string, done: bool, key: string, source: string}> $events
+     * @return list<array{status: string, at: string, done: bool, key: string, source: string}>
+     */
+    private static function stripCancelledOrderFulfilmentSteps(array $events): array
+    {
+        $fulfilmentKeys = [
+            'order.status.preparing',
+            'order.status.ready',
+            'order.status.confirmed',
+            'milestone.out_for_delivery',
+        ];
+        $out = [];
+        foreach ($events as $e) {
+            $source = (string) ($e['source'] ?? '');
+            $key = (string) ($e['key'] ?? '');
+            if ($source === 'delivery_history') {
+                continue;
+            }
+            if (in_array($key, $fulfilmentKeys, true)) {
+                continue;
+            }
+            if (str_starts_with($key, 'delivery.status.') || str_starts_with($key, 'delivery.attempt.')) {
+                continue;
+            }
+            $out[] = $e;
+        }
+
+        return $out;
     }
 
     /** @return array{at: string}|null */

@@ -66,6 +66,7 @@ $cancelled = [
 $h = renderStepper($cancelled, 'cancelled');
 okS(substr_count($h, 'at-stepper__step is-bad') === 1, 'cancelled step is danger styled');
 okS(strpos($h, 'Delivered') === false, 'cancelled order shows no delivery progress');
+okS(strpos($h, 'at-stepper--cancelled') !== false, 'cancelled order uses vertical cancelled modifier');
 
 $failed = [
     ['status' => 'Order placed', 'at' => $t, 'done' => true],

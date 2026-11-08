@@ -336,6 +336,14 @@ try {
     }
     tok($custHasPrompt, '14 customer cancel keeps checkout payment prompt in timeline');
     tok(!$custHasTimeoutWording, '14 customer cancel does not show payment_timeout auto-cancel label');
+    $custCancelLabel = '';
+    foreach ($tl14 as $s) {
+        if (str_starts_with((string) ($s['status'] ?? ''), 'Cancelled by customer:')) {
+            $custCancelLabel = (string) ($s['status'] ?? '');
+            break;
+        }
+    }
+    tok($custCancelLabel === 'Cancelled by customer: Ordered by mistake', '14 customer cancel shows full cancellation description');
 
     $pdo->rollBack();
     tok(true, 'All fixtures rolled back (no order rows persisted)');
