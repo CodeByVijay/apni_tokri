@@ -153,7 +153,7 @@ final class AdminOrderService
         }
 
         $itemsStmt = $pdo->prepare(
-            'SELECT oi.product_name, oi.variant_name, oi.quantity, oi.unit_price, oi.line_total,
+            'SELECT oi.product_name, oi.variant_name, oi.sku, oi.quantity, oi.unit_price, oi.line_total,
                     (SELECT pi.file_path FROM product_images pi
                      INNER JOIN product_variants pv ON pv.product_id = pi.product_id
                      WHERE pv.id = oi.variant_id
@@ -166,19 +166,13 @@ final class AdminOrderService
             $items[] = [
                 'name' => (string) $it['product_name'],
                 'variant' => (string) $it['variant_name'],
+                'sku' => trim((string) ($it['sku'] ?? '')),
                 'qty' => (int) $it['quantity'],
                 'unit_price' => (float) $it['unit_price'],
                 'line_total' => (float) $it['line_total'],
                 'image' => (string) ($it['image_path'] ?? '') !== '' ? asset_url((string) $it['image_path']) : '',
             ];
         }
-
-        $payStmt = $pdo->prepare(
-            'SELECT gateway, status, amount, gateway_payment_id, gateway_order_id, created_at, updated_at
-             FROM payments WHERE order_id = ? ORDER BY id DESC LIMIT 5'
-        );
-        $payStmt->execute([$orderId]);
-        $payments = $payStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
         $histStmt = $pdo->prepare(
             'SELECT h.status, h.note, h.created_at, h.admin_user_id, u.name AS admin_name
@@ -232,7 +226,7 @@ final class AdminOrderService
             }
         }
 
-        return [
+        $base = [
             'id' => $orderId,
             'order_number' => (string) ($order['order_number'] ?? ''),
             'status' => (string) ($order['status'] ?? ''),
@@ -256,10 +250,11 @@ final class AdminOrderService
             'coupon_code' => $order['coupon_code'] ?? null,
             'placed_at' => (string) ($order['placed_at'] ?? $order['created_at'] ?? ''),
             'items' => $items,
-            'payments' => $payments,
             'history' => $history,
             'delivery_id' => $deliveryId,
         ];
+
+        return AdminOrderDetailService::enrich($order, $base);
     }
 
     /**

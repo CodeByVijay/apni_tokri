@@ -37,6 +37,8 @@ ok($detail !== null, 'Order detail loads by id');
 ok((int) ($detail['id'] ?? 0) === $orderId, 'Detail id matches');
 ok(isset($detail['items']) && is_array($detail['items']), 'Detail includes items array');
 ok(isset($detail['payments']) && is_array($detail['payments']), 'Detail includes payments array');
+ok(isset($detail['address']) || array_key_exists('address', $detail), 'Detail includes address block key');
+ok(isset($detail['refunds']) && is_array($detail['refunds']), 'Detail includes refunds array');
 
 ok(AdminOrderService::findById(999999999) === null, 'Invalid order id returns null');
 
@@ -74,7 +76,7 @@ ok(
     'Order detail retains two-column desktop layout (scoped grid)'
 );
 ok(str_contains($viewPhp, 'at-admin-order-recon'), 'Reconciliation panel uses scoped admin order classes');
-ok(str_contains($viewPhp, 'at-admin-order-detail__customer-card'), 'Customer/delivery card lives in sidebar column');
+ok(str_contains($viewPhp, 'order-detail-customer.php'), 'Customer section in main column');
 ok(str_contains($viewPhp, 'order-status-timeline.php'), 'Admin order detail uses status timeline partial');
 ok(str_contains($viewPhp, 'customer_format_datetime'), 'Admin order detail formats display timestamps');
 ok(str_contains($viewPhp, 'refresh_cashfree_payment'), 'Cashfree refresh action preserved');

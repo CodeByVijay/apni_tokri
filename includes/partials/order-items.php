@@ -23,6 +23,7 @@ $orderItems = $orderItems ?? [];
         $oiUnit = (float) ($oi['unit_price'] ?? 0);
         $oiLine = array_key_exists('line_total', $oi) ? (float) $oi['line_total'] : $oiUnit * $oiQty;
         $oiImg = (string) ($oi['image'] ?? '');
+        $oiSku = trim((string) ($oi['sku'] ?? ''));
         ?>
         <div class="at-oi__row" role="row">
             <div class="at-oi__product" role="cell">
@@ -36,6 +37,7 @@ $orderItems = $orderItems ?? [];
                 <span class="at-oi__info">
                     <strong class="at-oi__name"><?= Security::escape($oiName) ?></strong>
                     <?php if ($oiVariant !== ''): ?><span class="at-oi__variant"><?= Security::escape($oiVariant) ?></span><?php endif; ?>
+                    <?php if ($oiSku !== ''): ?><span class="at-oi__sku at-muted text-xs">SKU <?= Security::escape($oiSku) ?></span><?php endif; ?>
                 </span>
             </div>
             <div class="at-oi__num at-oi__qty" role="cell"><span class="at-oi__lbl">Qty</span><?= $oiQty ?></div>
