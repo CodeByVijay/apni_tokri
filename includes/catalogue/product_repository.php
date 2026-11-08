@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 final class ProductRepository
 {
+    public const MAX_IMAGES_PER_PRODUCT = 10;
+
     /** @var array<int, true>|null */
     private static $visibleCategoryIds = null;
 
@@ -226,6 +228,26 @@ final class ProductRepository
         $stmt->execute([$productId]);
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public static function imageCount(int $productId): int
+    {
+        Install::ensureConnection();
+        $stmt = Database::pdo()->prepare('SELECT COUNT(*) FROM product_images WHERE product_id = ?');
+        $stmt->execute([$productId]);
+
+        return (int) $stmt->fetchColumn();
+    }
+
+    public static function hasPrimaryImage(int $productId): bool
+    {
+        Install::ensureConnection();
+        $stmt = Database::pdo()->prepare(
+            'SELECT 1 FROM product_images WHERE product_id = ? AND is_primary = 1 LIMIT 1'
+        );
+        $stmt->execute([$productId]);
+
+        return (bool) $stmt->fetchColumn();
     }
 
     /** @return list<array<string, mixed>> */

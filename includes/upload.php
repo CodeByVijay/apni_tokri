@@ -18,6 +18,33 @@ final class Upload
      */
     public static function storeImage(array $file, string $subdir): array
     {
+        return self::storeImageWithAllowed($file, $subdir, self::$allowed);
+    }
+
+    /**
+     * Product gallery images only (JPEG, PNG, WebP — no GIF).
+     *
+     * @param array<string, mixed> $file
+     * @return array{ok: bool, path?: string, message?: string}
+     */
+    public static function storeProductImage(array $file, string $subdir): array
+    {
+        $allowed = [
+            'image/jpeg' => ['jpg', 'jpeg'],
+            'image/png' => ['png'],
+            'image/webp' => ['webp'],
+        ];
+
+        return self::storeImageWithAllowed($file, $subdir, $allowed);
+    }
+
+    /**
+     * @param array<string, mixed> $file
+     * @param array<string, list<string>> $allowed
+     * @return array{ok: bool, path?: string, message?: string}
+     */
+    private static function storeImageWithAllowed(array $file, string $subdir, array $allowed): array
+    {
         if (!isset($file['error']) || (int) $file['error'] !== UPLOAD_ERR_OK) {
             return ['ok' => false, 'message' => 'Upload failed or no file provided.'];
         }
@@ -31,11 +58,11 @@ final class Upload
 
         $finfo = new finfo(FILEINFO_MIME_TYPE);
         $mime = $finfo->file($file['tmp_name']);
-        if (!is_string($mime) || !isset(self::$allowed[$mime])) {
+        if (!is_string($mime) || !isset($allowed[$mime])) {
             return ['ok' => false, 'message' => 'File type not allowed.'];
         }
 
-        $ext = self::$allowed[$mime][0];
+        $ext = $allowed[$mime][0];
         $subdir = trim($subdir, '/');
         $destDir = APNI_TOKRI_ROOT . '/uploads/' . $subdir;
         if (!is_dir($destDir) && !mkdir($destDir, 0775, true) && !is_dir($destDir)) {

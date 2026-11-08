@@ -418,6 +418,298 @@
     });
   }
 
+  function formatFileSize(bytes) {
+    bytes = parseInt(bytes, 10) || 0;
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+  }
+
+  function initAdminProductImages() {
+    var $root = $('[data-at-product-images]');
+    if (!$root.length) return;
+
+    var uploadUrl = $root.data('upload-url');
+    var csrf = $root.data('csrf');
+    var productId = parseInt($root.data('product-id'), 10);
+    var maxImages = parseInt($root.data('max-images'), 10) || 10;
+    var queue = [];
+    var uploading = false;
+    var seenKeys = {};
+
+    function refreshMeta() {
+      var count = $root.find('[data-image-id]').length;
+      $root.attr('data-image-count', String(count));
+    }
+
+    function syncUploadButton() {
+      $root.find('[data-at-image-upload]').prop('disabled', queue.length === 0 || uploading);
+      $root.find('[data-at-image-clear-queue]').toggleClass('hidden', queue.length === 0);
+      $root.find('[data-at-image-queue]').toggleClass('hidden', queue.length === 0);
+    }
+
+    function renderQueue() {
+      var $list = $root.find('[data-at-image-queue]');
+      $list.empty();
+      queue.forEach(function (file) {
+        var $li = $('<li class="flex items-center justify-between gap-2 text-sm border border-neutral-200 rounded-lg px-3 py-2"/>');
+        $li.append(
+          $('<span class="truncate"/>').text(file.name + ' · ' + formatFileSize(file.size))
+        );
+        $li.append(
+          $('<button type="button" class="at-btn at-btn--ghost at-btn--xs at-focusable">Remove</button>').on('click', function () {
+            var i = queue.indexOf(file);
+            if (i >= 0) queue.splice(i, 1);
+            rebuildSeen();
+            renderQueue();
+            syncUploadButton();
+          })
+        );
+        $list.append($li);
+      });
+      syncUploadButton();
+    }
+
+    function rebuildSeen() {
+      seenKeys = {};
+      queue.forEach(function (f) {
+        seenKeys[f.name + '|' + f.size] = true;
+      });
+    }
+
+    function addFiles(fileList) {
+      var existing = $root.find('[data-image-id]').length;
+      var slots = maxImages - existing;
+      if (slots <= 0) {
+        alert('This product already has the maximum number of images.');
+        return;
+      }
+      var added = 0;
+      for (var i = 0; i < fileList.length; i++) {
+        if (queue.length >= slots) break;
+        var f = fileList[i];
+        if (!f || !f.type || f.type.indexOf('image/') !== 0) continue;
+        var key = f.name + '|' + f.size;
+        if (seenKeys[key]) continue;
+        queue.push(f);
+        seenKeys[key] = true;
+        added++;
+      }
+      if (fileList.length > added + (slots - queue.length) && queue.length >= slots) {
+        alert('Only ' + slots + ' more image(s) can be added (maximum ' + maxImages + ' per product).');
+      }
+      renderQueue();
+    }
+
+    function buildGalleryItem(img) {
+      var primaryBadge = img.is_primary ? '<span class="at-product-img-card__badge">Primary</span>' : '';
+      var setPrimary = img.is_primary
+        ? ''
+        : '<button type="button" class="at-btn at-btn--ghost at-btn--xs at-focusable" data-at-set-primary="' +
+          img.id +
+          '">Set primary</button>';
+      return (
+        '<li class="at-product-img-card" data-image-id="' +
+        img.id +
+        '" draggable="true">' +
+        '<img src="' +
+        $('<span/>').text(img.url).html() +
+        '" alt="" class="at-product-img-card__thumb" width="112" height="112" loading="lazy">' +
+        primaryBadge +
+        '<div class="at-product-img-card__actions">' +
+        setPrimary +
+        '<form method="post" class="inline" data-at-delete-image-form">' +
+        '<input type="hidden" name="_csrf_token" value="' +
+        $('<span/>').text(csrf).html() +
+        '">' +
+        '<input type="hidden" name="action" value="delete_image">' +
+        '<input type="hidden" name="id" value="' +
+        productId +
+        '">' +
+        '<input type="hidden" name="image_id" value="' +
+        img.id +
+        '">' +
+        '<button type="submit" class="at-btn at-btn--ghost at-btn--xs text-red-700 at-focusable">Remove</button>' +
+        '</form></div></li>'
+      );
+    }
+
+    function renderGallery(images) {
+      var html = '';
+      images.forEach(function (img) {
+        html += buildGalleryItem(img);
+      });
+      $root.find('[data-at-product-images-gallery]').html(html);
+      refreshMeta();
+      bindGalleryActions();
+      bindGalleryDnD();
+    }
+
+    function persistOrder() {
+      var ids = [];
+      $root.find('[data-at-product-images-gallery] [data-image-id]').each(function () {
+        ids.push($(this).attr('data-image-id'));
+      });
+      $.ajax({
+        url: uploadUrl,
+        method: 'POST',
+        data: {
+          _csrf_token: csrf,
+          action: 'reorder',
+          product_id: productId,
+          image_order: ids.join(','),
+        },
+        dataType: 'json',
+      });
+    }
+
+    var dragId = null;
+
+    function bindGalleryDnD() {
+      var $gal = $root.find('[data-at-product-images-gallery]');
+      $gal.find('[data-image-id]').each(function () {
+        var el = this;
+        el.ondragstart = function (e) {
+          dragId = $(el).attr('data-image-id');
+          e.dataTransfer.effectAllowed = 'move';
+        };
+        el.ondragover = function (e) {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+        };
+        el.ondrop = function (e) {
+          e.preventDefault();
+          var targetId = $(el).attr('data-image-id');
+          if (!dragId || dragId === targetId) return;
+          var $drag = $gal.find('[data-image-id="' + dragId + '"]');
+          var $target = $gal.find('[data-image-id="' + targetId + '"]');
+          if ($drag.index() < $target.index()) {
+            $target.after($drag);
+          } else {
+            $target.before($drag);
+          }
+          persistOrder();
+        };
+      });
+    }
+
+    function bindGalleryActions() {
+      $root.find('[data-at-set-primary]').off('click').on('click', function () {
+        var imageId = $(this).attr('data-at-set-primary');
+        $.ajax({
+          url: uploadUrl,
+          method: 'POST',
+          data: {
+            _csrf_token: csrf,
+            action: 'set_primary',
+            product_id: productId,
+            image_id: imageId,
+          },
+          dataType: 'json',
+        }).done(function (res) {
+          if (res && res.success && res.data && res.data.images) {
+            renderGallery(res.data.images);
+          }
+        });
+      });
+    }
+
+    var $drop = $root.find('[data-at-image-dropzone]');
+    var $input = $root.find('[data-at-image-file-input]');
+    if ($drop.length && $input.length) {
+      $drop.on('click', function (e) {
+        if (e.target === $input[0]) return;
+        $input[0].click();
+      });
+      $drop.on('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          $input[0].click();
+        }
+      });
+      $drop.on('dragover', function (e) {
+        e.preventDefault();
+        $drop.addClass('is-dragover');
+      });
+      $drop.on('dragleave drop', function (e) {
+        e.preventDefault();
+        $drop.removeClass('is-dragover');
+        if (e.type === 'drop' && e.originalEvent.dataTransfer && e.originalEvent.dataTransfer.files) {
+          addFiles(e.originalEvent.dataTransfer.files);
+        }
+      });
+      $input.on('change', function () {
+        if (this.files) addFiles(this.files);
+        this.value = '';
+      });
+    }
+
+    $root.find('[data-at-image-clear-queue]').on('click', function () {
+      queue = [];
+      rebuildSeen();
+      renderQueue();
+    });
+
+    $root.find('[data-at-image-upload]').on('click', function () {
+      if (uploading || queue.length === 0) return;
+      uploading = true;
+      syncUploadButton();
+      var $status = $root.find('[data-at-image-upload-status]');
+      $status.empty();
+      var fd = new FormData();
+      fd.append('_csrf_token', csrf);
+      fd.append('action', 'upload');
+      fd.append('product_id', String(productId));
+      queue.forEach(function (file) {
+        fd.append('images[]', file);
+      });
+      $.ajax({
+        url: uploadUrl,
+        method: 'POST',
+        data: fd,
+        processData: false,
+        contentType: false,
+        dataType: 'json',
+      })
+        .done(function (res) {
+          if (!res || !res.success) {
+            $status.append($('<p class="text-red-700"/>').text((res.error && res.error.message) || 'Upload failed.'));
+            return;
+          }
+          (res.data.results || []).forEach(function (r) {
+            var $line = $('<p/>');
+            $line.text((r.ok ? '✓ ' : '✗ ') + (r.filename || 'File') + (r.message ? ' — ' + r.message : ''));
+            if (!r.ok) $line.addClass('text-red-700');
+            else $line.addClass('text-green-800');
+            $status.append($line);
+          });
+          if (res.data.images) {
+            renderGallery(res.data.images);
+          }
+          queue = [];
+          rebuildSeen();
+          renderQueue();
+        })
+        .fail(function (xhr) {
+          var msg = 'Upload failed.';
+          try {
+            var j = xhr.responseJSON;
+            if (j && j.error && j.error.message) msg = j.error.message;
+          } catch (err) {
+            /* ignore */
+          }
+          $status.append($('<p class="text-red-700"/>').text(msg));
+        })
+        .always(function () {
+          uploading = false;
+          syncUploadButton();
+        });
+    });
+
+    bindGalleryActions();
+    bindGalleryDnD();
+  }
+
   function initSubmitOnce() {
     $(document).on('click', 'button[type="submit"][data-at-submit-once], input[type="submit"][data-at-submit-once]', function () {
       var $btn = $(this);
@@ -460,6 +752,7 @@
     initAdminSkuFill();
     initAdminTabbedFormValidation();
     initAdminProductDynamicRows();
+    initAdminProductImages();
     initSubmitOnce();
     initAdminFlashDismiss();
     initSettingsTabsNav();

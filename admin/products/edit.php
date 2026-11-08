@@ -38,13 +38,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if ($action === 'upload_image' && $postId && isset($_FILES['image'])) {
-        $upload = Upload::storeImage($_FILES['image'], 'products/' . $postId);
-        if ($upload['ok'] && isset($upload['path'])) {
-            ProductRepository::addImage($postId, $upload['path'], count($images) === 0);
-            CatalogueGateway::reset();
-            admin_flash_set('Image uploaded.');
+        if (ProductRepository::imageCount($postId) >= ProductRepository::MAX_IMAGES_PER_PRODUCT) {
+            admin_flash_set('This product already has the maximum of ' . ProductRepository::MAX_IMAGES_PER_PRODUCT . ' images.', 'error');
         } else {
-            admin_flash_set($upload['message'] ?? 'Upload failed.', 'error');
+            $upload = Upload::storeProductImage($_FILES['image'], 'products/' . $postId);
+            if ($upload['ok'] && isset($upload['path'])) {
+                ProductRepository::addImage(
+                    $postId,
+                    $upload['path'],
+                    !ProductRepository::hasPrimaryImage($postId)
+                );
+                CatalogueGateway::reset();
+                admin_flash_set('Image uploaded.');
+            } else {
+                admin_flash_set($upload['message'] ?? 'Upload failed.', 'error');
+            }
+        }
+        header('Location: ' . url_base() . '/admin/products/edit.php?id=' . $postId . '#images', true, 302);
+        exit;
+    }
+
+    if ($action === 'set_primary_image' && $postId) {
+        $imageId = (int) ($_POST['image_id'] ?? 0);
+        if (ProductImageAdminService::setPrimary($postId, $imageId)) {
+            admin_flash_set('Primary image updated.');
+        } else {
+            admin_flash_set('Could not set primary image.', 'error');
+        }
+        header('Location: ' . url_base() . '/admin/products/edit.php?id=' . $postId . '#images', true, 302);
+        exit;
+    }
+
+    if ($action === 'reorder_images' && $postId) {
+        $ids = [];
+        foreach (preg_split('/\s*,\s*/', (string) ($_POST['image_order'] ?? ''), -1, PREG_SPLIT_NO_EMPTY) as $p) {
+            if (ctype_digit($p)) {
+                $ids[] = (int) $p;
+            }
+        }
+        if (ProductImageAdminService::reorder($postId, $ids)) {
+            admin_flash_set('Image order saved.');
+        } else {
+            admin_flash_set('Could not save image order.', 'error');
         }
         header('Location: ' . url_base() . '/admin/products/edit.php?id=' . $postId . '#images', true, 302);
         exit;
@@ -340,35 +375,9 @@ if ($errors !== []) {
     <div id="images" data-admin-panel="images" class="hidden mt-4">
         <?php if ($useDb && $product): ?>
             <div class="at-admin-card">
-                <div class="at-admin-card__body space-y-4">
+                <div class="at-admin-card__body space-y-2">
                     <h3 class="font-bold">Product images</h3>
-                    <div class="flex flex-wrap gap-3">
-                        <?php foreach ($images as $img):
-                            $src = asset_url((string) $img['file_path']);
-                            ?>
-                            <div class="relative w-28 shrink-0">
-                                <img src="<?= Security::escape($src) ?>" alt="" class="w-28 h-28 object-cover rounded-lg border border-neutral-200">
-                                <?php if (!empty($img['is_primary'])): ?><span class="absolute top-1 left-1 at-status at-status--ok text-[10px]">Primary</span><?php endif; ?>
-                                <form method="post" class="mt-1">
-                                    <?= Csrf::field() ?>
-                                    <input type="hidden" name="action" value="delete_image">
-                                    <input type="hidden" name="id" value="<?= (int) $product['id'] ?>">
-                                    <input type="hidden" name="image_id" value="<?= (int) $img['id'] ?>">
-                                    <button type="submit" class="text-xs text-red-700 at-focusable">Remove</button>
-                                </form>
-                            </div>
-                        <?php endforeach; ?>
-                    </div>
-                    <form method="post" enctype="multipart/form-data" class="at-admin-card max-w-md">
-                        <div class="at-admin-card__body space-y-3">
-                            <?= Csrf::field() ?>
-                            <input type="hidden" name="action" value="upload_image">
-                            <input type="hidden" name="id" value="<?= (int) $product['id'] ?>">
-                            <label class="at-label" for="image">Upload image (JPEG, PNG, WebP — max 5 MB)</label>
-                            <input id="image" type="file" name="image" accept="image/jpeg,image/png,image/webp,image/gif" class="at-input" required>
-                            <button type="submit" class="at-btn at-btn--secondary at-focusable">Upload</button>
-                        </div>
-                    </form>
+                    <?php require APNI_TOKRI_ROOT . '/includes/partials/admin/product-images-panel.php'; ?>
                 </div>
             </div>
         <?php elseif ($useDb): ?>

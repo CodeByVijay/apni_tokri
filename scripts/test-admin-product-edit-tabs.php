@@ -20,6 +20,8 @@ function t(bool $c, string $m): void
 }
 
 $html = (string) file_get_contents(APNI_TOKRI_ROOT . '/admin/products/edit.php');
+$imgPanel = (string) file_get_contents(APNI_TOKRI_ROOT . '/includes/partials/admin/product-images-panel.php');
+$imgItem = (string) file_get_contents(APNI_TOKRI_ROOT . '/includes/partials/admin/product-images-gallery-item.php');
 $js = (string) file_get_contents(APNI_TOKRI_ROOT . '/assets/js/admin.js');
 
 t(strpos($html, 'data-at-product-edit') !== false, 'Product edit tab root wrapper');
@@ -28,10 +30,12 @@ t(strpos($html, 'form="at-product-edit-form"') !== false, 'Save button submits m
 t(preg_match('/data-admin-panel="images"[^>]*class="[^"]*hidden/', $html) === 1, 'Images panel hidden by default');
 t(strpos($html, '<section id="images"') === false, 'Images no longer a always-visible section below form');
 t(substr_count($html, 'data-admin-panel=') === 5, 'Five tab panels (general, variants, attributes, seo, images)');
-t(strpos($html, 'action" value="upload_image"') !== false, 'Upload image POST unchanged');
-t(strpos($html, 'action" value="delete_image"') !== false, 'Delete image POST unchanged');
+t(strpos($imgPanel, 'action" value="upload_image"') !== false, 'Upload image POST unchanged (noscript)');
+t(strpos($imgPanel, 'data-at-product-images') !== false, 'Multi-image panel wired');
+t(strpos($imgItem, 'action" value="delete_image"') !== false, 'Delete image POST unchanged');
 t(strpos($js, 'data-at-product-edit') !== false, 'Tab JS scoped to product edit root');
 t(strpos($js, "#images") !== false || strpos($js, '#images') !== false, 'Hash #images opens Images tab on load');
+t(strpos($js, 'initAdminProductImages') !== false, 'Product images JS initialized');
 
 echo "\nPassed: {$pass}, Failed: {$fail}\n";
 exit($fail > 0 ? 1 : 0);
