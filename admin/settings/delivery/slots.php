@@ -259,6 +259,8 @@ if ($errors !== []): ?>
                             <th class="is-num at-dslots-reorder-col-seq" scope="col">#</th>
                             <th class="at-dslots-col-name" scope="col">Name</th>
                             <th class="at-dslots-col-slug" scope="col">Slug</th>
+                            <th class="at-dslots-col-window" scope="col">Window</th>
+                            <th class="at-dslots-col-cutoff" scope="col">Legacy cutoff</th>
                             <th class="at-dslots-col-active" scope="col">Active</th>
                             <th class="at-dslots-reorder-col-move" scope="col"><span class="sr-only">Move</span></th>
                         </tr></thead>
@@ -266,6 +268,10 @@ if ($errors !== []): ?>
                         <?php foreach ($reorderSlots as $index => $s):
                             $sid = (int) $s['id'];
                             $label = (string) ($s['label'] ?? $s['slug']);
+                            $winLabel = trim((string) ($s['window_label'] ?? ''));
+                            $winStart = DeliveryAdminUi::formatClockTime12h((string) ($s['start_time'] ?? ''));
+                            $winEnd = DeliveryAdminUi::formatClockTime12h((string) ($s['end_time'] ?? ''));
+                            $cutoffClock = DeliveryAdminUi::formatClockTime12h((string) ($s['cutoff_time'] ?? ''));
                             ?>
                             <tr data-slot-id="<?= $sid ?>" data-at-dslots-row>
                                 <td class="at-dslots-reorder-col-handle">
@@ -274,6 +280,16 @@ if ($errors !== []): ?>
                                 <td class="is-num at-dslots-reorder-col-seq" data-at-dslots-seq><?= $index + 1 ?></td>
                                 <td class="at-dslots-col-name"><?= Security::escape($label) ?></td>
                                 <td class="at-dslots-col-slug"><?= Security::escape((string) $s['slug']) ?></td>
+                                <td class="at-dslots-col-window">
+                                    <?php if ($winLabel !== ''): ?>
+                                        <span class="at-dslots-window__label"><?= Security::escape($winLabel) ?></span>
+                                    <?php endif; ?>
+                                    <span class="at-dslots-window__times"><?= Security::escape($winStart) ?> – <?= Security::escape($winEnd) ?></span>
+                                </td>
+                                <td class="at-dslots-col-cutoff">
+                                    <span class="at-dslots-cutoff__time"><?= Security::escape($cutoffClock) ?></span>
+                                    <span class="at-dslots-cutoff__tz at-muted">Asia/Kolkata</span>
+                                </td>
                                 <td class="at-dslots-col-active"><?= admin_status_badge(!empty($s['is_active']) ? 'active' : 'inactive', !empty($s['is_active']) ? 'Active' : 'Inactive') ?></td>
                                 <td class="at-dslots-reorder-col-move">
                                     <span class="at-dslots-reorder-arrows">

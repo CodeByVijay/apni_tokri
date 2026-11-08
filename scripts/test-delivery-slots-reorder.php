@@ -106,6 +106,7 @@ $slotsPhp = (string) file_get_contents(APNI_TOKRI_ROOT . '/admin/settings/delive
 t(strpos($slotsPhp, "action === 'reorder'") !== false, 'Admin POST handles reorder action');
 t(strpos($slotsPhp, 'Reorder slots') !== false, 'Reorder slots action present');
 t(strpos($slotsPhp, 'data-at-delivery-slot-reorder') !== false, 'Reorder UI root marker');
+t(strpos($slotsPhp, 'at-dslots-col-window') !== false && strpos($slotsPhp, 'DeliveryAdminUi::formatClockTime12h') !== false, 'Reorder table shows window and cutoff via DeliveryAdminUi');
 
 $adminJs = (string) file_get_contents(APNI_TOKRI_ROOT . '/assets/js/admin.js');
 t(strpos($adminJs, 'initDeliverySlotReorder') !== false, 'admin.js initializes slot reorder');
