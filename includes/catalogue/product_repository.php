@@ -6,6 +6,11 @@ final class ProductRepository
 {
     public const MAX_IMAGES_PER_PRODUCT = 10;
 
+    /** @var list<int> */
+    public const ADMIN_LIST_PER_PAGE_OPTIONS = [10, 20, 50, 100];
+
+    public const ADMIN_LIST_DEFAULT_PER_PAGE = 20;
+
     /** @var array<int, true>|null */
     private static $visibleCategoryIds = null;
 
@@ -859,5 +864,117 @@ final class ProductRepository
 
             return ['ok' => false, 'message' => 'Could not delete product. Try archiving it from the editor instead.'];
         }
+    }
+
+    /**
+     * Admin bulk status change (draft / published only).
+     *
+     * @param list<int> $ids
+     * @return array{
+     *     ok: bool,
+     *     results: list<array<string, mixed>>,
+     *     succeeded: int,
+     *     failed: int,
+     *     message: string,
+     *     failed_names: list<string>
+     * }
+     */
+    public static function bulkUpdateStatusForAdmin(array $ids, string $status): array
+    {
+        if (!in_array($status, ['draft', 'published'], true)) {
+            return [
+                'ok' => false,
+                'results' => [],
+                'succeeded' => 0,
+                'failed' => 0,
+                'message' => 'Status must be Draft or Published.',
+                'failed_names' => [],
+            ];
+        }
+        $ids = array_values(array_unique(array_filter(array_map(static fn ($id): int => (int) $id, $ids), static fn (int $id): bool => $id > 0)));
+        if ($ids === []) {
+            return [
+                'ok' => false,
+                'results' => [],
+                'succeeded' => 0,
+                'failed' => 0,
+                'message' => 'No products selected.',
+                'failed_names' => [],
+            ];
+        }
+        if (count($ids) > 100) {
+            return [
+                'ok' => false,
+                'results' => [],
+                'succeeded' => 0,
+                'failed' => 0,
+                'message' => 'Too many products selected (maximum 100).',
+                'failed_names' => [],
+            ];
+        }
+        if (!Install::isSchemaReady()) {
+            return [
+                'ok' => false,
+                'results' => [],
+                'succeeded' => 0,
+                'failed' => 0,
+                'message' => 'Database is not ready.',
+                'failed_names' => [],
+            ];
+        }
+
+        Install::ensureConnection();
+        $pdo = Database::pdo();
+        $update = $pdo->prepare('UPDATE products SET status = ?, updated_at = NOW() WHERE id = ?');
+        $results = [];
+        $succeeded = 0;
+        $failed = 0;
+        $failedNames = [];
+
+        foreach ($ids as $id) {
+            $row = self::find($id);
+            if ($row === null) {
+                $results[] = ['id' => $id, 'ok' => false, 'error' => 'Product not found.'];
+                $failed++;
+                $failedNames[] = 'ID ' . $id;
+                continue;
+            }
+            $name = (string) ($row['name'] ?? '');
+            $from = (string) ($row['status'] ?? 'draft');
+            if ($from === $status) {
+                $results[] = [
+                    'id' => $id,
+                    'ok' => true,
+                    'name' => $name,
+                    'from' => $from,
+                    'to' => $status,
+                    'unchanged' => true,
+                ];
+                $succeeded++;
+                continue;
+            }
+            try {
+                $update->execute([$status, $id]);
+                AuditLog::write('product.bulk_status', 'product', (string) $id, ['from' => $from, 'to' => $status]);
+                self::resetPublicVisibilityCache();
+                CatalogueGateway::reset();
+                $results[] = ['id' => $id, 'ok' => true, 'name' => $name, 'from' => $from, 'to' => $status];
+                $succeeded++;
+            } catch (Throwable $e) {
+                error_log('ProductRepository::bulkUpdateStatusForAdmin: ' . $e->getMessage());
+                $results[] = ['id' => $id, 'ok' => false, 'name' => $name, 'error' => 'Update failed.'];
+                $failed++;
+                $failedNames[] = $name !== '' ? $name : 'ID ' . $id;
+            }
+        }
+
+        return [
+            'ok' => $failed === 0,
+            'results' => $results,
+            'succeeded' => $succeeded,
+            'failed' => $failed,
+            'message' => $failed === 0 ? 'Bulk status update completed.' : 'Some products could not be updated.',
+            'failed_names' => $failedNames,
+        ];
     }
 }

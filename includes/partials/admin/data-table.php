@@ -6,8 +6,12 @@ declare(strict_types=1);
 /** @var list<array<string, string>> $rows */
 /** @var string|null $tableClass */
 /** @var string|null $emptyMessage */
+/** @var bool $enableBulkSelect */
+/** @var string|null $bulkFormId */
 $tableClass = ($tableClass ?? 'at-admin-table') . ' at-admin-table--cards';
 $emptyMessage = $emptyMessage ?? 'No records found.';
+$enableBulkSelect = !empty($enableBulkSelect);
+$bulkFormId = isset($bulkFormId) && is_string($bulkFormId) && $bulkFormId !== '' ? $bulkFormId : '';
 $cellClass = static function (array $col): string {
     $c = [];
     $align = (string) ($col['align'] ?? '');
@@ -27,6 +31,11 @@ $cellClass = static function (array $col): string {
     <table class="<?= Security::escape($tableClass) ?>">
         <thead>
             <tr>
+                <?php if ($enableBulkSelect): ?>
+                    <th class="is-bulk-select" scope="col">
+                        <input type="checkbox" class="at-checkbox at-focusable" id="at-products-select-all" aria-label="Select all products on this page">
+                    </th>
+                <?php endif; ?>
                 <?php foreach ($columns as $col): ?>
                     <th<?= $cellClass($col) ?>><?php
                         if (!empty($col['label_html'])) {
@@ -40,10 +49,26 @@ $cellClass = static function (array $col): string {
         </thead>
         <tbody>
             <?php if ($rows === []): ?>
-                <tr><td colspan="<?= count($columns) ?>" class="at-admin-table__empty"><?= Security::escape((string) $emptyMessage) ?></td></tr>
+                <tr><td colspan="<?= count($columns) + ($enableBulkSelect ? 1 : 0) ?>" class="at-admin-table__empty"><?= Security::escape((string) $emptyMessage) ?></td></tr>
             <?php else: ?>
                 <?php foreach ($rows as $row): ?>
-                    <tr>
+                    <tr<?= $enableBulkSelect ? ' data-at-product-row' : '' ?>>
+                        <?php if ($enableBulkSelect):
+                            $bid = (int) ($row['bulk_id'] ?? 0);
+                            $bname = (string) ($row['bulk_name'] ?? '');
+                            $bstatus = (string) ($row['bulk_status'] ?? '');
+                            ?>
+                            <td class="is-bulk-select" data-label="Select">
+                                <input type="checkbox"
+                                       class="at-checkbox at-focusable js-product-bulk-select"
+                                       <?= $bulkFormId !== '' ? 'form="' . Security::escape($bulkFormId) . '" ' : '' ?>
+                                       name="product_ids[]"
+                                       value="<?= (int) $bid ?>"
+                                       data-product-name="<?= Security::escape($bname) ?>"
+                                       data-product-status="<?= Security::escape($bstatus) ?>"
+                                       aria-label="<?= Security::escape('Select ' . $bname) ?>">
+                            </td>
+                        <?php endif; ?>
                         <?php foreach ($columns as $col): ?>
                             <td<?= $cellClass($col) ?> data-label="<?= Security::escape($col['label']) ?>"><?php
                             $cell = (string) ($row[$col['key']] ?? '');

@@ -16,7 +16,8 @@ function admin_list_pagination(
     string $formAction,
     array $perPageOptions = [10, 25, 50, 100],
     string $recordLabel = 'records',
-    bool $showWhenSinglePage = false
+    bool $showWhenSinglePage = false,
+    bool $showPageOfTotal = false
 ): void {
     $perPage = max(1, $perPage);
     $totalPages = max(1, (int) ceil($total / $perPage));
@@ -37,6 +38,9 @@ function admin_list_pagination(
     <div class="at-admin-pager flex flex-wrap items-center justify-between gap-3 mt-3">
         <span class="text-sm at-muted" role="status">
             Showing <?= (int) $rangeStart ?>–<?= (int) $rangeEnd ?> of <?= (int) $total ?> <?= Security::escape($recordLabel) ?>
+            <?php if ($showPageOfTotal): ?>
+                <span class="at-admin-pager__page-of"> · Page <?= (int) $page ?> of <?= (int) $totalPages ?></span>
+            <?php endif; ?>
         </span>
         <form method="get" action="<?= Security::escape($formAction) ?>" class="flex flex-wrap items-center gap-2 text-sm">
             <?php foreach ($base as $k => $v): ?>
