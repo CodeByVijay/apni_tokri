@@ -116,6 +116,7 @@ $baseCatUrl = url_base() . '/category.php?slug=' . rawurlencode($slug);
         if ($catRow !== null) {
             $applicableOffers = OfferStorefront::forCategory((int) $catRow['id'], CustomerAuth::id());
             if ($applicableOffers !== []) {
+                $offerDealContext = 'category';
                 require APNI_TOKRI_ROOT . '/includes/partials/store-offer-badges.php';
             }
         }

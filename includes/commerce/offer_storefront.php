@@ -50,7 +50,42 @@ final class OfferStorefront
             'description' => $desc,
             'scope' => $scope,
             'countdown_end_unix' => $unix,
+            'cta_url' => self::ctaUrl($row),
         ];
+    }
+
+    /** Presentation-only link for "Shop this offer"; null when no sensible destination. */
+    private static function ctaUrl(array $row): ?string
+    {
+        $scope = (string) ($row['scope'] ?? 'store');
+        $target = isset($row['target_id']) ? (int) $row['target_id'] : 0;
+        try {
+            if ($scope === 'category' && $target > 0) {
+                $cat = CategoryRepository::find($target);
+                if ($cat !== null && !empty($cat['slug'])) {
+                    return catalogue_category_url($cat);
+                }
+
+                return null;
+            }
+            if ($scope === 'product' && $target > 0) {
+                $prod = ProductRepository::find($target);
+                if ($prod !== null && !empty($prod['slug'])) {
+                    return catalogue_product_url($prod);
+                }
+
+                return null;
+            }
+            if ($scope === 'store' || $scope === 'first_order') {
+                $primary = catalogue_primary_category_url();
+
+                return $primary !== '' ? $primary : null;
+            }
+        } catch (Throwable $e) {
+            return null;
+        }
+
+        return null;
     }
 
     /** @return list<array<string, mixed>> */

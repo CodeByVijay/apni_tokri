@@ -8,26 +8,24 @@ if ($countdownEndUnix <= 0) {
 }
 ?>
 <div class="at-offer-countdown" data-at-offer-countdown data-countdown-end="<?= (int) $countdownEndUnix ?>" role="status" aria-label="Offer countdown">
+    <span class="at-offer-countdown__head">Offer ends in</span>
     <span class="at-offer-countdown__sr" data-at-offer-countdown-value aria-live="polite"></span>
     <div class="at-offer-countdown__units" aria-hidden="true">
         <span class="at-offer-countdown__unit">
             <span class="at-offer-countdown__num" data-at-offer-countdown-days>00</span>
             <span class="at-offer-countdown__lbl">Days</span>
         </span>
-        <span class="at-offer-countdown__sep" aria-hidden="true">:</span>
         <span class="at-offer-countdown__unit">
             <span class="at-offer-countdown__num" data-at-offer-countdown-hours>00</span>
-            <span class="at-offer-countdown__lbl">Hrs</span>
+            <span class="at-offer-countdown__lbl">Hours</span>
         </span>
-        <span class="at-offer-countdown__sep" aria-hidden="true">:</span>
         <span class="at-offer-countdown__unit">
             <span class="at-offer-countdown__num" data-at-offer-countdown-mins>00</span>
-            <span class="at-offer-countdown__lbl">Min</span>
+            <span class="at-offer-countdown__lbl">Minutes</span>
         </span>
-        <span class="at-offer-countdown__sep" aria-hidden="true">:</span>
         <span class="at-offer-countdown__unit">
             <span class="at-offer-countdown__num" data-at-offer-countdown-secs>00</span>
-            <span class="at-offer-countdown__lbl">Sec</span>
+            <span class="at-offer-countdown__lbl">Seconds</span>
         </span>
     </div>
 </div>

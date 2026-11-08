@@ -84,6 +84,7 @@ $pdpCartUrl = url_base() . '/cart.php';
                     $catId = (int) ($dbProd['category_id'] ?? 0);
                     $applicableOffers = OfferStorefront::forProduct((int) $dbProd['id'], $catId, CustomerAuth::id());
                     if ($applicableOffers !== []) {
+                        $offerDealContext = 'product';
                         require APNI_TOKRI_ROOT . '/includes/partials/store-offer-badges.php';
                     }
                 }
