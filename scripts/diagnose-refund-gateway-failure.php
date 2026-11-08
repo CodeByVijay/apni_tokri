@@ -132,6 +132,15 @@ if ($prRows === []) {
             (string) $pr['idempotency_key'],
             $mask((string) ($pr['gateway_refund_id'] ?? ''))
         );
+        if ((string) $pr['gateway'] === 'cashfree') {
+            $row = $pr;
+            $row['order_number'] = (string) ($order['order_number'] ?? '');
+            $lookup = GatewayRefundService::cashfreeMerchantRefundIdForStatusGet($row);
+            if ($lookup !== '' && $row['order_number'] !== '') {
+                echo '  cashfree_status_get: GET ' . CashfreeGateway::orderRefundStatusApiPath($row['order_number'], $lookup) . "\n";
+                echo '  (merchant refund_id for GET; cf_refund_id is not the URL segment)' . "\n";
+            }
+        }
     }
 }
 

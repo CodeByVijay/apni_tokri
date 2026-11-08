@@ -123,7 +123,7 @@ final class GatewayRefundService
         }
         $body = [
             'refund_amount' => round($amountInr, 2),
-            'refund_id' => substr(preg_replace('/[^a-zA-Z0-9_]/', '_', $idempotencyKey), 0, 40),
+            'refund_id' => CashfreeGateway::merchantRefundIdFromIdempotency($idempotencyKey),
             'refund_note' => 'Customer refund',
             'refund_type' => 'MERCHANT_INITIATED',
         ];
@@ -247,17 +247,13 @@ final class GatewayRefundService
             if ($merchantOrderId === '') {
                 return ['ok' => false, 'message' => 'Missing merchant order id for Cashfree lookup.', 'api_error' => true];
             }
-            $lookup = trim((string) ($paymentRefundRow['gateway_refund_id'] ?? ''));
+            $lookup = self::cashfreeMerchantRefundIdForStatusGet($paymentRefundRow);
             if ($lookup === '') {
-                $idempotency = trim((string) ($paymentRefundRow['idempotency_key'] ?? ''));
-                if ($idempotency === '') {
-                    return [
-                        'ok' => false,
-                        'missing_reference' => true,
-                        'message' => 'Gateway refund reference is missing — status reconciliation is unavailable.',
-                    ];
-                }
-                $lookup = substr(preg_replace('/[^a-zA-Z0-9_]/', '_', $idempotency), 0, 40);
+                return [
+                    'ok' => false,
+                    'missing_reference' => true,
+                    'message' => 'Gateway refund reference is missing — save merchant refund_id or idempotency key from the refund attempt.',
+                ];
             }
             $resp = CashfreeGateway::fetchRefund($merchantOrderId, $lookup);
             if (!$resp['ok']) {
@@ -267,6 +263,13 @@ final class GatewayRefundService
                     'gateway' => 'cashfree',
                     'lookup_reference' => $lookup,
                     'message' => $resp['error'] ?? 'Could not fetch Cashfree refund status.',
+                    'http_status' => $resp['http_status'] ?? null,
+                    'gateway_error_code' => $resp['gateway_error_code'] ?? null,
+                    'gateway_error_message' => $resp['gateway_error_message'] ?? null,
+                    'environment' => $resp['environment'] ?? null,
+                    'request_url_path' => $resp['request_url_path'] ?? null,
+                    'invalid_json' => $resp['invalid_json'] ?? null,
+                    'network_error' => $resp['network_error'] ?? null,
                 ];
             }
 
@@ -312,6 +315,44 @@ final class GatewayRefundService
         }
 
         return ['ok' => false, 'message' => 'Unsupported gateway for status lookup.'];
+    }
+
+    /**
+     * Cashfree GET /orders/{order}/refunds/{refund_id} expects merchant refund_id (POST body field), not cf_refund_id.
+     *
+     * @param array<string, mixed> $paymentRefundRow
+     */
+    public static function cashfreeMerchantRefundIdForStatusGet(array $paymentRefundRow): string
+    {
+        $fromIdempotency = CashfreeGateway::merchantRefundIdFromIdempotency(
+            (string) ($paymentRefundRow['idempotency_key'] ?? '')
+        );
+        if ($fromIdempotency !== '') {
+            return $fromIdempotency;
+        }
+        $raw = $paymentRefundRow['response_json'] ?? null;
+        if (is_string($raw) && $raw !== '') {
+            try {
+                $decoded = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
+            } catch (Throwable $e) {
+                $decoded = null;
+            }
+            if (is_array($decoded)) {
+                $merchant = trim((string) ($decoded['refund_id'] ?? ''));
+                if ($merchant !== '') {
+                    return $merchant;
+                }
+                $gw = $decoded['gateway_response'] ?? null;
+                if (is_array($gw)) {
+                    $merchant = trim((string) ($gw['refund_id'] ?? ''));
+                    if ($merchant !== '') {
+                        return $merchant;
+                    }
+                }
+            }
+        }
+
+        return '';
     }
 
     /** @param array<string, mixed> $json */

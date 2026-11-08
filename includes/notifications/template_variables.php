@@ -20,7 +20,18 @@ final class NotificationTemplateVariables
                 return array_values(array_unique(array_merge($common, $order, $status)));
             case 'payment.success':
             case 'payment.failed':
-                return array_values(array_unique(array_merge($common, $order)));
+                return array_values(array_unique(array_merge($common, $order, [
+                    'subtotal',
+                    'discount_total',
+                    'delivery_fee',
+                    'total_paid',
+                    'delivery_address',
+                    'delivery_slot_line',
+                    'order_items_html',
+                    'order_items_text',
+                    'order_summary_html',
+                    'track_order_url',
+                ])));
             case 'refund.initiated':
             case 'refund.completed':
             case 'refund.status_updated':

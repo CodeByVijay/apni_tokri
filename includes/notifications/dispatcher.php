@@ -51,12 +51,30 @@ final class NotificationDispatcher
         if (!NotificationQueueService::tableReady() || $orderId <= 0) {
             return;
         }
+        if (!OrderEmailContext::isOrderPaidAndCaptured($orderId)) {
+            return;
+        }
+        $idempotencyKey = 'payment.success:order:' . $orderId . ':email';
         try {
             $recipient = OrderEmailContext::resolveRecipientForOrderId($orderId);
             if ($recipient === null) {
+                if (DeliveryOrderEmailService::tableReady()) {
+                    DeliveryOrderEmailService::recordOrderConfirmationAttempt(
+                        $orderId,
+                        'skipped',
+                        $idempotencyKey,
+                        [],
+                        true,
+                        'No valid customer email'
+                    );
+                }
+
                 return;
             }
             $payment = OrderEmailContext::capturedPaymentForOrder($orderId);
+            if ($payment === null) {
+                return;
+            }
             $payload = OrderEmailContext::enrichOrderPayload(
                 $orderId,
                 [
@@ -66,17 +84,85 @@ final class NotificationDispatcher
                 ],
                 $payment
             );
-            NotificationQueueService::enqueue(
+            $enq = NotificationQueueService::enqueue(
                 'payment.success',
                 'email',
                 $recipient['email'],
                 $recipient['recipient_ref'],
                 'payment.success.email',
                 $payload,
-                'payment.success:order:' . $orderId . ':email'
+                $idempotencyKey
             );
+            $send = ['ok' => false];
+            if (!empty($enq['ok']) && !empty($enq['created'])) {
+                $send = NotificationQueueService::claimAndProcessByIdempotencyKey('email', $idempotencyKey);
+            } elseif (!empty($enq['duplicate'])) {
+                $send = ['ok' => true, 'duplicate' => true];
+            }
+            if (DeliveryOrderEmailService::tableReady()) {
+                DeliveryOrderEmailService::recordOrderConfirmationAttempt(
+                    $orderId,
+                    $recipient['email'],
+                    $idempotencyKey,
+                    $send
+                );
+            }
         } catch (Throwable $e) {
             error_log('NotificationDispatcher::orderPaymentSuccess');
+        }
+    }
+
+    public static function resendOrderConfirmationEmail(int $orderId, int $retryLogId): bool
+    {
+        if (!NotificationQueueService::tableReady() || $orderId <= 0 || !OrderEmailContext::isOrderPaidAndCaptured($orderId)) {
+            return false;
+        }
+        $recipient = OrderEmailContext::resolveRecipientForOrderId($orderId);
+        if ($recipient === null) {
+            return false;
+        }
+        $payment = OrderEmailContext::capturedPaymentForOrder($orderId);
+        if ($payment === null) {
+            return false;
+        }
+        $idempotencyKey = 'payment.success:order:' . $orderId . ':email:retry:' . $retryLogId;
+        try {
+            $payload = OrderEmailContext::enrichOrderPayload(
+                $orderId,
+                [
+                    'order_number' => $recipient['order_number'],
+                    'amount' => $recipient['amount'],
+                    'customer_name' => $recipient['customer_name'],
+                ],
+                $payment
+            );
+            $enq = NotificationQueueService::enqueue(
+                'payment.success',
+                'email',
+                $recipient['email'],
+                $recipient['recipient_ref'],
+                'payment.success.email',
+                $payload,
+                $idempotencyKey
+            );
+            if (empty($enq['ok'])) {
+                return false;
+            }
+            $send = NotificationQueueService::claimAndProcessByIdempotencyKey('email', $idempotencyKey);
+            if (DeliveryOrderEmailService::tableReady()) {
+                DeliveryOrderEmailService::recordOrderConfirmationAttempt(
+                    $orderId,
+                    $recipient['email'],
+                    $idempotencyKey,
+                    $send
+                );
+            }
+
+            return !empty($send['ok']);
+        } catch (Throwable $e) {
+            error_log('NotificationDispatcher::resendOrderConfirmationEmail');
+
+            return false;
         }
     }
 

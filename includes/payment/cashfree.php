@@ -351,6 +351,19 @@ final class CashfreeGateway
         return Security::hashEquals($expected, $signature);
     }
 
+    /**
+     * Merchant refund_id sent on POST /refunds (Cashfree GET path segment — not cf_refund_id).
+     */
+    public static function merchantRefundIdFromIdempotency(string $idempotencyKey): string
+    {
+        $idempotencyKey = trim($idempotencyKey);
+        if ($idempotencyKey === '') {
+            return '';
+        }
+
+        return substr(preg_replace('/[^a-zA-Z0-9_]/', '_', $idempotencyKey), 0, 40);
+    }
+
     public static function ordersRefundApiPath(string $merchantOrderId): string
     {
         return PaymentGatewayConfig::cashfreePgApiBase()
@@ -364,6 +377,84 @@ final class CashfreeGateway
     }
 
     /**
+     * @return array{
+     *     http_status?: int,
+     *     gateway_error_code?: string,
+     *     gateway_error_message?: string,
+     *     environment?: string,
+     *     request_url_path?: string,
+     *     invalid_json?: bool,
+     *     network_error?: bool
+     * }
+     */
+    private static function refundFetchFailureDiagnostics(array $resp, string $requestPath): array
+    {
+        $status = (int) ($resp['status'] ?? 0);
+        $json = is_array($resp['json'] ?? null) ? $resp['json'] : [];
+        $code = trim((string) ($json['code'] ?? $json['error_code'] ?? ''));
+        $msg = trim((string) ($json['message'] ?? $json['error_description'] ?? $json['error'] ?? ''));
+        if ($msg === '' && $status > 0 && !is_array($resp['json'] ?? null)) {
+            $body = trim((string) ($resp['body'] ?? ''));
+            if ($body !== '' && strlen($body) <= 200) {
+                $msg = $body;
+            }
+        }
+
+        return [
+            'http_status' => $status,
+            'gateway_error_code' => $code !== '' ? $code : null,
+            'gateway_error_message' => $msg !== '' ? mb_substr($msg, 0, 255) : null,
+            'environment' => PaymentGatewayConfig::cashfreeApiHostLabel(),
+            'request_url_path' => $requestPath,
+            'invalid_json' => $status >= 200 && $status < 300 && !is_array($resp['json'] ?? null),
+            'network_error' => $status === 0,
+        ];
+    }
+
+    /** @param array<string, mixed> $diag */
+    private static function refundFetchAdminMessage(array $diag, string $merchantRefundId): string
+    {
+        $status = (int) ($diag['http_status'] ?? 0);
+        $code = (string) ($diag['gateway_error_code'] ?? '');
+        $gMsg = (string) ($diag['gateway_error_message'] ?? '');
+        $env = (string) ($diag['environment'] ?? '');
+
+        if (!empty($diag['network_error'])) {
+            return 'Cashfree refund status request timed out or could not reach the network. Check server connectivity and try again.';
+        }
+        if (!empty($diag['invalid_json'])) {
+            return 'Cashfree returned an invalid response (HTTP ' . $status . '). Try again or reconcile from the Cashfree dashboard.';
+        }
+        if ($status === 401 || $status === 403) {
+            $hint = $gMsg !== '' ? ' ' . $gMsg : '';
+
+            return 'Cashfree rejected API credentials (HTTP ' . $status . ', environment: ' . $env . ').' . $hint;
+        }
+        if ($status === 404) {
+            return 'Cashfree refund not found for order using merchant refund ID “'
+                . $merchantRefundId
+                . '” (HTTP 404). The GET API uses merchant refund_id, not CF refund ID — confirm the refund exists on this order in Cashfree ('
+                . $env
+                . ').';
+        }
+        if ($status === 429) {
+            return 'Cashfree rate-limited the refund status request (HTTP 429). Wait and try again.';
+        }
+        if ($status >= 500 && $status < 600) {
+            return 'Cashfree server error while fetching refund status (HTTP ' . $status . '). Try again shortly.';
+        }
+        $suffix = '';
+        if ($code !== '' || $gMsg !== '') {
+            $suffix = ' [' . trim($code . ($code !== '' && $gMsg !== '' ? ': ' : '') . $gMsg) . ']';
+        }
+        if ($status > 0) {
+            return 'Cashfree refund status request failed (HTTP ' . $status . ', environment: ' . $env . ').' . $suffix;
+        }
+
+        return 'Could not fetch refund status from Cashfree.';
+    }
+
+    /**
      * Fetch status of an existing Cashfree refund (GET only).
      *
      * @return array{
@@ -372,7 +463,14 @@ final class CashfreeGateway
      *     gateway_refund_id?: string,
      *     refund_amount?: float,
      *     snapshot?: array<string, mixed>,
-     *     error?: string
+     *     error?: string,
+     *     http_status?: int,
+     *     gateway_error_code?: string|null,
+     *     gateway_error_message?: string|null,
+     *     environment?: string,
+     *     request_url_path?: string,
+     *     invalid_json?: bool,
+     *     network_error?: bool
      * }
      */
     public static function fetchRefund(string $merchantOrderId, string $refundLookupId): array
@@ -390,11 +488,16 @@ final class CashfreeGateway
         } catch (RuntimeException $e) {
             return ['ok' => false, 'error' => 'Cashfree is not configured.'];
         }
+        $path = '/orders/' . rawurlencode($merchantOrderId) . '/refunds/' . rawurlencode($refundLookupId);
         $resp = PaymentHttp::request('GET', $url, null, self::headers());
         if (!$resp['ok'] || !is_array($resp['json'])) {
-            error_log('Cashfree fetch refund HTTP ' . ($resp['status'] ?? 0));
+            $diag = self::refundFetchFailureDiagnostics($resp, $path);
+            error_log('Cashfree fetch refund HTTP ' . ($diag['http_status'] ?? 0));
 
-            return ['ok' => false, 'error' => 'Could not fetch refund status from Cashfree.'];
+            return [
+                'ok' => false,
+                'error' => self::refundFetchAdminMessage($diag, $refundLookupId),
+            ] + $diag;
         }
         $json = $resp['json'];
         $status = (string) ($json['refund_status'] ?? $json['status'] ?? '');
@@ -406,6 +509,9 @@ final class CashfreeGateway
             'gateway_refund_id' => $cfId !== '' ? $cfId : null,
             'refund_amount' => isset($json['refund_amount']) ? (float) $json['refund_amount'] : null,
             'snapshot' => $json,
+            'http_status' => (int) ($resp['status'] ?? 200),
+            'environment' => PaymentGatewayConfig::cashfreeApiHostLabel(),
+            'request_url_path' => $path,
         ];
     }
 }

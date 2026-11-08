@@ -29,9 +29,9 @@ final class NotificationTemplateDefaults
             'payment.success.email' => [
                 'event_type' => 'payment.success',
                 'channel' => 'email',
-                'subject' => 'Payment received — order {{order_number}}',
-                'body_html' => '<p>Hi {{customer_name}},</p><p>We received your payment of <strong>₹{{amount}}</strong> for order <strong>{{order_number}}</strong> via {{gateway_name}}.</p><p>Payment reference: <code>{{payment_reference}}</code></p><p><a href="{{order_url}}" style="display:inline-block;background:#2d7048;color:#fff;padding:12px 20px;border-radius:6px;text-decoration:none;font-weight:600;">View order</a></p>',
-                'body_text' => 'Payment of Rs {{amount}} received for order {{order_number}} via {{gateway_name}}. Ref: {{payment_reference}}. {{order_url}}',
+                'subject' => 'Order confirmed — {{order_number}}',
+                'body_html' => '<p>Hi {{customer_name}},</p><p>Thank you for your order with <strong>{{site_name}}</strong>. Your payment of <strong>₹{{amount}}</strong> is confirmed.</p>{{order_summary_html}}<p style="margin:16px 0 8px;"><strong>Delivery</strong><br>{{delivery_address}}<br>{{delivery_slot_line}}</p>{{order_items_html}}<p style="margin:20px 0;"><a href="{{track_order_url}}" style="display:inline-block;background:#2d7048;color:#fff;padding:12px 20px;border-radius:6px;text-decoration:none;font-weight:600;">Track order</a></p><p style="font-size:13px;color:#64748b;">Payment via {{gateway_name}}. Reference: {{payment_reference}}</p>',
+                'body_text' => 'Hi {{customer_name}}, order {{order_number}} is confirmed. Total Rs {{amount}}. {{order_items_text}} Delivery: {{delivery_address}} ({{delivery_slot_line}}). Track: {{track_order_url}}',
             ],
             'payment.failed.email' => [
                 'event_type' => 'payment.failed',

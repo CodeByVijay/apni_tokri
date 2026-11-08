@@ -772,7 +772,7 @@ final class RefundRequestService
             return trim((string) ($row['gateway_refund_id'] ?? '')) !== '';
         }
         if ($gateway === 'cashfree') {
-            return trim((string) ($row['gateway_refund_id'] ?? '')) !== ''
+            return GatewayRefundService::cashfreeMerchantRefundIdForStatusGet($row) !== ''
                 || trim((string) ($row['idempotency_key'] ?? '')) !== '';
         }
 
@@ -818,6 +818,11 @@ final class RefundRequestService
                     self::appendHistory($pdo, $requestId, 'admin', $adminId, 'gateway_status_fetch', array_merge($audit, [
                         'result_status' => $prevStatus,
                         'error' => $lookup['message'] ?? 'Lookup failed',
+                        'http_status' => $lookup['http_status'] ?? null,
+                        'gateway_error_code' => $lookup['gateway_error_code'] ?? null,
+                        'gateway_error_message' => $lookup['gateway_error_message'] ?? null,
+                        'environment' => $lookup['environment'] ?? null,
+                        'request_url_path' => $lookup['request_url_path'] ?? null,
                     ]));
                     AuditLog::write('refund.gateway_status_fetch', 'refund_request', (string) $requestId);
 

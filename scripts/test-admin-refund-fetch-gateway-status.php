@@ -190,11 +190,12 @@ $assertNoPostRefundCreate = static function (array $httpLog) use ($ok): void {
     }
 };
 
-// --- Pending: lookup via Cashfree cf_refund_id ---
+// --- Pending: GET uses merchant refund_id (idempotency), not stored cf_refund_id ---
 $isoPend = $isoOrder($pdo, $customerA, $tok, 'PENDONLY', $variantId);
 $reqPend = $createReq($pdo, $isoPend, $customerA, 'RF-FETCH-PEND-' . $tok, 35.0);
 $idempotencyPend = 'refund_req_fetch_pend_' . $reqPend;
-$cfRefundIdPend = 'cf_ref_pend_' . $tok;
+$merchantPend = $cashfreeMerchantRefundId($idempotencyPend);
+$cfRefundIdPend = '155230244';
 $insertPaymentRefund(
     $pdo,
     $reqPend,
@@ -206,16 +207,16 @@ $insertPaymentRefund(
     'pending'
 );
 $httpLog = [];
-$setMock(static function (string $method, string $url) use ($cfRefundIdPend): array {
-    if ($method !== 'GET' || !preg_match('#/refunds/' . preg_quote(rawurlencode($cfRefundIdPend), '#') . '$#', $url)) {
-        return ['ok' => false, 'status' => 502, 'body' => '', 'json' => null];
+$setMock(static function (string $method, string $url) use ($merchantPend, $cfRefundIdPend): array {
+    if ($method !== 'GET' || !preg_match('#/refunds/' . preg_quote(rawurlencode($merchantPend), '#') . '$#', $url)) {
+        return ['ok' => false, 'status' => 404, 'body' => '{"message":"not found"}', 'json' => ['message' => 'not found']];
     }
 
     return [
         'ok' => true,
         'status' => 200,
-        'body' => '{"cf_refund_id":"' . $cfRefundIdPend . '","refund_status":"PENDING"}',
-        'json' => ['cf_refund_id' => $cfRefundIdPend, 'refund_status' => 'PENDING'],
+        'body' => '{"cf_refund_id":"' . $cfRefundIdPend . '","refund_id":"' . $merchantPend . '","refund_status":"PENDING"}',
+        'json' => ['cf_refund_id' => $cfRefundIdPend, 'refund_id' => $merchantPend, 'refund_status' => 'PENDING'],
     ];
 });
 $pendFetch = RefundRequestService::fetchGatewayRefundStatus($reqPend);
@@ -312,6 +313,10 @@ $ok(abs($refundedTwice - $refundedOnce) < 0.001, 'Success: repeat fetch does not
     'first' => $refundedOnce,
     'second' => $refundedTwice,
 ]);
+$ok(
+    str_contains((string) ($prSuccRow['gateway_refund_id'] ?? ''), 'cf_ref_success'),
+    'Success: local row keeps Cashfree cf_refund_id after completion'
+);
 
 // --- Razorpay: missing gateway_refund_id (idempotency present but not used for GET) ---
 $isoMiss = $isoOrder($pdo, $customerA, $tok, 'MISSING', $variantId);
@@ -328,14 +333,16 @@ $ok($mockInvocations === 0, 'Missing ref: no HTTP calls', ['http' => $httpLog]);
 // --- API error preserves status ---
 $isoErr = $isoOrder($pdo, $customerA, $tok, 'APIERR', $variantId);
 $reqErr = $createReq($pdo, $isoErr, $customerA, 'RF-FETCH-ERR-' . $tok, 22.0);
-$cfErr = 'cf_ref_err_' . $tok;
+$cfErr = '155230999';
+$idempotencyErr = 'refund_req_fetch_err_' . $reqErr;
+$merchantErr = $cashfreeMerchantRefundId($idempotencyErr);
 $insertPaymentRefund(
     $pdo,
     $reqErr,
     (int) $isoErr['payment_id'],
     'cashfree',
     22.0,
-    'refund_req_fetch_err_' . $reqErr,
+    $idempotencyErr,
     $cfErr,
     'pending'
 );
@@ -350,7 +357,13 @@ $setMock(static function (string $method, string $url): array {
 $errFetch = RefundRequestService::fetchGatewayRefundStatus($reqErr);
 $st->execute([$reqErr]);
 $ok(empty($errFetch['ok']), 'API error returns failure to admin', ['result' => $errFetch]);
+$ok(str_contains((string) ($errFetch['message'] ?? ''), '502'), 'API error message includes HTTP status', ['result' => $errFetch]);
 $ok((string) $st->fetchColumn() === RefundStatus::PROCESSING, 'API error preserves request status');
+$ok(
+    count(array_filter($httpLog, static fn (array $c): bool => str_contains((string) $c['url'], '/refunds/' . rawurlencode($merchantErr)))) === 1,
+    'API error used merchant refund_id in GET path',
+    ['http' => $httpLog]
+);
 
 $hist = $pdo->prepare(
     'SELECT action FROM refund_request_history WHERE refund_request_id = ? AND action = ?'

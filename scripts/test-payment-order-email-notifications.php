@@ -48,6 +48,24 @@ function applyMigration130(PDO $pdo): void
     }
 }
 
+function applyMigration131EmailLog(PDO $pdo): void
+{
+    $n = (int) $pdo->query(
+        "SELECT COUNT(*) FROM information_schema.TABLES
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'delivery_email_logs'"
+    )->fetchColumn();
+    if ($n > 0) {
+        return;
+    }
+    $sql = (string) file_get_contents(APNI_TOKRI_ROOT . '/database/migrations/1.31.0_order_confirmation_email_log.sql');
+    foreach (array_filter(array_map('trim', preg_split('/;\s*\n/', $sql))) as $chunk) {
+        if ($chunk === '' || stripos($chunk, 'SET NAMES') === 0) {
+            continue;
+        }
+        $pdo->exec($chunk);
+    }
+}
+
 function queueIdForKey(PDO $pdo, string $key): int
 {
     $st = $pdo->prepare('SELECT id FROM notification_queue WHERE idempotency_key = ? LIMIT 1');
@@ -63,10 +81,12 @@ function cleanupEmailTests(PDO $pdo, string $tag): void
 }
 
 applyMigration130($pdo);
+applyMigration131EmailLog($pdo);
 okE(
     (int) $pdo->query("SELECT COUNT(*) FROM notification_templates WHERE template_key = 'order.placed.email'")->fetchColumn() > 0,
     'Migration 1.30 templates present'
 );
+okE(DeliveryOrderEmailService::tableReady(), 'Migration 1.31 delivery_email_logs present');
 
 $tag = bin2hex(random_bytes(3));
 cleanupEmailTests($pdo, $tag);
@@ -114,6 +134,8 @@ okE((int) $stPlaced->fetchColumn() === 1, 'Duplicate order placed prevented');
 // Payment success (Cashfree)
 $pdo->prepare('UPDATE payments SET status = ?, gateway_payment_id = ?, captured_at = NOW() WHERE order_id = ?')
     ->execute(['captured', 'cfpay_' . $tag, $orderId]);
+$pdo->prepare('UPDATE orders SET payment_status = ?, status = ? WHERE id = ?')->execute(['paid', 'confirmed', $orderId]);
+okE(OrderEmailContext::isOrderPaidAndCaptured($orderId), 'Paid + captured before confirmation email');
 NotificationDispatcher::orderPaymentSuccess($orderId);
 $successKey = 'payment.success:order:' . $orderId . ':email';
 okE(queueIdForKey($pdo, $successKey) > 0, 'Cashfree payment success email enqueued');
@@ -121,16 +143,26 @@ $row = $pdo->prepare('SELECT payload_json FROM notification_queue WHERE idempote
 $row->execute([$successKey]);
 $payload = json_decode((string) $row->fetchColumn(), true);
 okE(is_array($payload) && ($payload['gateway_name'] ?? '') === 'Cashfree', 'Success payload includes Cashfree gateway name');
+okE(is_array($payload) && str_contains((string) ($payload['order_items_html'] ?? ''), 'Test item'), 'Success payload includes order line items');
+okE(is_array($payload) && ($payload['track_order_url'] ?? '') !== '', 'Success payload includes track order URL');
 NotificationDispatcher::orderPaymentSuccess($orderId);
 $stPlaced->execute([$successKey]);
 okE((int) $stPlaced->fetchColumn() === 1, 'Duplicate payment success webhook prevented');
+$stEmailLog = $pdo->prepare(
+    "SELECT COUNT(*) FROM delivery_email_logs WHERE order_id = ? AND event_key = 'order_confirmed'"
+);
+$stEmailLog->execute([$orderId]);
+okE((int) $stEmailLog->fetchColumn() >= 1, 'Confirmation attempt logged for delivery admin');
+NotificationDispatcher::orderPaymentSuccess($orderId);
+$stEmailLog->execute([$orderId]);
+okE((int) $stEmailLog->fetchColumn() === 1, 'Duplicate webhook does not duplicate delivery email log');
 
 // Razorpay payload on separate order
 $orderNumber2 = 'AT-RZP-' . strtoupper($tag);
 $pdo->prepare(
     'INSERT INTO orders (order_number, customer_id, customer_address_id, status, subtotal, discount_total, delivery_fee,
      grand_total, payment_status, delivery_slot) VALUES (?, ?, ?, ?, 50, 0, 0, 50, ?, ?)'
-)->execute([$orderNumber2, $custId, $addrId, 'pending_payment', 'pending', 'morning']);
+)->execute([$orderNumber2, $custId, $addrId, 'confirmed', 'paid', 'morning']);
 $orderId2 = (int) $pdo->lastInsertId();
 $pdo->prepare(
     'INSERT INTO payments (order_id, gateway, gateway_order_id, gateway_payment_id, amount, currency, status, idempotency_key, captured_at)
@@ -190,11 +222,54 @@ okE(queueIdForKey($pdo, 'refund.initiated:' . $refundId . ':email') > 0, 'Refund
 NotificationDispatcher::refundStatusUpdated($refundId, RefundStatus::REFUNDED);
 okE(queueIdForKey($pdo, 'refund.completed:' . $refundId . ':email') > 0, 'Refund completed email');
 
+// Paid order, customer has no email — skip confirmation (order still valid)
+$noEmailNo = 'AT-NOEM-' . strtoupper($tag);
+$pdo->prepare(
+    'INSERT INTO orders (order_number, customer_id, customer_address_id, status, subtotal, grand_total, payment_status, delivery_slot)
+     VALUES (?, ?, ?, ?, 30, 30, ?, ?)'
+)->execute([$noEmailNo, $custId, $addrId, 'confirmed', 'paid', 'morning']);
+$noEmailOrderId = (int) $pdo->lastInsertId();
+$pdo->prepare(
+    'INSERT INTO payments (order_id, gateway, amount, currency, status, gateway_payment_id, captured_at, idempotency_key)
+     VALUES (?, ?, 30, ?, ?, ?, NOW(), ?)'
+)->execute([$noEmailOrderId, 'cashfree', 'INR', 'captured', 'noem_' . $tag, 'pay_' . $noEmailNo]);
+$pdo->prepare('UPDATE customers SET email = NULL WHERE id = ?')->execute([$custId]);
+NotificationDispatcher::orderPaymentSuccess($noEmailOrderId);
+$noEmailKey = 'payment.success:order:' . $noEmailOrderId . ':email';
+okE(queueIdForKey($pdo, $noEmailKey) === 0, 'No confirmation email when customer has no email');
+$stSkip = $pdo->prepare(
+    "SELECT status FROM delivery_email_logs WHERE order_id = ? AND event_key = 'order_confirmed' LIMIT 1"
+);
+$stSkip->execute([$noEmailOrderId]);
+okE((string) ($stSkip->fetchColumn() ?: '') === 'skipped', 'No-email confirmation logged as skipped');
+$pdo->prepare('UPDATE customers SET email = ? WHERE id = ?')->execute(['email+' . $tag . '@example.test', $custId]);
+
+// Failed payment — no confirmation email
+$failedPayNo = 'AT-FAIL-' . strtoupper($tag);
+$pdo->prepare(
+    'INSERT INTO orders (order_number, customer_id, customer_address_id, status, subtotal, grand_total, payment_status, delivery_slot)
+     VALUES (?, ?, ?, ?, 25, 25, ?, ?)'
+)->execute([$failedPayNo, $custId, $addrId, 'payment_failed', 'failed', 'morning']);
+$failedPayId = (int) $pdo->lastInsertId();
+NotificationDispatcher::orderPaymentSuccess($failedPayId);
+okE(queueIdForKey($pdo, 'payment.success:order:' . $failedPayId . ':email') === 0, 'No confirmation email when payment not paid');
+
+// Pending payment — no confirmation email
+$pendingNo = 'AT-PEND-' . strtoupper($tag);
+$pdo->prepare(
+    'INSERT INTO orders (order_number, customer_id, customer_address_id, status, subtotal, grand_total, payment_status, delivery_slot)
+     VALUES (?, ?, ?, ?, 20, 20, ?, ?)'
+)->execute([$pendingNo, $custId, $addrId, 'pending_payment', 'pending', 'morning']);
+$pendId = (int) $pdo->lastInsertId();
+NotificationDispatcher::orderPaymentSuccess($pendId);
+okE(queueIdForKey($pdo, 'payment.success:order:' . $pendId . ':email') === 0, 'No confirmation email when payment not captured/paid');
+$pdo->prepare('DELETE FROM orders WHERE id = ?')->execute([$pendId]);
+
 // Missing email skipped
 $pdo->prepare('UPDATE customers SET email = NULL WHERE id = ?')->execute([$custId]);
 NotificationDispatcher::orderPlacedPendingPayment($orderId);
 $stPlaced->execute([$placedKey]);
-okE((int) $stPlaced->fetchColumn() === 1, 'No email when customer address invalid/missing');
+okE((int) $stPlaced->fetchColumn() === 1, 'No new placed email when customer email missing');
 
 // Branded HTML wrapper + escape
 $rendered = NotificationTemplateRenderer::renderForChannel(
@@ -241,11 +316,18 @@ $stJob->execute([$smtpJobId]);
 $jobStatus = (string) $stJob->fetchColumn();
 okE($jobStatus === 'pending' || $jobStatus === 'failed', 'Email job not marked sent after SMTP failure');
 
+$pdo->prepare('DELETE FROM delivery_email_logs WHERE order_id IN (?, ?, ?, ?, ?)')->execute(
+    [$orderId, $orderId2, $orderId3, $noEmailOrderId, $failedPayId]
+);
 cleanupEmailTests($pdo, $tag);
 $pdo->prepare('DELETE FROM refund_requests WHERE id = ?')->execute([$refundId]);
-$pdo->prepare('DELETE FROM payments WHERE order_id IN (?, ?, ?)')->execute([$orderId, $orderId2, $orderId3]);
+$pdo->prepare('DELETE FROM payments WHERE order_id IN (?, ?, ?, ?, ?)')->execute(
+    [$orderId, $orderId2, $orderId3, $noEmailOrderId, $failedPayId]
+);
 $pdo->prepare('DELETE FROM order_items WHERE order_id IN (?, ?, ?)')->execute([$orderId, $orderId2, $orderId3]);
-$pdo->prepare('DELETE FROM orders WHERE id IN (?, ?, ?)')->execute([$orderId, $orderId2, $orderId3]);
+$pdo->prepare('DELETE FROM orders WHERE id IN (?, ?, ?, ?)')->execute(
+    [$orderId, $orderId2, $orderId3, $noEmailOrderId, $failedPayId]
+);
 $pdo->prepare('DELETE FROM customer_addresses WHERE id = ?')->execute([$addrId]);
 $pdo->prepare('DELETE FROM customers WHERE id = ?')->execute([$custId]);
 

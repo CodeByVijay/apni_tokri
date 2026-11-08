@@ -153,8 +153,144 @@ final class OrderEmailContext
         }
         $out['payment_reference'] = $ref !== '' ? $ref : '—';
         $out['event_date'] = date('d M Y, h:i A');
+        if (is_array($paymentRow) && (string) ($paymentRow['status'] ?? '') === 'captured') {
+            $out = self::appendConfirmationSnapshotFields($orderId, $out);
+        }
 
         return $out;
+    }
+
+    public static function isOrderPaidAndCaptured(int $orderId): bool
+    {
+        if ($orderId <= 0) {
+            return false;
+        }
+        Install::ensureConnection();
+        $pdo = Database::pdo();
+        $st = $pdo->prepare('SELECT payment_status FROM orders WHERE id = ? LIMIT 1');
+        $st->execute([$orderId]);
+        if ((string) ($st->fetchColumn() ?: '') !== 'paid') {
+            return false;
+        }
+
+        return self::capturedPaymentForOrder($orderId) !== null;
+    }
+
+    /**
+     * @param array<string, string> $out
+     * @return array<string, string>
+     */
+    private static function appendConfirmationSnapshotFields(int $orderId, array $out): array
+    {
+        Install::ensureConnection();
+        $pdo = Database::pdo();
+        $stmt = $pdo->prepare(
+            'SELECT o.subtotal, o.discount_total, o.delivery_fee, o.grand_total, o.delivery_date, o.delivery_slot, o.delivery_slot_id,
+                    o.coupon_code, o.customer_address_id, o.delivery_snapshot_json
+             FROM orders o WHERE o.id = ? LIMIT 1'
+        );
+        $stmt->execute([$orderId]);
+        $order = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$order) {
+            return $out;
+        }
+        $out['subtotal'] = number_format((float) ($order['subtotal'] ?? 0), 2, '.', '');
+        $out['discount_total'] = number_format((float) ($order['discount_total'] ?? 0), 2, '.', '');
+        $out['delivery_fee'] = number_format((float) ($order['delivery_fee'] ?? 0), 2, '.', '');
+        $out['total_paid'] = number_format((float) ($order['grand_total'] ?? 0), 2, '.', '');
+        $out['track_order_url'] = $out['order_url'] ?? self::customerOrderDetailUrl((string) ($out['order_number'] ?? ''));
+
+        $addr = CustomerOrderDetailService::addressBlock($order, $pdo);
+        $out['delivery_address'] = $addr !== null && !empty($addr['formatted'])
+            ? (string) $addr['formatted']
+            : '—';
+        $slotLine = trim((string) ($order['delivery_slot'] ?? ''));
+        if ($slotLine === '' && (int) ($order['delivery_slot_id'] ?? 0) > 0) {
+            $slotSt = $pdo->prepare('SELECT label, window_label FROM delivery_slots WHERE id = ? LIMIT 1');
+            $slotSt->execute([(int) $order['delivery_slot_id']]);
+            $slotRow = $slotSt->fetch(PDO::FETCH_ASSOC);
+            if ($slotRow) {
+                $slotLine = trim((string) ($slotRow['label'] ?? '') . ' ' . (string) ($slotRow['window_label'] ?? ''));
+            }
+        }
+        $date = trim((string) ($order['delivery_date'] ?? ''));
+        $out['delivery_slot_line'] = trim($date . ($date !== '' && $slotLine !== '' ? ' · ' : '') . $slotLine);
+        if ($out['delivery_slot_line'] === '') {
+            $out['delivery_slot_line'] = 'To be confirmed';
+        }
+
+        $itemsStmt = $pdo->prepare(
+            'SELECT product_name, variant_name, quantity, unit_price, line_total FROM order_items WHERE order_id = ? ORDER BY id ASC'
+        );
+        $itemsStmt->execute([$orderId]);
+        $items = $itemsStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        $out['order_items_html'] = self::buildItemsHtmlTable($items);
+        $out['order_items_text'] = self::buildItemsPlainText($items);
+        $out['order_summary_html'] = self::buildSummaryHtml($order, $out);
+
+        return $out;
+    }
+
+    /** @param list<array<string, mixed>> $items */
+    private static function buildItemsHtmlTable(array $items): string
+    {
+        if ($items === []) {
+            return '<p style="font-size:14px;color:#64748b;">No line items recorded.</p>';
+        }
+        $rows = '';
+        foreach ($items as $it) {
+            $name = Security::escape((string) ($it['product_name'] ?? ''));
+            $variant = trim((string) ($it['variant_name'] ?? ''));
+            if ($variant !== '') {
+                $name .= ' <span style="color:#64748b;font-weight:normal;">(' . Security::escape($variant) . ')</span>';
+            }
+            $qty = (int) ($it['quantity'] ?? 0);
+            $unit = catalogue_format_price((float) ($it['unit_price'] ?? 0));
+            $line = catalogue_format_price((float) ($it['line_total'] ?? 0));
+            $rows .= '<tr><td style="padding:6px 8px;border-bottom:1px solid #e8e8e4;">' . $name . '</td>'
+                . '<td style="padding:6px 8px;border-bottom:1px solid #e8e8e4;text-align:center;">' . $qty . '</td>'
+                . '<td style="padding:6px 8px;border-bottom:1px solid #e8e8e4;text-align:right;">' . Security::escape($unit) . '</td>'
+                . '<td style="padding:6px 8px;border-bottom:1px solid #e8e8e4;text-align:right;font-weight:600;">' . Security::escape($line) . '</td></tr>';
+        }
+
+        return '<table role="presentation" style="width:100%;border-collapse:collapse;font-size:14px;margin:12px 0;">'
+            . '<thead><tr style="background:#f4f6f2;"><th align="left" style="padding:6px 8px;">Item</th>'
+            . '<th style="padding:6px 8px;">Qty</th><th align="right" style="padding:6px 8px;">Unit</th>'
+            . '<th align="right" style="padding:6px 8px;">Total</th></tr></thead><tbody>' . $rows . '</tbody></table>';
+    }
+
+    /** @param list<array<string, mixed>> $items */
+    private static function buildItemsPlainText(array $items): string
+    {
+        if ($items === []) {
+            return 'Items: (none)';
+        }
+        $lines = [];
+        foreach ($items as $it) {
+            $lines[] = (string) ($it['product_name'] ?? '') . ' x' . (int) ($it['quantity'] ?? 0)
+                . ' @ Rs ' . number_format((float) ($it['unit_price'] ?? 0), 2);
+        }
+
+        return implode('; ', $lines);
+    }
+
+    /** @param array<string, mixed> $order @param array<string, string> $out */
+    private static function buildSummaryHtml(array $order, array $out): string
+    {
+        $disc = (float) ($order['discount_total'] ?? 0);
+        $fee = (float) ($order['delivery_fee'] ?? 0);
+        $coupon = trim((string) ($order['coupon_code'] ?? ''));
+        $html = '<table role="presentation" style="width:100%;font-size:14px;margin:8px 0 4px;">';
+        $html .= '<tr><td>Subtotal</td><td align="right">₹' . Security::escape((string) ($out['subtotal'] ?? '0')) . '</td></tr>';
+        if ($disc > 0) {
+            $label = 'Discount' . ($coupon !== '' ? ' (' . Security::escape($coupon) . ')' : '');
+            $html .= '<tr><td>' . $label . '</td><td align="right">−₹' . Security::escape((string) ($out['discount_total'] ?? '0')) . '</td></tr>';
+        }
+        $html .= '<tr><td>Delivery fee</td><td align="right">' . ($fee === 0.0 ? 'Free' : '₹' . Security::escape((string) ($out['delivery_fee'] ?? '0'))) . '</td></tr>';
+        $html .= '<tr><td style="font-weight:700;padding-top:6px;">Total paid</td><td align="right" style="font-weight:700;padding-top:6px;">₹' . Security::escape((string) ($out['total_paid'] ?? $out['amount'] ?? '0')) . '</td></tr>';
+        $html .= '</table>';
+
+        return $html;
     }
 
     /**

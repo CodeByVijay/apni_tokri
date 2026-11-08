@@ -19,6 +19,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $delivery !== null) {
         } else {
             admin_flash_set('Could not retry SMS.', 'error');
         }
+    } elseif ($action === 'retry_email') {
+        $logId = (int) ($_POST['email_log_id'] ?? 0);
+        if ($logId > 0 && DeliveryOrderEmailService::retryLog($logId)) {
+            admin_flash_set('Email retry sent.');
+        } else {
+            admin_flash_set('Could not retry email.', 'error');
+        }
     } else {
         $input = [
             'status' => (string) ($_POST['status'] ?? ''),
@@ -59,6 +66,7 @@ $next = DeliveryStatusTransitions::allowedNext($current);
 $presets = DeliveryCourierPresets::list();
 $history = DeliveryAssignmentService::statusHistory($id);
 $smsLogs = DeliverySmsService::logsForAdmin($id);
+$emailLogs = DeliveryOrderEmailService::logsForAdmin($id);
 $orderQuoteRow = null;
 if (Install::isSchemaReady()) {
     Install::ensureConnection();
@@ -209,6 +217,40 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
                                     <input type="hidden" name="action" value="retry_sms">
                                     <input type="hidden" name="sms_log_id" value="<?= (int) $log['id'] ?>">
                                     <button type="submit" class="at-btn at-btn--sm at-focusable">Retry SMS</button>
+                                </form>
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table></div>
+        <?php endif; ?>
+    </div>
+</section>
+
+<section class="at-admin-card mt-4">
+    <div class="at-admin-card__body">
+        <h3 class="font-bold">Customer email log</h3>
+        <?php if ($emailLogs === []): ?>
+            <p class="text-sm at-muted mt-2">No customer emails logged for this delivery yet.</p>
+        <?php else: ?>
+            <div class="at-admin-table-wrap mt-2"><table class="at-admin-table">
+                <thead><tr><th>Event</th><th>Email</th><th>Status</th><th>Time</th><th>Error</th><th class="is-actions"></th></tr></thead>
+                <tbody>
+                <?php foreach ($emailLogs as $elog): ?>
+                    <tr>
+                        <td><?= Security::escape((string) $elog['event_key']) ?></td>
+                        <td><?= Security::escape((string) ($elog['email_masked'] ?? '—')) ?></td>
+                        <td><?= admin_status_badge((string) $elog['status']) ?></td>
+                        <td><?= Security::escape((string) ($elog['sent_at'] ?? $elog['created_at'])) ?></td>
+                        <td class="text-xs"><?= Security::escape((string) ($elog['error_message'] ?? '—')) ?></td>
+                        <td class="is-actions">
+                            <?php if ((string) $elog['status'] === 'failed'): ?>
+                                <form method="post" class="inline">
+                                    <?= Csrf::field() ?>
+                                    <input type="hidden" name="action" value="retry_email">
+                                    <input type="hidden" name="email_log_id" value="<?= (int) $elog['id'] ?>">
+                                    <button type="submit" class="at-btn at-btn--sm at-focusable">Retry email</button>
                                 </form>
                             <?php endif; ?>
                         </td>
