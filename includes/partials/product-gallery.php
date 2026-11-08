@@ -10,7 +10,7 @@ if ($images === []) {
 ?>
 <div class="at-gallery" data-at-gallery>
     <div class="at-gallery__stage" data-at-gallery-stage>
-        <img id="at-gallery-main" src="<?= Security::escape($images[0]) ?>" alt="<?= Security::escape((string) $product['name']) ?>" width="640" height="640">
+        <img id="at-gallery-main" class="at-img-fit" src="<?= Security::escape($images[0]) ?>" alt="<?= Security::escape((string) $product['name']) ?>" width="640" height="480" decoding="async" fetchpriority="high">
         <?php if (count($images) > 1): ?>
             <button type="button" class="at-gallery__nav at-gallery-nav at-gallery-prev at-focusable" style="left:.6rem" aria-label="Previous image">‹</button>
             <button type="button" class="at-gallery__nav at-gallery-nav at-gallery-next at-focusable" style="right:.6rem" aria-label="Next image">›</button>
@@ -31,7 +31,7 @@ if ($images === []) {
                         data-index="<?= (int) $i ?>"
                         data-src="<?= Security::escape($src) ?>"
                         aria-label="Image <?= (int) ($i + 1) ?>">
-                        <img src="<?= Security::escape($src) ?>" alt="" loading="lazy">
+                        <img class="at-img-fit" src="<?= Security::escape($src) ?>" alt="" loading="lazy" width="68" height="68">
                     </button>
                 </li>
             <?php endforeach; ?>
