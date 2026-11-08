@@ -85,7 +85,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
     <div class="at-admin-card">
         <div class="at-admin-card__body text-sm space-y-2">
             <p><strong>Order:</strong> <?= Security::escape((string) $delivery['order_number']) ?></p>
-            <p><strong>Slot / date:</strong> <?= Security::escape((string) ($delivery['delivery_slot'] ?? '')) ?> · <?= Security::escape((string) ($delivery['delivery_date'] ?? '—')) ?></p>
+            <p><strong>Slot / date:</strong> <?= Security::escape((string) ($delivery['delivery_slot_display'] ?? $delivery['delivery_slot'] ?? '')) ?> · <?= Security::escape((string) ($delivery['delivery_date'] ?? '—')) ?></p>
             <p><strong>Payment:</strong> <?= Security::escape((string) ($delivery['payment_status'] ?? '')) ?> (not changed here)</p>
             <?php if ($checkoutQuote !== null): ?>
                 <p><strong>Checkout delivery fee<?= !empty($checkoutQuote['from_snapshot']) ? ' (snapshot)' : '' ?>:</strong>

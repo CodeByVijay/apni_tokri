@@ -567,8 +567,9 @@ final class InvoiceSnapshotBuilder
         if ($del['has_slot']) {
             $delivery = [
                 'date' => $del['delivery_date'],
-                'slot' => $del['slot_label'],
-                'window' => $del['window_label'],
+                'slot' => $del['slot_display'] ?? $del['slot_label'],
+                'slot_display' => $del['slot_display'] ?? null,
+                'window' => null,
                 'time_range' => $del['time_range'],
                 'status' => $del['delivery_status'],
             ];

@@ -91,7 +91,7 @@ $rows = $list['rows'];
                 <tr>
                     <td class="is-id"><?= Security::escape((string) $r['order_number']) ?></td>
                     <td><?= Security::escape((string) ($r['customer_name'] ?: $r['customer_mobile'] ?: '—')) ?></td>
-                    <td><?= Security::escape(trim((string) ($r['delivery_slot'] ?? '') . ' · ' . ($r['delivery_date'] ?? ''))) ?></td>
+                    <td><?= Security::escape(trim(((string) ($r['delivery_slot_display'] ?? $r['delivery_slot'] ?? '')) . ' · ' . ($r['delivery_date'] ?? ''))) ?></td>
                     <td><?= admin_status_badge((string) ($r['payment_status'] ?? '')) ?></td>
                     <td><?= admin_status_badge((string) ($r['status'] ?? '')) ?></td>
                     <td><?= Security::escape((string) ($r['courier_service_name'] ?? '—')) ?></td>

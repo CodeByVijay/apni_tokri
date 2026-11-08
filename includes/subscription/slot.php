@@ -58,7 +58,10 @@ final class SubscriptionSlotService
                 'id' => (int) $slotRow['id'],
                 'slug' => (string) $slotRow['slug'],
                 'label' => (string) $slotRow['label'],
-                'window' => (string) $slotRow['window_label'],
+                'window' => DeliverySlotDisplay::formatWindowRange(
+                    (string) ($slotRow['start_time'] ?? ''),
+                    (string) ($slotRow['end_time'] ?? '')
+                ) ?? (string) $slotRow['window_label'],
                 'delivery_date' => $deliveryDate,
                 'row' => $slotRow,
             ],

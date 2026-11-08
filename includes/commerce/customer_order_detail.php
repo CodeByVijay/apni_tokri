@@ -101,7 +101,9 @@ final class CustomerOrderDetailService
         } elseif (!empty($delivery['delivery_date'])) {
             $whenLabel = 'Scheduled delivery';
             $whenValue = (string) $delivery['delivery_date'];
-            if (!empty($delivery['time_range'])) {
+            if (!empty($delivery['slot_display'])) {
+                $whenValue .= ' · ' . (string) $delivery['slot_display'];
+            } elseif (!empty($delivery['time_range'])) {
                 $whenValue .= ' · ' . (string) $delivery['time_range'];
             }
         } elseif (!empty($delivery['delivery_eta'])) {
@@ -434,41 +436,10 @@ final class CustomerOrderDetailService
     /** @return array<string, mixed> */
     public static function deliveryBlock(array $orderRow, PDO $pdo): array
     {
-        $slotId = (int) ($orderRow['delivery_slot_id'] ?? 0);
-        $slotSlug = trim((string) ($orderRow['delivery_slot'] ?? ''));
-        $slotLabel = $slotSlug;
-        $windowLabel = null;
-        $timeRange = null;
-
-        if ($slotId > 0) {
-            $st = $pdo->prepare(
-                'SELECT label, window_label, start_time, end_time FROM delivery_slots WHERE id = ? LIMIT 1'
-            );
-            $st->execute([$slotId]);
-            $slotRow = $st->fetch(PDO::FETCH_ASSOC);
-            if ($slotRow) {
-                $slotLabel = (string) ($slotRow['label'] ?? $slotLabel);
-                $windowLabel = (string) ($slotRow['window_label'] ?? '');
-                $timeRange = self::formatSlotTimes(
-                    (string) ($slotRow['start_time'] ?? ''),
-                    (string) ($slotRow['end_time'] ?? '')
-                );
-            }
-        } elseif ($slotSlug !== '') {
-            $st = $pdo->prepare(
-                'SELECT label, window_label, start_time, end_time FROM delivery_slots WHERE slug = ? LIMIT 1'
-            );
-            $st->execute([$slotSlug]);
-            $slotRow = $st->fetch(PDO::FETCH_ASSOC);
-            if ($slotRow) {
-                $slotLabel = (string) ($slotRow['label'] ?? $slotSlug);
-                $windowLabel = (string) ($slotRow['window_label'] ?? '');
-                $timeRange = self::formatSlotTimes(
-                    (string) ($slotRow['start_time'] ?? ''),
-                    (string) ($slotRow['end_time'] ?? '')
-                );
-            }
-        }
+        $resolved = DeliverySlotDisplay::resolveForOrder($orderRow, $pdo);
+        $slotLabel = (string) ($resolved['label'] ?? '');
+        $timeRange = $resolved['time_range'] ?? null;
+        $slotDisplay = $resolved['display_line'] ?? null;
 
         $deliveryDate = trim((string) ($orderRow['delivery_date'] ?? ''));
         $eta = trim((string) ($orderRow['delivery_eta'] ?? ''));
@@ -502,8 +473,9 @@ final class CustomerOrderDetailService
 
         return [
             'has_slot' => $hasSlot,
+            'slot_display' => $slotDisplay,
             'slot_label' => $slotLabel !== '' ? $slotLabel : null,
-            'window_label' => $windowLabel !== '' ? $windowLabel : null,
+            'window_label' => null,
             'time_range' => $timeRange,
             'delivery_date' => $deliveryDate !== '' ? $deliveryDate : null,
             'delivery_eta' => $eta !== '' ? $eta : null,
@@ -512,25 +484,6 @@ final class CustomerOrderDetailService
             'delivered_at' => $deliveredAt,
             'delivery_contact_phone' => $contactPhone,
         ];
-    }
-
-    private static function formatSlotTimes(string $start, string $end): ?string
-    {
-        $start = trim($start);
-        $end = trim($end);
-        if ($start === '' && $end === '') {
-            return null;
-        }
-        $fmt = static function (string $t): string {
-            $ts = strtotime($t);
-
-            return $ts !== false ? date('g:i A', $ts) : $t;
-        };
-        if ($start !== '' && $end !== '') {
-            return $fmt($start) . ' – ' . $fmt($end);
-        }
-
-        return $start !== '' ? $fmt($start) : $fmt($end);
     }
 
     /**

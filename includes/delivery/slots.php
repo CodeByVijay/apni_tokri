@@ -39,14 +39,7 @@ final class DeliverySlotService
                 if ($remaining <= 0) {
                     continue;
                 }
-                $out[] = [
-                    'id' => (int) $slot['id'],
-                    'slug' => (string) $slot['slug'],
-                    'label' => (string) $slot['label'],
-                    'window' => (string) $slot['window_label'],
-                    'delivery_date' => $date,
-                    'remaining' => $remaining,
-                ];
+                $out[] = DeliverySlotDisplay::checkoutCard($slot, $date, $remaining);
             }
 
             return $out;
@@ -81,14 +74,10 @@ final class DeliverySlotService
             return null;
         }
 
-        return [
-            'id' => (int) $row['id'],
-            'slug' => (string) $row['slug'],
-            'label' => (string) $row['label'],
-            'window' => (string) $row['window_label'],
-            'delivery_date' => $date,
-            'row' => $row,
-        ];
+        $card = DeliverySlotDisplay::checkoutCard($row, $date, self::remainingCapacity((int) $row['id'], $date));
+        $card['row'] = $row;
+
+        return $card;
     }
 
     /** @param array<string, mixed> $slotRow */
@@ -215,14 +204,7 @@ final class DeliverySlotService
             if ($err !== null) {
                 continue;
             }
-            $out[] = [
-                'id' => $slotId,
-                'slug' => (string) $slot['slug'],
-                'label' => (string) $slot['label'],
-                'window' => (string) $slot['window_label'],
-                'delivery_date' => $deliveryDate,
-                'remaining' => $remaining,
-            ];
+            $out[] = DeliverySlotDisplay::checkoutCard($slot, $deliveryDate, $remaining);
         }
 
         return $out;
@@ -374,14 +356,11 @@ final class DeliverySlotService
                 continue;
             }
 
-            return [
-                'id' => (int) $slotRow['id'],
-                'slug' => (string) $slotRow['slug'],
-                'label' => (string) $slotRow['label'],
-                'window' => (string) $slotRow['window_label'],
-                'delivery_date' => $deliveryDate,
-                'row' => $slotRow,
-            ];
+            $remaining = self::remainingCapacity((int) $slotRow['id'], $deliveryDate, $pdo);
+            $card = DeliverySlotDisplay::checkoutCard($slotRow, $deliveryDate, $remaining);
+            $card['row'] = $slotRow;
+
+            return $card;
         }
 
         return null;

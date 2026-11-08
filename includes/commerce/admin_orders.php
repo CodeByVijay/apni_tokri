@@ -289,21 +289,10 @@ final class AdminOrderService
         }
 
         $deliverySlotId = isset($order['delivery_slot_id']) ? (int) $order['delivery_slot_id'] : 0;
-        $deliverySlotLabel = '';
+        $slotResolved = DeliverySlotDisplay::resolveForOrder($order, $pdo);
+        $deliverySlotLabel = (string) ($slotResolved['display_line'] ?? $slotResolved['label'] ?? '');
         $deliverySlotWindow = '';
-        $deliverySlotTimes = '';
-        if ($deliverySlotId > 0) {
-            $slotRow = DeliverySlotRepository::find($deliverySlotId);
-            if ($slotRow !== null) {
-                $deliverySlotLabel = (string) ($slotRow['label'] ?? '');
-                $deliverySlotWindow = (string) ($slotRow['window_label'] ?? '');
-                $start = DeliveryAdminUi::formatClockTime12h((string) ($slotRow['start_time'] ?? ''));
-                $end = DeliveryAdminUi::formatClockTime12h((string) ($slotRow['end_time'] ?? ''));
-                if ($start !== '' && $end !== '') {
-                    $deliverySlotTimes = $start . '–' . $end;
-                }
-            }
-        }
+        $deliverySlotTimes = (string) ($slotResolved['time_range'] ?? '');
 
         $base = [
             'id' => $orderId,

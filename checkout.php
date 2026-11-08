@@ -322,7 +322,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
                             <label class="at-option">
                                 <input type="radio" name="delivery_slot" form="checkout-form" value="<?= Security::escape($s['slug']) ?>" class="mt-1"
                                        data-delivery-date="<?= Security::escape((string) ($s['delivery_date'] ?? '')) ?>" <?= $i === 0 ? 'checked' : '' ?>>
-                                <span class="text-sm"><strong class="block"><?= Security::escape($s['label']) ?></strong><?= Security::escape($s['window']) ?>
+                                <span class="text-sm"><strong class="block"><?= Security::escape($s['label']) ?></strong><?= Security::escape((string) ($s['time_range'] ?? $s['window'] ?? '—')) ?>
                                     <br><span class="at-muted text-xs">Delivers <?= Security::escape((string) ($s['delivery_date'] ?? '')) ?> · <?= (int) $s['remaining'] ?> spots left</span></span>
                             </label>
                         <?php endforeach; ?>

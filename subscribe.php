@@ -103,7 +103,7 @@ layout_public_start(['pageTitle' => 'Subscribe — ' . $card['name'] . ' — Veg
                             <option value="">Choose a slot</option>
                             <?php foreach ($slots as $s): ?>
                                 <option value="<?= Security::escape((string) $s['slug']) ?>">
-                                    <?= Security::escape((string) $s['label'] . ' · ' . ($s['window'] ?? '')) ?>
+                                    <?= Security::escape((string) $s['label'] . ' · ' . ($s['time_range'] ?? $s['window'] ?? '')) ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>

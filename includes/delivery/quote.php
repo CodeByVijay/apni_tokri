@@ -112,6 +112,8 @@ final class DeliveryQuoteService
             'slot_id' => $slotPayload['slot_id'] ?? null,
             'slot_label' => $slotPayload['slot_label'] ?? null,
             'slot_window' => $slotPayload['slot_window'] ?? null,
+            'slot_start_time' => $slotPayload['slot_start_time'] ?? null,
+            'slot_end_time' => $slotPayload['slot_end_time'] ?? null,
             'delivery_date' => $slotPayload['delivery_date'] ?? null,
             'delivery_eta' => $slotPayload['delivery_eta'] ?? null,
             'slot_resolved' => $slotPayload['slot_resolved'] ?? null,
@@ -152,6 +154,8 @@ final class DeliveryQuoteService
             'slot_slug' => $quote['slot_slug'] ?? null,
             'slot_label' => $quote['slot_label'] ?? null,
             'slot_window' => $quote['slot_window'] ?? null,
+            'slot_start_time' => $quote['slot_start_time'] ?? null,
+            'slot_end_time' => $quote['slot_end_time'] ?? null,
             'delivery_date' => $quote['delivery_date'] ?? null,
             'fulfilment_mode' => $quote['fulfilment_mode'] ?? 'manual',
             'provider_slug' => $quote['provider_slug'] ?? 'manual',
@@ -460,7 +464,10 @@ final class DeliveryQuoteService
                     'id' => $slotId,
                     'slug' => $slotSlug,
                     'label' => (string) ($slotRow['label'] ?? $slotSlug),
-                    'window' => (string) ($slotRow['window_label'] ?? ''),
+                    'window' => DeliverySlotDisplay::formatWindowRange(
+                        (string) ($slotRow['start_time'] ?? ''),
+                        (string) ($slotRow['end_time'] ?? '')
+                    ) ?? '',
                     'delivery_date' => $deliveryDate,
                     'row' => $slotRow,
                 ];
@@ -483,6 +490,8 @@ final class DeliveryQuoteService
             'slot_id' => $slotId,
             'slot_label' => (string) ($slotRow['label'] ?? $slotSlug),
             'slot_window' => (string) ($slotRow['window_label'] ?? ''),
+            'slot_start_time' => (string) ($slotRow['start_time'] ?? ''),
+            'slot_end_time' => (string) ($slotRow['end_time'] ?? ''),
             'delivery_date' => $deliveryDate,
             'delivery_eta' => null,
             'slot_resolved' => $slotResolved,

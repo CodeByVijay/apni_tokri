@@ -198,7 +198,7 @@ final class SupportTicketService
                     c.name AS customer_name, c.mobile AS customer_mobile, c.email AS customer_email,
                     o.order_number, o.status AS order_status, o.payment_status, o.grand_total,
                     o.placed_at AS order_placed_at, o.created_at AS order_created_at,
-                    o.delivery_slot, o.delivery_date,
+                    o.delivery_slot, o.delivery_slot_id, o.delivery_snapshot_json, o.delivery_date,
                     lp.gateway AS payment_gateway, lp.status AS payment_status_row
              FROM support_tickets t
              LEFT JOIN customers c ON c.id = t.customer_id
@@ -221,6 +221,14 @@ final class SupportTicketService
         $messages = self::messages($ticketId);
         $orderItems = [];
         $orderInternalId = (int) ($ticket['order_id'] ?? 0);
+        if ($orderInternalId > 0) {
+            $slotResolved = DeliverySlotDisplay::resolveForOrder([
+                'delivery_slot' => (string) ($ticket['delivery_slot'] ?? ''),
+                'delivery_slot_id' => $ticket['delivery_slot_id'] ?? null,
+                'delivery_snapshot_json' => $ticket['delivery_snapshot_json'] ?? null,
+            ]);
+            $ticket['delivery_slot_display'] = (string) ($slotResolved['display_line'] ?? '');
+        }
         if ($orderInternalId > 0) {
             $itemsStmt = $pdo->prepare(
                 'SELECT oi.product_name, oi.variant_name, oi.quantity, oi.unit_price, oi.line_total, oi.variant_id,

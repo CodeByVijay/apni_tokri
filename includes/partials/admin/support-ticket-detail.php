@@ -66,7 +66,7 @@ $adminBase = url_base() . '/admin';
                         <div><dt class="at-muted">Gateway</dt><dd><?= Security::escape((string) ($ticket['payment_gateway'] ?? '—')) ?></dd></div>
                         <div><dt class="at-muted">Total</dt><dd class="font-bold"><?= Security::escape(catalogue_format_price((float) ($ticket['grand_total'] ?? 0))) ?></dd></div>
                         <?php if ((string) ($ticket['delivery_slot'] ?? '') !== '' || (string) ($ticket['delivery_date'] ?? '') !== ''): ?>
-                            <div class="sm:col-span-2"><dt class="at-muted">Delivery</dt><dd><?= Security::escape((string) ($ticket['delivery_date'] ?? '')) ?> <?= Security::escape((string) ($ticket['delivery_slot'] ?? '')) ?></dd></div>
+                            <div class="sm:col-span-2"><dt class="at-muted">Delivery</dt><dd><?= Security::escape((string) ($ticket['delivery_date'] ?? '')) ?> <?= Security::escape((string) ($ticket['delivery_slot_display'] ?? $ticket['delivery_slot'] ?? '')) ?></dd></div>
                         <?php endif; ?>
                     </dl>
                     <?php if (AdminDemoPerms::can('orders')): ?>

@@ -13,12 +13,8 @@ $rescheduleNotes = $order['reschedule_notes'] ?? [];
             <div><dt>Delivery date</dt><dd><?= !empty($del['delivery_date']) ? Security::escape((string) $del['delivery_date']) : '—' ?></dd></div>
             <div><dt>Slot</dt><dd>
                 <?php
-                $slotParts = array_filter([
-                    $del['slot_label'] ?? $order['delivery_slot_label'] ?? null,
-                    $del['window_label'] ?? $order['delivery_slot_window'] ?? null,
-                    $del['time_range'] ?? $order['delivery_slot_times'] ?? null,
-                ]);
-                echo $slotParts !== [] ? Security::escape(implode(' · ', $slotParts)) : '—';
+                $slotLine = $del['slot_display'] ?? $order['delivery_slot_label'] ?? null;
+                echo $slotLine !== null && $slotLine !== '' ? Security::escape((string) $slotLine) : '—';
                 ?>
             </dd></div>
             <div><dt>Fulfilment status</dt><dd><?= admin_status_badge((string) ($del['fulfilment_status'] ?? $order['status'] ?? ''), (string) ($del['fulfilment_status'] ?? '')) ?></dd></div>

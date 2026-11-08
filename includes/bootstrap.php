@@ -117,6 +117,7 @@ require_once APNI_TOKRI_ROOT . '/includes/delivery/customer_messages.php';
 require_once APNI_TOKRI_ROOT . '/includes/delivery/zone_resolver.php';
 require_once APNI_TOKRI_ROOT . '/includes/delivery/quote.php';
 require_once APNI_TOKRI_ROOT . '/includes/delivery/admin_ui.php';
+require_once APNI_TOKRI_ROOT . '/includes/delivery/slot_display.php';
 require_once APNI_TOKRI_ROOT . '/includes/delivery/order_snapshot.php';
 require_once APNI_TOKRI_ROOT . '/includes/map/config.php';
 require_once APNI_TOKRI_ROOT . '/includes/settings/address_autocomplete_settings.php';

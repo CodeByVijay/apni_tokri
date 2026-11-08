@@ -78,14 +78,8 @@ final class PaymentFulfilmentReconciliationService
             if ($err !== null) {
                 continue;
             }
-            $out[] = [
-                'id' => $slotId,
-                'slug' => (string) $slot['slug'],
-                'label' => (string) $slot['label'],
-                'window' => (string) $slot['window_label'],
-                'delivery_date' => $date,
-                'remaining' => $remaining,
-            ];
+            $card = DeliverySlotDisplay::checkoutCard($slot, $date, $remaining);
+            $out[] = $card;
         }
 
         return $out;

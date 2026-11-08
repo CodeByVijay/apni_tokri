@@ -69,8 +69,8 @@ final class DeliveryAssignmentService
         }
         Install::ensureConnection();
         $stmt = Database::pdo()->prepare(
-            'SELECT d.*, o.order_number, o.customer_id, o.delivery_slot, o.delivery_date, o.delivery_eta,
-                    o.payment_status, o.status AS order_status, o.grand_total
+            'SELECT d.*, o.order_number, o.customer_id, o.delivery_slot, o.delivery_slot_id, o.delivery_snapshot_json,
+                    o.delivery_date, o.delivery_eta, o.payment_status, o.status AS order_status, o.grand_total
              FROM deliveries d
              INNER JOIN orders o ON o.id = d.order_id
              WHERE d.id = ? LIMIT 1'
@@ -78,7 +78,7 @@ final class DeliveryAssignmentService
         $stmt->execute([$deliveryId]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        return $row ?: null;
+        return $row !== false ? self::enrichDeliverySlotDisplay($row) : null;
     }
 
     /** @return array<string, mixed>|null */
@@ -156,8 +156,8 @@ final class DeliveryAssignmentService
             $page = $totalPages;
         }
         $offset = ($page - 1) * $perPage;
-        $sql = 'SELECT d.*, o.order_number, o.delivery_slot, o.delivery_date, o.payment_status,
-                       c.name AS customer_name, c.mobile AS customer_mobile' . $from
+        $sql = 'SELECT d.*, o.order_number, o.delivery_slot, o.delivery_slot_id, o.delivery_snapshot_json,
+                       o.delivery_date, o.payment_status, c.name AS customer_name, c.mobile AS customer_mobile' . $from
             . ' ORDER BY ' . $orderSql . ' LIMIT ? OFFSET ?';
         $stmt = $pdo->prepare($sql);
         $i = 1;
@@ -168,13 +168,31 @@ final class DeliveryAssignmentService
         $stmt->bindValue($i, $offset, PDO::PARAM_INT);
         $stmt->execute();
 
+        $rows = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) ?: [] as $row) {
+            $rows[] = self::enrichDeliverySlotDisplay($row);
+        }
+
         return [
-            'rows' => $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [],
+            'rows' => $rows,
             'total' => $total,
             'page' => $page,
             'per_page' => $perPage,
             'total_pages' => $totalPages,
         ];
+    }
+
+    /** @param array<string, mixed> $row */
+    private static function enrichDeliverySlotDisplay(array $row): array
+    {
+        $resolved = DeliverySlotDisplay::resolveForOrder([
+            'delivery_slot' => (string) ($row['delivery_slot'] ?? ''),
+            'delivery_slot_id' => $row['delivery_slot_id'] ?? null,
+            'delivery_snapshot_json' => $row['delivery_snapshot_json'] ?? null,
+        ]);
+        $row['delivery_slot_display'] = (string) ($resolved['display_line'] ?? $resolved['label'] ?? '');
+
+        return $row;
     }
 
     /** @return list<array<string, mixed>> */

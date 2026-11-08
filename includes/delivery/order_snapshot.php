@@ -150,6 +150,8 @@ final class DeliveryOrderSnapshot
         $snap['slot_slug'] = (string) ($slotRow['slug'] ?? '');
         $snap['slot_label'] = (string) ($slotRow['label'] ?? '');
         $snap['slot_window'] = (string) ($slotRow['window_label'] ?? '');
+        $snap['slot_start_time'] = (string) ($slotRow['start_time'] ?? '');
+        $snap['slot_end_time'] = (string) ($slotRow['end_time'] ?? '');
         $snap['delivery_date'] = $deliveryDate;
         $snap['admin_rescheduled_at'] = DeliveryConfig::now()->format(DATE_ATOM);
 

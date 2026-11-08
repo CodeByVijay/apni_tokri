@@ -375,14 +375,10 @@ require APNI_TOKRI_ROOT . '/includes/partials/customer-order-cancel.php';
                         <?php elseif (!empty($delivery['delivery_eta'])): ?>
                             <div><dt>Estimated</dt><dd><?= Security::escape($formatDeliveryDay((string) $delivery['delivery_eta'])) ?></dd></div>
                         <?php endif; ?>
-                        <?php if (!empty($delivery['slot_label'])): ?>
-                            <div><dt>Slot</dt><dd><?= Security::escape((string) $delivery['slot_label']) ?></dd></div>
-                        <?php endif; ?>
-                        <?php if (!empty($delivery['window_label'])): ?>
-                            <div><dt>Window</dt><dd><?= Security::escape((string) $delivery['window_label']) ?></dd></div>
-                        <?php endif; ?>
-                        <?php if (!empty($delivery['time_range'])): ?>
-                            <div><dt>Time</dt><dd><?= Security::escape((string) $delivery['time_range']) ?></dd></div>
+                        <?php if (!empty($delivery['slot_display'])): ?>
+                            <div><dt>Delivery slot</dt><dd><?= Security::escape((string) $delivery['slot_display']) ?></dd></div>
+                        <?php elseif (!empty($delivery['slot_label'])): ?>
+                            <div><dt>Delivery slot</dt><dd><?= Security::escape((string) $delivery['slot_label']) ?></dd></div>
                         <?php endif; ?>
                         <?php if (!empty($delivery['delivery_status'])): ?>
                             <div><dt>Delivery status</dt><dd><?= Security::escape((string) $delivery['delivery_status']) ?></dd></div>

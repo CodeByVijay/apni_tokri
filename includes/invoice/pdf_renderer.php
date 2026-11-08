@@ -292,13 +292,9 @@ final class InvoicePdfRenderer
         if (!empty($dl['date'])) {
             $parts[] = 'Delivery date: ' . InvoiceFormat::date((string) $dl['date']);
         }
-        if (!empty($dl['slot'])) {
-            $parts[] = 'Slot: ' . $dl['slot'];
-        }
-        if (!empty($dl['window'])) {
-            $parts[] = 'Window: ' . $dl['window'];
-        } elseif (!empty($dl['time_range'])) {
-            $parts[] = 'Window: ' . $dl['time_range'];
+        $slotText = (string) ($dl['slot_display'] ?? $dl['slot'] ?? '');
+        if ($slotText !== '') {
+            $parts[] = 'Slot: ' . $slotText;
         }
         if (!empty($dl['status'])) {
             $parts[] = 'Delivery status: ' . $dl['status'];

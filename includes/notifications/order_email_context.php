@@ -250,14 +250,10 @@ final class OrderEmailContext
         $out['delivery_address'] = $addr !== null && !empty($addr['formatted'])
             ? (string) $addr['formatted']
             : '—';
-        $slotLine = trim((string) ($order['delivery_slot'] ?? ''));
-        if ($slotLine === '' && (int) ($order['delivery_slot_id'] ?? 0) > 0) {
-            $slotSt = $pdo->prepare('SELECT label, window_label FROM delivery_slots WHERE id = ? LIMIT 1');
-            $slotSt->execute([(int) $order['delivery_slot_id']]);
-            $slotRow = $slotSt->fetch(PDO::FETCH_ASSOC);
-            if ($slotRow) {
-                $slotLine = trim((string) ($slotRow['label'] ?? '') . ' ' . (string) ($slotRow['window_label'] ?? ''));
-            }
+        $slotResolved = DeliverySlotDisplay::resolveForOrder($order, $pdo);
+        $slotLine = (string) ($slotResolved['display_line'] ?? $slotResolved['label'] ?? '');
+        if ($slotLine === '') {
+            $slotLine = trim((string) ($order['delivery_slot'] ?? ''));
         }
         $date = trim((string) ($order['delivery_date'] ?? ''));
         $out['delivery_slot_line'] = trim($date . ($date !== '' && $slotLine !== '' ? ' · ' : '') . $slotLine);
