@@ -553,18 +553,17 @@ require APNI_TOKRI_ROOT . '/includes/partials/customer-order-cancel.php';
             </div>
         </section>
     </aside>
-</div>
 
-<?php if ($orderDelivered): ?>
-    <section class="at-card at-card--tint">
-        <div class="at-card__body flex flex-wrap items-center justify-between gap-3">
-            <div><h2 class="at-h3">How did we do?</h2><p class="text-sm at-muted mt-1">Reviews are for delivered orders and appear after approval.</p></div>
-            <a href="<?= Security::escape(url_base()) ?>/submit-review.php?order=<?= rawurlencode($displayId) ?>" class="at-btn at-btn--secondary at-focusable">Write a review</a>
-        </div>
-    </section>
-<?php endif; ?>
+    <?php if ($orderDelivered): ?>
+        <section class="at-card at-card--tint at-order-detail__grid-full">
+            <div class="at-card__body flex flex-wrap items-center justify-between gap-3">
+                <div><h2 class="at-h3">How did we do?</h2><p class="text-sm at-muted mt-1">Reviews are for delivered orders and appear after approval.</p></div>
+                <a href="<?= Security::escape(url_base()) ?>/submit-review.php?order=<?= rawurlencode($displayId) ?>" class="at-btn at-btn--secondary at-focusable">Write a review</a>
+            </div>
+        </section>
+    <?php endif; ?>
 
-<section class="at-card">
+    <section class="at-card at-order-detail__grid-full">
     <div class="at-card__body">
         <h2 class="at-h3">Refund or quality issue</h2>
         <p class="text-sm at-muted mt-1">Tell us what went wrong. We review every request against our <a class="underline font-semibold" href="<?= Security::escape(url_base()) ?>/page.php?slug=refund-policy">refund policy</a>.</p>
@@ -633,7 +632,8 @@ require APNI_TOKRI_ROOT . '/includes/partials/customer-order-cancel.php';
         </form>
         <?php endif; ?>
     </div>
-</section>
+    </section>
+</div>
 <?php
 require APNI_TOKRI_ROOT . '/includes/partials/account-shell-end.php';
 require APNI_TOKRI_ROOT . '/includes/partials/order-retry-payment-launch.php';
