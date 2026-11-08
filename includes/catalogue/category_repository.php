@@ -12,6 +12,94 @@ final class CategoryRepository
         return $result['rows'];
     }
 
+    /** @return list<array<string, mixed>> Every category in display order (admin reorder UI). */
+    public static function allOrdered(): array
+    {
+        if (!Install::isSchemaReady()) {
+            return [];
+        }
+        Install::ensureConnection();
+        $stmt = Database::pdo()->query(
+            'SELECT id, name, slug, status, show_on_homepage, parent_id, sort_order FROM categories ORDER BY sort_order, id'
+        );
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    /** @return list<int> */
+    public static function orderedIdList(): array
+    {
+        $ids = [];
+        foreach (self::allOrdered() as $row) {
+            $ids[] = (int) ($row['id'] ?? 0);
+        }
+
+        return array_values(array_filter($ids, static fn (int $id): bool => $id > 0));
+    }
+
+    /**
+     * @param list<int> $orderedIds
+     * @param list<int> $baselineIds
+     * @return array{ok: bool, message: string}
+     */
+    public static function reorderAll(array $orderedIds, array $baselineIds): array
+    {
+        $orderedIds = array_values(array_unique(array_filter(array_map('intval', $orderedIds), static fn (int $id): bool => $id > 0)));
+        $baselineIds = array_values(array_filter(array_map('intval', $baselineIds), static fn (int $id): bool => $id > 0));
+
+        if ($orderedIds === []) {
+            return ['ok' => false, 'message' => 'No categories to reorder.'];
+        }
+        if (!Install::isSchemaReady()) {
+            return ['ok' => false, 'message' => 'Database is not available.'];
+        }
+
+        Install::ensureConnection();
+        $pdo = Database::pdo();
+        $currentIds = self::orderedIdList();
+        if ($currentIds === []) {
+            return ['ok' => false, 'message' => 'No categories to reorder.'];
+        }
+        if (count($orderedIds) !== count($currentIds)) {
+            return ['ok' => false, 'message' => 'Reorder must include every category. Refresh the page and try again.'];
+        }
+
+        $currentSet = $currentIds;
+        sort($currentSet);
+        $orderedSet = $orderedIds;
+        sort($orderedSet);
+        if ($orderedSet !== $currentSet) {
+            return ['ok' => false, 'message' => 'Invalid category selection. Refresh the page and try again.'];
+        }
+
+        $baselineFiltered = array_values(array_filter($baselineIds, static fn (int $id): bool => in_array($id, $currentIds, true)));
+        if ($baselineFiltered !== $currentIds) {
+            return [
+                'ok' => false,
+                'message' => 'Category order was changed elsewhere. Reload this page to see the latest sequence, then save again.',
+            ];
+        }
+
+        try {
+            $pdo->beginTransaction();
+            $update = $pdo->prepare('UPDATE categories SET sort_order = ?, updated_at = NOW() WHERE id = ?');
+            foreach ($orderedIds as $index => $id) {
+                $update->execute([$index + 1, $id]);
+            }
+            $pdo->commit();
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+
+            return ['ok' => false, 'message' => 'Could not save category order. No changes were applied.'];
+        }
+
+        CatalogueGateway::reset();
+
+        return ['ok' => true, 'message' => 'Category order saved.'];
+    }
+
     /**
      * @return array{rows: list<array<string, mixed>>, total: int, page: int, per_page: int, total_pages: int}
      */

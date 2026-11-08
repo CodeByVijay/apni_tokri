@@ -126,6 +126,7 @@ if ($errors !== []) {
             <div>
                 <label class="at-label" for="sort_order">Sort order</label>
                 <input id="sort_order" name="sort_order" type="number" class="at-input at-focusable" value="<?= (int) ($defaults['sort_order'] ?? 0) ?>">
+                <p class="text-xs at-muted mt-1">To change display order for all categories, use <a class="underline" href="<?= Security::escape(url_base()) ?>/admin/categories/index.php?reorder=1">Reorder categories</a>.</p>
             </div>
         </div>
         <label class="flex items-center gap-2 text-sm">

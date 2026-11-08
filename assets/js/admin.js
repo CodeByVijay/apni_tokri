@@ -710,10 +710,7 @@
     bindGalleryDnD();
   }
 
-  function initDeliverySlotReorder() {
-    var $root = $('[data-at-delivery-slot-reorder]');
-    if (!$root.length) return;
-
+  function initSortableReorder($root, rowIdAttr) {
     var $form = $root.find('[data-at-dslots-reorder-form]');
     if (!$form.length) return;
 
@@ -730,7 +727,7 @@
     function currentOrder() {
       var ids = [];
       $tbody.find('[data-at-dslots-row]').each(function () {
-        ids.push($(this).attr('data-slot-id'));
+        ids.push($(this).attr(rowIdAttr));
       });
       return ids.join(',');
     }
@@ -775,7 +772,7 @@
     function restoreInitial() {
       var ids = initial.split(',').filter(Boolean);
       ids.forEach(function (id) {
-        var $row = $tbody.find('[data-slot-id="' + id + '"]');
+        var $row = $tbody.find('[' + rowIdAttr + '="' + id + '"]');
         if ($row.length) {
           $tbody.append($row);
         }
@@ -795,7 +792,7 @@
 
     $tbody.on('dragstart', '[data-at-dslots-drag-handle]', function (e) {
       var $row = $(this).closest('[data-at-dslots-row]');
-      dragId = $row.attr('data-slot-id');
+      dragId = $row.attr(rowIdAttr);
       if (e.originalEvent && e.originalEvent.dataTransfer) {
         e.originalEvent.dataTransfer.effectAllowed = 'move';
         e.originalEvent.dataTransfer.setData('text/plain', dragId || '');
@@ -814,10 +811,10 @@
     });
     $tbody.on('drop', '[data-at-dslots-row]', function (e) {
       e.preventDefault();
-      var targetId = $(this).attr('data-slot-id');
+      var targetId = $(this).attr(rowIdAttr);
       if (!dragId || !targetId || dragId === targetId) return;
-      var $drag = $tbody.find('[data-slot-id="' + dragId + '"]');
-      var $target = $tbody.find('[data-slot-id="' + targetId + '"]');
+      var $drag = $tbody.find('[' + rowIdAttr + '="' + dragId + '"]');
+      var $target = $tbody.find('[' + rowIdAttr + '="' + targetId + '"]');
       if (!$drag.length || !$target.length) return;
       if ($drag.index() < $target.index()) {
         $target.after($drag);
@@ -834,6 +831,18 @@
     });
 
     syncUi();
+  }
+
+  function initDeliverySlotReorder() {
+    $('[data-at-delivery-slot-reorder]').each(function () {
+      initSortableReorder($(this), 'data-slot-id');
+    });
+  }
+
+  function initCategoryReorder() {
+    $('[data-at-category-reorder]').each(function () {
+      initSortableReorder($(this), 'data-category-id');
+    });
   }
 
   function initSubmitOnce() {
@@ -883,5 +892,6 @@
     initAdminFlashDismiss();
     initSettingsTabsNav();
     initDeliverySlotReorder();
+    initCategoryReorder();
   });
 })(jQuery);

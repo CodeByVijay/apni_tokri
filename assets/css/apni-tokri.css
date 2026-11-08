@@ -4922,7 +4922,10 @@ body.at-gallery-lightbox-open {
 }
 .at-admin-table--dslots-reorder .at-dslots-reorder-col-handle,
 .at-admin-table--dslots-reorder .at-dslots-reorder-col-seq,
-.at-admin-table--dslots-reorder .at-dslots-reorder-col-move {
+.at-admin-table--dslots-reorder .at-dslots-reorder-col-move,
+.at-admin-table--categories-reorder .at-dslots-reorder-col-handle,
+.at-admin-table--categories-reorder .at-dslots-reorder-col-seq,
+.at-admin-table--categories-reorder .at-dslots-reorder-col-move {
   width: 1%;
   white-space: nowrap;
   vertical-align: middle;
@@ -4954,7 +4957,8 @@ body.at-gallery-lightbox-open {
   padding-left: 0.35rem;
   padding-right: 0.35rem;
 }
-[data-at-delivery-slot-reorder].is-dirty .at-dslots-reorder-status {
+[data-at-delivery-slot-reorder].is-dirty .at-dslots-reorder-status,
+[data-at-category-reorder].is-dirty .at-dslots-reorder-status {
   color: var(--at-warning-fg, #b45309);
 }
 [data-at-dslots-row].is-dragging td {
