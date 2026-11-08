@@ -522,6 +522,10 @@ final class CheckoutService
         if (!empty($totals['coupon_error'])) {
             return ['ok' => false, 'message' => (string) $totals['coupon_error']];
         }
+        $minRejection = MarketingSettings::checkoutMinimumRejection($totals);
+        if ($minRejection !== null) {
+            return ['ok' => false, 'message' => $minRejection];
+        }
         $lines = CartService::items();
 
         $slotDateParam = DeliveryConfig::slotsEnabled() && $deliveryDateYmd !== '' ? $deliveryDateYmd : null;
@@ -746,6 +750,10 @@ final class CheckoutService
         $totals = CartService::totals();
         if (!empty($totals['coupon_error'])) {
             return ['ok' => false, 'message' => (string) $totals['coupon_error']];
+        }
+        $minRejection = MarketingSettings::checkoutMinimumRejection($totals);
+        if ($minRejection !== null) {
+            return ['ok' => false, 'message' => $minRejection];
         }
         foreach (CartService::items() as $line) {
             $product = app_catalogue()->product((string) ($line['product_slug'] ?? ''));

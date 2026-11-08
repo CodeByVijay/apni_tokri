@@ -240,13 +240,16 @@ final class DeliveryQuoteService
             );
         }
 
+        $adminDeliveryOverride = is_array($snapshot) && !empty($snapshot['admin_delivery_override']);
         $slotId = isset($order['delivery_slot_id']) ? (int) $order['delivery_slot_id'] : 0;
         if ($slotId > 0 && $deliveryDate !== '') {
             $hold = DeliverySlotReservationService::activeHoldForOrder($pdo, $orderId);
             if (DeliverySlotReservationService::tableReady() && $hold === null) {
                 throw new DeliverySlotBookingException('Delivery slot reservation expired. Choose another slot.');
             }
-            DeliverySlotReservationService::lockSlotAndAssertCapacity($pdo, $slotId, $deliveryDate, $orderId);
+            if (!$adminDeliveryOverride) {
+                DeliverySlotReservationService::lockSlotAndAssertCapacity($pdo, $slotId, $deliveryDate, $orderId);
+            }
         }
     }
 

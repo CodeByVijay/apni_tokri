@@ -160,7 +160,8 @@ final class DeliverySlotReservationService
         int $slotId,
         string $deliveryDate,
         ?int $excludeOrderId = null,
-        bool $skipCustomerCutoff = false
+        bool $skipCustomerCutoff = false,
+        bool $skipCapacityCheck = false
     ): array {
         self::releaseExpiredHolds($pdo);
         $stmt = $pdo->prepare('SELECT * FROM delivery_slots WHERE id = ? FOR UPDATE');
@@ -169,7 +170,14 @@ final class DeliverySlotReservationService
         if (!$slot || empty($slot['is_active'])) {
             throw new DeliverySlotBookingException('Delivery slot is not available.');
         }
-        $err = DeliverySlotService::assertBookableLocked($pdo, $slot, $deliveryDate, $excludeOrderId, $skipCustomerCutoff);
+        $err = DeliverySlotService::assertBookableLocked(
+            $pdo,
+            $slot,
+            $deliveryDate,
+            $excludeOrderId,
+            $skipCustomerCutoff,
+            $skipCapacityCheck
+        );
         if ($err !== null) {
             throw new DeliverySlotBookingException($err);
         }

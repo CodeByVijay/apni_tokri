@@ -34,6 +34,9 @@ $recovery = (string) file_get_contents(APNI_TOKRI_ROOT . '/includes/payment/fulf
 $adminView = (string) file_get_contents(APNI_TOKRI_ROOT . '/admin/orders/view.php');
 $ok(str_contains($recovery, 'adminReassignSlotAndCompleteFulfilment'), 'admin slot recovery service');
 $ok(str_contains($adminView, 'recover_payment_fulfilment'), 'admin order recovery form');
+$ok(str_contains($adminView, 'recover_payment_fulfilment_custom'), 'admin custom delivery recovery form');
+$ok(str_contains($adminView, 'custom_customer_confirmed'), 'admin custom customer confirmation field');
+$ok(str_contains($recovery, 'adminCustomDeliveryAndCompleteFulfilment'), 'admin custom delivery recovery service');
 $ok(str_contains($service, 'paymentAttemptStatusLabel'), 'payment captured label helper');
 
 exit($fail > 0 ? 1 : 0);

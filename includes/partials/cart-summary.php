@@ -35,6 +35,17 @@ $couponApplied = catalogue_cart_coupon_applied($totals);
         <?php else: ?>
             <p class="text-xs mt-3 px-3 py-2 rounded-lg bg-[var(--at-cream-2)] at-muted hidden" data-cart-quote-message role="status"></p>
         <?php endif; ?>
+        <?php if (!empty($totals['min_order_enabled']) && empty($totals['min_order_met'])): ?>
+            <p data-cart-min-order class="text-xs mt-3 px-3 py-2 rounded-lg bg-[var(--at-cream-2)] border border-[var(--at-line)] font-semibold" role="alert">
+                <span data-cart-min-order-text><?= Security::escape((string) ($totals['min_order_message'] ?? '')) ?></span>
+                <span class="block mt-1 font-normal" data-cart-min-order-remaining>Add <?= Security::escape(catalogue_format_price((float) ($totals['min_order_shortfall'] ?? 0))) ?> more to proceed to checkout.</span>
+            </p>
+        <?php else: ?>
+            <p data-cart-min-order class="text-xs mt-3 px-3 py-2 rounded-lg bg-[var(--at-cream-2)] border border-[var(--at-line)] font-semibold hidden" role="alert">
+                <span data-cart-min-order-text></span>
+                <span class="block mt-1 font-normal" data-cart-min-order-remaining></span>
+            </p>
+        <?php endif; ?>
         <?php if (empty($totals['delivery_quote_message']) && !empty($totals['delivery_quote_accurate']) && !empty($totals['delivery_serviceable']) && !empty($totals['free_delivery_eligible']) && (float) ($totals['amount_to_free_delivery'] ?? 0) > 0): ?>
             <p data-cart-free-delivery class="text-xs mt-3 px-3 py-2 rounded-lg bg-[var(--at-yellow-100)] text-[var(--at-yellow-ink)] font-semibold">
                 Add <?= Security::escape(catalogue_format_price((float) $totals['amount_to_free_delivery'])) ?> more (eligible items) for free delivery.

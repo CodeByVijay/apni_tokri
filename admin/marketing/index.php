@@ -30,6 +30,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'threshold' => (int) ($_POST['threshold'] ?? $form['threshold']),
         'free_threshold' => trim((string) ($_POST['free_threshold'] ?? '')),
         'offer_end_local' => trim((string) ($_POST['offer_end'] ?? '')),
+        'min_order' => isset($_POST['min_order']),
+        'min_order_amount' => trim((string) ($_POST['min_order_amount'] ?? '')),
+        'min_order_message' => trim((string) ($_POST['min_order_message'] ?? '')),
     ]);
 } elseif ($useDb) {
     $form = MarketingSettings::adminFormState();
@@ -60,6 +63,29 @@ AdminPersistence::renderUnavailableAlert();
         <?php if (isset($errors['free_threshold'])): ?>
             <p class="at-field-error"><?= Security::escape($errors['free_threshold']) ?></p>
         <?php endif; ?>
+    </div></div>
+    <div class="at-card"><div class="at-card__body space-y-3">
+        <h3 class="font-bold">Minimum order amount</h3>
+        <label class="flex gap-2 text-sm">
+            <input type="checkbox" name="min_order"<?= !empty($form['min_order']) ? ' checked' : '' ?><?= $useDb ? '' : ' disabled' ?>>
+            Enable minimum order amount
+        </label>
+        <div>
+            <label class="at-label">Minimum order amount (INR)</label>
+            <input class="at-input at-focusable w-40" name="min_order_amount" type="number" min="1" step="0.01"
+                   value="<?= Security::escape((string) ($form['min_order_amount'] ?? '')) ?>"<?= $useDb ? '' : ' disabled' ?>>
+            <?php if (isset($errors['min_order_amount'])): ?>
+                <p class="at-field-error"><?= Security::escape($errors['min_order_amount']) ?></p>
+            <?php endif; ?>
+        </div>
+        <div>
+            <label class="at-label">Customer-facing validation message</label>
+            <textarea class="at-textarea at-focusable" name="min_order_message" rows="2" maxlength="500"<?= $useDb ? '' : ' disabled' ?>><?= Security::escape((string) ($form['min_order_message'] ?? '')) ?></textarea>
+            <p class="text-xs at-muted mt-1">Use <code>{amount}</code> for the configured minimum. Minimum is compared to merchandise after product sale prices, automatic offers and coupons — delivery fee is excluded.</p>
+            <?php if (isset($errors['min_order_message'])): ?>
+                <p class="at-field-error"><?= Security::escape($errors['min_order_message']) ?></p>
+            <?php endif; ?>
+        </div>
     </div></div>
     <div class="at-card"><div class="at-card__body space-y-3">
         <h3 class="font-bold">Offer countdown</h3>

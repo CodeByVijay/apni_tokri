@@ -39,6 +39,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $order !== null) {
         header('Location: ' . url_base() . '/admin/orders/view.php?id=' . $orderId, true, 302);
         exit;
     }
+    if ($postAction === 'recover_payment_fulfilment_custom') {
+        $adminId = AdminAuth::id();
+        if ($adminId === null) {
+            admin_flash_set('Admin session required.', 'error');
+        } else {
+            $exceptionId = isset($_POST['exception_id']) ? (int) $_POST['exception_id'] : 0;
+            $deliveryDate = isset($_POST['custom_delivery_date']) && is_string($_POST['custom_delivery_date'])
+                ? trim($_POST['custom_delivery_date']) : '';
+            $customStart = isset($_POST['custom_start_time']) && is_string($_POST['custom_start_time'])
+                ? trim($_POST['custom_start_time']) : '';
+            $customEnd = isset($_POST['custom_end_time']) && is_string($_POST['custom_end_time'])
+                ? trim($_POST['custom_end_time']) : '';
+            $confirmNote = isset($_POST['custom_confirm_note']) && is_string($_POST['custom_confirm_note'])
+                ? trim($_POST['custom_confirm_note']) : '';
+            $customerConfirmed = !empty($_POST['custom_customer_confirmed']);
+            $result = PaymentFulfilmentReconciliationService::adminCustomDeliveryAndCompleteFulfilment(
+                $orderId,
+                $exceptionId,
+                $deliveryDate,
+                $customStart,
+                $customEnd,
+                (int) $adminId,
+                $confirmNote,
+                $customerConfirmed
+            );
+            admin_flash_set(
+                (string) ($result['message'] ?? ($result['ok'] ? 'Recovery completed.' : 'Recovery failed.')),
+                !empty($result['ok']) ? 'success' : 'error'
+            );
+        }
+        header('Location: ' . url_base() . '/admin/orders/view.php?id=' . $orderId, true, 302);
+        exit;
+    }
     if ($postAction === 'reschedule_delivery') {
         $adminId = AdminAuth::id();
         if ($adminId === null) {
@@ -190,6 +223,13 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
         $recoverySlots = $paymentRecovery !== null
             ? PaymentFulfilmentReconciliationService::listReplacementSlotOptions($orderId)
             : [];
+        $customRecoveryMinDate = DeliveryConfig::now()->format('Y-m-d');
+        try {
+            $customRecoveryMaxDate = DeliveryConfig::now()->modify('+60 days')->format('Y-m-d');
+        } catch (Throwable $e) {
+            $customRecoveryMaxDate = $customRecoveryMinDate;
+        }
+        $canOverrideDeliveryCapacity = Permission::can('deliveries.manage');
         ?>
         <?php if ($paymentRecovery !== null): ?>
         <section class="at-card at-admin-order-recon" aria-labelledby="at-admin-order-recon-title">
@@ -208,7 +248,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
                 </dl>
                 <p class="at-admin-order-recon__failure"><strong>Failure:</strong> <?= Security::escape((string) $paymentRecovery['failure_reason']) ?></p>
                 <?php if ($recoverySlots === []): ?>
-                    <p class="at-alert at-alert--warning at-admin-order-recon__warn">No replacement slots with capacity right now. Free capacity or add a slot, then retry.</p>
+                    <p class="at-alert at-alert--warning at-admin-order-recon__warn">No predefined replacement slots with capacity right now. Use a custom delivery window below or free capacity, then retry.</p>
                 <?php else: ?>
                     <form method="post" class="at-admin-order-recon__actions" id="admin-order-payment-recovery">
                         <?= Csrf::field() ?>
@@ -239,6 +279,46 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
                         </button>
                     </form>
                 <?php endif; ?>
+
+                <div class="at-admin-order-recon__custom mt-6 pt-6 border-t border-[var(--at-line)]">
+                    <h4 class="font-bold">Custom delivery time (Admin override)</h4>
+                    <p class="text-sm at-muted mt-1">Assign a customer-agreed window. Reuses the captured payment — does not charge again.</p>
+                    <?php if (!$canOverrideDeliveryCapacity): ?>
+                        <p class="text-xs at-muted mt-1">If all slots are full, an admin with <strong>Deliveries</strong> permission must perform this action.</p>
+                    <?php endif; ?>
+                    <form method="post" class="at-admin-order-recon__actions mt-3" id="admin-order-payment-recovery-custom">
+                        <?= Csrf::field() ?>
+                        <input type="hidden" name="exception_id" value="<?= (int) $paymentRecovery['exception_id'] ?>">
+                        <div class="at-admin-order-recon__field">
+                            <label class="at-label" for="custom_delivery_date">Delivery date</label>
+                            <input type="date" id="custom_delivery_date" name="custom_delivery_date" class="at-input at-focusable" required
+                                   min="<?= Security::escape($customRecoveryMinDate) ?>" max="<?= Security::escape($customRecoveryMaxDate) ?>">
+                        </div>
+                        <div class="at-admin-order-recon__field grid gap-3 sm:grid-cols-2">
+                            <div>
+                                <label class="at-label" for="custom_start_time">Custom start time</label>
+                                <input type="time" id="custom_start_time" name="custom_start_time" class="at-input at-focusable" required>
+                            </div>
+                            <div>
+                                <label class="at-label" for="custom_end_time">Custom end time</label>
+                                <input type="time" id="custom_end_time" name="custom_end_time" class="at-input at-focusable" required>
+                            </div>
+                        </div>
+                        <div class="at-admin-order-recon__field">
+                            <label class="at-label" for="custom_confirm_note">Customer confirmation note (required)</label>
+                            <textarea id="custom_confirm_note" name="custom_confirm_note" class="at-textarea at-focusable" rows="3" required
+                                      placeholder="e.g. Customer called at 9:15 AM and agreed to delivery between 10–11 AM today."></textarea>
+                        </div>
+                        <label class="flex gap-2 items-start text-sm mt-2">
+                            <input type="checkbox" name="custom_customer_confirmed" value="1" class="mt-1" required>
+                            <span>I have confirmed this delivery time with the customer.</span>
+                        </label>
+                        <button type="submit" name="action" value="recover_payment_fulfilment_custom" class="at-btn at-btn--secondary at-focusable at-admin-order-recon__submit mt-3"
+                                onclick="return confirm('Complete fulfilment with this custom delivery window?');">
+                            Complete fulfilment with custom window
+                        </button>
+                    </form>
+                </div>
             </div>
         </section>
         <?php endif; ?>

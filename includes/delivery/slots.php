@@ -152,7 +152,8 @@ final class DeliverySlotService
         array $slotRow,
         string $deliveryDate,
         ?int $excludeOrderId,
-        bool $skipCustomerCutoff = false
+        bool $skipCustomerCutoff = false,
+        bool $skipCapacityCheck = false
     ): ?string {
         $now = DeliveryConfig::now();
         if (empty($slotRow['is_active'])) {
@@ -166,9 +167,11 @@ final class DeliverySlotService
         }
         $slotId = (int) $slotRow['id'];
         $cap = (int) ($slotRow['capacity'] ?? 0);
-        $used = DeliverySlotReservationService::usedUnits($pdo, $slotId, $deliveryDate, $excludeOrderId);
-        if ($used >= $cap) {
-            return 'This delivery slot is full. Choose another window.';
+        if (!$skipCapacityCheck) {
+            $used = DeliverySlotReservationService::usedUnits($pdo, $slotId, $deliveryDate, $excludeOrderId);
+            if ($used >= $cap) {
+                return 'This delivery slot is full. Choose another window.';
+            }
         }
 
         return null;

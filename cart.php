@@ -42,6 +42,8 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
 <?php else:
     $deliveryBanner = CartDeliveryBanner::fromTotals($totals);
     $cartQtyBlocking = false;
+    $cartMinOrderBlocking = !empty($totals['min_order_enabled']) && empty($totals['min_order_met']);
+    $cartCheckoutBlocked = $cartQtyBlocking || $cartMinOrderBlocking;
     ?>
     <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_24rem] gap-6 lg:gap-10 items-start">
         <div class="min-w-0">
@@ -165,8 +167,10 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
             <?php require APNI_TOKRI_ROOT . '/includes/partials/cart-summary.php'; ?>
             <?php if ($cartQtyBlocking): ?>
                 <p class="text-sm text-red-600 mb-3" role="alert">Fix quantity issues above before checkout.</p>
+            <?php elseif ($cartMinOrderBlocking): ?>
+                <p class="text-sm text-red-600 mb-3" role="alert">Your cart does not meet the minimum order value yet.</p>
             <?php endif; ?>
-            <a href="<?= $cartQtyBlocking ? '#' : Security::escape(url_base()) . '/checkout.php' ?>" class="at-btn at-btn--primary at-btn--lg at-btn--block at-focusable mt-4 <?= $cartQtyBlocking ? 'pointer-events-none opacity-50' : '' ?>" <?= $cartQtyBlocking ? 'aria-disabled="true"' : '' ?>>Proceed to checkout <?= at_icon('arrow-right', 'w-5 h-5') ?></a>
+            <a href="<?= $cartCheckoutBlocked ? '#' : Security::escape(url_base()) . '/checkout.php' ?>" class="at-btn at-btn--primary at-btn--lg at-btn--block at-focusable mt-4 <?= $cartCheckoutBlocked ? 'pointer-events-none opacity-50' : '' ?>" data-cart-checkout-cta <?= $cartCheckoutBlocked ? 'aria-disabled="true"' : '' ?>>Proceed to checkout <?= at_icon('arrow-right', 'w-5 h-5') ?></a>
             <a href="<?= Security::escape(url_base()) ?>/index.php" class="at-btn at-btn--ghost at-btn--block at-focusable mt-2">Continue shopping</a>
         </aside>
     </div>
@@ -175,7 +179,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
             <p class="text-xs at-muted leading-tight">Total</p>
             <p class="font-extrabold text-lg leading-tight" data-cart-total><?= Security::escape(catalogue_format_price((float) $totals['total'])) ?></p>
         </div>
-        <a href="<?= $cartQtyBlocking ? '#' : Security::escape(url_base()) . '/checkout.php' ?>" class="at-btn at-btn--primary at-focusable at-cart-sticky__cta <?= $cartQtyBlocking ? 'pointer-events-none opacity-50' : '' ?>" <?= $cartQtyBlocking ? 'aria-disabled="true"' : '' ?>>Checkout <?= at_icon('arrow-right', 'w-5 h-5') ?></a>
+        <a href="<?= $cartCheckoutBlocked ? '#' : Security::escape(url_base()) . '/checkout.php' ?>" class="at-btn at-btn--primary at-focusable at-cart-sticky__cta <?= $cartCheckoutBlocked ? 'pointer-events-none opacity-50' : '' ?>" data-cart-checkout-cta <?= $cartCheckoutBlocked ? 'aria-disabled="true"' : '' ?>>Checkout <?= at_icon('arrow-right', 'w-5 h-5') ?></a>
     </div>
 <?php endif; ?>
 </div>

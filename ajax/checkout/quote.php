@@ -51,9 +51,11 @@ if (!empty($totals['coupon_error'])) {
     Ajax::error((string) $totals['coupon_error']);
 }
 
+$minOrderMet = empty($totals['min_order_enabled']) || !empty($totals['min_order_met']);
 $canPay = !empty($totals['delivery_quote_accurate'])
     && ($totals['delivery_serviceable'] ?? false)
-    && trim((string) ($totals['delivery_quote_message'] ?? '')) === '';
+    && trim((string) ($totals['delivery_quote_message'] ?? '')) === ''
+    && $minOrderMet;
 
 $payload = CouponOfferService::cartAjaxPayload($totals);
 $payload['checkout'] = [
@@ -62,6 +64,9 @@ $payload['checkout'] = [
     'delivery_slot' => $slot,
     'delivery_date' => $deliveryDate,
     'quote_message' => trim((string) ($totals['delivery_quote_message'] ?? '')),
+    'min_order_met' => $minOrderMet,
+    'min_order_message' => (string) ($totals['min_order_message'] ?? ''),
+    'min_order_shortfall' => (float) ($totals['min_order_shortfall'] ?? 0),
 ];
 
 Ajax::success($payload);

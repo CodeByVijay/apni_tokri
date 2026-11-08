@@ -155,4 +155,31 @@ final class DeliveryOrderSnapshot
 
         return $snap;
     }
+
+    /**
+     * Admin custom delivery window during payment fulfilment reconciliation (capacity bucket + customer-agreed times).
+     *
+     * @param array<string, mixed>|null $snapshot
+     * @param array<string, mixed> $slotRow delivery_slots row used for capacity reservation
+     * @return array<string, mixed>
+     */
+    public static function applyAdminCustomDeliveryWindow(
+        ?array $snapshot,
+        array $slotRow,
+        string $deliveryDate,
+        string $customStart,
+        string $customEnd,
+        string $windowLabel,
+        bool $capacityOverride
+    ): array {
+        $snap = self::applyAdminReschedule($snapshot, $slotRow, $deliveryDate);
+        $snap['admin_delivery_override'] = true;
+        $snap['admin_capacity_override'] = $capacityOverride;
+        $snap['custom_delivery_start'] = $customStart;
+        $snap['custom_delivery_end'] = $customEnd;
+        $snap['custom_delivery_window_label'] = $windowLabel;
+        $snap['slot_window'] = $windowLabel;
+
+        return $snap;
+    }
 }

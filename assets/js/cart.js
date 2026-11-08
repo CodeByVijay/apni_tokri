@@ -244,6 +244,33 @@
       }
     }
     refreshQuoteMessage(totals);
+    refreshMinimumOrder(totals);
+  }
+
+  function refreshMinimumOrder(totals) {
+    var $wrap = $('[data-cart-min-order]');
+    if (!$wrap.length || !totals) return;
+    var enabled = !!totals.min_order_enabled;
+    var met = !!totals.min_order_met;
+    if (!enabled || met) {
+      $wrap.addClass('hidden');
+    } else {
+      $wrap.removeClass('hidden');
+      $wrap.find('[data-cart-min-order-text]').text(String(totals.min_order_message || ''));
+      var shortfall = parseFloat(totals.min_order_shortfall) || 0;
+      $wrap
+        .find('[data-cart-min-order-remaining]')
+        .text('Add ' + formatMoney(shortfall) + ' more to proceed to checkout.');
+    }
+    var block = enabled && !met;
+    $('[data-cart-checkout-cta]').each(function () {
+      var $a = $(this);
+      if (block) {
+        $a.attr('href', '#').addClass('pointer-events-none opacity-50').attr('aria-disabled', 'true');
+      } else if ($a.attr('data-cart-qty-blocked') !== '1') {
+        $a.attr('href', baseUrl() + '/checkout.php').removeClass('pointer-events-none opacity-50').removeAttr('aria-disabled');
+      }
+    });
   }
 
   function refreshQuoteMessage(totals) {
@@ -537,6 +564,19 @@
         var checkout = res.data.checkout || {};
         refreshSummary(totals);
         updateCheckoutPayAmounts(totals);
+        var $minAlert = $('[data-checkout-min-order]');
+        if ($minAlert.length) {
+          if (totals.min_order_enabled && !totals.min_order_met) {
+            var minMsg = String(totals.min_order_message || '');
+            var minShort = parseFloat(totals.min_order_shortfall) || 0;
+            if (minShort > 0) {
+              minMsg += ' Add ' + formatMoney(minShort) + ' more to proceed to checkout.';
+            }
+            $minAlert.removeClass('hidden').text(minMsg);
+          } else {
+            $minAlert.addClass('hidden').text('');
+          }
+        }
         if ($alert.length) {
           if (checkout.quote_message) {
             $alert.removeClass('hidden').text(checkout.quote_message);

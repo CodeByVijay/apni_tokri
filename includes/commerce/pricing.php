@@ -51,7 +51,7 @@ final class PricingService
 
         $total = $afterDiscount + $deliveryFee;
 
-        return [
+        $totals = [
             'subtotal' => round($subtotal, 2),
             'product_savings' => round($savings, 2),
             'offer_discount' => round($offerDiscount, 2),
@@ -68,6 +68,8 @@ final class PricingService
             'delivery_zone' => $delivery['zone']['name'] ?? null,
             'total' => round($total, 2),
         ];
+
+        return MarketingSettings::attachMinimumOrderTotals($totals);
     }
 
     /**
