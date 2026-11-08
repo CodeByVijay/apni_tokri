@@ -161,6 +161,13 @@ final class DeliveryZoneResolver
                 return $base;
             }
 
+            if ($hasCoords && $distance !== null && self::anyActiveDistanceBand()) {
+                $max = (float) (DeliveryConfig::store()['max_radius_km'] ?? 0);
+                if ($max > 0 && $distance >= $max) {
+                    $base['message'] = 'This address is outside our ' . $max . ' km delivery radius.';
+                }
+            }
+
             return $base;
         }
 

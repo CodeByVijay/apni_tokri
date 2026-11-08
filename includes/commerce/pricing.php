@@ -57,7 +57,7 @@ final class PricingService
             'offer_discount' => round($offerDiscount, 2),
             'offer_label' => $offer['label'] ?? null,
             'offer_id' => $offer['offer_id'] ?? null,
-            'offer_countdown_end_unix' => OfferStorefront::endsAtToUnix($offer['ends_at'] ?? null),
+            'offer_countdown_end_unix' => OfferStorefront::endsAtUnix($offer['ends_at'] ?? null),
             'coupon_code' => $appliedCode,
             'coupon_discount' => round($discount, 2),
             'coupon_error' => !$couponResult['ok'] && $couponCode ? ($couponResult['message'] ?? '') : null,
@@ -69,6 +69,12 @@ final class PricingService
             'delivery_zone' => $delivery['zone']['name'] ?? null,
             'total' => round($total, 2),
         ];
+
+        if (!empty($delivery['requires_map_pin']) && DeliveryZoneResolver::zoneResolutionMode() !== 'pincode_legacy') {
+            $totals['delivery_quote_accurate'] = false;
+            $totals['delivery_quote_message'] = DeliveryCustomerMessages::mapPinRequiredHeadline();
+            $totals['delivery_serviceable'] = false;
+        }
 
         return MarketingSettings::attachMinimumOrderTotals($totals);
     }

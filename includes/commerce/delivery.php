@@ -111,11 +111,11 @@ final class DeliveryService
         ];
     }
 
-    public static function isPincodeServiceable(string $pincode): bool
+    public static function isPincodeServiceable(string $pincode, ?float $customerLat = null, ?float $customerLon = null): bool
     {
         $pin = preg_replace('/\D+/', '', $pincode) ?? '';
 
-        return self::evaluatePincode($pin)['serviceable'];
+        return self::evaluatePincode($pin, $customerLat, $customerLon)['serviceable'];
     }
 
     /**
@@ -124,9 +124,18 @@ final class DeliveryService
      * @param list<array<string, mixed>> $cartLines with keys qty, unit_price, grants_free_delivery (bool)
      * @return array{fee: float, threshold: float, eligible_subtotal: float, free_delivery_eligible: bool, zone: array<string, mixed>|null}
      */
-    public static function computeDeliveryFee(array $cartLines, float $subtotalAfterCoupon, ?string $pincode): array
-    {
-        $eval = self::evaluatePincode(preg_replace('/\D+/', '', (string) $pincode) ?? '000000');
+    public static function computeDeliveryFee(
+        array $cartLines,
+        float $subtotalAfterCoupon,
+        ?string $pincode,
+        ?float $customerLat = null,
+        ?float $customerLon = null
+    ): array {
+        $eval = self::evaluatePincode(
+            preg_replace('/\D+/', '', (string) $pincode) ?? '000000',
+            $customerLat,
+            $customerLon
+        );
         if (!$eval['serviceable'] || $eval['zone'] === null) {
             return [
                 'fee' => 0.0,
@@ -135,6 +144,7 @@ final class DeliveryService
                 'free_delivery_eligible' => false,
                 'zone' => null,
                 'serviceable' => false,
+                'requires_map_pin' => !empty($eval['requires_map_pin']),
             ];
         }
         $zone = $eval['zone'];
