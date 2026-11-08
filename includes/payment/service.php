@@ -284,7 +284,7 @@ final class PaymentService
             ];
         }
 
-        $returnUrl = SeoUrl::absolute('/payment.php?order=' . rawurlencode($orderNumber));
+        $returnUrl = SeoUrl::storefrontAbsolute('/payment.php?order=' . rawurlencode($orderNumber));
         $created = CashfreeGateway::createOrder($amountInr, $orderNumber, $customerMobile, $returnUrl, $referenceId, $orderId);
         if (!$created['ok']) {
             $pdo->prepare('UPDATE payments SET status = ? WHERE id = ?')->execute(['failed', $paymentId]);

@@ -44,8 +44,8 @@ BusinessSettings::saveFromPost(array_merge(BusinessSettings::adminFormState(), [
     'website_url' => 'https://profile.example.test/',
 ]));
 AppSettings::resetCache();
-ok(BusinessSettings::websiteUrl() === 'https://profile.example.test/', 'Save custom website URL');
-ok(InvoiceSettings::seller()['website'] === 'https://profile.example.test/', 'Invoice seller reads business website URL');
+ok(BusinessSettings::websiteUrl() === 'https://profile.example.test', 'Save custom website URL (trailing slash normalized)');
+ok(InvoiceSettings::seller()['website'] === 'https://profile.example.test', 'Invoice seller reads business website URL');
 
 $badUrl = BusinessSettings::saveFromPost(array_merge(BusinessSettings::adminFormState(), [
     'website_url' => 'not-a-valid-url',

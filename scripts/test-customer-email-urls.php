@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /**
- * Customer notification email links must be absolute (app.base_url), not url_path-only.
+ * Customer notification email links must be absolute (canonical Website URL), not url_path-only.
  */
 require_once dirname(__DIR__) . '/includes/bootstrap.php';
 
@@ -33,6 +33,13 @@ function withBaseUrl(string $baseUrl, string $urlPath, callable $fn): void
         App::setConfig($cfg);
     }
 }
+
+withBaseUrl('https://veggietokri.in', '', static function (): void {
+    $order = 'AT-WRONG-BASE';
+    $pay = OrderEmailContext::customerPaymentRetryUrl($order);
+    okU(str_starts_with($pay, 'https://veggietokri.com/payment.php?order='), 'payment_retry_url ignores wrong app.base_url host');
+    okU(!str_contains($pay, 'veggietokri.in'), 'payment_retry_url not on .in');
+});
 
 withBaseUrl('https://veggietokri.com', '', static function (): void {
     $order = 'AT-261105-FE25FF';

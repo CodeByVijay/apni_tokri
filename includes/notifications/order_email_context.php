@@ -195,7 +195,7 @@ final class OrderEmailContext
         return $row ?: null;
     }
 
-    /** Absolute storefront URL for order details (uses app.base_url, not Host header). */
+    /** Absolute storefront URL for order details (admin Website URL, not the HTTP Host header). */
     public static function customerOrderDetailUrl(string $orderNumber): string
     {
         $orderNumber = trim($orderNumber);
@@ -203,18 +203,18 @@ final class OrderEmailContext
             return self::customerOrdersListUrl();
         }
 
-        return SeoUrl::absolute('/order-details.php?id=' . rawurlencode($orderNumber));
+        return SeoUrl::storefrontAbsolute('/order-details.php?id=' . rawurlencode($orderNumber));
     }
 
     public static function customerPaymentRetryUrl(string $orderNumber): string
     {
         $orderNumber = trim($orderNumber);
 
-        return SeoUrl::absolute('/payment.php?order=' . rawurlencode($orderNumber));
+        return SeoUrl::storefrontAbsolute('/payment.php?order=' . rawurlencode($orderNumber));
     }
 
     public static function customerOrdersListUrl(): string
     {
-        return SeoUrl::absolute('/my-orders.php');
+        return SeoUrl::storefrontAbsolute('/my-orders.php');
     }
 }

@@ -89,7 +89,7 @@ final class CashfreeGateway
                 'customer_id' => $phone,
                 'customer_phone' => $phone,
             ],
-            'order_meta' => ['return_url' => $returnUrl, 'notify_url' => SeoUrl::absolute('/webhooks/cashfree.php')],
+            'order_meta' => ['return_url' => $returnUrl, 'notify_url' => SeoUrl::storefrontAbsolute('/webhooks/cashfree.php')],
         ];
         $apiBase = self::baseUrl();
         $resp = PaymentHttp::request('POST', $apiBase . '/orders', $body, self::headers());

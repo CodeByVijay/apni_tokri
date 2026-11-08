@@ -9,10 +9,23 @@ final class SeoUrl
         return BrandingSettings::siteName();
     }
 
-    /** Absolute site URL for a public app path (no query string unless included in $path). */
+    /** Absolute site URL for a public app path (deployment {@see App::baseUrl()}, not the request Host header). */
     public static function absolute(string $path): string
     {
-        $base = rtrim(App::baseUrl(), '/');
+        return self::absoluteWithBase(rtrim(App::baseUrl(), '/'), $path);
+    }
+
+    /**
+     * Customer-facing absolute URL (admin Website URL + url_path on production).
+     * Use for payment gateway return/callback URLs and customer notification links.
+     */
+    public static function storefrontAbsolute(string $path): string
+    {
+        return self::absoluteWithBase(BusinessSettings::storefrontBaseUrl(), $path);
+    }
+
+    private static function absoluteWithBase(string $base, string $path): string
+    {
         if ($path === '') {
             return $base !== '' ? $base . '/' : '/';
         }

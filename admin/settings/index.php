@@ -130,7 +130,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/settings-nav.php';
                     <input id="website_url" name="website_url" type="url" class="at-input at-focusable" maxlength="500" inputmode="url"
                            value="<?= Security::escape($form['website_url'] ?? '') ?>"
                            placeholder="<?= Security::escape(BusinessSettings::DEFAULT_WEBSITE_URL) ?>">
-                    <p class="text-xs at-muted mt-1">Shown on new invoices and invoice settings. Leave blank to use the default (<span class="font-mono"><?= Security::escape(BusinessSettings::DEFAULT_WEBSITE_URL) ?></span>).</p>
+                    <p class="text-xs at-muted mt-1">Canonical public site (HTTPS). Used for invoices, customer emails, and payment gateway return URLs (Cashfree/Razorpay). Leave blank to use <span class="font-mono"><?= Security::escape(BusinessSettings::DEFAULT_WEBSITE_URL) ?></span>.</p>
                     <?php if (isset($errors['website_url'])): ?><p class="text-xs text-red-600 mt-1"><?= Security::escape($errors['website_url']) ?></p><?php endif; ?>
                 </div>
                 <div class="md:col-span-2">

@@ -10,7 +10,7 @@ declare(strict_types=1);
  * - Footer copyright, contact page, invoice legal line → {@see self::legalName()}.
  * - legalName() uses `business.legal_name`, then `business.store_name`, then branding site name.
  * - Invoices, emails and PDFs read seller identity via {@see InvoiceSettings::seller()} (no duplicate invoice.* identity keys).
- * - Public website URL for invoices and similar: {@see self::websiteUrl()} (`business.website_url`), with default https://veggietokri.com when unset.
+ * - Canonical public website URL (invoices, payment gateway return/callback URLs, customer emails): {@see self::websiteUrl()} (`business.website_url`), default https://veggietokri.com when unset.
  */
 final class BusinessSettings
 {
@@ -311,17 +311,61 @@ final class BusinessSettings
     }
 
     /**
-     * Public website URL for invoices and business-facing display (not the app deployment URL).
+     * Public website URL for invoices, payment return links, and customer notifications.
      * Falls back to {@see self::DEFAULT_WEBSITE_URL} when unset or cleared.
      */
     public static function websiteUrl(): string
     {
         $v = trim(AppSettings::get(self::KEY_WEBSITE_URL, '') ?? '');
         if ($v !== '' && filter_var($v, FILTER_VALIDATE_URL) !== false && preg_match('#^https?://#i', $v) === 1) {
-            return $v;
+            return self::normalizeWebsiteUrl($v);
         }
 
         return self::DEFAULT_WEBSITE_URL;
+    }
+
+    /**
+     * Absolute base for customer-facing storefront links sent to browsers and payment gateways.
+     * Uses admin Website URL on production hosts; local / loopback installs keep {@see App::baseUrl()}.
+     */
+    public static function storefrontBaseUrl(): string
+    {
+        $appBase = rtrim(App::baseUrl(), '/');
+        if ($appBase === '' || self::isLocalDevelopmentAppBase($appBase)) {
+            return $appBase;
+        }
+
+        $origin = rtrim(self::websiteUrl(), '/');
+        $urlPath = App::urlPath();
+        if ($urlPath !== '' && !str_ends_with($origin, $urlPath)) {
+            return $origin . $urlPath;
+        }
+
+        return $origin;
+    }
+
+    public static function normalizeWebsiteUrl(string $url): string
+    {
+        $url = trim($url);
+        if ($url === '') {
+            return '';
+        }
+
+        return rtrim($url, '/');
+    }
+
+    private static function isLocalDevelopmentAppBase(string $base): bool
+    {
+        $host = parse_url($base, PHP_URL_HOST);
+        if (!is_string($host) || $host === '') {
+            return false;
+        }
+        $host = strtolower($host);
+        if ($host === 'localhost' || $host === '127.0.0.1' || $host === '::1') {
+            return true;
+        }
+
+        return str_ends_with($host, '.local') || str_ends_with($host, '.test');
     }
 
     /** Raw stored value for the admin form (empty when not configured). */
@@ -486,6 +530,11 @@ final class BusinessSettings
         if ($websiteUrl !== '') {
             if (filter_var($websiteUrl, FILTER_VALIDATE_URL) === false || !preg_match('#^https?://#i', $websiteUrl)) {
                 $errors['website_url'] = 'Enter a full http(s) URL, or leave blank to use the default.';
+            } else {
+                $websiteUrl = self::normalizeWebsiteUrl($websiteUrl);
+                if (App::env() === 'production' && !str_starts_with(strtolower($websiteUrl), 'https://')) {
+                    $errors['website_url'] = 'Use https:// for the canonical website URL in production.';
+                }
             }
         }
         if ($udyamEnterprise !== '' && mb_strlen($udyamEnterprise) > 160) {

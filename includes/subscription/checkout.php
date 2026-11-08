@@ -366,7 +366,7 @@ final class SubscriptionPaymentService
             ];
         }
 
-        $returnUrl = SeoUrl::absolute('/subscription-payment.php?sub=' . rawurlencode($subNumber));
+        $returnUrl = SeoUrl::storefrontAbsolute('/subscription-payment.php?sub=' . rawurlencode($subNumber));
         $payRef = PaymentInitDiagnostics::referenceId();
         $created = CashfreeGateway::createOrder($amountInr, $subNumber, $customerMobile, $returnUrl, $payRef, null);
         if (!$created['ok']) {
