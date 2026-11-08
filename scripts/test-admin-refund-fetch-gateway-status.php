@@ -35,6 +35,35 @@ Permission::clearCache();
 $fixture = stage12_phase_c1_create_fixture($pdo);
 $customerA = (int) $fixture['customer_a'];
 $tok = $fixture['token'];
+
+/** @var array{payment_refund_ids: list<int>, refund_request_ids: list<int>, order_ids: list<int>, payment_ids: list<int>, order_item_ids: list<int>} */
+$testFixtureIds = [
+    'payment_refund_ids' => [],
+    'refund_request_ids' => [],
+    'order_ids' => [],
+    'payment_ids' => [],
+    'order_item_ids' => [],
+];
+
+/**
+ * Unique (gateway, gateway_refund_id) for this run — never reuses live/staging Cashfree IDs like 155230244.
+ */
+$unusedGatewayRefundId = static function (PDO $pdo, string $gateway, string $token, string $label): string {
+    $base = $gateway === 'razorpay' ? 'rzf_t_' : 'cf_t_';
+    for ($i = 0; $i < 32; $i++) {
+        $suffix = $i === 0 ? '' : '_' . (string) $i;
+        $id = substr($base . $token . '_' . $label . $suffix, 0, 64);
+        $st = $pdo->prepare(
+            'SELECT 1 FROM payment_refunds WHERE gateway = ? AND gateway_refund_id = ? LIMIT 1'
+        );
+        $st->execute([$gateway, $id]);
+        if (!$st->fetchColumn()) {
+            return $id;
+        }
+    }
+
+    return substr($base . bin2hex(random_bytes(16)), 0, 64);
+};
 $variantId = (int) ($pdo->query(
     'SELECT variant_id FROM order_items WHERE id = ' . (int) $fixture['order_item_id'] . ' LIMIT 1'
 )->fetchColumn() ?: 0);
@@ -45,7 +74,7 @@ AppSettings::set('cashfree.secret_key', 'cf_test_secret_key_value', true);
 AppSettings::set('payment.test_mode', '1');
 AppSettings::resetCache();
 
-$isoOrder = static function (PDO $pdo, int $customerId, string $token, string $suffix, int $variantId): array {
+$isoOrder = static function (PDO $pdo, int $customerId, string $token, string $suffix, int $variantId) use (&$testFixtureIds): array {
     $amount = 120.00;
     $orderNumber = 'AT-FETCH-' . $suffix . '-' . strtoupper($token);
     $pdo->prepare(
@@ -92,6 +121,9 @@ $isoOrder = static function (PDO $pdo, int $customerId, string $token, string $s
         'pay_fetch_' . $suffix . '_' . $token,
     ]);
     $paymentId = (int) $pdo->lastInsertId();
+    $testFixtureIds['order_ids'][] = $orderId;
+    $testFixtureIds['order_item_ids'][] = $orderItemId;
+    $testFixtureIds['payment_ids'][] = $paymentId;
 
     return [
         'order_id' => $orderId,
@@ -110,7 +142,7 @@ $insertPaymentRefund = static function (
     string $idempotencyKey,
     ?string $gatewayRefundId,
     string $gatewayStatus = 'pending'
-): int {
+) use (&$testFixtureIds): int {
     $pdo->prepare(
         'INSERT INTO payment_refunds
          (refund_request_id, payment_id, gateway, amount_inr, idempotency_key, gateway_refund_id, gateway_status, response_json)
@@ -126,10 +158,13 @@ $insertPaymentRefund = static function (
         '{}',
     ]);
 
-    return (int) $pdo->lastInsertId();
+    $prId = (int) $pdo->lastInsertId();
+    $testFixtureIds['payment_refund_ids'][] = $prId;
+
+    return $prId;
 };
 
-$createReq = static function (PDO $pdo, array $iso, int $customerId, string $reqNum, float $amount): int {
+$createReq = static function (PDO $pdo, array $iso, int $customerId, string $reqNum, float $amount) use (&$testFixtureIds): int {
     $pdo->prepare(
         'INSERT INTO refund_requests (request_number, customer_id, order_id, reason_code, status, preferred_resolution, approved_amount_inr)
          VALUES (?, ?, ?, ?, ?, ?, ?)'
@@ -146,6 +181,8 @@ $createReq = static function (PDO $pdo, array $iso, int $customerId, string $req
     $pdo->prepare(
         'INSERT INTO refund_request_items (refund_request_id, order_item_id, quantity, amount_inr) VALUES (?, ?, 1, ?)'
     )->execute([$requestId, (int) $iso['order_item_id'], $amount]);
+
+    $testFixtureIds['refund_request_ids'][] = $requestId;
 
     return $requestId;
 };
@@ -195,7 +232,7 @@ $isoPend = $isoOrder($pdo, $customerA, $tok, 'PENDONLY', $variantId);
 $reqPend = $createReq($pdo, $isoPend, $customerA, 'RF-FETCH-PEND-' . $tok, 35.0);
 $idempotencyPend = 'refund_req_fetch_pend_' . $reqPend;
 $merchantPend = $cashfreeMerchantRefundId($idempotencyPend);
-$cfRefundIdPend = '155230244';
+$cfRefundIdPend = $unusedGatewayRefundId($pdo, 'cashfree', $tok, 'pend');
 $insertPaymentRefund(
     $pdo,
     $reqPend,
@@ -333,7 +370,7 @@ $ok($mockInvocations === 0, 'Missing ref: no HTTP calls', ['http' => $httpLog]);
 // --- API error preserves status ---
 $isoErr = $isoOrder($pdo, $customerA, $tok, 'APIERR', $variantId);
 $reqErr = $createReq($pdo, $isoErr, $customerA, 'RF-FETCH-ERR-' . $tok, 22.0);
-$cfErr = '155230999';
+$cfErr = $unusedGatewayRefundId($pdo, 'cashfree', $tok, 'err');
 $idempotencyErr = 'refund_req_fetch_err_' . $reqErr;
 $merchantErr = $cashfreeMerchantRefundId($idempotencyErr);
 $insertPaymentRefund(
@@ -401,16 +438,21 @@ $ok(str_contains($index, 'Gateway actions'), 'Retry and fetch grouped in gateway
 
 PaymentHttp::$testHandler = $prevHandler;
 
-foreach ([$isoPend, $isoSucc, $isoMiss, $isoErr, $isoNoRow] as $iso) {
-    $oid = (int) $iso['order_id'];
-    $pdo->prepare('DELETE FROM payment_refunds WHERE payment_id IN (SELECT id FROM payments WHERE order_id = ?)')->execute([$oid]);
-    $pdo->prepare('DELETE FROM refund_request_history WHERE refund_request_id IN (SELECT id FROM refund_requests WHERE order_id = ?)')->execute([$oid]);
-    $pdo->prepare('DELETE FROM refund_request_items WHERE order_item_id IN (SELECT id FROM order_items WHERE order_id = ?)')->execute([$oid]);
-    $pdo->prepare('DELETE FROM refund_requests WHERE order_id = ?')->execute([$oid]);
-    $pdo->prepare('DELETE FROM payments WHERE order_id = ?')->execute([$oid]);
-    $pdo->prepare('DELETE FROM order_items WHERE order_id = ?')->execute([$oid]);
-    $pdo->prepare('DELETE FROM orders WHERE id = ?')->execute([$oid]);
-}
+$deleteIn = static function (PDO $pdo, string $sql, array $ids): void {
+    if ($ids === []) {
+        return;
+    }
+    $ph = implode(',', array_fill(0, count($ids), '?'));
+    $pdo->prepare(str_replace('__IDS__', $ph, $sql))->execute($ids);
+};
+
+$deleteIn($pdo, 'DELETE FROM payment_refunds WHERE id IN (__IDS__)', $testFixtureIds['payment_refund_ids']);
+$deleteIn($pdo, 'DELETE FROM refund_request_history WHERE refund_request_id IN (__IDS__)', $testFixtureIds['refund_request_ids']);
+$deleteIn($pdo, 'DELETE FROM refund_request_items WHERE refund_request_id IN (__IDS__)', $testFixtureIds['refund_request_ids']);
+$deleteIn($pdo, 'DELETE FROM refund_requests WHERE id IN (__IDS__)', $testFixtureIds['refund_request_ids']);
+$deleteIn($pdo, 'DELETE FROM payments WHERE id IN (__IDS__)', $testFixtureIds['payment_ids']);
+$deleteIn($pdo, 'DELETE FROM order_items WHERE id IN (__IDS__)', $testFixtureIds['order_item_ids']);
+$deleteIn($pdo, 'DELETE FROM orders WHERE id IN (__IDS__)', $testFixtureIds['order_ids']);
 
 stage12_phase_c1_teardown($pdo, $fixture, []);
 
