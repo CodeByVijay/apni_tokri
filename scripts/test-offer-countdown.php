@@ -28,7 +28,8 @@ $cartJs = (string) file_get_contents(APNI_TOKRI_ROOT . '/assets/js/cart.js');
 
 $ok(str_contains($footer, 'offer-countdown.js'), 'static: countdown JS enqueued on storefront');
 $ok(str_contains($js, 'ATOfferCountdownTick'), 'static: global tick for AJAX cart refresh');
-$ok(str_contains($js, 'Days') && str_contains($js, 'Seconds'), 'static: countdown format matches spec');
+$ok(str_contains($js, 'data-at-offer-countdown-days'), 'static: countdown updates separate unit fields');
+$ok(str_contains($js, 'ATOfferCountdownTick'), 'static: global tick hook preserved');
 $ok(str_contains($pricing, 'offer_countdown_end_unix'), 'static: pricing totals expose offer expiry unix');
 $ok(str_contains($cartJs, 'data-cart-offer-countdown-wrap'), 'static: cart.js updates offer countdown');
 $ok(!str_contains($marketing, 'AppSettings::set(self::KEY_OFFER_COUNTDOWN_END'), 'static: marketing save does not overwrite legacy countdown');
@@ -36,7 +37,9 @@ $ok(str_contains($adminMkt, 'Admin → Offers'), 'static: marketing UI points to
 $ok(str_contains($storefront, 'parseAdminWindow'), 'static: admin offer window parser');
 $homeOffers = (string) file_get_contents(APNI_TOKRI_ROOT . '/includes/partials/home-store-offers.php');
 $cdPartial = (string) file_get_contents(APNI_TOKRI_ROOT . '/includes/partials/offer-countdown.php');
-$ok(str_contains($homeOffers, 'countdown_end_unix') && str_contains($cdPartial, 'data-at-offer-countdown'), 'static: homepage offers wire countdown partial');
+$ok(str_contains($homeOffers, 'offer-deal-compact') && str_contains($cdPartial, 'data-at-offer-countdown'), 'static: shared compact offer + countdown partial');
+$css = (string) file_get_contents(APNI_TOKRI_ROOT . '/assets/css/apni-tokri.css');
+$ok(str_contains($css, '.at-offer-deal') && str_contains($css, '.at-offer-countdown__unit'), 'static: offer countdown layout CSS');
 
 $bad = OfferStorefront::parseAdminWindow([
     'starts_at' => '2030-01-01T10:00',

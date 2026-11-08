@@ -26,7 +26,6 @@ $couponApplied = catalogue_cart_coupon_applied($totals);
             <div data-cart-offer-countdown-wrap class="<?= !empty($totals['offer_countdown_end_unix']) ? '' : 'hidden' ?>">
                 <?php
                 $countdownEndUnix = (int) ($totals['offer_countdown_end_unix'] ?? 0);
-                $countdownPrefix = 'Offer ends in ';
                 require APNI_TOKRI_ROOT . '/includes/partials/offer-countdown.php';
                 ?>
             </div>

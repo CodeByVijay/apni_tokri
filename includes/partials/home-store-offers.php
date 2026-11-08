@@ -13,20 +13,10 @@ $base = url_base();
     <div class="at-card at-card--flat">
         <div class="at-card__body space-y-4">
             <h2 class="at-h3 font-bold flex items-center gap-2"><?= at_icon('tag', 'w-5 h-5 text-[var(--at-green)]') ?> Deals for you</h2>
-            <ul class="grid gap-3 md:grid-cols-2">
+            <ul class="at-offer-deal-stack grid gap-3 lg:grid-cols-2">
                 <?php foreach ($storefrontOffers as $offer): ?>
-                    <li class="at-card at-card--flat border border-[var(--at-line)]">
-                        <div class="at-card__body !py-4">
-                            <p class="font-bold text-[var(--at-green)]"><?= Security::escape((string) ($offer['headline'] ?? '')) ?></p>
-                            <p class="text-sm mt-1"><?= Security::escape((string) ($offer['description'] ?? '')) ?></p>
-                            <?php if (!empty($offer['countdown_end_unix'])): ?>
-                                <?php
-                                $countdownEndUnix = (int) $offer['countdown_end_unix'];
-                                $countdownPrefix = 'Offer ends in ';
-                                require APNI_TOKRI_ROOT . '/includes/partials/offer-countdown.php';
-                                ?>
-                            <?php endif; ?>
-                        </div>
+                    <li>
+                        <?php require APNI_TOKRI_ROOT . '/includes/partials/offer-deal-compact.php'; ?>
                     </li>
                 <?php endforeach; ?>
             </ul>

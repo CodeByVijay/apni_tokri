@@ -6,7 +6,7 @@
     return n < 10 ? '0' + n : String(n);
   }
 
-  function formatRemaining(ms) {
+  function remainingParts(ms) {
     if (ms <= 0) {
       return null;
     }
@@ -17,35 +17,66 @@
     totalSec %= 3600;
     var mins = Math.floor(totalSec / 60);
     var secs = totalSec % 60;
-    return (
-      pad2(days) +
-      ' Days ' +
-      pad2(hours) +
-      ' Hours ' +
-      pad2(mins) +
-      ' Minutes ' +
-      pad2(secs) +
-      ' Seconds'
-    );
+    return {
+      days: days,
+      hours: hours,
+      mins: mins,
+      secs: secs,
+      text:
+        pad2(days) +
+        ' Days ' +
+        pad2(hours) +
+        ' Hours ' +
+        pad2(mins) +
+        ' Minutes ' +
+        pad2(secs) +
+        ' Seconds',
+    };
+  }
+
+  function applyParts(el, parts) {
+    var value = el.querySelector('[data-at-offer-countdown-value]');
+    if (value) {
+      value.textContent = parts.text;
+    }
+    var days = el.querySelector('[data-at-offer-countdown-days]');
+    var hours = el.querySelector('[data-at-offer-countdown-hours]');
+    var mins = el.querySelector('[data-at-offer-countdown-mins]');
+    var secs = el.querySelector('[data-at-offer-countdown-secs]');
+    if (days && hours && mins && secs) {
+      days.textContent = pad2(parts.days);
+      hours.textContent = pad2(parts.hours);
+      mins.textContent = pad2(parts.mins);
+      secs.textContent = pad2(parts.secs);
+    } else if (value) {
+      value.textContent = parts.text;
+    }
   }
 
   function tick() {
     var now = Date.now();
     document.querySelectorAll('[data-at-offer-countdown]').forEach(function (el) {
       var endSec = parseInt(el.getAttribute('data-countdown-end'), 10);
-      var value = el.querySelector('[data-at-offer-countdown-value]');
-      if (!endSec || !value) {
+      if (!endSec) {
         return;
       }
-      var text = formatRemaining(endSec * 1000 - now);
-      if (!text) {
+      var parts = remainingParts(endSec * 1000 - now);
+      if (!parts) {
         el.classList.add('hidden');
         el.setAttribute('hidden', 'hidden');
+        var timerWrap = el.closest('.at-offer-deal__timer');
+        if (timerWrap) {
+          timerWrap.classList.add('hidden');
+        }
         return;
       }
       el.classList.remove('hidden');
       el.removeAttribute('hidden');
-      value.textContent = text;
+      var timerWrapShow = el.closest('.at-offer-deal__timer');
+      if (timerWrapShow) {
+        timerWrapShow.classList.remove('hidden');
+      }
+      applyParts(el, parts);
     });
   }
 
