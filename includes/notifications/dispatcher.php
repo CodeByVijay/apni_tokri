@@ -348,6 +348,80 @@ final class NotificationDispatcher
         }
     }
 
+    public static function refundCompletedForRequest(int $requestId): void
+    {
+        if (!NotificationQueueService::tableReady() || $requestId <= 0) {
+            return;
+        }
+        try {
+            Install::ensureConnection();
+            $stmt = Database::pdo()->prepare(
+                'SELECT rr.request_number, rr.approved_amount_inr, rr.updated_at,
+                        o.order_number, o.id AS order_id, c.email, c.name, c.id AS customer_id,
+                        pr.gateway, pr.gateway_refund_id, pr.idempotency_key, pr.amount_inr, pr.completed_at
+                 FROM refund_requests rr
+                 INNER JOIN customers c ON c.id = rr.customer_id
+                 INNER JOIN orders o ON o.id = rr.order_id
+                 LEFT JOIN payment_refunds pr ON pr.refund_request_id = rr.id AND pr.id = (
+                     SELECT id FROM payment_refunds WHERE refund_request_id = rr.id ORDER BY id DESC LIMIT 1
+                 )
+                 WHERE rr.id = ? AND rr.status = ? LIMIT 1'
+            );
+            $stmt->execute([$requestId, RefundStatus::REFUNDED]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$row) {
+                return;
+            }
+            $email = trim((string) ($row['email'] ?? ''));
+            if ($email === '' || !Validation::email($email)) {
+                return;
+            }
+            $amountInr = (float) ($row['amount_inr'] ?? $row['approved_amount_inr'] ?? 0);
+            $amount = $amountInr > 0 ? number_format($amountInr, 2, '.', '') : '';
+            $amountLine = $amount !== '' ? '₹' . $amount : '';
+            $gateway = (string) ($row['gateway'] ?? '');
+            $gatewayName = $gateway === 'cashfree' ? 'Cashfree' : ($gateway === 'razorpay' ? 'Razorpay' : ucfirst($gateway));
+            $refRef = trim((string) ($row['gateway_refund_id'] ?? ''));
+            if ($refRef === '' && $gateway === 'cashfree') {
+                $refRef = CashfreeGateway::merchantRefundIdFromIdempotency((string) ($row['idempotency_key'] ?? ''));
+            }
+            if ($refRef === '') {
+                $refRef = (string) ($row['request_number'] ?? '');
+            }
+            $completedAt = trim((string) ($row['completed_at'] ?? $row['updated_at'] ?? ''));
+            $completionDate = $completedAt !== '' ? customer_format_datetime($completedAt) : date('d M Y, h:i A');
+            $orderUrl = SeoUrl::storefrontAbsolute('/order-details.php?id=' . rawurlencode((string) $row['order_number']));
+            $payload = [
+                'request_number' => (string) $row['request_number'],
+                'order_number' => (string) $row['order_number'],
+                'amount' => $amount,
+                'amount_line' => $amountLine,
+                'status_label' => RefundRequestService::publicStatusLabel(RefundStatus::REFUNDED),
+                'customer_name' => trim((string) ($row['name'] ?? '')) !== '' ? (string) $row['name'] : 'Customer',
+                'gateway_name' => $gatewayName,
+                'refund_reference' => $refRef,
+                'completion_date' => $completionDate,
+                'order_url' => $orderUrl,
+                'event_date' => $completionDate,
+            ];
+            $idempotencyKey = 'refund.completed:' . $requestId . ':email';
+            $enq = NotificationQueueService::enqueue(
+                'refund.completed',
+                'email',
+                $email,
+                'customer:' . (int) $row['customer_id'],
+                'refund.completed.email',
+                $payload,
+                $idempotencyKey
+            );
+            if (!empty($enq['ok']) && !empty($enq['created'])) {
+                NotificationQueueService::claimAndProcessByIdempotencyKey('email', $idempotencyKey);
+            }
+        } catch (Throwable $e) {
+            error_log('NotificationDispatcher::refundCompletedForRequest');
+        }
+    }
+
     public static function refundStatusUpdated(int $requestId, string $newStatus): void
     {
         if (!NotificationQueueService::tableReady() || $requestId <= 0) {
@@ -400,15 +474,7 @@ final class NotificationDispatcher
                 return;
             }
             if ($newStatus === RefundStatus::REFUNDED) {
-                NotificationQueueService::enqueue(
-                    'refund.completed',
-                    'email',
-                    $email,
-                    $recipientRef,
-                    'refund.completed.email',
-                    $payload,
-                    'refund.completed:' . $requestId . ':email'
-                );
+                self::refundCompletedForRequest($requestId);
 
                 return;
             }

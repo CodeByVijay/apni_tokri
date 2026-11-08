@@ -11,7 +11,7 @@ Queued events use `NotificationDispatcher` → `NotificationQueueService::enqueu
 | `payment.failed` | email | `payment.failed.email` | `payment.failed:order:{orderNumber}:email` | `PaymentService::markPaymentFailed()` when order moves to `payment_failed` (not per-attempt when retry remains open) |
 | `order.status` | email | `order.status.email` | `order.status:order:{orderId}:{status}:email` | `AdminOrderService::updateStatus()` on real transition; `completePayment()` → confirmed |
 | `refund.initiated` | email | `refund.initiated.email` | `refund.initiated:{requestId}:email` | `RefundRequestService` transition to `refund_initiated` |
-| `refund.completed` | email | `refund.completed.email` | `refund.completed:{requestId}:email` | `RefundRequestService` transition to `refunded` |
+| `refund.completed` | email | `refund.completed.email` | `refund.completed:{requestId}:email` | `RefundCompletionService::completeOrderRefund()` (webhook/cron/manual fetch); idempotent enqueue + immediate send |
 | `support.ticket_created` | in_app | `support.ticket_created.in_app` | `support.ticket_created:{ticketId}:in_app` | `SupportTicketService::create()` after insert |
 | `support.ticket_created` | email | `support.ticket_created.email` | `support.ticket_created:{ticketId}:email` | Same (if customer has valid email) |
 | `support.ticket_replied` | email | `support.ticket_replied.email` | `support.ticket_replied:{ticketId}:email:{Y-m-d}` | `SupportTicketService::adminReply()` |

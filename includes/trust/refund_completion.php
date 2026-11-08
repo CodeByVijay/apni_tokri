@@ -22,7 +22,7 @@ final class RefundCompletionService
             return ['ok' => false, 'message' => 'Refund not in completed state.'];
         }
         try {
-            return Database::transaction(static function () use ($paymentRefundId, $gatewayStatus, $amountInr): array {
+            $result = Database::transaction(static function () use ($paymentRefundId, $gatewayStatus, $amountInr): array {
                 $pdo = Database::pdo();
                 $stmt = $pdo->prepare('SELECT * FROM payment_refunds WHERE id = ? FOR UPDATE');
                 $stmt->execute([$paymentRefundId]);
@@ -57,13 +57,18 @@ final class RefundCompletionService
                     self::applyOrderPaymentRefund($pdo, $requestId, $paymentId, $amount);
                 }
 
-                return ['ok' => true];
+                return ['ok' => true, 'request_id' => $requestId > 0 ? $requestId : null];
             });
         } catch (Throwable $e) {
             error_log('Refund completion: ' . $e->getMessage());
 
             return ['ok' => false, 'message' => 'Could not complete refund.'];
         }
+        if (!empty($result['ok']) && empty($result['idempotent']) && !empty($result['request_id'])) {
+            NotificationDispatcher::refundCompletedForRequest((int) $result['request_id']);
+        }
+
+        return $result;
     }
 
     /**

@@ -33,7 +33,15 @@ final class NotificationTemplateVariables
                     'track_order_url',
                 ])));
             case 'refund.initiated':
+                return array_values(array_unique(array_merge($common, $refund)));
             case 'refund.completed':
+                return array_values(array_unique(array_merge($common, $refund, [
+                    'gateway_name',
+                    'refund_reference',
+                    'completion_date',
+                    'order_url',
+                    'event_date',
+                ])));
             case 'refund.status_updated':
                 return array_values(array_unique(array_merge($common, $refund)));
             case 'support.ticket_created':

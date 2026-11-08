@@ -782,85 +782,218 @@ final class RefundRequestService
     /** @return array{ok: bool, message?: string, status?: string} */
     public static function fetchGatewayRefundStatus(int $requestId): array
     {
+        $pr = self::paymentRefundRowForReconcile($requestId);
+        if ($pr === null) {
+            return ['ok' => false, 'message' => 'No gateway refund attempt found.'];
+        }
+
+        return self::reconcilePaymentRefundById((int) $pr['id'], 'admin', AdminAuth::id());
+    }
+
+    /**
+     * Read-only gateway status fetch + apply (no refund initiation).
+     *
+     * @return array{ok: bool, message?: string, status?: string, summary?: string}
+     */
+    public static function reconcilePaymentRefundById(int $paymentRefundId, string $source, ?int $adminId = null): array
+    {
+        $source = $source === 'cron' ? 'cron' : ($source === 'webhook' ? 'webhook' : 'admin');
+        $paymentRefundId = (int) $paymentRefundId;
+        if ($paymentRefundId <= 0) {
+            return ['ok' => false, 'message' => 'Invalid refund row.', 'summary' => 'skipped'];
+        }
+        $prRow = self::paymentRefundRowByIdForReconcile($paymentRefundId);
+        if ($prRow === null) {
+            RefundReconciliationService::releasePaymentRefundLease($paymentRefundId);
+
+            return ['ok' => false, 'message' => 'Refund row not found.', 'summary' => 'skipped'];
+        }
+        $requestId = (int) ($prRow['refund_request_id'] ?? 0);
+        if ($requestId <= 0) {
+            RefundReconciliationService::releasePaymentRefundLease($paymentRefundId);
+
+            return ['ok' => false, 'message' => 'No refund request linked.', 'summary' => 'skipped'];
+        }
+        if (!self::paymentRefundRowHasLookupReference($prRow)) {
+            RefundReconciliationService::releasePaymentRefundLease($paymentRefundId);
+            self::recordReconcileCheckMeta($paymentRefundId, $source, false, 'Missing gateway lookup reference');
+
+            return ['ok' => false, 'message' => 'Missing gateway reference.', 'summary' => 'skipped'];
+        }
+
+        $stmt = Database::pdo()->prepare('SELECT status FROM refund_requests WHERE id = ? LIMIT 1');
+        $stmt->execute([$requestId]);
+        $prevStatus = (string) ($stmt->fetchColumn() ?: '');
+        if (in_array($prevStatus, [RefundStatus::REFUNDED, RefundStatus::REJECTED, RefundStatus::CANCELLED], true)) {
+            RefundReconciliationService::releasePaymentRefundLease($paymentRefundId);
+
+            return ['ok' => true, 'message' => 'Refund already settled.', 'status' => $prevStatus, 'summary' => 'skipped'];
+        }
+        if (RefundCompletionService::isTerminalSuccess((string) ($prRow['gateway_status'] ?? ''))) {
+            RefundReconciliationService::releasePaymentRefundLease($paymentRefundId);
+
+            return ['ok' => true, 'message' => 'Gateway refund already completed.', 'status' => $prevStatus, 'summary' => 'skipped'];
+        }
+
+        $timeout = RefundReconciliationService::resolveHttpTimeoutSeconds();
+        $lookup = GatewayRefundService::lookupRefundStatus($prRow);
+
+        $historyAction = $source === 'cron' ? 'gateway_status_cron' : 'gateway_status_fetch';
+        $actorType = $source === 'admin' ? 'admin' : 'system';
+        $audit = [
+            'source' => $source,
+            'gateway' => (string) ($prRow['gateway'] ?? ''),
+            'gateway_refund_id' => $prRow['gateway_refund_id'] ?? null,
+            'lookup_reference' => $lookup['lookup_reference'] ?? null,
+            'previous_status' => $prevStatus,
+            'http_timeout' => $timeout,
+        ];
+
         try {
-            return Database::transaction(static function () use ($requestId): array {
+            $out = Database::transaction(static function () use (
+                $requestId,
+                $paymentRefundId,
+                $prRow,
+                $lookup,
+                $audit,
+                $historyAction,
+                $actorType,
+                $adminId,
+                $prevStatus,
+                $source
+            ): array {
                 $pdo = Database::pdo();
-                $adminId = AdminAuth::id();
                 $stmt = $pdo->prepare('SELECT * FROM refund_requests WHERE id = ? FOR UPDATE');
                 $stmt->execute([$requestId]);
                 $req = $stmt->fetch(PDO::FETCH_ASSOC);
                 if (!$req) {
-                    return ['ok' => false, 'message' => 'Request not found.'];
-                }
-                $prevStatus = (string) $req['status'];
-                if (in_array($prevStatus, [RefundStatus::REFUNDED, RefundStatus::REJECTED, RefundStatus::CANCELLED], true)) {
-                    return ['ok' => true, 'message' => 'Refund already settled.', 'status' => $prevStatus];
-                }
-                $pr = self::paymentRefundRowForReconcile($requestId);
-                if ($pr === null) {
-                    return ['ok' => false, 'message' => 'No gateway refund attempt found.'];
+                    return ['ok' => false, 'message' => 'Request not found.', 'summary' => 'skipped'];
                 }
                 $lock = $pdo->prepare('SELECT * FROM payment_refunds WHERE id = ? FOR UPDATE');
-                $lock->execute([(int) $pr['id']]);
+                $lock->execute([$paymentRefundId]);
                 $locked = $lock->fetch(PDO::FETCH_ASSOC);
-                // Keep joined fields (e.g. order_number) required for gateway status GET.
-                $prRow = is_array($locked) ? array_merge($pr, $locked) : $pr;
-
-                $lookup = GatewayRefundService::lookupRefundStatus($prRow);
-                $audit = [
-                    'gateway' => (string) ($prRow['gateway'] ?? ''),
-                    'gateway_refund_id' => $prRow['gateway_refund_id'] ?? null,
-                    'lookup_reference' => $lookup['lookup_reference'] ?? null,
-                    'previous_status' => $prevStatus,
-                ];
+                $prLive = is_array($locked) ? array_merge($prRow, $locked) : $prRow;
 
                 if (!$lookup['ok']) {
-                    self::appendHistory($pdo, $requestId, 'admin', $adminId, 'gateway_status_fetch', array_merge($audit, [
+                    $err = (string) ($lookup['message'] ?? 'Lookup failed');
+                    self::appendHistory($pdo, $requestId, $actorType, $adminId, $historyAction, array_merge($audit, [
                         'result_status' => $prevStatus,
-                        'error' => $lookup['message'] ?? 'Lookup failed',
+                        'error' => $err,
                         'http_status' => $lookup['http_status'] ?? null,
                         'gateway_error_code' => $lookup['gateway_error_code'] ?? null,
                         'gateway_error_message' => $lookup['gateway_error_message'] ?? null,
                         'environment' => $lookup['environment'] ?? null,
                         'request_url_path' => $lookup['request_url_path'] ?? null,
                     ]));
-                    AuditLog::write('refund.gateway_status_fetch', 'refund_request', (string) $requestId);
+                    if ($source === 'admin') {
+                        AuditLog::write('refund.gateway_status_fetch', 'refund_request', (string) $requestId);
+                    }
+                    self::recordReconcileCheckMeta($paymentRefundId, $source, false, $err);
 
-                    return ['ok' => false, 'message' => $lookup['message'] ?? 'Could not reconcile gateway status.'];
+                    return ['ok' => false, 'message' => $err, 'summary' => 'errors'];
                 }
 
                 if (!empty($lookup['gateway_refund_id'])
-                    && trim((string) ($prRow['gateway_refund_id'] ?? '')) === '') {
+                    && trim((string) ($prLive['gateway_refund_id'] ?? '')) === '') {
                     $pdo->prepare(
                         'UPDATE payment_refunds SET gateway_refund_id = ?, updated_at = NOW() WHERE id = ?'
-                    )->execute([(string) $lookup['gateway_refund_id'], (int) $prRow['id']]);
-                    $prRow['gateway_refund_id'] = $lookup['gateway_refund_id'];
+                    )->execute([(string) $lookup['gateway_refund_id'], $paymentRefundId]);
+                    $prLive['gateway_refund_id'] = $lookup['gateway_refund_id'];
                 }
 
-                self::storeGatewayStatusFetchSnapshot($pdo, (int) $prRow['id'], $lookup);
+                self::storeGatewayStatusFetchSnapshot($pdo, $paymentRefundId, $lookup, $source);
 
-                $apply = self::applyGatewayRefundStatusLookup($pdo, $req, $prRow, $lookup);
+                $apply = self::applyGatewayRefundStatusLookup($pdo, $req, $prLive, $lookup);
                 $newStatus = (string) ($apply['request_status'] ?? $prevStatus);
 
-                self::appendHistory($pdo, $requestId, 'admin', $adminId, 'gateway_status_fetch', array_merge($audit, [
-                    'gateway_refund_id' => $prRow['gateway_refund_id'] ?? null,
+                self::appendHistory($pdo, $requestId, $actorType, $adminId, $historyAction, array_merge($audit, [
+                    'gateway_refund_id' => $prLive['gateway_refund_id'] ?? null,
                     'gateway_status' => $lookup['refund_status'] ?? null,
                     'result_status' => $newStatus,
                     'result' => $apply['summary'] ?? null,
                     'error' => $apply['error'] ?? null,
                 ]));
-                AuditLog::write('refund.gateway_status_fetch', 'refund_request', (string) $requestId);
+                if ($source === 'admin') {
+                    AuditLog::write('refund.gateway_status_fetch', 'refund_request', (string) $requestId);
+                }
+                self::recordReconcileCheckMeta($paymentRefundId, $source, true, null);
 
                 return [
                     'ok' => !empty($apply['ok']),
                     'message' => $apply['message'] ?? 'Gateway status reconciled.',
                     'status' => $newStatus,
+                    'summary' => $apply['summary'] ?? null,
+                    'request_id' => $requestId,
+                    'newly_refunded' => $newStatus === RefundStatus::REFUNDED && $prevStatus !== RefundStatus::REFUNDED,
                 ];
             });
         } catch (Throwable $e) {
-            error_log('Fetch gateway refund status: ' . $e->getMessage());
+            error_log('reconcilePaymentRefundById: ' . $e->getMessage());
+            self::recordReconcileCheckMeta($paymentRefundId, $source, false, 'Reconcile failed');
 
-            return ['ok' => false, 'message' => 'Could not fetch gateway refund status.'];
+            return ['ok' => false, 'message' => 'Could not reconcile gateway status.', 'summary' => 'errors'];
+        } finally {
+            RefundReconciliationService::releasePaymentRefundLease($paymentRefundId);
+        }
+
+        return $out;
+    }
+
+    /** @return array<string, mixed>|null */
+    private static function paymentRefundRowByIdForReconcile(int $paymentRefundId): ?array
+    {
+        if ($paymentRefundId <= 0 || !Install::isSchemaReady()) {
+            return null;
+        }
+        Install::ensureConnection();
+        $stmt = Database::pdo()->prepare(
+            'SELECT pr.*, o.order_number, p.gateway_order_id, p.gateway_payment_id
+             FROM payment_refunds pr
+             INNER JOIN payments p ON p.id = pr.payment_id
+             LEFT JOIN orders o ON o.id = p.order_id
+             WHERE pr.id = ? LIMIT 1'
+        );
+        $stmt->execute([$paymentRefundId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        return $row ?: null;
+    }
+
+    public static function recordReconcileCheckMeta(
+        int $paymentRefundId,
+        string $source,
+        bool $lookupOk,
+        ?string $error
+    ): void {
+        if (!RefundReconciliationService::trackingColumnsReady() || $paymentRefundId <= 0) {
+            return;
+        }
+        try {
+            $pdo = Database::pdo();
+            $stmt = $pdo->prepare('SELECT status_check_attempts FROM payment_refunds WHERE id = ? LIMIT 1');
+            $stmt->execute([$paymentRefundId]);
+            $attempts = (int) ($stmt->fetchColumn() ?: 0);
+            $attempts++;
+            $cooldown = RefundReconciliationService::cooldownSecondsForAttempt($attempts);
+            $safeErr = $error !== null && $error !== '' ? mb_substr($error, 0, 255) : null;
+            $pdo->prepare(
+                'UPDATE payment_refunds
+                 SET last_status_checked_at = NOW(),
+                     status_check_attempts = ?,
+                     next_status_check_at = DATE_ADD(NOW(), INTERVAL ? SECOND),
+                     last_status_check_source = ?,
+                     last_status_check_error = ?,
+                     updated_at = NOW()
+                 WHERE id = ?'
+            )->execute([
+                $attempts,
+                $cooldown,
+                substr($source, 0, 16),
+                $lookupOk ? null : $safeErr,
+                $paymentRefundId,
+            ]);
+        } catch (Throwable $e) {
+            error_log('RefundRequestService::recordReconcileCheckMeta');
         }
     }
 
@@ -1043,10 +1176,15 @@ final class RefundRequestService
     }
 
     /** @param array<string, mixed> $lookup */
-    private static function storeGatewayStatusFetchSnapshot(PDO $pdo, int $paymentRefundId, array $lookup): void
-    {
+    private static function storeGatewayStatusFetchSnapshot(
+        PDO $pdo,
+        int $paymentRefundId,
+        array $lookup,
+        string $source = 'admin'
+    ): void {
         $snapshot = [
             'fetched_at' => date('c'),
+            'source' => $source,
             'gateway' => $lookup['gateway'] ?? null,
             'refund_status' => $lookup['refund_status'] ?? null,
             'gateway_refund_id' => $lookup['gateway_refund_id'] ?? null,
@@ -1534,14 +1672,125 @@ final class RefundRequestService
             return null;
         }
         Install::ensureConnection();
+        $track = RefundReconciliationService::trackingColumnsReady();
+        $cols = 'id, gateway, idempotency_key, gateway_refund_id, gateway_status, amount_inr,
+                    created_at, updated_at, completed_at';
+        if ($track) {
+            $cols .= ', last_status_checked_at, last_status_check_source, last_status_check_error, status_check_attempts';
+        }
         $stmt = Database::pdo()->prepare(
-            'SELECT id, gateway_refund_id, gateway_status, amount_inr, created_at, updated_at
-             FROM payment_refunds WHERE refund_request_id = ? ORDER BY id DESC LIMIT 1'
+            "SELECT {$cols} FROM payment_refunds WHERE refund_request_id = ? ORDER BY id DESC LIMIT 1"
         );
         $stmt->execute([$requestId]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
         return $row ?: null;
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    public static function adminGatewayRefundDetails(int $requestId, ?array $order = null): ?array
+    {
+        $pr = self::latestPaymentRefundForRequest($requestId);
+        if ($pr === null) {
+            return null;
+        }
+        $gateway = (string) ($pr['gateway'] ?? '');
+        $merchantId = $gateway === 'cashfree'
+            ? GatewayRefundService::cashfreeMerchantRefundIdForStatusGet($pr)
+            : '';
+        $gatewayLabel = $gateway === 'cashfree' ? 'Cashfree' : ($gateway === 'razorpay' ? 'Razorpay' : ucfirst($gateway));
+        $lastError = trim((string) ($pr['last_status_check_error'] ?? ''));
+        $responseNote = null;
+        if ($lastError === '' && !empty($pr['id'])) {
+            $snap = self::paymentRefundRowByIdForReconcile((int) $pr['id']);
+            if ($snap !== null && !empty($snap['response_json'])) {
+                try {
+                    $decoded = json_decode((string) $snap['response_json'], true, 512, JSON_THROW_ON_ERROR);
+                    if (is_array($decoded) && !empty($decoded['refund_status'])) {
+                        $responseNote = 'Gateway reported: ' . (string) $decoded['refund_status'];
+                    }
+                } catch (Throwable $e) {
+                    $responseNote = null;
+                }
+            }
+        }
+        $gwOrderRef = '';
+        if ($order !== null) {
+            $gwOrderRef = (string) ($order['order_number'] ?? '');
+        }
+
+        return [
+            'payment_gateway' => $gatewayLabel,
+            'gateway_status' => self::publicGatewayStatusLabel((string) ($pr['gateway_status'] ?? '')),
+            'gateway_status_raw' => (string) ($pr['gateway_status'] ?? ''),
+            'merchant_refund_id' => $merchantId !== '' ? $merchantId : (string) ($pr['idempotency_key'] ?? ''),
+            'gateway_refund_id' => (string) ($pr['gateway_refund_id'] ?? ''),
+            'refund_amount_inr' => (float) ($pr['amount_inr'] ?? 0),
+            'currency' => 'INR',
+            'initiated_at' => (string) ($pr['created_at'] ?? ''),
+            'last_checked_at' => (string) ($pr['last_status_checked_at'] ?? ''),
+            'last_check_source' => (string) ($pr['last_status_check_source'] ?? ''),
+            'completed_at' => (string) ($pr['completed_at'] ?? ''),
+            'gateway_order_reference' => $gwOrderRef,
+            'status_message' => $responseNote,
+            'last_error' => $lastError !== '' ? $lastError : null,
+        ];
+    }
+
+    /**
+     * @param list<array<string, mixed>> $refunds
+     * @return list<array<string, mixed>>
+     */
+    public static function enrichCustomerOrderRefunds(array $refunds, int $customerId): array
+    {
+        $out = [];
+        foreach ($refunds as $row) {
+            $requestId = (int) ($row['id'] ?? 0);
+            $status = (string) ($row['status'] ?? '');
+            $gw = self::latestGatewayStatusForRequest($requestId);
+            $pr = self::paymentRefundsForRequest($requestId, $customerId);
+            $prLatest = $pr !== [] ? $pr[count($pr) - 1] : null;
+            $safe = self::customerSafeRequest($row);
+            $safe['display_amount_inr'] = self::displayAmountInr($row);
+            $safe['status_label'] = self::publicStatusLabel($status);
+            $safe['gateway_name'] = $prLatest !== null ? ucfirst((string) ($prLatest['gateway'] ?? '')) : null;
+            $safe['gateway_status_label'] = self::publicGatewayStatusLabel($gw);
+            $safe['customer_message'] = self::customerRefundStatusMessage($status, $gw);
+            $safe['initiated_at'] = $prLatest['created_at'] ?? null;
+            $safe['completed_at'] = ($status === RefundStatus::REFUNDED && $prLatest !== null)
+                ? ($prLatest['updated_at'] ?? null)
+                : null;
+            $safe['refund_reference'] = null;
+            if ($prLatest !== null && $status === RefundStatus::REFUNDED) {
+                $safe['refund_reference'] = (string) ($row['request_number'] ?? '');
+            }
+            $out[] = $safe;
+        }
+
+        return $out;
+    }
+
+    public static function customerRefundStatusMessage(string $requestStatus, ?string $gatewayStatus): string
+    {
+        if ($requestStatus === RefundStatus::REFUNDED) {
+            return 'Your refund has been successfully processed by the payment gateway.';
+        }
+        if ($requestStatus === RefundStatus::REFUND_FAILED) {
+            return 'We could not complete this refund at the payment gateway. Our team has been notified.';
+        }
+        if (in_array($requestStatus, [RefundStatus::PROCESSING, RefundStatus::REFUND_INITIATED], true)) {
+            return 'Your refund is being processed by the payment gateway. We will update the status once confirmation is received.';
+        }
+        if ($requestStatus === RefundStatus::APPROVED) {
+            return 'Your refund has been approved and will be submitted to the payment gateway shortly.';
+        }
+        if ($requestStatus === RefundStatus::REQUESTED || $requestStatus === RefundStatus::UNDER_REVIEW) {
+            return 'We are reviewing your refund request.';
+        }
+
+        return self::publicStatusLabel($requestStatus);
     }
 
     /** @return array<string, mixed>|null */

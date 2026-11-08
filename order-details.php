@@ -57,7 +57,10 @@ $orderRefunds = [];
 if (CommerceGateway::useDatabase() && CustomerAuth::id() !== null) {
     $row = OrderFulfillmentService::orderRowForCustomer($id, CustomerAuth::id());
     if ($row !== null) {
-        $orderRefunds = RefundRequestService::listForOrderCustomer((int) $row['id'], CustomerAuth::id());
+        $orderRefunds = RefundRequestService::enrichCustomerOrderRefunds(
+            RefundRequestService::listForOrderCustomer((int) $row['id'], CustomerAuth::id()),
+            CustomerAuth::id()
+        );
         $orderDelivered = OrderFulfillmentService::isOrderDelivered((int) $row['id']);
         if ($orderDelivered) {
             Install::ensureConnection();
@@ -98,7 +101,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cancel_order'])) {
             $order = OrderRepository::forCustomerDetail($id, CustomerAuth::id());
             $row = OrderFulfillmentService::orderRowForCustomer($id, CustomerAuth::id());
             if ($row !== null) {
-                $orderRefunds = RefundRequestService::listForOrderCustomer((int) $row['id'], CustomerAuth::id());
+                $orderRefunds = RefundRequestService::enrichCustomerOrderRefunds(
+            RefundRequestService::listForOrderCustomer((int) $row['id'], CustomerAuth::id()),
+            CustomerAuth::id()
+        );
             }
             $cancelEligible = false;
         } else {
@@ -185,7 +191,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['refund_request'])) {
             $refundMsg = 'Refund request ' . ($result['request_number'] ?? '') . ' submitted. We will review it shortly.';
             $liveOrder = OrderFulfillmentService::orderRowForCustomer($id, CustomerAuth::id());
             if ($liveOrder !== null && CustomerAuth::id() !== null) {
-                $orderRefunds = RefundRequestService::listForOrderCustomer((int) $liveOrder['id'], CustomerAuth::id());
+                $orderRefunds = RefundRequestService::enrichCustomerOrderRefunds(
+                    RefundRequestService::listForOrderCustomer((int) $liveOrder['id'], CustomerAuth::id()),
+                    CustomerAuth::id()
+                );
             }
         } else {
             $refundErr = $result['message'] ?? 'Could not submit request.';
@@ -466,16 +475,41 @@ require APNI_TOKRI_ROOT . '/includes/partials/customer-order-cancel.php';
         </section>
 
         <?php if ($orderRefunds !== []): ?>
+            <?php
+            $refundTotal = 0.0;
+            foreach ($orderRefunds as $or) {
+                if ((string) ($or['status'] ?? '') === RefundStatus::REFUNDED) {
+                    $refundTotal += (float) ($or['display_amount_inr'] ?? 0);
+                }
+            }
+            ?>
             <section class="at-card">
                 <div class="at-card__body">
-                    <h2 class="at-h3">Refunds</h2>
-                    <ul class="at-order-detail__refund-list mt-3">
+                    <h2 class="at-h3">Refund tracking</h2>
+                    <?php if ($refundTotal > 0): ?>
+                        <p class="text-sm at-muted mt-1">Total refunded on this order: <strong><?= Security::escape(catalogue_format_price($refundTotal)) ?></strong></p>
+                    <?php endif; ?>
+                    <ul class="at-order-detail__refund-list mt-3 space-y-4">
                         <?php foreach ($orderRefunds as $or): ?>
-                            <li>
-                                <a class="font-semibold underline" href="<?= Security::escape(url_base()) ?>/refund-details.php?refund=<?= rawurlencode((string) $or['request_number']) ?>"><?= Security::escape((string) $or['request_number']) ?></a>
-                                <span class="at-muted"> — <?= Security::escape(RefundRequestService::publicStatusLabel((string) $or['status'])) ?></span>
-                                <?php if (isset($or['approved_amount_inr']) && (float) $or['approved_amount_inr'] > 0): ?>
-                                    <span class="block text-sm"><?= Security::escape(catalogue_format_price((float) $or['approved_amount_inr'])) ?></span>
+                            <li class="border-b border-[var(--at-line)] pb-3 last:border-0">
+                                <p>
+                                    <a class="font-semibold underline" href="<?= Security::escape(url_base()) ?>/refund-details.php?refund=<?= rawurlencode((string) $or['request_number']) ?>"><?= Security::escape((string) $or['request_number']) ?></a>
+                                    <span class="at-muted"> — <?= Security::escape((string) ($or['status_label'] ?? '')) ?></span>
+                                </p>
+                                <?php if ((float) ($or['display_amount_inr'] ?? 0) > 0): ?>
+                                    <p class="text-sm mt-1">Amount: <strong><?= Security::escape(catalogue_format_price((float) $or['display_amount_inr'])) ?></strong></p>
+                                <?php endif; ?>
+                                <?php if (!empty($or['gateway_name'])): ?>
+                                    <p class="text-xs at-muted">Gateway: <?= Security::escape((string) $or['gateway_name']) ?><?php if (!empty($or['gateway_status_label'])): ?> · <?= Security::escape((string) $or['gateway_status_label']) ?><?php endif; ?></p>
+                                <?php endif; ?>
+                                <?php if (!empty($or['initiated_at'])): ?>
+                                    <p class="text-xs at-muted">Initiated: <?= Security::escape(customer_format_datetime((string) $or['initiated_at'])) ?></p>
+                                <?php endif; ?>
+                                <?php if (!empty($or['completed_at'])): ?>
+                                    <p class="text-xs at-muted">Completed: <?= Security::escape(customer_format_datetime((string) $or['completed_at'])) ?></p>
+                                <?php endif; ?>
+                                <?php if (!empty($or['customer_message'])): ?>
+                                    <p class="text-sm mt-2"><?= Security::escape((string) $or['customer_message']) ?></p>
                                 <?php endif; ?>
                             </li>
                         <?php endforeach; ?>

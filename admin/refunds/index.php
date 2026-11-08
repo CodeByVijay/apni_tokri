@@ -191,6 +191,13 @@ if ($requestId > 0 && Install::isSchemaReady()) {
         <?php endif; ?>
     </div></div>
 
+    <?php
+    $gatewayRefundDetails = RefundRequestService::adminGatewayRefundDetails($requestId, $order ?? null);
+    $refundHistory = RefundRequestService::history($requestId);
+    if ($gatewayRefundDetails !== null) {
+        require APNI_TOKRI_ROOT . '/includes/partials/admin/refund-gateway-details.php';
+    }
+    ?>
     <?php if ($showSuccessPanel): ?>
     <div class="at-card mt-4 at-alert at-alert--success"><div class="at-card__body text-sm space-y-1">
         <p class="font-bold">Refund processed successfully</p>
