@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 /**
  * Storefront/admin delivery slot labels: "{Name} ({Start} – {End})" from configured slot times.
- * Historical orders prefer delivery_snapshot_json times; live slot rows are not used when a snapshot exists.
+ * Historical orders prefer delivery_snapshot_json slot_start_time / slot_end_time (or custom admin override).
+ * When a snapshot exists but has no stored window, times fall back to the linked delivery_slots row
+ * (by delivery_slot_id or slot_id in snapshot). That fallback may reflect later admin edits to the slot —
+ * only snapshot-backed times are guaranteed historical.
  */
 final class DeliverySlotDisplay
 {
@@ -32,11 +35,25 @@ final class DeliverySlotDisplay
             $label = trim((string) ($orderRow['delivery_slot'] ?? ''));
         }
 
-        if (($start === '' || $end === '') && $snap === null) {
-            $live = self::liveSlotRowForOrder($orderRow, $pdo);
+        if ($start === '' || $end === '') {
+            $lookupRow = $orderRow;
+            if ($snap !== null) {
+                $snapSlotId = (int) ($snap['slot_id'] ?? 0);
+                if ($snapSlotId > 0 && (int) ($lookupRow['delivery_slot_id'] ?? 0) <= 0) {
+                    $lookupRow['delivery_slot_id'] = $snapSlotId;
+                }
+                $lookupSlug = trim((string) ($snap['slot_slug'] ?? ''));
+                if ($lookupSlug !== '' && trim((string) ($lookupRow['delivery_slot'] ?? '')) === '') {
+                    $lookupRow['delivery_slot'] = $lookupSlug;
+                }
+            }
+            $live = self::liveSlotRowForOrder($lookupRow, $pdo);
             if ($live !== null) {
-                if ($label === '') {
-                    $label = (string) ($live['label'] ?? '');
+                if ($label === '' || $label === trim((string) ($orderRow['delivery_slot'] ?? ''))) {
+                    $liveLabel = trim((string) ($live['label'] ?? ''));
+                    if ($liveLabel !== '') {
+                        $label = $liveLabel;
+                    }
                 }
                 if ($start === '') {
                     $start = (string) ($live['start_time'] ?? '');

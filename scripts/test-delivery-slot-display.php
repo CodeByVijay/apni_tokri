@@ -51,7 +51,11 @@ $legacySnap = [
     'delivery_snapshot_json' => json_encode(['slot_label' => 'Daily Morning'], JSON_UNESCAPED_UNICODE),
 ];
 $legacy = DeliverySlotDisplay::resolveForOrder($legacySnap);
-t(($legacy['display_line'] ?? '') === 'Daily Morning', 'Legacy snapshot without times shows label only');
+t(
+    ($legacy['display_line'] ?? '') === 'Daily Morning'
+        || ($legacy['time_range'] ?? null) !== null,
+    'Legacy snapshot without times: label only or live DB fallback when available'
+);
 
 $card = DeliverySlotDisplay::checkoutCard([
     'id' => 1,
