@@ -284,6 +284,17 @@ $blocked = CartCouponHandler::process(['coupon_code' => $C('PCT')]);
 ok(!$blocked['ok'], 'Server refuses coupon that cannot combine with automatic offer');
 $pdo->exec("DELETE FROM offers WHERE id = $offerId");
 
+// 16c offer stack_with_coupons ON: coupon eligible without coupon stackable_with_offers flag
+$pdo->exec("INSERT INTO offers (name, scope, discount_type, discount_value, is_active, stack_with_coupons) VALUES ('AutoStack $tok', 'store', 'percent', 5, 1, 1)");
+$offerStackId = (int) $pdo->lastInsertId();
+$pdo->exec('UPDATE coupons SET stackable_with_offers = 0 WHERE code = ' . $pdo->quote($C('PCT')));
+$ooStack = offerFor(CouponOfferService::forCurrentCart(), $C('PCT'));
+ok($ooStack !== null && !empty($ooStack['eligible']), 'Coupon eligible when offer allows stacking (coupon stackable flag off)');
+$appliedStack = CartCouponHandler::process(['coupon_code' => $C('PCT')]);
+ok(!empty($appliedStack['ok']), 'Server applies coupon when offer stack_with_coupons is ON');
+$pdo->exec("DELETE FROM offers WHERE id = $offerStackId");
+$pdo->exec('UPDATE coupons SET stackable_with_offers = 1 WHERE code = ' . $pdo->quote($C('PCT')));
+
 // 20 duplicate-request protection (client) + CSRF (server)
 $js = (string) file_get_contents(APNI_TOKRI_ROOT . '/assets/js/cart.js');
 ok(strpos($js, 'if (couponBusy) return;') !== false && strpos($js, 'setOffersBusy(true)') !== false, 'JS blocks duplicate apply/remove while a request is in flight and disables offer buttons');

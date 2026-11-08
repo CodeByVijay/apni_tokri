@@ -98,6 +98,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
         <div><label class="at-label">Priority (higher wins when tied on discount amount)</label><input name="priority" type="number" class="at-input at-focusable" value="<?= (int) ($o['priority'] ?? 0) ?>"></div>
         <div><label class="at-label">Assigned customer IDs (comma, empty = all)</label><input name="assigned_customer_ids" class="at-input at-focusable"></div>
         <label class="flex gap-2 text-sm"><input type="checkbox" name="stack_with_coupons" value="1" <?= !empty($o['stack_with_coupons']) ? 'checked' : '' ?>> Allow stacking with coupon codes</label>
+        <p class="text-xs at-muted">Allow customers to apply an eligible coupon code along with this offer. Turn this off if customers must use this offer alone.</p>
         <label class="flex gap-2 text-sm"><input type="checkbox" name="is_active" value="1" <?= !empty($o['is_active']) ? 'checked' : '' ?>> Active</label>
         <button type="submit" class="at-btn at-btn--primary at-focusable">Save offer</button>
     </div>

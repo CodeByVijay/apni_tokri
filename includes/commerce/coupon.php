@@ -44,6 +44,9 @@ final class CouponService
             return self::validateDemo($code, $subtotal);
         }
 
+        // When an automatic offer discount is present, whether a coupon may stack is determined by
+        // that offer's `stack_with_coupons` flag (passed as $offerStacksWithCoupons). Coupon rows
+        // do not need their own stackable_with_offers flag for this gate.
         if ($offerDiscount > 0 && !$offerStacksWithCoupons) {
             return ['ok' => false, 'reason' => 'offer_conflict', 'message' => 'This coupon cannot be combined with the active automatic offer.'];
         }
@@ -97,10 +100,6 @@ final class CouponService
             $scoped = $lines !== null && abs($eligibleSubtotal - $subtotal) > 0.009;
             return ['ok' => false, 'reason' => 'min_cart', 'shortfall' => round($min - $eligibleSubtotal, 2), 'message' => 'Minimum ' . ($scoped ? 'eligible items value' : 'cart value')
                 . ' for this coupon is ₹' . number_format($min, 0) . '.'];
-        }
-
-        if ($offerDiscount > 0 && empty($row['stackable_with_offers'])) {
-            return ['ok' => false, 'reason' => 'offer_conflict', 'message' => 'This coupon cannot be combined with automatic offers.'];
         }
 
         $couponBase = max(0, $eligibleSubtotal - ($offerStacksWithCoupons ? $offerDiscount * ($eligibleSubtotal / max($subtotal, 0.01)) : 0));
