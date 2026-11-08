@@ -381,17 +381,117 @@ final class UnpaidOrderExpiryService
                     $summary['paid']++;
                 } elseif ($action === 'error') {
                     $summary['errors']++;
-                    $summary['messages'][] = 'order_' . $orderId . ':' . ($out['message'] ?? 'error');
+                    self::appendExpiryBatchDiagnostic(
+                        $summary,
+                        $orderId,
+                        self::orderNumberForDiagnostic($pdo, $orderId),
+                        'cancellation',
+                        (string) ($out['message'] ?? 'error')
+                    );
                 } else {
                     $summary['skipped']++;
                 }
             } catch (Throwable $e) {
                 $summary['errors']++;
-                error_log('UnpaidOrderExpiryService::processOrder ' . $orderId);
+                self::logExpiryProcessThrowable($summary, $pdo, $orderId, $e);
             }
         }
 
         return $summary;
+    }
+
+    private static function orderNumberForDiagnostic(PDO $pdo, int $orderId): string
+    {
+        if ($orderId <= 0) {
+            return 'id:' . $orderId;
+        }
+        try {
+            $st = $pdo->prepare('SELECT order_number FROM orders WHERE id = ? LIMIT 1');
+            $st->execute([$orderId]);
+            $num = trim((string) ($st->fetchColumn() ?: ''));
+
+            return $num !== '' ? $num : 'id:' . $orderId;
+        } catch (Throwable $e) {
+            return 'id:' . $orderId;
+        }
+    }
+
+    private static function classifyExpiryThrowable(Throwable $e): string
+    {
+        if ($e instanceof PDOException) {
+            return 'database';
+        }
+        $cls = strtolower(get_class($e));
+        if (str_contains($cls, 'payment') || str_contains($cls, 'cashfree') || str_contains($cls, 'razorpay')) {
+            return 'payment_reconcile';
+        }
+        $msg = strtolower($e->getMessage());
+        if (str_contains($msg, 'cashfree') || str_contains($msg, 'razorpay') || str_contains($msg, 'gateway')) {
+            return 'payment_reconcile';
+        }
+        if (str_contains($msg, 'cancel') || str_contains($msg, 'cancellation')) {
+            return 'cancellation';
+        }
+
+        return 'exception';
+    }
+
+    private static function sanitizeExpiryDiagnosticText(string $message): string
+    {
+        $message = trim(preg_replace('/\s+/', ' ', $message) ?? '');
+        if ($message === '') {
+            return 'unknown';
+        }
+        $message = preg_replace('/[A-Za-z0-9_\-]{20,}/', '[redacted]', $message) ?? $message;
+        $message = preg_replace('/\b(sk|rzp|cf)_[a-zA-Z0-9]{8,}\b/i', '[redacted]', $message) ?? $message;
+        $message = preg_replace('/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i', '[email]', $message) ?? $message;
+        $message = preg_replace('/\b(?:\+91[\s\-]?)?[6-9]\d{9}\b/', '[phone]', $message) ?? $message;
+
+        return mb_substr($message, 0, 160);
+    }
+
+    /**
+     * @param array{cancelled: int, skipped: int, deferred: int, paid: int, errors: int, messages: list<string>} $summary
+     */
+    private static function appendExpiryBatchDiagnostic(
+        array &$summary,
+        int $orderId,
+        string $orderNumber,
+        string $category,
+        string $message
+    ): void {
+        if (count($summary['messages']) >= 8) {
+            return;
+        }
+        $safeMsg = self::sanitizeExpiryDiagnosticText($message);
+        $category = preg_replace('/[^a-z_]/', '', strtolower($category)) ?: 'unknown';
+        $label = $orderNumber !== '' ? $orderNumber : 'id:' . $orderId;
+        $summary['messages'][] = $label . ':' . $category . ':' . $safeMsg;
+    }
+
+    /**
+     * @param array{cancelled: int, skipped: int, deferred: int, paid: int, errors: int, messages: list<string>} $summary
+     */
+    private static function logExpiryProcessThrowable(array &$summary, PDO $pdo, int $orderId, Throwable $e): void
+    {
+        $orderNumber = self::orderNumberForDiagnostic($pdo, $orderId);
+        $category = self::classifyExpiryThrowable($e);
+        $safeMsg = self::sanitizeExpiryDiagnosticText($e->getMessage());
+        $sqlState = '';
+        if ($e instanceof PDOException) {
+            $code = $e->getCode();
+            $sqlState = is_scalar($code) ? (string) $code : '';
+        }
+        error_log(
+            'UnpaidOrderExpiryService processOrder failure'
+            . ' order_id=' . $orderId
+            . ' order_number=' . $orderNumber
+            . ' category=' . $category
+            . ' exception=' . get_class($e)
+            . ($sqlState !== '' ? ' sqlstate=' . $sqlState : '')
+            . ' message=' . $safeMsg
+        );
+        self::appendExpiryBatchDiagnostic($summary, $orderId, $orderNumber, $category, $safeMsg);
     }
 
     public static function resolveBatchSize(): int
