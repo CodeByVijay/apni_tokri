@@ -21,7 +21,9 @@ function oka(bool $c, string $m): void
 $root = dirname(__DIR__);
 $cancelPhp = (string) file_get_contents($root . '/includes/commerce/order_cancellation.php');
 oka(str_contains($cancelPhp, 'notifyOrderCancellationRefundRequired'), 'Cancellation calls admin refund notification');
-oka(str_contains($cancelPhp, 'createRefundRequestIfPaidOnline'), 'Cancellation auto refund request helper');
+oka(str_contains($cancelPhp, 'RefundRequestService::createAutoCancellationRefundRequest'), 'Cancellation uses RefundRequestService auto refund');
+oka(str_contains((string) file_get_contents($root . '/includes/commerce/admin_orders.php'), 'afterAdminMarkedCancelled'), 'Admin updateStatus triggers cancel refund hook');
+oka(str_contains((string) file_get_contents($root . '/includes/commerce/admin_orders.php'), 'restoreInventoryForCancelledOrder'), 'Admin cancel restores inventory in transaction');
 oka(str_contains($cancelPhp, 'availableRefundAmountForOrder'), 'Uses available refund balance');
 
 $adminNotif = (string) file_get_contents($root . '/includes/notifications/admin_notifications.php');

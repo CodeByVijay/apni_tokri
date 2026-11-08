@@ -304,17 +304,22 @@ final class OrderCancellationService
 
                 DeliverySlotReservationService::releaseForOrder($orderId);
 
+                if (!self::restoreInventoryForCancelledOrder($orderId, 'Order cancelled')) {
+                    throw new RuntimeException('Stock restoration failed for order ' . $orderId);
+                }
                 $source = (string) ($fresh['order_source'] ?? '');
                 if ($source === 'subscription') {
-                    SubscriptionRestockService::restockOrderOnce($orderId, 'Customer order cancellation');
                     self::markSubscriptionDayCancelledForOrder($pdo, $orderId, $customerId);
-                } else {
-                    if (!self::restockStorefrontOrderOnce($orderId, 'Order cancelled')) {
-                        throw new RuntimeException('Stock restoration failed for order ' . $orderId);
-                    }
                 }
 
-                $refundRequestId = self::createRefundRequestIfPaidOnline($pdo, $fresh, $customerId, $humanReason, $reasonDetail);
+                $refundRequestId = RefundRequestService::createAutoCancellationRefundRequest(
+                    $pdo,
+                    $fresh,
+                    $customerId,
+                    $humanReason,
+                    $reasonDetail,
+                    'order_cancellation'
+                );
 
                 AuditLog::write('order.cancelled', 'orders', (string) $orderId, [
                     'by' => $requestedBy,
@@ -391,6 +396,31 @@ final class OrderCancellationService
         }
     }
 
+    /**
+     * Idempotent inventory restore for a cancelled storefront or subscription fulfilment order.
+     * Skips restore when payment was never captured (stock was not decremented on placement).
+     */
+    public static function restoreInventoryForCancelledOrder(int $orderId, string $reason): bool
+    {
+        if ($orderId <= 0 || !Install::isSchemaReady()) {
+            return false;
+        }
+        Install::ensureConnection();
+        $pdo = Database::pdo();
+        $stmt = $pdo->prepare('SELECT order_source, payment_status FROM orders WHERE id = ? LIMIT 1');
+        $stmt->execute([$orderId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$row) {
+            return false;
+        }
+        $source = (string) ($row['order_source'] ?? '');
+        if ($source === 'subscription') {
+            return SubscriptionRestockService::restockOrderOnce($orderId, $reason);
+        }
+
+        return self::restockStorefrontOrderOnce($orderId, $reason);
+    }
+
     public static function restockStorefrontOrderOnce(int $orderId, string $reason): bool
     {
         if ($orderId <= 0 || !Install::isSchemaReady()) {
@@ -398,14 +428,19 @@ final class OrderCancellationService
         }
         Install::ensureConnection();
         $pdo = Database::pdo();
-        $paid = (string) ($pdo->query(
-            'SELECT payment_status FROM orders WHERE id = ' . (int) $orderId
-        )->fetchColumn() ?: '');
+        $orderRow = $pdo->prepare('SELECT payment_status, order_number FROM orders WHERE id = ? LIMIT 1');
+        $orderRow->execute([$orderId]);
+        $meta = $orderRow->fetch(PDO::FETCH_ASSOC) ?: [];
+        $paid = (string) ($meta['payment_status'] ?? '');
         if ($paid !== 'paid') {
             return true;
         }
+        $orderNumber = trim((string) ($meta['order_number'] ?? ''));
+        if ($orderNumber === '') {
+            $orderNumber = (string) $orderId;
+        }
 
-        $runRestock = static function () use ($orderId, $reason, $pdo): void {
+        $runRestock = static function () use ($orderId, $reason, $orderNumber, $pdo): void {
             if (self::restockTableReady()) {
                 $ins = $pdo->prepare(
                     'INSERT IGNORE INTO order_stock_restock_events (order_id, idempotency_key, reason) VALUES (?, ?, ?)'
@@ -428,7 +463,7 @@ final class OrderCancellationService
                 $vid = (int) $it['variant_id'];
                 $qty = (int) $it['quantity'];
                 if ($vid > 0 && $qty > 0) {
-                    $lineReason = $reason . ' (order ' . $orderId . ')';
+                    $lineReason = $reason . ' (order ' . $orderNumber . ')';
                     if (!InventoryService::increment($vid, $qty, $lineReason)) {
                         throw new RuntimeException('Could not restore stock for variant ' . $vid);
                     }
@@ -456,90 +491,73 @@ final class OrderCancellationService
     }
 
     /**
-     * @param array<string, mixed> $orderRow
+     * When admin sets order status to cancelled (status dropdown), attach cancellation audit + refund request.
+     *
+     * @return array{ok: bool, refund_request_id?: int|null, created?: bool, duplicate?: bool}
      */
-    private static function createRefundRequestIfPaidOnline(
-        PDO $pdo,
-        array $orderRow,
-        ?int $customerId,
-        string $humanReason,
-        string $reasonDetail
-    ): ?int {
-        $orderId = (int) $orderRow['id'];
-        if ((string) ($orderRow['payment_status'] ?? '') !== 'paid') {
-            return null;
+    public static function afterAdminMarkedCancelled(int $orderId, ?int $adminUserId, string $note): array
+    {
+        if ($orderId <= 0 || !Install::isSchemaReady()) {
+            return ['ok' => false];
         }
-        $refundable = RefundRequestService::availableRefundAmountForOrder($orderId);
-        if ($refundable <= 0) {
-            return null;
-        }
-        $open = $pdo->prepare(
-            "SELECT id FROM refund_requests WHERE order_id = ? AND status NOT IN ('rejected', 'cancelled', 'refunded', 'refund_failed') LIMIT 1"
-        );
-        $open->execute([$orderId]);
-        $existingId = (int) ($open->fetchColumn() ?: 0);
-        if ($existingId > 0) {
-            return null;
-        }
-        $cancelRow = $pdo->prepare(
-            "SELECT id FROM refund_requests WHERE order_id = ? AND reason_code = 'cancellation'
-             AND status NOT IN ('rejected', 'cancelled', 'refunded', 'refund_failed') LIMIT 1"
-        );
-        $cancelRow->execute([$orderId]);
-        if ((int) ($cancelRow->fetchColumn() ?: 0) > 0) {
-            return null;
+        $note = trim($note);
+        if ($note === '') {
+            $note = 'Cancelled by admin';
         }
 
-        $custId = $customerId ?? (int) ($orderRow['customer_id'] ?? 0);
-        if ($custId <= 0) {
-            return null;
+        try {
+            $refundRequestId = Database::transaction(static function () use ($orderId, $adminUserId, $note): ?int {
+                $pdo = Database::pdo();
+                $stmt = $pdo->prepare('SELECT * FROM orders WHERE id = ? LIMIT 1 FOR UPDATE');
+                $stmt->execute([$orderId]);
+                $order = $stmt->fetch(PDO::FETCH_ASSOC);
+                if (!$order || (string) ($order['status'] ?? '') !== OrderStatus::CANCELLED) {
+                    return null;
+                }
+
+                $idempotencyKey = 'admin_cancel:order:' . $orderId;
+                if (self::eventsTableReady() && self::cancellationEventForOrder($orderId) === null) {
+                    $dup = $pdo->prepare('SELECT order_id FROM order_cancellation_events WHERE idempotency_key = ? LIMIT 1');
+                    $dup->execute([$idempotencyKey]);
+                    if ((int) ($dup->fetchColumn() ?: 0) === 0) {
+                        $pdo->prepare(
+                            'INSERT INTO order_cancellation_events
+                             (order_id, reason_code, reason_detail, requested_by, customer_id, admin_user_id, idempotency_key)
+                             VALUES (?, ?, ?, ?, ?, ?, ?)'
+                        )->execute([
+                            $orderId,
+                            'admin_cancellation',
+                            mb_substr($note, 0, 500),
+                            'admin',
+                            (int) ($order['customer_id'] ?? 0) ?: null,
+                            $adminUserId,
+                            $idempotencyKey,
+                        ]);
+                    }
+                }
+
+                return RefundRequestService::createAutoCancellationRefundRequest(
+                    $pdo,
+                    $order,
+                    (int) ($order['customer_id'] ?? 0) ?: null,
+                    'Admin cancellation',
+                    $note,
+                    'order_cancellation_admin'
+                );
+            });
+        } catch (Throwable $e) {
+            error_log('OrderCancellationService::afterAdminMarkedCancelled: ' . $e->getMessage());
+
+            return ['ok' => false];
         }
 
-        $requestNumber = RefundRequestService::nextRequestNumber();
-        $desc = 'Automatic refund request from order cancellation: ' . $humanReason;
-        if ($reasonDetail !== '') {
-            $desc .= ' — ' . $reasonDetail;
+        if ($refundRequestId === null) {
+            return ['ok' => true, 'refund_request_id' => null, 'created' => false];
         }
-        $pdo->prepare(
-            'INSERT INTO refund_requests
-             (request_number, customer_id, order_id, reason_code, description, preferred_resolution, status)
-             VALUES (?, ?, ?, ?, ?, ?, ?)'
-        )->execute([
-            $requestNumber,
-            $custId,
-            $orderId,
-            'cancellation',
-            $desc,
-            'refund',
-            RefundStatus::REQUESTED,
-        ]);
-        $reqId = (int) $pdo->lastInsertId();
-        $items = $pdo->prepare('SELECT id, quantity, unit_price FROM order_items WHERE order_id = ?');
-        $items->execute([$orderId]);
-        $lineRows = [];
-        $lineTotal = 0.0;
-        foreach ($items->fetchAll(PDO::FETCH_ASSOC) as $it) {
-            $qty = (int) $it['quantity'];
-            $amt = round((float) $it['unit_price'] * $qty, 2);
-            $lineRows[] = ['id' => (int) $it['id'], 'qty' => $qty, 'amt' => $amt];
-            $lineTotal += $amt;
-        }
-        $scale = ($lineTotal > $refundable + 0.01 && $lineTotal > 0) ? ($refundable / $lineTotal) : 1.0;
-        foreach ($lineRows as $line) {
-            $amt = round($line['amt'] * $scale, 2);
-            if ($amt <= 0) {
-                continue;
-            }
-            $pdo->prepare(
-                'INSERT INTO refund_request_items (refund_request_id, order_item_id, quantity, amount_inr) VALUES (?, ?, ?, ?)'
-            )->execute([$reqId, $line['id'], $line['qty'], $amt]);
-        }
-        RefundRequestService::appendHistoryPublic($pdo, $reqId, 'system', null, 'auto_created', [
-            'source' => 'order_cancellation',
-            'amount' => $refundable,
-        ]);
 
-        return $reqId;
+        AdminNotificationService::notifyOrderCancellationRefundRequired($refundRequestId);
+
+        return ['ok' => true, 'refund_request_id' => $refundRequestId, 'created' => true];
     }
 
     /** @return array<string, mixed>|null */

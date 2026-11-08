@@ -358,7 +358,9 @@ final class AdminOrderService
         $previous = '';
         $pdo->beginTransaction();
         try {
-            $lock = $pdo->prepare('SELECT id, status FROM orders WHERE id = ? LIMIT 1 FOR UPDATE');
+            $lock = $pdo->prepare(
+                'SELECT id, status, payment_status, order_number, order_source FROM orders WHERE id = ? LIMIT 1 FOR UPDATE'
+            );
             $lock->execute([$orderId]);
             $row = $lock->fetch(PDO::FETCH_ASSOC);
             if (!$row) {
@@ -378,6 +380,14 @@ final class AdminOrderService
             $pdo->prepare(
                 'INSERT INTO order_status_history (order_id, status, note, admin_user_id) VALUES (?, ?, ?, ?)'
             )->execute([$orderId, $status, $note, $adminId]);
+            if (
+                $status === OrderStatus::CANCELLED
+                && $previous !== OrderStatus::CANCELLED
+            ) {
+                if (!OrderCancellationService::restoreInventoryForCancelledOrder($orderId, 'Order cancelled')) {
+                    throw new RuntimeException('Could not restore inventory for cancelled order.');
+                }
+            }
             $pdo->commit();
         } catch (Throwable $e) {
             if ($pdo->inTransaction()) {
@@ -409,6 +419,14 @@ final class AdminOrderService
 
         if ($previous !== $status) {
             NotificationDispatcher::orderStatusChanged($orderId, $previous, $status);
+        }
+
+        if (
+            $previous !== $status
+            && $status === OrderStatus::CANCELLED
+            && $previous !== OrderStatus::CANCELLED
+        ) {
+            OrderCancellationService::afterAdminMarkedCancelled($orderId, AdminAuth::id(), $note);
         }
 
         return ['ok' => true, 'message' => 'Order status updated.'];

@@ -204,6 +204,103 @@ final class RefundRequestService
     }
 
     /**
+     * After order cancellation (customer or admin): create refund request only — no gateway API call.
+     *
+     * @param array<string, mixed> $orderRow orders.* row (must include id, customer_id, payment_status)
+     * @return int|null refund_requests.id when created
+     */
+    public static function createAutoCancellationRefundRequest(
+        PDO $pdo,
+        array $orderRow,
+        ?int $customerId,
+        string $humanReason,
+        string $reasonDetail,
+        string $historySource = 'order_cancellation'
+    ): ?int {
+        $orderId = (int) ($orderRow['id'] ?? 0);
+        if ($orderId <= 0) {
+            return null;
+        }
+        if ((string) ($orderRow['payment_status'] ?? '') !== 'paid') {
+            return null;
+        }
+        if (self::capturedAmountForOrder($orderId) <= 0) {
+            return null;
+        }
+        $refundable = self::availableRefundAmountForOrder($orderId);
+        if ($refundable <= 0) {
+            return null;
+        }
+        $open = $pdo->prepare(
+            "SELECT id FROM refund_requests WHERE order_id = ? AND status NOT IN ('rejected', 'cancelled', 'refunded', 'refund_failed') LIMIT 1"
+        );
+        $open->execute([$orderId]);
+        $existingId = (int) ($open->fetchColumn() ?: 0);
+        if ($existingId > 0) {
+            return null;
+        }
+        $cancelRow = $pdo->prepare(
+            "SELECT id FROM refund_requests WHERE order_id = ? AND reason_code = 'cancellation'
+             AND status NOT IN ('rejected', 'cancelled', 'refunded', 'refund_failed') LIMIT 1"
+        );
+        $cancelRow->execute([$orderId]);
+        if ((int) ($cancelRow->fetchColumn() ?: 0) > 0) {
+            return null;
+        }
+
+        $custId = $customerId ?? (int) ($orderRow['customer_id'] ?? 0);
+        if ($custId <= 0) {
+            return null;
+        }
+
+        $requestNumber = self::nextRequestNumber();
+        $desc = 'Automatic refund request from order cancellation: ' . $humanReason;
+        if ($reasonDetail !== '') {
+            $desc .= ' — ' . $reasonDetail;
+        }
+        $pdo->prepare(
+            'INSERT INTO refund_requests
+             (request_number, customer_id, order_id, reason_code, description, preferred_resolution, status)
+             VALUES (?, ?, ?, ?, ?, ?, ?)'
+        )->execute([
+            $requestNumber,
+            $custId,
+            $orderId,
+            'cancellation',
+            $desc,
+            'refund',
+            RefundStatus::REQUESTED,
+        ]);
+        $reqId = (int) $pdo->lastInsertId();
+        $items = $pdo->prepare('SELECT id, quantity, unit_price FROM order_items WHERE order_id = ?');
+        $items->execute([$orderId]);
+        $lineRows = [];
+        $lineTotal = 0.0;
+        foreach ($items->fetchAll(PDO::FETCH_ASSOC) as $it) {
+            $qty = (int) $it['quantity'];
+            $amt = round((float) $it['unit_price'] * $qty, 2);
+            $lineRows[] = ['id' => (int) $it['id'], 'qty' => $qty, 'amt' => $amt];
+            $lineTotal += $amt;
+        }
+        $scale = ($lineTotal > $refundable + 0.01 && $lineTotal > 0) ? ($refundable / $lineTotal) : 1.0;
+        foreach ($lineRows as $line) {
+            $amt = round($line['amt'] * $scale, 2);
+            if ($amt <= 0) {
+                continue;
+            }
+            $pdo->prepare(
+                'INSERT INTO refund_request_items (refund_request_id, order_item_id, quantity, amount_inr) VALUES (?, ?, ?, ?)'
+            )->execute([$reqId, $line['id'], $line['qty'], $amt]);
+        }
+        self::appendHistoryPublic($pdo, $reqId, 'system', null, 'auto_created', [
+            'source' => $historySource,
+            'amount' => $refundable,
+        ]);
+
+        return $reqId;
+    }
+
+    /**
      * @return array{
      *   new_cancellations: int,
      *   approval_required: int,
