@@ -169,7 +169,7 @@ PaymentHttp::$testHandler = static function (string $method, string $url): array
 };
 try {
     $outCfMiss = UnpaidOrderExpiryService::processOrder($cfMissId);
-    okx(($outCfMiss['action'] ?? '') === 'defer', 'expired cashfree 404 reaches reconcile defer without ErrorException');
+    okx(($outCfMiss['action'] ?? '') === 'cancelled', 'expired cashfree safe 404 cancels (failed initiation)');
 } finally {
     PaymentHttp::$testHandler = $prevHandler;
 }

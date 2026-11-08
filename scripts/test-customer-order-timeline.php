@@ -264,6 +264,79 @@ try {
     $tl12 = timelineForOrder($pdo, $o12, $cid, $n12);
     tok(in_array('Order processing', pendingLabels($tl12), true) || in_array('Out for delivery', pendingLabels($tl12), true), '12 paid confirmed shows fulfilment pending steps');
 
+    // 13. Auto payment-timeout cancel — dedicated timeline step, no checkout payment prompt
+    $n13 = 'TL-PTX-' . $tag;
+    $o13 = insertOrder($pdo, $cid, $n13, OrderStatus::CANCELLED, 'failed');
+    $t13Place = date('Y-m-d H:i:s', time() - 1200);
+    $t13Hist = date('Y-m-d H:i:s', time() - 900);
+    $t13Cancel = date('Y-m-d H:i:s', time() - 600);
+    $pdo->prepare('UPDATE orders SET placed_at = ? WHERE id = ?')->execute([$t13Place, $o13]);
+    $pdo->prepare('INSERT INTO order_status_history (order_id, status, note, created_at) VALUES (?, ?, ?, ?)')
+        ->execute([$o13, 'Awaiting payment', 'Order created — complete payment to confirm', $t13Hist]);
+    $pdo->prepare('INSERT INTO order_status_history (order_id, status, note, created_at) VALUES (?, ?, ?, ?)')
+        ->execute([$o13, OrderStatus::CANCELLED, 'Cancelled by system: Payment not completed within the allowed time', $t13Cancel]);
+    if (OrderCancellationService::eventsTableReady()) {
+        $pdo->prepare(
+            'INSERT INTO order_cancellation_events (order_id, reason_code, reason_detail, requested_by, customer_id, idempotency_key, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?)'
+        )->execute([
+            $o13,
+            OrderCancellationService::REASON_PAYMENT_TIMEOUT,
+            '',
+            'system',
+            $cid,
+            'payment_timeout:order:' . $o13,
+            $t13Cancel,
+        ]);
+    }
+    $tl13 = timelineForOrder($pdo, $o13, $cid, $n13);
+    $hasTimeoutStep = false;
+    $hasCheckoutPrompt = false;
+    $timeoutAt = '';
+    foreach ($tl13 as $s) {
+        $label = (string) ($s['status'] ?? '');
+        if ($label === 'Payment window expired — Order automatically cancelled' && !empty($s['done'])) {
+            $hasTimeoutStep = true;
+            $timeoutAt = (string) ($s['at'] ?? '');
+        }
+        if (str_contains($label, 'complete payment to confirm')) {
+            $hasCheckoutPrompt = true;
+        }
+    }
+    tok(OrderCancellationService::eventsTableReady(), '13 cancellation events table present');
+    if (OrderCancellationService::eventsTableReady()) {
+        tok($hasTimeoutStep, '13 payment_timeout shows auto-cancel timeline step');
+        tok($timeoutAt === $t13Cancel, '13 auto-cancel step uses cancellation event timestamp');
+        tok(!$hasCheckoutPrompt, '13 payment_timeout hides checkout payment prompt history');
+    }
+
+    // 14. Customer cancellation — preserve checkout prompt and generic cancelled history
+    $n14 = 'TL-CC-' . $tag;
+    $o14 = insertOrder($pdo, $cid, $n14, OrderStatus::CANCELLED, 'failed');
+    $pdo->prepare('INSERT INTO order_status_history (order_id, status, note, created_at) VALUES (?, ?, ?, NOW())')
+        ->execute([$o14, 'Awaiting payment', 'Order created — complete payment to confirm']);
+    $pdo->prepare('INSERT INTO order_status_history (order_id, status, note, created_at) VALUES (?, ?, ?, NOW())')
+        ->execute([$o14, OrderStatus::CANCELLED, 'Cancelled by customer: Ordered by mistake']);
+    if (OrderCancellationService::eventsTableReady()) {
+        $pdo->prepare(
+            'INSERT INTO order_cancellation_events (order_id, reason_code, reason_detail, requested_by, customer_id, idempotency_key)
+             VALUES (?, ?, ?, ?, ?, ?)'
+        )->execute([$o14, 'ordered_by_mistake', '', 'customer', $cid, 'idem-cc-' . $o14]);
+    }
+    $tl14 = timelineForOrder($pdo, $o14, $cid, $n14);
+    $custHasPrompt = false;
+    $custHasTimeoutWording = false;
+    foreach ($tl14 as $s) {
+        if (str_contains((string) ($s['status'] ?? ''), 'complete payment to confirm')) {
+            $custHasPrompt = true;
+        }
+        if ((string) ($s['status'] ?? '') === 'Payment window expired — Order automatically cancelled') {
+            $custHasTimeoutWording = true;
+        }
+    }
+    tok($custHasPrompt, '14 customer cancel keeps checkout payment prompt in timeline');
+    tok(!$custHasTimeoutWording, '14 customer cancel does not show payment_timeout auto-cancel label');
+
     $pdo->rollBack();
     tok(true, 'All fixtures rolled back (no order rows persisted)');
 } catch (Throwable $e) {

@@ -647,6 +647,8 @@ final class CustomerOrderTimeline
             }
         }
 
+        $paymentTimeoutCancel = self::resolvePaymentTimeoutCancellation($orderId, $orderRow, $pdo);
+
         $hist = $pdo->prepare(
             'SELECT status, note, created_at FROM order_status_history WHERE order_id = ? ORDER BY created_at ASC, id ASC'
         );
@@ -654,6 +656,14 @@ final class CustomerOrderTimeline
         foreach ($hist->fetchAll(PDO::FETCH_ASSOC) ?: [] as $h) {
             $statusRaw = (string) ($h['status'] ?? '');
             $note = (string) ($h['note'] ?? '');
+            if ($paymentTimeoutCancel !== null) {
+                if (self::isAwaitingPaymentCheckoutPrompt($statusRaw, $note)) {
+                    continue;
+                }
+                if (self::normalizeOrderHistoryToken($statusRaw) === OrderStatus::CANCELLED) {
+                    continue;
+                }
+            }
             $label = self::historyLabel($statusRaw, $note);
             $at = (string) ($h['created_at'] ?? '');
             if ($label === '' || $at === '') {
@@ -664,6 +674,15 @@ final class CustomerOrderTimeline
                 $at,
                 self::orderHistorySemanticKey($statusRaw, $note),
                 'order_history'
+            );
+        }
+
+        if ($paymentTimeoutCancel !== null) {
+            $events[] = self::event(
+                'Payment window expired — Order automatically cancelled',
+                $paymentTimeoutCancel['at'],
+                'order.cancelled.payment_timeout',
+                'cancellation_event'
             );
         }
 
@@ -917,6 +936,45 @@ final class CustomerOrderTimeline
         }
 
         return $status;
+    }
+
+    /** @return array{at: string}|null */
+    private static function resolvePaymentTimeoutCancellation(int $orderId, array $orderRow, PDO $pdo): ?array
+    {
+        if ($orderId <= 0 || (string) ($orderRow['status'] ?? '') !== OrderStatus::CANCELLED) {
+            return null;
+        }
+        if (!OrderCancellationService::eventsTableReady()) {
+            return null;
+        }
+        $evt = OrderCancellationService::cancellationEventForOrder($orderId);
+        if ($evt === null || (string) ($evt['reason_code'] ?? '') !== OrderCancellationService::REASON_PAYMENT_TIMEOUT) {
+            return null;
+        }
+        $at = trim((string) ($evt['created_at'] ?? ''));
+        if ($at === '') {
+            $st = $pdo->prepare(
+                'SELECT created_at FROM order_status_history WHERE order_id = ? AND status = ? ORDER BY created_at DESC LIMIT 1'
+            );
+            $st->execute([$orderId, OrderStatus::CANCELLED]);
+            $at = trim((string) ($st->fetchColumn() ?: ''));
+        }
+        if ($at === '') {
+            return null;
+        }
+
+        return ['at' => $at];
+    }
+
+    private static function isAwaitingPaymentCheckoutPrompt(string $statusRaw, string $note): bool
+    {
+        $status = strtolower(trim($statusRaw));
+        $noteL = strtolower(trim($note));
+        if ($status === 'awaiting payment' && str_contains($noteL, 'complete payment to confirm')) {
+            return true;
+        }
+
+        return str_contains(strtolower($statusRaw), 'complete payment to confirm');
     }
 
     /**

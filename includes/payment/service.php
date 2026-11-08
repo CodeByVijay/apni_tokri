@@ -930,12 +930,42 @@ final class PaymentService
         $recordedCashfreeEnv = self::cashfreeRecordedEnvironmentFromPayments($orderPayments);
         $orderFetch = CashfreeGateway::fetchOrder($orderNumber, $recordedCashfreeEnv);
         if (!$orderFetch['ok']) {
+            $httpStatus = (int) ($orderFetch['http_status'] ?? 0);
+            $networkError = !empty($orderFetch['network_error']) || ($httpStatus === 0 && !empty($orderFetch['error']));
             $adminMsg = (string) ($orderFetch['error'] ?? 'Could not verify payment status.');
-            if (self::cashfreePaymentsNeverReachedGateway($orderPayments) && (int) ($orderFetch['http_status'] ?? 0) === 404) {
+            if (self::cashfreePaymentsNeverReachedGateway($orderPayments) && $httpStatus === 404) {
                 $adminMsg = 'No Cashfree order exists for this storefront order. The payment row shows a failed attempt '
                     . 'without a gateway order ID — Cashfree checkout was not created successfully. '
                     . 'Customer can use Retry payment; refresh cannot recover a missing gateway order.';
             }
+
+            if ($source === 'expiry_cron' && $httpStatus === 404 && !$networkError) {
+                $safe = self::evaluateCashfreeExpiryCron404AsUnpaid($orderId, $orderNumber, $orderPayments);
+                if ($safe['ok']) {
+                    self::recordCashfreeReconciliationAudit(
+                        $orderId,
+                        $orderNumber,
+                        $source,
+                        $oldOrderPayStatus,
+                        $oldOrderPayStatus,
+                        $openCashfree,
+                        $openCashfree,
+                        'expiry_unpaid_verified_404',
+                        null,
+                        null,
+                        $safe['detail'],
+                        $actingAdminUserId,
+                        [
+                            'http_status' => 404,
+                            'expiry_treat_as_unpaid' => true,
+                            'safety_checks' => $safe['checks'],
+                        ]
+                    );
+
+                    return ['ok' => true, 'state' => 'failed', 'message' => $safe['detail']];
+                }
+            }
+
             self::recordCashfreeReconciliationAudit(
                 $orderId,
                 $orderNumber,
@@ -948,7 +978,8 @@ final class PaymentService
                 null,
                 null,
                 $adminMsg,
-                $actingAdminUserId
+                $actingAdminUserId,
+                $httpStatus > 0 ? ['http_status' => $httpStatus] : null
             );
 
             return ['ok' => false, 'state' => 'error', 'message' => $adminMsg];
@@ -1197,6 +1228,120 @@ final class PaymentService
         return $sawCashfree;
     }
 
+    /**
+     * Expiry cron only: verify Cashfree HTTP 404 (no merchant order at PG) is safe to treat as unpaid.
+     *
+     * @param list<array<string, mixed>> $orderPayments
+     * @return array{ok: bool, detail: string, checks: array<string, bool>}
+     */
+    private static function evaluateCashfreeExpiryCron404AsUnpaid(
+        int $orderId,
+        string $orderNumber,
+        array $orderPayments
+    ): array {
+        Install::ensureConnection();
+        $pdo = Database::pdo();
+        $checks = [
+            'cashfree_attempts_all_failed' => self::allCashfreePaymentAttemptsFailed($orderPayments),
+            'no_gateway_references_on_payments' => self::orderPaymentsLackGatewayReferences($orderPayments),
+            'no_captured_payment_row' => !CheckoutIdempotencyService::orderHasCapturedPayment($pdo, $orderId),
+            'no_open_completion_exception' => !self::orderHasOpenPaymentCompletionException($orderId, $pdo),
+            'no_cashfree_success_webhook' => !self::cashfreeOrderHasCapturedSuccessWebhookEvidence($pdo, $orderNumber),
+        ];
+        $failedChecks = array_keys(array_filter($checks, static fn (bool $v): bool => !$v));
+        $ok = $failedChecks === [];
+        $detail = $ok
+            ? 'Expiry cron: Cashfree HTTP 404 for merchant order with failed checkout initiation (no gateway order at PG). '
+                . 'All safety checks passed — treating as unpaid for payment-timeout cancellation.'
+            : 'Expiry cron: Cashfree HTTP 404 but not treated as unpaid; failed checks: ' . implode(', ', $failedChecks) . '.';
+
+        return ['ok' => $ok, 'detail' => $detail, 'checks' => $checks];
+    }
+
+    /** @param list<array<string, mixed>> $orderPayments */
+    private static function allCashfreePaymentAttemptsFailed(array $orderPayments): bool
+    {
+        $sawCashfree = false;
+        foreach ($orderPayments as $row) {
+            if ((string) ($row['gateway'] ?? '') !== 'cashfree') {
+                continue;
+            }
+            $sawCashfree = true;
+            if ((string) ($row['status'] ?? '') !== 'failed') {
+                return false;
+            }
+        }
+
+        return $sawCashfree;
+    }
+
+    /** @param list<array<string, mixed>> $orderPayments */
+    private static function orderPaymentsLackGatewayReferences(array $orderPayments): bool
+    {
+        foreach ($orderPayments as $row) {
+            if (trim((string) ($row['gateway_order_id'] ?? '')) !== '') {
+                return false;
+            }
+            if (trim((string) ($row['gateway_payment_id'] ?? '')) !== '') {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static function orderHasOpenPaymentCompletionException(int $orderId, PDO $pdo): bool
+    {
+        try {
+            $n = (int) $pdo->query(
+                "SELECT COUNT(*) FROM information_schema.TABLES
+                 WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'payment_completion_exceptions'"
+            )->fetchColumn();
+            if ($n === 0) {
+                return false;
+            }
+            $st = $pdo->prepare("SELECT COUNT(*) FROM payment_completion_exceptions WHERE order_id = ? AND status = 'open'");
+            $st->execute([$orderId]);
+
+            return (int) $st->fetchColumn() > 0;
+        } catch (Throwable $e) {
+            return true;
+        }
+    }
+
+    private static function cashfreeOrderHasCapturedSuccessWebhookEvidence(PDO $pdo, string $orderNumber): bool
+    {
+        $orderNumber = trim($orderNumber);
+        if ($orderNumber === '') {
+            return false;
+        }
+        try {
+            $n = (int) $pdo->query(
+                "SELECT COUNT(*) FROM information_schema.TABLES
+                 WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'payment_webhook_events'"
+            )->fetchColumn();
+            if ($n === 0) {
+                return false;
+            }
+            $st = $pdo->prepare(
+                "SELECT COUNT(*) FROM payment_webhook_events
+                 WHERE gateway = 'cashfree'
+                   AND (
+                     LOWER(JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.type'))) IN (
+                       'payment_success_webhook', 'payment_charges_webhook'
+                     )
+                     OR UPPER(JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.data.payment.payment_status'))) = 'SUCCESS'
+                   )
+                   AND JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.data.order.order_id')) = ?"
+            );
+            $st->execute([$orderNumber]);
+
+            return (int) $st->fetchColumn() > 0;
+        } catch (Throwable $e) {
+            return true;
+        }
+    }
+
     private static function backfillCashfreeGatewayOrderIds(int $orderId, string $cfOrderId): void
     {
         $cfOrderId = trim($cfOrderId);
@@ -1394,7 +1539,8 @@ final class PaymentService
         ?string $gatewayOrderId,
         ?string $gatewayPaymentId,
         ?string $detailMessage,
-        ?int $actingAdminUserId
+        ?int $actingAdminUserId,
+        ?array $extraPayload = null
     ): void {
         $payload = [
             'order_number' => $orderNumber,
@@ -1409,6 +1555,9 @@ final class PaymentService
             'detail' => $detailMessage,
             'reconciled_at' => date('c'),
         ];
+        if ($extraPayload !== null && $extraPayload !== []) {
+            $payload = array_merge($payload, $extraPayload);
+        }
         AuditLog::write('payment.cashfree_reconcile', 'orders', (string) $orderId, $payload, $actingAdminUserId);
 
         if ($oldOrderPaymentStatus !== $newOrderPaymentStatus && $detailMessage !== null && $detailMessage !== '') {
