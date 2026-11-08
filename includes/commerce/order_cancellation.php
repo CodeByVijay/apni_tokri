@@ -3,10 +3,34 @@
 declare(strict_types=1);
 
 /**
- * Central order cancellation (customer + shared eligibility with admin).
+ * Central order cancellation (customer eligibility; payment-timeout system path).
  */
 final class OrderCancellationService
 {
+    /**
+     * Customer storefront: cancel only while the order is still before kitchen prep.
+     * Canonical DB values (OrderStatus), not display labels.
+     *
+     * @var list<string>
+     */
+    private const CUSTOMER_CANCELABLE_STATUSES = [
+        OrderStatus::PENDING_PAYMENT,
+        OrderStatus::PAYMENT_FAILED,
+        OrderStatus::CONFIRMED,
+        OrderStatus::ACCEPTED,
+        OrderStatus::DELIVERY_EXCEPTION,
+    ];
+
+    /** @var list<string> */
+    private const CUSTOMER_NO_CANCEL_STATUSES = [
+        OrderStatus::PREPARING,
+        OrderStatus::READY,
+        OrderStatus::OUT_FOR_DELIVERY,
+        OrderStatus::DELIVERED,
+        OrderStatus::REFUNDED,
+        OrderStatus::PARTIALLY_REFUNDED,
+    ];
+
     /** @var array<string, string> */
     public const CUSTOMER_REASONS = [
         'ordered_by_mistake' => 'Ordered by mistake',
@@ -76,15 +100,14 @@ final class OrderCancellationService
         if ($status === OrderStatus::CANCELLED) {
             return ['eligible' => false, 'code' => 'already_cancelled', 'message' => 'This order is already cancelled.'];
         }
-        $terminal = [
-            OrderStatus::DELIVERED,
-            OrderStatus::OUT_FOR_DELIVERY,
-            OrderStatus::READY,
-            OrderStatus::REFUNDED,
-            OrderStatus::PARTIALLY_REFUNDED,
-        ];
-        if (in_array($status, $terminal, true)) {
-            return ['eligible' => false, 'code' => 'status_locked', 'message' => 'This order can no longer be cancelled.'];
+
+        if (in_array($status, self::CUSTOMER_NO_CANCEL_STATUSES, true)) {
+            $message = $status === OrderStatus::PREPARING
+                ? 'This order is being prepared and can no longer be cancelled.'
+                : 'This order can no longer be cancelled.';
+            $code = $status === OrderStatus::PREPARING ? 'preparing_started' : 'status_locked';
+
+            return ['eligible' => false, 'code' => $code, 'message' => $message];
         }
 
         $delStatus = $deliveryRow !== null ? (string) ($deliveryRow['status'] ?? '') : '';
@@ -94,19 +117,7 @@ final class OrderCancellationService
             }
         }
 
-        if ($status === OrderStatus::PREPARING && $delStatus === DeliveryStatus::READY) {
-            return ['eligible' => false, 'code' => 'packed', 'message' => 'This order is packed and cannot be cancelled.'];
-        }
-
-        $allowed = [
-            OrderStatus::PENDING_PAYMENT,
-            OrderStatus::PAYMENT_FAILED,
-            OrderStatus::CONFIRMED,
-            OrderStatus::ACCEPTED,
-            OrderStatus::PREPARING,
-            OrderStatus::DELIVERY_EXCEPTION,
-        ];
-        if (!in_array($status, $allowed, true)) {
+        if (!in_array($status, self::CUSTOMER_CANCELABLE_STATUSES, true)) {
             return ['eligible' => false, 'code' => 'status_locked', 'message' => 'This order cannot be cancelled.'];
         }
 

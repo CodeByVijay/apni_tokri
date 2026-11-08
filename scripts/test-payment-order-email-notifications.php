@@ -126,6 +126,7 @@ $pdo->prepare(
 NotificationDispatcher::orderPlacedPendingPayment($orderId);
 $placedKey = 'order.placed:order:' . $orderId . ':email';
 okE(queueIdForKey($pdo, $placedKey) > 0, 'Order placed email enqueued');
+okE(OrderEmailContext::shouldSendPendingPaymentEmail($orderId), 'Unpaid order allows pending-payment email');
 NotificationDispatcher::orderPlacedPendingPayment($orderId);
 $stPlaced = $pdo->prepare('SELECT COUNT(*) FROM notification_queue WHERE idempotency_key = ?');
 $stPlaced->execute([$placedKey]);
@@ -136,7 +137,15 @@ $pdo->prepare('UPDATE payments SET status = ?, gateway_payment_id = ?, captured_
     ->execute(['captured', 'cfpay_' . $tag, $orderId]);
 $pdo->prepare('UPDATE orders SET payment_status = ?, status = ? WHERE id = ?')->execute(['paid', 'confirmed', $orderId]);
 okE(OrderEmailContext::isOrderPaidAndCaptured($orderId), 'Paid + captured before confirmation email');
+okE(!OrderEmailContext::shouldSendPendingPaymentEmail($orderId), 'Paid order blocks pending-payment email');
+$stPlacedStatus = $pdo->prepare('SELECT status FROM notification_queue WHERE idempotency_key = ?');
+$stPlacedStatus->execute([$placedKey]);
+NotificationDispatcher::orderPlacedPendingPayment($orderId);
+$stPlaced->execute([$placedKey]);
+okE((int) $stPlaced->fetchColumn() === 1, 'Paid order does not enqueue another placed email');
 NotificationDispatcher::orderPaymentSuccess($orderId);
+$stPlacedStatus->execute([$placedKey]);
+okE((string) $stPlacedStatus->fetchColumn() === 'cancelled', 'Payment success cancels pending placed email in queue');
 $successKey = 'payment.success:order:' . $orderId . ':email';
 okE(queueIdForKey($pdo, $successKey) > 0, 'Cashfree payment success email enqueued');
 $row = $pdo->prepare('SELECT payload_json FROM notification_queue WHERE idempotency_key = ?');
@@ -253,6 +262,31 @@ $pdo->prepare(
 $failedPayId = (int) $pdo->lastInsertId();
 NotificationDispatcher::orderPaymentSuccess($failedPayId);
 okE(queueIdForKey($pdo, 'payment.success:order:' . $failedPayId . ':email') === 0, 'No confirmation email when payment not paid');
+
+// Stale queue: enqueued while unpaid, worker runs after payment — no SMTP send
+$staleNo = 'AT-STALE-' . strtoupper($tag);
+$pdo->prepare(
+    'INSERT INTO orders (order_number, customer_id, customer_address_id, status, subtotal, grand_total, payment_status, delivery_slot)
+     VALUES (?, ?, ?, ?, 15, 15, ?, ?)'
+)->execute([$staleNo, $custId, $addrId, 'pending_payment', 'pending', 'morning']);
+$staleId = (int) $pdo->lastInsertId();
+NotificationDispatcher::orderPlacedPendingPayment($staleId);
+$staleKey = 'order.placed:order:' . $staleId . ':email';
+okE(queueIdForKey($pdo, $staleKey) > 0, 'Stale scenario: placed email queued');
+$pdo->prepare(
+    "INSERT INTO payments (order_id, gateway, amount, currency, status, idempotency_key, captured_at)
+     VALUES (?, 'cashfree', 15, 'INR', 'captured', ?, NOW())"
+)->execute([$staleId, 'pay_stale_' . $tag]);
+$pdo->prepare('UPDATE orders SET payment_status = ?, status = ? WHERE id = ?')->execute(['paid', 'confirmed', $staleId]);
+$staleProc = NotificationQueueService::claimAndProcessByIdempotencyKey('email', $staleKey);
+okE(!empty($staleProc['ok']), 'Stale placed job finishes without error');
+okE(!empty($staleProc['skipped']), 'Stale placed job skipped after payment');
+$stStale = $pdo->prepare('SELECT status FROM notification_queue WHERE idempotency_key = ?');
+$stStale->execute([$staleKey]);
+okE((string) $stStale->fetchColumn() === 'cancelled', 'Stale placed queue row cancelled not sent');
+$pdo->prepare('DELETE FROM payments WHERE order_id = ?')->execute([$staleId]);
+$pdo->prepare('DELETE FROM orders WHERE id = ?')->execute([$staleId]);
+$pdo->prepare('DELETE FROM notification_queue WHERE idempotency_key = ?')->execute([$staleKey]);
 
 // Pending payment — no confirmation email
 $pendingNo = 'AT-PEND-' . strtoupper($tag);

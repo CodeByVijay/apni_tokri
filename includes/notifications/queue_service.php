@@ -363,6 +363,16 @@ final class NotificationQueueService
         }
 
         $leaseToken = (string) ($job['lease_token'] ?? '');
+        $eventType = (string) ($job['event_type'] ?? '');
+        $templateKey = (string) ($job['template_key'] ?? '');
+        if ($eventType === 'order.placed' || $templateKey === 'order.placed.email') {
+            $orderId = OrderEmailContext::orderIdFromPlacedEmailIdempotencyKey((string) ($job['idempotency_key'] ?? ''));
+            if ($orderId !== null && !OrderEmailContext::shouldSendPendingPaymentEmail($orderId)) {
+                self::markCancelledWithLease($jobId, $leaseToken, 'order_already_paid', 'Pending payment email no longer applicable.');
+
+                return ['ok' => true, 'skipped' => true];
+            }
+        }
 
         $payload = [];
         if (!empty($job['payload_json'])) {
@@ -376,7 +386,6 @@ final class NotificationQueueService
             }
         }
 
-        $templateKey = (string) ($job['template_key'] ?? '');
         $template = NotificationTemplateRepository::findByKey($templateKey);
         if ($template === null) {
             self::markFailed($jobId, $leaseToken, 'missing_template', 'Template not found or inactive.', true);
@@ -440,6 +449,58 @@ final class NotificationQueueService
         $stmt->execute([self::STATUS_SENT, $jobId, self::STATUS_PROCESSING, $leaseToken]);
 
         return $stmt->rowCount() === 1;
+    }
+
+    public static function markCancelledWithLease(
+        int $jobId,
+        string $leaseToken,
+        string $errorCode,
+        string $errorMessage
+    ): bool {
+        if ($leaseToken === '') {
+            return false;
+        }
+        Install::ensureConnection();
+        $stmt = Database::pdo()->prepare(
+            "UPDATE notification_queue SET status = ?, processed_at = NOW(),
+             error_code = ?, error_message = ?, lease_token = NULL, lease_expires_at = NULL, processing_started_at = NULL
+             WHERE id = ? AND status = ? AND lease_token = ?"
+        );
+        $stmt->execute([
+            self::STATUS_CANCELLED,
+            mb_substr($errorCode, 0, 64),
+            mb_substr($errorMessage, 0, 255),
+            $jobId,
+            self::STATUS_PROCESSING,
+            $leaseToken,
+        ]);
+
+        return $stmt->rowCount() === 1;
+    }
+
+    /**
+     * Drop stale pending-payment email when payment captured (idempotent).
+     */
+    public static function cancelPendingByIdempotencyKey(string $idempotencyKey, string $reasonCode = 'superseded'): bool
+    {
+        if (!self::tableReady() || $idempotencyKey === '') {
+            return false;
+        }
+        Install::ensureConnection();
+        $stmt = Database::pdo()->prepare(
+            "UPDATE notification_queue SET status = ?, processed_at = NOW(), error_code = ?,
+             error_message = 'Cancelled before send.', lease_token = NULL, lease_expires_at = NULL, processing_started_at = NULL
+             WHERE idempotency_key = ? AND status IN (?, ?)"
+        );
+        $stmt->execute([
+            self::STATUS_CANCELLED,
+            mb_substr($reasonCode, 0, 64),
+            $idempotencyKey,
+            self::STATUS_PENDING,
+            self::STATUS_PROCESSING,
+        ]);
+
+        return $stmt->rowCount() > 0;
     }
 
     /**

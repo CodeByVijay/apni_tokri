@@ -18,6 +18,9 @@ final class NotificationDispatcher
         if (!NotificationQueueService::tableReady() || $orderId <= 0) {
             return;
         }
+        if (!OrderEmailContext::shouldSendPendingPaymentEmail($orderId)) {
+            return;
+        }
         try {
             $recipient = OrderEmailContext::resolveRecipientForOrderId($orderId);
             if ($recipient === null) {
@@ -54,6 +57,10 @@ final class NotificationDispatcher
         if (!OrderEmailContext::isOrderPaidAndCaptured($orderId)) {
             return;
         }
+        NotificationQueueService::cancelPendingByIdempotencyKey(
+            'order.placed:order:' . $orderId . ':email',
+            'payment_captured'
+        );
         $idempotencyKey = 'payment.success:order:' . $orderId . ':email';
         try {
             $recipient = OrderEmailContext::resolveRecipientForOrderId($orderId);

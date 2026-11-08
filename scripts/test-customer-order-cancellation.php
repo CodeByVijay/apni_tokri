@@ -78,7 +78,14 @@ okc(
     'Pending order status cancelled'
 );
 
+$acceptedId = mkOrder($pdo, $customerA, $variantId, OrderStatus::ACCEPTED, 'paid', 'ACPT');
+$acceptedNum = (string) $pdo->query('SELECT order_number FROM orders WHERE id = ' . $acceptedId)->fetchColumn();
+$rowAcc = $pdo->query('SELECT * FROM orders WHERE id = ' . $acceptedId)->fetch(PDO::FETCH_ASSOC);
+okc(OrderCancellationService::eligibility($rowAcc)['eligible'], 'Accepted (pre-preparing) eligible');
+
 $confirmedId = mkOrder($pdo, $customerA, $variantId, OrderStatus::CONFIRMED, 'paid', 'CONF');
+$rowConf = $pdo->query('SELECT * FROM orders WHERE id = ' . $confirmedId)->fetch(PDO::FETCH_ASSOC);
+okc(OrderCancellationService::eligibility($rowConf)['eligible'], 'Confirmed eligible');
 $confirmedNum = (string) $pdo->query('SELECT order_number FROM orders WHERE id = ' . $confirmedId)->fetchColumn();
 $pdo->prepare(
     "INSERT INTO payments (order_id, gateway, amount, currency, status, idempotency_key, captured_at) VALUES (?, 'simulate', 100, 'INR', 'captured', ?, NOW())"
@@ -124,16 +131,31 @@ okc(empty($badPack['ok']), 'Reject cancel packed order');
 
 $dispId = mkOrder($pdo, $customerA, $variantId, OrderStatus::OUT_FOR_DELIVERY, 'paid', 'DISP');
 $dispNum = (string) $pdo->query('SELECT order_number FROM orders WHERE id = ' . $dispId)->fetchColumn();
+$dispRow = $pdo->query('SELECT * FROM orders WHERE id = ' . $dispId)->fetch(PDO::FETCH_ASSOC);
+okc(!OrderCancellationService::eligibility($dispRow)['eligible'], 'Out for delivery not eligible');
 okc(empty(OrderCancellationService::cancelByCustomer($customerA, $dispNum, 'ordered_by_mistake', '', 'idem-disp-' . $runSuffix)['ok']), 'Reject dispatched');
 
 $delId = mkOrder($pdo, $customerA, $variantId, OrderStatus::DELIVERED, 'paid', 'DEL');
 $delNum = (string) $pdo->query('SELECT order_number FROM orders WHERE id = ' . $delId)->fetchColumn();
+$delRow = $pdo->query('SELECT * FROM orders WHERE id = ' . $delId)->fetch(PDO::FETCH_ASSOC);
+okc(!OrderCancellationService::eligibility($delRow)['eligible'], 'Delivered not eligible');
 okc(empty(OrderCancellationService::cancelByCustomer($customerA, $delNum, 'ordered_by_mistake', '', 'idem-del-' . $runSuffix)['ok']), 'Reject delivered');
 
 $procId = mkOrder($pdo, $customerA, $variantId, OrderStatus::PREPARING, 'paid', 'PROC');
 $procNum = (string) $pdo->query('SELECT order_number FROM orders WHERE id = ' . $procId)->fetchColumn();
+$rowProc = $pdo->query('SELECT * FROM orders WHERE id = ' . $procId)->fetch(PDO::FETCH_ASSOC);
 $pdo->prepare('INSERT INTO deliveries (order_id, status) VALUES (?, ?)')->execute([$procId, DeliveryStatus::PENDING_DISPATCH]);
-okc(!empty(OrderCancellationService::cancelByCustomer($customerA, $procNum, 'delivery_too_slow', '', 'idem-proc-' . $runSuffix)['ok']), 'Cancel preparing before dispatch');
+$pdo->prepare(
+    "INSERT INTO payments (order_id, gateway, amount, currency, status, idempotency_key, captured_at) VALUES (?, 'simulate', 100, 'INR', 'captured', ?, NOW())"
+)->execute([$procId, 'pay-preparing-' . $procId]);
+okc(!OrderCancellationService::eligibility($rowProc)['eligible'], 'Preparing not eligible');
+$badProc = OrderCancellationService::cancelByCustomer($customerA, $procNum, 'delivery_too_slow', '', 'idem-proc-' . $runSuffix);
+okc(empty($badProc['ok']), 'Reject cancel while preparing');
+okc(
+    (string) $pdo->query('SELECT status FROM orders WHERE id = ' . $procId)->fetchColumn() === OrderStatus::PREPARING,
+    'Preparing order status unchanged after rejected cancel'
+);
+okc((int) $pdo->query('SELECT COUNT(*) FROM refund_requests WHERE order_id = ' . $procId)->fetchColumn() === 0, 'No refund request when preparing cancel rejected');
 
 $proc2 = mkOrder($pdo, $customerA, $variantId, OrderStatus::PREPARING, 'paid', 'PROC2');
 $proc2Num = (string) $pdo->query('SELECT order_number FROM orders WHERE id = ' . $proc2)->fetchColumn();

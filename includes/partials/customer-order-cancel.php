@@ -27,7 +27,7 @@ $cancelFormAction = $cancelFormAction ?? (url_base() . '/order-details.php?id=' 
     <section class="at-card at-order-cancel">
         <div class="at-card__body">
             <h2 class="at-h3">Cancel order</h2>
-            <p class="text-sm at-muted mt-1">You can cancel this order before packing or dispatch. Paid online orders will receive a refund request for admin processing.</p>
+            <p class="text-sm at-muted mt-1">You can cancel this order until we start preparing it. Paid online orders will receive a refund request for admin processing.</p>
             <button type="button" class="at-btn at-btn--secondary at-btn--sm at-focusable mt-3" id="at-open-cancel-dialog" aria-haspopup="dialog">
                 Cancel order
             </button>

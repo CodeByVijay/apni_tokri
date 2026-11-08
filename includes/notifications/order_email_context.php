@@ -177,6 +177,52 @@ final class OrderEmailContext
     }
 
     /**
+     * Pending-payment email (`order.placed.email`) only while checkout is still unpaid.
+     */
+    public static function shouldSendPendingPaymentEmail(int $orderId): bool
+    {
+        if ($orderId <= 0) {
+            return false;
+        }
+        if (self::isOrderPaidAndCaptured($orderId)) {
+            return false;
+        }
+        if (self::capturedPaymentForOrder($orderId) !== null) {
+            return false;
+        }
+        Install::ensureConnection();
+        $st = Database::pdo()->prepare('SELECT payment_status, status FROM orders WHERE id = ? LIMIT 1');
+        $st->execute([$orderId]);
+        $row = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$row) {
+            return false;
+        }
+        if ((string) ($row['payment_status'] ?? '') === 'paid') {
+            return false;
+        }
+        $status = strtolower(trim((string) ($row['status'] ?? '')));
+        if ($status === OrderStatus::CANCELLED) {
+            return false;
+        }
+        if (!in_array($status, [OrderStatus::PENDING_PAYMENT, OrderStatus::PAYMENT_FAILED], true)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    public static function orderIdFromPlacedEmailIdempotencyKey(string $idempotencyKey): ?int
+    {
+        if (preg_match('/^order\.placed:order:(\d+):email$/', trim($idempotencyKey), $m) === 1) {
+            $id = (int) $m[1];
+
+            return $id > 0 ? $id : null;
+        }
+
+        return null;
+    }
+
+    /**
      * @param array<string, string> $out
      * @return array<string, string>
      */

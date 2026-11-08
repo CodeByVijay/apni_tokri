@@ -6,7 +6,7 @@ Queued events use `NotificationDispatcher` → `NotificationQueueService::enqueu
 
 | Event type | Channel | Template key | Idempotency key | Trigger |
 |------------|---------|--------------|-----------------|---------|
-| `order.placed` | email | `order.placed.email` | `order.placed:order:{orderId}:email` | `CheckoutService::placeOrderDb()` after order insert (`NotificationDispatcher::orderPlacedPendingPayment`) |
+| `order.placed` | email | `order.placed.email` | `order.placed:order:{orderId}:email` | `CheckoutService::placeOrderDb()` after order insert (`NotificationDispatcher::orderPlacedPendingPayment`); sent by notification cron worker; **skipped/cancelled** if order is paid/captured before send (`OrderEmailContext::shouldSendPendingPaymentEmail`; cancelled on `orderPaymentSuccess`) |
 | `payment.success` | email | `payment.success.email` | `payment.success:order:{orderId}:email` | `PaymentService::completePayment()` after non-idempotent capture (Cashfree + Razorpay webhooks / verify); enqueue then immediate `claimAndProcessByIdempotencyKey` (outside DB txn); outcomes in `delivery_email_logs` |
 | `payment.failed` | email | `payment.failed.email` | `payment.failed:order:{orderNumber}:email` | `PaymentService::markPaymentFailed()` when order moves to `payment_failed` (not per-attempt when retry remains open) |
 | `order.status` | email | `order.status.email` | `order.status:order:{orderId}:{status}:email` | `AdminOrderService::updateStatus()` on real transition; `completePayment()` → confirmed |
