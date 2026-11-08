@@ -40,6 +40,13 @@ final class NotificationTemplateDefaults
                 'body_html' => '<p>Hi {{customer_name}},</p><p>Your payment for order <strong>{{order_number}}</strong> (₹{{amount}}) via {{gateway_name}} could not be completed.</p><p>You can try again securely:</p><p><a href="{{payment_retry_url}}" style="display:inline-block;background:#2d7048;color:#fff;padding:12px 20px;border-radius:6px;text-decoration:none;font-weight:600;">Retry payment</a></p><p style="font-size:13px;color:#64748b;">Need help? View <a href="{{order_url}}">order details</a>.</p>',
                 'body_text' => 'Payment for order {{order_number}} (Rs {{amount}}) failed. Retry: {{payment_retry_url}}',
             ],
+            'order.payment_timeout_cancelled.email' => [
+                'event_type' => 'order.payment_timeout_cancelled',
+                'channel' => 'email',
+                'subject' => 'Order {{order_number}} cancelled — payment not received',
+                'body_html' => '<p>Hi {{customer_name}},</p><p>Your order <strong>{{order_number}}</strong> was cancelled because payment was not completed within the allowed time.</p><p>{{cancellation_reason}}</p><p>Amount: ₹{{amount}}</p><p>If you still want these items, you can place a new order anytime.</p><p><a href="{{order_url}}" style="display:inline-block;background:#2d7048;color:#fff;padding:12px 20px;border-radius:6px;text-decoration:none;font-weight:600;">View order</a></p>',
+                'body_text' => 'Order {{order_number}} was cancelled: payment was not completed in time. {{cancellation_reason}} View: {{order_url}}',
+            ],
             'refund.initiated.email' => [
                 'event_type' => 'refund.initiated',
                 'channel' => 'email',

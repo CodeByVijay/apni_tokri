@@ -193,20 +193,132 @@ final class CashfreeGateway
     }
 
     /**
-     * @return array{ok: bool, order_status?: string, cf_order_id?: string, order_amount?: float, payment_session_id?: string, error?: string}
+     * @return array{
+     *     http_status?: int,
+     *     gateway_error_code?: string|null,
+     *     gateway_error_message?: string|null,
+     *     environment?: string,
+     *     request_url_path?: string,
+     *     invalid_json?: bool,
+     *     network_error?: bool
+     * }
      */
-    public static function fetchOrder(string $merchantOrderId): array
+    private static function orderFetchFailureDiagnostics(array $resp, string $requestPath, ?string $recordedEnvironment): array
+    {
+        $status = (int) ($resp['status'] ?? 0);
+        $json = is_array($resp['json'] ?? null) ? $resp['json'] : [];
+        $code = trim((string) ($json['code'] ?? $json['error_code'] ?? ''));
+        $msg = trim((string) ($json['message'] ?? $json['error_description'] ?? $json['error'] ?? ''));
+        if ($msg === '' && $status > 0 && !is_array($resp['json'] ?? null)) {
+            $body = trim((string) ($resp['body'] ?? ''));
+            if ($body !== '' && strlen($body) <= 200) {
+                $msg = $body;
+            }
+        }
+
+        return [
+            'http_status' => $status,
+            'gateway_error_code' => $code !== '' ? $code : null,
+            'gateway_error_message' => $msg !== '' ? mb_substr($msg, 0, 255) : null,
+            'environment' => PaymentGatewayConfig::cashfreeOrderStatusHostLabel($recordedEnvironment),
+            'request_url_path' => $requestPath,
+            'invalid_json' => $status >= 200 && $status < 300 && !is_array($resp['json'] ?? null),
+            'network_error' => $status === 0,
+        ];
+    }
+
+    /** @param array<string, mixed> $diag */
+    private static function orderFetchAdminMessage(array $diag, string $merchantOrderId, bool $paymentsEndpoint): string
+    {
+        $status = (int) ($diag['http_status'] ?? 0);
+        $code = (string) ($diag['gateway_error_code'] ?? '');
+        $gMsg = (string) ($diag['gateway_error_message'] ?? '');
+        $env = (string) ($diag['environment'] ?? '');
+        $what = $paymentsEndpoint ? 'payment list' : 'order status';
+
+        if (!empty($diag['network_error'])) {
+            return 'Cashfree ' . $what . ' request timed out or could not reach the network (environment: ' . $env . ').';
+        }
+        if (!empty($diag['invalid_json'])) {
+            return 'Cashfree returned an invalid response for ' . $what . ' (HTTP ' . $status . ', environment: ' . $env . ').';
+        }
+        if ($status === 401 || $status === 403) {
+            $hint = $gMsg !== '' ? ' ' . $gMsg : '';
+
+            return 'Cashfree rejected API credentials for ' . $what . ' (HTTP ' . $status . ', environment: ' . $env . ').'
+                . $hint
+                . ' Confirm app ID and secret match this environment in Admin → Payment gateways.';
+        }
+        if ($status === 404) {
+            return 'Cashfree has no order for merchant ID “' . $merchantOrderId . '” (HTTP 404, environment: ' . $env . '). '
+                . 'If gateway order ID is blank locally, payment may never have been created at Cashfree (failed checkout initiation). '
+                . 'Do not create a new gateway order for refresh — customer can use Retry payment.';
+        }
+        if ($status === 429) {
+            return 'Cashfree rate-limited the ' . $what . ' request (HTTP 429). Wait and try again.';
+        }
+        if ($status >= 500 && $status < 600) {
+            return 'Cashfree server error while fetching ' . $what . ' (HTTP ' . $status . ', environment: ' . $env . ').';
+        }
+        $suffix = '';
+        if ($code !== '' || $gMsg !== '') {
+            $suffix = ' [' . trim($code . ($code !== '' && $gMsg !== '' ? ': ' : '') . $gMsg) . ']';
+        }
+        if ($status > 0) {
+            return 'Cashfree ' . $what . ' request failed (HTTP ' . $status . ', environment: ' . $env . ').' . $suffix;
+        }
+
+        return $paymentsEndpoint ? 'Could not fetch Cashfree payment status.' : 'Could not fetch Cashfree order status.';
+    }
+
+    /**
+     * @return array{
+     *     ok: bool,
+     *     order_status?: string,
+     *     cf_order_id?: string,
+     *     order_amount?: float,
+     *     payment_session_id?: string,
+     *     error?: string,
+     *     http_status?: int,
+     *     environment?: string
+     * }
+     */
+    public static function fetchOrder(string $merchantOrderId, ?string $recordedEnvironment = null): array
     {
         $merchantOrderId = trim($merchantOrderId);
         if ($merchantOrderId === '') {
             return ['ok' => false, 'error' => 'Invalid order reference.'];
         }
-        $url = self::baseUrl() . '/orders/' . rawurlencode($merchantOrderId);
+        if (!self::isConfigured()) {
+            return ['ok' => false, 'error' => 'Cashfree is not configured.'];
+        }
+        try {
+            $apiBase = PaymentGatewayConfig::cashfreePgApiBaseForOrderStatus($recordedEnvironment);
+        } catch (RuntimeException $e) {
+            error_log('Cashfree fetch order: ' . $e->getMessage());
+
+            return [
+                'ok' => false,
+                'error' => 'Cashfree API is blocked by current payment settings. '
+                    . 'Disable payment test/sandbox mode on production or match credentials to the payment environment.',
+            ];
+        }
+        $path = '/orders/' . rawurlencode($merchantOrderId);
+        $url = $apiBase . $path;
         $resp = PaymentHttp::request('GET', $url, null, self::headers());
         if (!$resp['ok'] || !is_array($resp['json'])) {
-            error_log('Cashfree fetch order HTTP ' . $resp['status']);
+            $diag = self::orderFetchFailureDiagnostics($resp, $path, $recordedEnvironment);
+            error_log(
+                'Cashfree fetch order merchant=' . $merchantOrderId
+                . ' http=' . (int) ($diag['http_status'] ?? 0)
+                . ' env=' . (string) ($diag['environment'] ?? '')
+                . ($diag['gateway_error_code'] ? ' code=' . $diag['gateway_error_code'] : '')
+            );
 
-            return ['ok' => false, 'error' => 'Could not fetch Cashfree order status.'];
+            return [
+                'ok' => false,
+                'error' => self::orderFetchAdminMessage($diag, $merchantOrderId, false),
+            ] + $diag;
         }
 
         return [
@@ -216,24 +328,55 @@ final class CashfreeGateway
             'order_amount' => (float) ($resp['json']['order_amount'] ?? 0),
             'payment_session_id' => (string) ($resp['json']['payment_session_id'] ?? ''),
             'order_expiry_time' => (string) ($resp['json']['order_expiry_time'] ?? ''),
+            'http_status' => (int) ($resp['status'] ?? 200),
+            'environment' => PaymentGatewayConfig::cashfreeOrderStatusHostLabel($recordedEnvironment),
         ];
     }
 
     /**
-     * @return array{ok: bool, payments?: list<array<string, mixed>>, error?: string}
+     * @return array{
+     *     ok: bool,
+     *     payments?: list<array<string, mixed>>,
+     *     error?: string,
+     *     http_status?: int,
+     *     environment?: string
+     * }
      */
-    public static function fetchPayments(string $merchantOrderId): array
+    public static function fetchPayments(string $merchantOrderId, ?string $recordedEnvironment = null): array
     {
         $merchantOrderId = trim($merchantOrderId);
         if ($merchantOrderId === '') {
             return ['ok' => false, 'error' => 'Invalid order reference.'];
         }
-        $url = self::baseUrl() . '/orders/' . rawurlencode($merchantOrderId) . '/payments';
+        if (!self::isConfigured()) {
+            return ['ok' => false, 'error' => 'Cashfree is not configured.'];
+        }
+        try {
+            $apiBase = PaymentGatewayConfig::cashfreePgApiBaseForOrderStatus($recordedEnvironment);
+        } catch (RuntimeException $e) {
+            error_log('Cashfree fetch payments: ' . $e->getMessage());
+
+            return [
+                'ok' => false,
+                'error' => 'Cashfree API is blocked by current payment settings. '
+                    . 'Disable payment test/sandbox mode on production or match credentials to the payment environment.',
+            ];
+        }
+        $path = '/orders/' . rawurlencode($merchantOrderId) . '/payments';
+        $url = $apiBase . $path;
         $resp = PaymentHttp::request('GET', $url, null, self::headers());
         if (!$resp['ok'] || !is_array($resp['json'])) {
-            error_log('Cashfree fetch payments HTTP ' . $resp['status']);
+            $diag = self::orderFetchFailureDiagnostics($resp, $path, $recordedEnvironment);
+            error_log(
+                'Cashfree fetch payments merchant=' . $merchantOrderId
+                . ' http=' . (int) ($diag['http_status'] ?? 0)
+                . ' env=' . (string) ($diag['environment'] ?? '')
+            );
 
-            return ['ok' => false, 'error' => 'Could not fetch Cashfree payment status.'];
+            return [
+                'ok' => false,
+                'error' => self::orderFetchAdminMessage($diag, $merchantOrderId, true),
+            ] + $diag;
         }
 
         $json = $resp['json'];

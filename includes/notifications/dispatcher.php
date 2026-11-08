@@ -492,4 +492,38 @@ final class NotificationDispatcher
             error_log('NotificationDispatcher::refundStatusUpdated');
         }
     }
+
+    public static function orderPaymentTimeoutCancelled(int $orderId): void
+    {
+        if (!NotificationQueueService::tableReady() || $orderId <= 0) {
+            return;
+        }
+        try {
+            $recipient = OrderEmailContext::resolveRecipientForOrderId($orderId);
+            if ($recipient === null) {
+                return;
+            }
+            $payload = OrderEmailContext::enrichOrderPayload(
+                $orderId,
+                [
+                    'order_number' => $recipient['order_number'],
+                    'amount' => $recipient['amount'],
+                    'customer_name' => $recipient['customer_name'],
+                    'cancellation_reason' => OrderCancellationService::reasonLabel(OrderCancellationService::REASON_PAYMENT_TIMEOUT),
+                ],
+                OrderEmailContext::latestPaymentForOrder($orderId)
+            );
+            NotificationQueueService::enqueue(
+                'order.payment_timeout_cancelled',
+                'email',
+                $recipient['email'],
+                $recipient['recipient_ref'],
+                'order.payment_timeout_cancelled.email',
+                $payload,
+                'order.payment_timeout_cancelled:order:' . $orderId . ':email'
+            );
+        } catch (Throwable $e) {
+            error_log('NotificationDispatcher::orderPaymentTimeoutCancelled');
+        }
+    }
 }

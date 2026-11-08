@@ -219,6 +219,8 @@ final class CustomerOrderDetailService
             'order_type' => self::orderTypeLabel((string) ($orderRow['order_source'] ?? '')),
             'expected_delivery' => $expected,
             'currency' => (string) ($orderRow['currency'] ?? 'INR'),
+            'payment_window' => UnpaidOrderExpiryService::customerPaymentWindowSummary($orderRow),
+            'payment_expiry_minutes' => UnpaidOrderExpiryService::windowMinutes(),
         ];
     }
 
@@ -584,7 +586,7 @@ final class CustomerOrderDetailService
             $evt = OrderCancellationService::cancellationEventForOrder((int) $orderRow['id']);
             if ($evt !== null) {
                 $code = (string) ($evt['reason_code'] ?? '');
-                $label = OrderCancellationService::CUSTOMER_REASONS[$code] ?? $code;
+                $label = OrderCancellationService::reasonLabel($code);
                 $detail = trim((string) ($evt['reason_detail'] ?? ''));
                 $cancellationReason = $label . ($detail !== '' ? ' — ' . $detail : '');
             } else {

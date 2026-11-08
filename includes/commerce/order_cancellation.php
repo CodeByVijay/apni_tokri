@@ -16,6 +16,19 @@ final class OrderCancellationService
         'other' => 'Other',
     ];
 
+    public const REASON_PAYMENT_TIMEOUT = 'payment_timeout';
+
+    public const SYSTEM_REASONS = [
+        self::REASON_PAYMENT_TIMEOUT => 'Payment not completed within the allowed time',
+    ];
+
+    public static function reasonLabel(string $code): string
+    {
+        return self::CUSTOMER_REASONS[$code]
+            ?? self::SYSTEM_REASONS[$code]
+            ?? $code;
+    }
+
     public static function eventsTableReady(): bool
     {
         if (!Install::isSchemaReady()) {
@@ -117,8 +130,34 @@ final class OrderCancellationService
     }
 
     /**
+     * Automatic expiry cancellation (cron); idempotent per order.
+     *
      * @return array{ok: bool, message?: string, idempotent?: bool, order_number?: string}
      */
+    public static function cancelForPaymentTimeout(int $orderId): array
+    {
+        if ($orderId <= 0 || !Install::isSchemaReady()) {
+            return ['ok' => false, 'message' => 'Order not found.'];
+        }
+        Install::ensureConnection();
+        $stmt = Database::pdo()->prepare('SELECT * FROM orders WHERE id = ? LIMIT 1');
+        $stmt->execute([$orderId]);
+        $order = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$order) {
+            return ['ok' => false, 'message' => 'Order not found.'];
+        }
+
+        return self::applyCancellation(
+            $order,
+            isset($order['customer_id']) ? (int) $order['customer_id'] : null,
+            null,
+            self::REASON_PAYMENT_TIMEOUT,
+            '',
+            'system',
+            'payment_timeout:order:' . $orderId
+        );
+    }
+
     public static function cancelByCustomer(
         int $customerId,
         string $orderNumber,
@@ -216,7 +255,7 @@ final class OrderCancellationService
                 }
 
                 $statusBeforeCancel = (string) ($fresh['status'] ?? '');
-                $humanReason = self::CUSTOMER_REASONS[$reasonCode] ?? $reasonCode;
+                $humanReason = self::reasonLabel($reasonCode);
                 $note = 'Cancelled by ' . $requestedBy . ': ' . $humanReason;
                 if ($reasonDetail !== '') {
                     $note .= ' — ' . $reasonDetail;
@@ -290,7 +329,12 @@ final class OrderCancellationService
             AdminNotificationService::notifyOrderCancellationRefundRequired((int) $result['refund_request_id']);
         }
 
-        if (!empty($result['ok']) && empty($result['idempotent']) && !empty($result['status_from'])) {
+        if (
+            !empty($result['ok'])
+            && empty($result['idempotent'])
+            && !empty($result['status_from'])
+            && $reasonCode !== self::REASON_PAYMENT_TIMEOUT
+        ) {
             NotificationDispatcher::orderStatusChanged(
                 $orderId,
                 (string) $result['status_from'],

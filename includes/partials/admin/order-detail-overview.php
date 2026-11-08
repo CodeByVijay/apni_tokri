@@ -33,16 +33,34 @@ $payMethod = $order['payment_method_primary'] ?? null;
                     <span class="at-muted">Not generated yet</span>
                 <?php endif; ?>
             </dd></div>
+            <?php
+            $payPw = UnpaidOrderExpiryService::customerPaymentWindowSummary($order);
+            $expRaw = (string) ($order['payment_expires_at'] ?? '');
+            if (UnpaidOrderExpiryService::columnReady() && $expRaw !== '' && in_array((string) ($order['payment_status'] ?? ''), ['pending', 'failed'], true)):
+                ?>
+            <div><dt>Payment deadline</dt><dd>
+                <?= Security::escape(customer_format_datetime($expRaw)) ?>
+                <?php if (!empty($payPw['open'])): ?>
+                    <span class="at-muted"> · <?= (int) ceil(((int) ($payPw['remaining_seconds'] ?? 0)) / 60) ?> min left</span>
+                <?php elseif (!empty($payPw['expired']) && (string) ($order['status'] ?? '') !== OrderStatus::CANCELLED): ?>
+                    <span class="at-muted"> · expired (awaiting auto-cancel)</span>
+                <?php else: ?>
+                    <span class="at-muted"> · expired</span>
+                <?php endif; ?>
+            </dd></div>
+            <?php endif; ?>
         </dl>
         <?php
         $cancelEvt = OrderCancellationService::cancellationEventForOrder((int) ($order['id'] ?? 0));
         if ($cancelEvt !== null):
             $reasonCode = (string) ($cancelEvt['reason_code'] ?? '');
-            $reasonLabel = OrderCancellationService::CUSTOMER_REASONS[$reasonCode] ?? $reasonCode;
+            $reasonLabel = OrderCancellationService::reasonLabel($reasonCode);
+            $by = (string) ($cancelEvt['requested_by'] ?? '');
+            $byLabel = $by === 'system' ? 'Automatic (system)' : ucfirst($by);
             ?>
             <div class="at-admin-od-callout mt-4">
                 <p class="font-bold">Cancellation</p>
-                <p class="text-sm"><?= Security::escape(ucfirst((string) ($cancelEvt['requested_by'] ?? ''))) ?> · <?= Security::escape(customer_format_datetime((string) ($cancelEvt['created_at'] ?? ''))) ?></p>
+                <p class="text-sm"><?= Security::escape($byLabel) ?> · <?= Security::escape(customer_format_datetime((string) ($cancelEvt['created_at'] ?? ''))) ?></p>
                 <p class="text-sm"><strong>Reason:</strong> <?= Security::escape($reasonLabel) ?>
                     <?php if (trim((string) ($cancelEvt['reason_detail'] ?? '')) !== ''): ?>
                         — <?= Security::escape(trim((string) $cancelEvt['reason_detail'])) ?>

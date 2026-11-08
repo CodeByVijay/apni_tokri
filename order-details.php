@@ -306,6 +306,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/customer-order-cancel.php';
 ?>
 
 <?php require APNI_TOKRI_ROOT . '/includes/partials/order-current-status.php'; ?>
+<?php require APNI_TOKRI_ROOT . '/includes/partials/order-payment-window.php'; ?>
 <?php require APNI_TOKRI_ROOT . '/includes/partials/order-retry-payment-cta.php'; ?>
 
 <section class="at-card at-order-detail__timeline">

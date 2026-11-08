@@ -95,6 +95,36 @@ final class PaymentGatewayConfig
         return self::cashfreePgApiBase();
     }
 
+    /**
+     * PG API base for read-only order/payment status (admin refresh, customer sync).
+     * Uses payment row environment when known; does not throw on production + stored test mode.
+     *
+     * @param 'production'|'sandbox'|'test'|'simulate'|null $recordedEnvironment from payment metadata
+     */
+    public static function cashfreePgApiBaseForOrderStatus(?string $recordedEnvironment = null): string
+    {
+        $rec = strtolower(trim((string) $recordedEnvironment));
+        if ($rec === 'sandbox' || $rec === 'test') {
+            return 'https://sandbox.cashfree.com/pg';
+        }
+        if ($rec === 'production') {
+            return 'https://api.cashfree.com/pg';
+        }
+        if (AppEnvironment::isProduction() && self::storedTestModeEnabled()) {
+            return 'https://sandbox.cashfree.com/pg';
+        }
+
+        return self::cashfreePgApiBase();
+    }
+
+    /** Label for admin messages when querying order status with a resolved API host. */
+    public static function cashfreeOrderStatusHostLabel(?string $recordedEnvironment = null): string
+    {
+        $base = self::cashfreePgApiBaseForOrderStatus($recordedEnvironment);
+
+        return str_contains($base, 'sandbox') ? 'sandbox' : 'production';
+    }
+
     /** Admin status line for Cashfree API host (reflects stored mode on production). */
     public static function cashfreeApiHostLabel(): string
     {

@@ -684,6 +684,11 @@ final class CheckoutService
                             && DeliverySlotReservationService::tableReady()) {
                             DeliverySlotReservationService::createHold($pdo, (int) $slotId, $deliveryDate, $orderId);
                         }
+                        if (UnpaidOrderExpiryService::columnReady()) {
+                            $expAt = UnpaidOrderExpiryService::computeExpiryFromPlacement(date('Y-m-d H:i:s'));
+                            $pdo->prepare('UPDATE orders SET payment_expires_at = ? WHERE id = ?')
+                                ->execute([$expAt, $orderId]);
+                        }
 
                         return [
                             'ok' => true,

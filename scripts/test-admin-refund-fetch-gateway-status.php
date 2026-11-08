@@ -6,6 +6,9 @@ declare(strict_types=1);
  * Admin fetch gateway refund status (mocked HTTP; no live API).
  */
 require_once dirname(__DIR__) . '/includes/bootstrap.php';
+require_once dirname(__DIR__) . '/scripts/lib/test_script_safety.php';
+
+TestScriptSafety::assertSafeToMutateSettings();
 
 if (!Install::isSchemaReady()) {
     fwrite(STDERR, "Schema not ready.\n");
@@ -67,6 +70,9 @@ $unusedGatewayRefundId = static function (PDO $pdo, string $gateway, string $tok
 $variantId = (int) ($pdo->query(
     'SELECT variant_id FROM order_items WHERE id = ' . (int) $fixture['order_item_id'] . ' LIMIT 1'
 )->fetchColumn() ?: 0);
+
+$gatewaySettingsSnap = TestScriptSafety::snapshotPaymentGatewaySettings();
+$origRefundTestCfSecret = TestScriptSafety::stashCashfreeSecret();
 
 AppSettings::set('cashfree.enabled', '1');
 AppSettings::set('cashfree.app_id', 'cf_test_id_12345678');
@@ -441,6 +447,8 @@ $ok(str_contains($index, 'adminGatewayStatusFetchUi'), 'Admin detail uses gatewa
 $ok(str_contains($index, 'Gateway actions'), 'Retry and fetch grouped in gateway actions');
 
 PaymentHttp::$testHandler = $prevHandler;
+TestScriptSafety::restorePaymentGatewaySettings($gatewaySettingsSnap);
+TestScriptSafety::restoreCashfreeSecret($origRefundTestCfSecret);
 
 $deleteIn = static function (PDO $pdo, string $sql, array $ids): void {
     if ($ids === []) {

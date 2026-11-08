@@ -119,6 +119,81 @@ final class RazorpayGateway
     }
 
     /**
+     * Payments for a Razorpay order (GET /v1/orders/{id}/payments).
+     *
+     * @return array{
+     *     ok: bool,
+     *     payments?: list<array<string, mixed>>,
+     *     error?: string,
+     *     http_status?: int,
+     *     network_error?: bool
+     * }
+     */
+    public static function fetchOrderPayments(string $razorpayOrderId): array
+    {
+        $razorpayOrderId = trim($razorpayOrderId);
+        if ($razorpayOrderId === '') {
+            return ['ok' => false, 'error' => 'Invalid Razorpay order reference.'];
+        }
+        if (!self::isConfigured()) {
+            return ['ok' => false, 'error' => 'Razorpay is not configured.'];
+        }
+        $resp = PaymentHttp::request(
+            'GET',
+            'https://api.razorpay.com/v1/orders/' . rawurlencode($razorpayOrderId) . '/payments',
+            null,
+            [],
+            self::keyId(),
+            self::keySecret()
+        );
+        $status = (int) ($resp['status'] ?? 0);
+        if ($status === 0 && !empty($resp['error'])) {
+            error_log('Razorpay fetch order payments network error order_id=' . $razorpayOrderId);
+
+            return [
+                'ok' => false,
+                'error' => 'Razorpay request timed out or could not reach the network.',
+                'http_status' => 0,
+                'network_error' => true,
+            ];
+        }
+        if (!$resp['ok'] || !is_array($resp['json'])) {
+            error_log('Razorpay fetch order payments HTTP ' . $status . ' order_id=' . $razorpayOrderId);
+
+            return [
+                'ok' => false,
+                'error' => 'Could not fetch Razorpay payment status (HTTP ' . $status . ').',
+                'http_status' => $status,
+            ];
+        }
+        $json = $resp['json'];
+        $items = $json['items'] ?? [];
+        if (!is_array($items)) {
+            $items = [];
+        }
+
+        return ['ok' => true, 'payments' => $items, 'http_status' => $status];
+    }
+
+    /**
+     * @param list<array<string, mixed>> $payments
+     * @return array<string, mixed>|null
+     */
+    public static function findCapturedPayment(array $payments): ?array
+    {
+        foreach ($payments as $payment) {
+            if (!is_array($payment)) {
+                continue;
+            }
+            if ((string) ($payment['status'] ?? '') === 'captured') {
+                return $payment;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Fetch status of an existing Razorpay refund (GET only).
      *
      * @return array{

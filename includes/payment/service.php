@@ -499,7 +499,8 @@ final class PaymentService
      */
     public static function resumeCashfreeCheckout(string $orderNumber, array $payment): array
     {
-        $fetched = CashfreeGateway::fetchOrder($orderNumber);
+        $recordedEnv = self::cashfreeRecordedEnvironmentFromPaymentRow($payment);
+        $fetched = CashfreeGateway::fetchOrder($orderNumber, $recordedEnv);
         if (!$fetched['ok']) {
             return ['ok' => false, 'error' => $fetched['error'] ?? 'Could not load payment session.'];
         }
@@ -557,6 +558,145 @@ final class PaymentService
         unset($result['redirect']);
 
         return $result;
+    }
+
+    /**
+     * Poll Razorpay for captured payments before auto-expiry cancellation (no new charges).
+     *
+     * @return array{ok: bool, state: string, message?: string, idempotent?: bool}
+     */
+    public static function reconcileRazorpayOrderForExpiry(string $orderNumber): array
+    {
+        if (!RazorpayGateway::isConfigured()) {
+            return ['ok' => true, 'state' => 'noop'];
+        }
+        $order = PaymentRepository::orderByNumber($orderNumber);
+        if ($order === null) {
+            return ['ok' => false, 'state' => 'error', 'message' => 'Order not found.'];
+        }
+        if ((string) ($order['payment_status'] ?? '') === 'paid') {
+            return ['ok' => true, 'state' => 'confirmed'];
+        }
+        $orderPayments = PaymentRepository::listPaymentsForOrder((int) $order['id']);
+        $hasRazorpay = false;
+        $targetRow = null;
+        foreach ($orderPayments as $row) {
+            if ((string) ($row['gateway'] ?? '') !== 'razorpay') {
+                continue;
+            }
+            $hasRazorpay = true;
+            $gwOid = trim((string) ($row['gateway_order_id'] ?? ''));
+            if ($gwOid !== '' && in_array((string) ($row['status'] ?? ''), ['created', 'pending', 'failed'], true)) {
+                $targetRow = $row;
+                break;
+            }
+        }
+        if (!$hasRazorpay) {
+            return ['ok' => true, 'state' => 'noop'];
+        }
+        if ($targetRow === null) {
+            foreach ($orderPayments as $row) {
+                if ((string) ($row['gateway'] ?? '') === 'razorpay') {
+                    $targetRow = $row;
+                    break;
+                }
+            }
+        }
+        if ($targetRow === null) {
+            return ['ok' => true, 'state' => 'noop'];
+        }
+        $recordedEnv = self::paymentRecordedEnvironmentFromPaymentRow($targetRow);
+        if ($recordedEnv !== null && !self::razorpayCredentialsMatchRecordedEnvironment($recordedEnv)) {
+            return [
+                'ok' => false,
+                'state' => 'defer',
+                'message' => 'Razorpay API credentials do not match the stored payment environment.',
+            ];
+        }
+        $gwOrderId = trim((string) ($targetRow['gateway_order_id'] ?? ''));
+        if ($gwOrderId === '') {
+            return ['ok' => true, 'state' => 'unpaid'];
+        }
+        $fetch = RazorpayGateway::fetchOrderPayments($gwOrderId);
+        if (empty($fetch['ok'])) {
+            if (!empty($fetch['network_error']) || in_array((int) ($fetch['http_status'] ?? 0), [401, 403, 429], true)
+                || ((int) ($fetch['http_status'] ?? 0) >= 500)) {
+                return ['ok' => false, 'state' => 'defer', 'message' => (string) ($fetch['error'] ?? 'Gateway verification deferred.')];
+            }
+
+            return ['ok' => false, 'state' => 'defer', 'message' => (string) ($fetch['error'] ?? 'Gateway verification deferred.')];
+        }
+        $captured = RazorpayGateway::findCapturedPayment($fetch['payments'] ?? []);
+        if ($captured !== null) {
+            $paymentId = (string) ($captured['id'] ?? '');
+            $amountPaise = (int) ($captured['amount'] ?? 0);
+            $currency = (string) ($captured['currency'] ?? 'INR');
+            $idempotency = (string) ($targetRow['idempotency_key'] ?? '');
+            if ($idempotency === '' || $paymentId === '') {
+                return ['ok' => false, 'state' => 'defer', 'message' => 'Captured Razorpay payment missing idempotency reference.'];
+            }
+            $eventId = 'razorpay:expiry_cron:' . $paymentId;
+            $result = self::completePayment(
+                $orderNumber,
+                'razorpay',
+                $paymentId,
+                $gwOrderId,
+                $amountPaise / 100,
+                $currency,
+                $idempotency,
+                $eventId
+            );
+            if (!empty($result['ok'])) {
+                return ['ok' => true, 'state' => 'confirmed', 'idempotent' => !empty($result['idempotent'])];
+            }
+            if (!empty($result['reconciliation'])) {
+                return ['ok' => false, 'state' => 'defer', 'message' => (string) ($result['message'] ?? 'Fulfilment pending.')];
+            }
+
+            return ['ok' => false, 'state' => 'defer', 'message' => (string) ($result['message'] ?? 'Could not confirm captured payment.')];
+        }
+        foreach ($fetch['payments'] ?? [] as $p) {
+            if (!is_array($p)) {
+                continue;
+            }
+            $st = (string) ($p['status'] ?? '');
+            if ($st === 'authorized' || $st === 'created') {
+                return ['ok' => false, 'state' => 'defer', 'message' => 'Razorpay payment still processing.'];
+            }
+        }
+
+        return ['ok' => true, 'state' => 'unpaid'];
+    }
+
+    /** @param 'production'|'sandbox'|'test'|'simulate'|string $recordedEnvironment */
+    private static function razorpayCredentialsMatchRecordedEnvironment(string $recordedEnvironment): bool
+    {
+        $kid = RazorpayGateway::keyId();
+        $isTestKey = str_starts_with($kid, 'rzp_test_');
+        $rec = strtolower(trim($recordedEnvironment));
+        if ($rec === 'test' || $rec === 'sandbox') {
+            return $isTestKey;
+        }
+        if ($rec === 'production') {
+            return str_starts_with($kid, 'rzp_live_');
+        }
+
+        return true;
+    }
+
+    /**
+     * @param list<array<string, mixed>> $orderPayments
+     */
+    public static function paymentRecordedEnvironmentFromPayments(array $orderPayments): ?string
+    {
+        for ($i = count($orderPayments) - 1; $i >= 0; $i--) {
+            $env = self::paymentRecordedEnvironmentFromPaymentRow($orderPayments[$i]);
+            if ($env !== null) {
+                return $env;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -700,6 +840,9 @@ final class PaymentService
         if (in_array($status, ['cancelled', 'confirmed', 'delivered', 'completed'], true)) {
             return false;
         }
+        if (!UnpaidOrderExpiryService::isPaymentWindowOpen($orderRow)) {
+            return false;
+        }
 
         return in_array((string) ($orderRow['payment_status'] ?? ''), ['pending', 'failed'], true);
     }
@@ -759,8 +902,15 @@ final class PaymentService
             }
         }
 
-        $orderFetch = CashfreeGateway::fetchOrder($orderNumber);
+        $recordedCashfreeEnv = self::cashfreeRecordedEnvironmentFromPayments($orderPayments);
+        $orderFetch = CashfreeGateway::fetchOrder($orderNumber, $recordedCashfreeEnv);
         if (!$orderFetch['ok']) {
+            $adminMsg = (string) ($orderFetch['error'] ?? 'Could not verify payment status.');
+            if (self::cashfreePaymentsNeverReachedGateway($orderPayments) && (int) ($orderFetch['http_status'] ?? 0) === 404) {
+                $adminMsg = 'No Cashfree order exists for this storefront order. The payment row shows a failed attempt '
+                    . 'without a gateway order ID — Cashfree checkout was not created successfully. '
+                    . 'Customer can use Retry payment; refresh cannot recover a missing gateway order.';
+            }
             self::recordCashfreeReconciliationAudit(
                 $orderId,
                 $orderNumber,
@@ -772,19 +922,22 @@ final class PaymentService
                 'api_error',
                 null,
                 null,
-                $orderFetch['error'] ?? 'Could not verify payment status.',
+                $adminMsg,
                 $actingAdminUserId
             );
 
-            return ['ok' => false, 'state' => 'error', 'message' => $orderFetch['error'] ?? 'Could not verify payment status.'];
+            return ['ok' => false, 'state' => 'error', 'message' => $adminMsg];
         }
 
         $cfOrderId = trim((string) ($orderFetch['cf_order_id'] ?? ''));
+        if ($cfOrderId !== '') {
+            self::backfillCashfreeGatewayOrderIds($orderId, $cfOrderId);
+        }
         if (!self::cashfreeGatewayOrderIdMatches($orderPayments, $cfOrderId)) {
             return ['ok' => false, 'state' => 'error', 'message' => 'Gateway order reference mismatch.'];
         }
 
-        $paymentsFetch = CashfreeGateway::fetchPayments($orderNumber);
+        $paymentsFetch = CashfreeGateway::fetchPayments($orderNumber, $recordedCashfreeEnv);
         if (!$paymentsFetch['ok']) {
             self::recordCashfreeReconciliationAudit(
                 $orderId,
@@ -948,6 +1101,88 @@ final class PaymentService
                 ? 'Still pending at Cashfree — customer can retry payment. No status change.'
                 : 'Complete payment below or wait if you already paid — we will verify with Cashfree.',
         ];
+    }
+
+    /**
+     * @param list<array<string, mixed>> $orderPayments
+     */
+    private static function cashfreeRecordedEnvironmentFromPayments(array $orderPayments): ?string
+    {
+        for ($i = count($orderPayments) - 1; $i >= 0; $i--) {
+            $env = self::cashfreeRecordedEnvironmentFromPaymentRow($orderPayments[$i]);
+            if ($env !== null) {
+                return $env;
+            }
+        }
+
+        return null;
+    }
+
+    /** @param array<string, mixed> $paymentRow */
+    private static function paymentRecordedEnvironmentFromPaymentRow(array $paymentRow): ?string
+    {
+        $raw = trim((string) ($paymentRow['metadata_json'] ?? ''));
+        if ($raw === '') {
+            return null;
+        }
+        try {
+            $meta = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
+            if (!is_array($meta)) {
+                return null;
+            }
+            $env = strtolower(trim((string) ($meta['payment_environment'] ?? '')));
+
+            return $env !== '' ? $env : null;
+        } catch (Throwable $e) {
+            return null;
+        }
+    }
+
+    /** @param array<string, mixed> $paymentRow */
+    private static function cashfreeRecordedEnvironmentFromPaymentRow(array $paymentRow): ?string
+    {
+        if ((string) ($paymentRow['gateway'] ?? '') !== 'cashfree') {
+            return null;
+        }
+
+        return self::paymentRecordedEnvironmentFromPaymentRow($paymentRow);
+    }
+
+    /**
+     * @param list<array<string, mixed>> $orderPayments
+     */
+    private static function cashfreePaymentsNeverReachedGateway(array $orderPayments): bool
+    {
+        $sawCashfree = false;
+        foreach ($orderPayments as $row) {
+            if ((string) ($row['gateway'] ?? '') !== 'cashfree') {
+                continue;
+            }
+            $sawCashfree = true;
+            $stored = trim((string) ($row['gateway_order_id'] ?? ''));
+            if ($stored !== '') {
+                return false;
+            }
+            $status = (string) ($row['status'] ?? '');
+            if (in_array($status, ['pending', 'captured'], true)) {
+                return false;
+            }
+        }
+
+        return $sawCashfree;
+    }
+
+    private static function backfillCashfreeGatewayOrderIds(int $orderId, string $cfOrderId): void
+    {
+        $cfOrderId = trim($cfOrderId);
+        if ($orderId <= 0 || $cfOrderId === '') {
+            return;
+        }
+        Install::ensureConnection();
+        Database::pdo()->prepare(
+            "UPDATE payments SET gateway_order_id = ?, updated_at = NOW()
+             WHERE order_id = ? AND gateway = 'cashfree' AND (gateway_order_id IS NULL OR gateway_order_id = '')"
+        )->execute([$cfOrderId, $orderId]);
     }
 
     /**
@@ -1240,6 +1475,11 @@ final class PaymentService
                         'order_id' => $orderId,
                         'customer_id' => (int) $order['customer_id'],
                     ];
+                }
+                if ((string) ($order['status'] ?? '') === OrderStatus::CANCELLED) {
+                    throw new RuntimeException(
+                        '[reconciliation] Payment captured at gateway but order is already cancelled.'
+                    );
                 }
 
                 $expected = (float) $order['grand_total'];
