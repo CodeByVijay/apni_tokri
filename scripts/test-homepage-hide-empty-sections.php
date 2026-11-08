@@ -90,7 +90,7 @@ t(count($veg) === 5 && count($best) === 5, 'Multiple products capped at 5 per sh
 t(count($cat->categories()) >= 4, 'Categories still listed regardless of product counts');
 
 $src = (string) file_get_contents(APNI_TOKRI_ROOT . '/index.php');
-t(substr_count($src, 'catalogue_home_eligible_products') === 2, 'index.php filters both bestseller and rail shelves');
+t(substr_count($src, 'catalogue_home_eligible_products') === 4, 'index.php filters bestseller, featured, new and rail shelves');
 t(strpos($src, 'if ($products === [])') !== false && strpos($src, 'if ($products !== [])') !== false, 'index.php skips empty shelves');
 
 $pdo->exec("DELETE FROM products WHERE slug LIKE 'hs-%-$tok'");

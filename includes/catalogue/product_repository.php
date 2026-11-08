@@ -737,6 +737,39 @@ final class ProductRepository
         return $out;
     }
 
+    /**
+     * Published, publicly visible products with one homepage flag set (filtered in SQL, so only flagged rows
+     * are hydrated). Same visibility rules as publishedProducts().
+     *
+     * @param string $flag 'featured'|'bestseller'|'new'
+     * @param bool $newestFirst order by created_at DESC (New Arrivals); otherwise by name (existing behaviour)
+     * @return list<array<string, mixed>>
+     */
+    public static function publishedProductsWithFlag(string $flag, bool $newestFirst = false): array
+    {
+        $columns = ['featured' => 'is_featured', 'bestseller' => 'is_bestseller', 'new' => 'is_new_arrival'];
+        if (!isset($columns[$flag])) {
+            return [];
+        }
+        Install::ensureConnection();
+        $order = $newestFirst ? 'p.created_at DESC, p.id DESC' : 'p.name';
+        $stmt = Database::pdo()->query(
+            "SELECT p.*, c.slug AS category_slug FROM products p
+             LEFT JOIN categories c ON c.id = p.category_id
+             WHERE p.status = 'published' AND p.{$columns[$flag]} = 1
+             ORDER BY {$order}"
+        );
+        $out = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            if (!self::isPubliclyVisibleRow($row)) {
+                continue;
+            }
+            $out[] = self::toPublicArray($row);
+        }
+
+        return $out;
+    }
+
     public static function productCount(): int
     {
         if (!Install::isSchemaReady()) {

@@ -117,6 +117,24 @@ $products = catalogue_home_eligible_products($catalogue->productsWithFlag('bests
 if ($products !== []) {
     require APNI_TOKRI_ROOT . '/includes/partials/home-section.php';
 }
+
+// Featured products (existing is_featured flag). No dedicated browse route exists, so no link is rendered.
+$sectionTitle = 'Featured products';
+$sectionSubtitle = 'Hand-picked for your tokri';
+$sectionHref = null;
+$sectionLinkLabel = null;
+$products = catalogue_home_eligible_products($catalogue->productsWithFlag('featured', PHP_INT_MAX), 5);
+if ($products !== []) {
+    require APNI_TOKRI_ROOT . '/includes/partials/home-section.php';
+}
+
+// New arrivals (existing is_new_arrival flag; newest first by created_at when DB-backed).
+$sectionTitle = 'New arrivals';
+$sectionSubtitle = 'Just added to the store';
+$products = catalogue_home_eligible_products($catalogue->productsWithFlag('new', PHP_INT_MAX), 5);
+if ($products !== []) {
+    require APNI_TOKRI_ROOT . '/includes/partials/home-section.php';
+}
 ?>
 
 <?php

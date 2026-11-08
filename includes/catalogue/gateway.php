@@ -96,6 +96,9 @@ final class DbCatalogue
             'new' => 'new',
         ];
         $needle = $map[$flag] ?? $flag;
+        if (isset($map[$flag])) {
+            return array_slice(ProductRepository::publishedProductsWithFlag($flag, $flag === 'new'), 0, $limit);
+        }
         $out = [];
         foreach ($this->products() as $product) {
             if (in_array($needle, $product['flags'] ?? [], true)) {
