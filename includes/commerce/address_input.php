@@ -134,13 +134,7 @@ final class AddressInput
         $instructions = self::opt($input, 'delivery_instructions', 500, 'delivery_instructions', 'Delivery instructions', $errors);
 
         $pin = preg_replace('/\D+/', '', self::str($input, 'pincode')) ?? '';
-
-        // Parse map coordinates before pin serviceability — distance zones need customer lat/lng.
-        $coords = self::parseCoordinates(self::str($input, 'latitude'), self::str($input, 'longitude'));
-        if ($coords['error'] !== null) {
-            $errors['location'] = $coords['error'];
-        }
-        self::checkPin($pin, $errors, $coords['lat'], $coords['lng']);
+        self::checkPin($pin, $errors);
 
         // Step D — receiver
         $receiver = preg_replace('/\s+/u', ' ', self::str($input, 'receiver_name')) ?? '';
@@ -164,6 +158,10 @@ final class AddressInput
         }
 
         // Step B — map pin (checkout may use autocomplete + coords without embedded map)
+        $coords = self::parseCoordinates(self::str($input, 'latitude'), self::str($input, 'longitude'));
+        if ($coords['error'] !== null) {
+            $errors['location'] = $coords['error'];
+        }
         $confirmedPin = self::str($input, 'location_confirmed') === '1';
         $checkoutAutocomplete = self::str($input, 'addr_checkout_autocomplete') === '1';
         if ($coords['error'] === null && $coords['lat'] !== null && !$confirmedPin && !$checkoutAutocomplete) {
@@ -406,26 +404,13 @@ final class AddressInput
     }
 
     /** @param array<string, string> $errors */
-    private static function checkPin(string $pin, array &$errors, ?float $customerLat = null, ?float $customerLon = null): void
+    private static function checkPin(string $pin, array &$errors): void
     {
         if (!preg_match('/^\d{6}$/', $pin)) {
             $errors['pincode'] = 'Enter a valid 6-digit pincode.';
-
-            return;
+        } elseif (!DeliveryService::isPincodeServiceable($pin)) {
+            $errors['pincode'] = 'We do not deliver to this pincode yet.';
         }
-
-        $eval = DeliveryService::evaluatePincode($pin, $customerLat, $customerLon);
-        if (!empty($eval['serviceable'])) {
-            return;
-        }
-        if (!empty($eval['requires_map_pin'])) {
-            return;
-        }
-
-        $msg = trim((string) ($eval['message'] ?? ''));
-        $errors['pincode'] = ($msg !== '' && $msg !== 'Sorry — we do not deliver to this pincode yet.')
-            ? $msg
-            : 'We do not deliver to this pincode yet.';
     }
 
     /** @param array<string, mixed> $input */
