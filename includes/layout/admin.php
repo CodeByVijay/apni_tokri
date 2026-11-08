@@ -136,7 +136,7 @@ function layout_admin_start(array $vars): void
         echo '<span class="hidden md:inline text-sm at-muted">' . Security::escape($adminUser['email']) . '</span>';
     }
     echo '<div class="flex items-center gap-2 flex-shrink-0 overflow-visible">';
-    if (AdminAuth::check() && AdminDemoPerms::can('support') && AdminNotificationService::tableReady()) {
+    if (AdminAuth::check() && AdminNotificationService::viewerCanAccess() && AdminNotificationService::tableReady()) {
         $bellUnread = AdminNotificationService::unreadCountForCurrentAdmin();
         $inboxUrl = url_base() . '/admin/notifications/index.php';
         echo '<div class="relative overflow-visible" id="at-admin-notifications" data-poll-url="' . Security::escape(url_base() . '/admin/ajax/notifications.php') . '" data-csrf="' . Security::escape(Csrf::token()) . '" data-inbox-url="' . Security::escape($inboxUrl) . '">';
@@ -147,7 +147,7 @@ function layout_admin_start(array $vars): void
         echo '<div id="at-admin-notifications-panel" class="at-admin-notifications-panel" role="dialog" aria-label="Recent notifications">';
         echo '<div class="at-admin-notifications-panel__head">';
         echo '<p class="text-sm font-bold">Notifications</p>';
-        echo '<p class="text-xs at-muted">Support alerts</p>';
+        echo '<p class="text-xs at-muted">Support &amp; refund alerts</p>';
         echo '</div>';
         echo '<div class="at-admin-notifications-panel__list" id="at-admin-notifications-list"><p class="text-sm at-muted p-4">Loading…</p></div>';
         echo '<div class="at-admin-notifications-panel__foot">';

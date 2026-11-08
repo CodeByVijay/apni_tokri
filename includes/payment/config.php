@@ -82,6 +82,19 @@ final class PaymentGatewayConfig
             : 'https://api.cashfree.com/pg';
     }
 
+    /**
+     * PG API base for refund create/status (GET/POST under /orders/.../refunds).
+     * Checkout remains fail-closed via cashfreePgApiBase() on production + stored test mode.
+     */
+    public static function cashfreePgApiBaseForRefundOperations(): string
+    {
+        if (AppEnvironment::isProduction() && self::storedTestModeEnabled()) {
+            return 'https://sandbox.cashfree.com/pg';
+        }
+
+        return self::cashfreePgApiBase();
+    }
+
     /** Admin status line for Cashfree API host (reflects stored mode on production). */
     public static function cashfreeApiHostLabel(): string
     {

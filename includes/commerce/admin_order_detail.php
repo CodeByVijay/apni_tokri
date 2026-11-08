@@ -30,6 +30,7 @@ final class AdminOrderDetailService
         $base['order_source_label'] = self::orderSourceLabel((string) ($orderRow['order_source'] ?? ''));
         $base['overview'] = self::overviewBlock($base, $orderRow);
         $base['refunds'] = self::refundsForOrder($orderId);
+        $base['cancellation_refund'] = RefundRequestService::adminOrderCancellationRefundBlock($orderId);
         $base['reschedule_notes'] = self::rescheduleNotesFromHistory($base['history'] ?? []);
         $base['payment_method_primary'] = self::primaryPaymentMethodLabel($base['payments']);
 

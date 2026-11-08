@@ -296,6 +296,7 @@ $canRefreshCashfree = $hasCashfreeAttempt
         <?php endif; ?>
 
         <?php require APNI_TOKRI_ROOT . '/includes/partials/admin/order-detail-payments.php'; ?>
+        <?php require APNI_TOKRI_ROOT . '/includes/partials/admin/order-detail-cancellation-refund.php'; ?>
         <?php require APNI_TOKRI_ROOT . '/includes/partials/admin/order-detail-refunds.php'; ?>
         <?php require APNI_TOKRI_ROOT . '/includes/partials/admin/order-detail-timeline.php'; ?>
     </div>

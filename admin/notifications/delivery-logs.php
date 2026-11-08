@@ -103,6 +103,12 @@ $counts = NotificationQueueService::countsByStatus();
 </form>
 
 <?php
+$listQueryBase = array_filter([
+    'status' => $statusFilter !== '' ? $statusFilter : null,
+    'channel' => $channelFilter !== '' ? $channelFilter : null,
+    'event' => $eventFilter !== '' ? $eventFilter : null,
+    'page' => $page > 1 ? (string) $page : null,
+]);
 $list = NotificationQueueService::adminList(
     $statusFilter !== '' ? $statusFilter : null,
     $channelFilter !== '' ? $channelFilter : null,
@@ -112,11 +118,14 @@ $list = NotificationQueueService::adminList(
 );
 $rows = [];
 foreach ($list['rows'] as $job) {
-    $actions = '—';
+    $jobId = (int) ($job['id'] ?? 0);
+    $viewQs = http_build_query(array_merge($listQueryBase, ['id' => (string) $jobId]));
+    $viewHref = url_base() . '/admin/notifications/delivery-view.php?' . $viewQs;
+    $action = '—';
     if (($job['status'] ?? '') === NotificationQueueService::STATUS_FAILED) {
-        $actions = 'retry';
+        $action = 'retry';
     } elseif (($job['status'] ?? '') === NotificationQueueService::STATUS_PENDING) {
-        $actions = 'cancel';
+        $action = 'cancel';
     }
     $rows[] = [
         'id' => (string) ($job['id'] ?? ''),
@@ -127,9 +136,9 @@ foreach ($list['rows'] as $job) {
         'attempts' => (string) (($job['attempts'] ?? 0) . '/' . ($job['max_attempts'] ?? 0)),
         'error' => Security::escape((string) ($job['error_code'] ?? '')),
         'created' => (string) ($job['created_at'] ?? ''),
-        'actions' => $actions,
-        '_job_id' => (int) ($job['id'] ?? 0),
-        '_action' => $actions,
+        '_job_id' => $jobId,
+        '_action' => $action,
+        '_view_href' => $viewHref,
     ];
 }
 ?>
@@ -137,7 +146,7 @@ foreach ($list['rows'] as $job) {
     <table class="at-admin-table at-admin-table--dense">
         <thead>
             <tr>
-                <th>ID</th><th>Event</th><th>Channel</th><th>Recipient</th><th>Status</th><th class="is-num">Attempts</th><th>Error</th><th>Created</th><th class="is-actions"></th>
+                <th>ID</th><th>Event</th><th>Channel</th><th>Recipient</th><th>Status</th><th class="is-num">Attempts</th><th>Error</th><th>Created</th><th class="is-actions">Actions</th>
             </tr>
         </thead>
         <tbody>
@@ -152,23 +161,24 @@ foreach ($list['rows'] as $job) {
                 <td><?= $r['error'] ?></td>
                 <td class="is-nowrap"><?= Security::escape($r['created']) ?></td>
                 <td class="is-actions">
-                    <?php if ($r['_action'] === 'retry'): ?>
-                        <form method="post" class="inline">
-                            <?= Csrf::field() ?>
-                            <input type="hidden" name="action" value="retry">
-                            <input type="hidden" name="job_id" value="<?= (int) $r['_job_id'] ?>">
-                            <button type="submit" class="at-btn at-btn--sm at-btn--secondary at-focusable">Retry</button>
-                        </form>
-                    <?php elseif ($r['_action'] === 'cancel'): ?>
-                        <form method="post" class="inline">
-                            <?= Csrf::field() ?>
-                            <input type="hidden" name="action" value="cancel">
-                            <input type="hidden" name="job_id" value="<?= (int) $r['_job_id'] ?>">
-                            <button type="submit" class="at-btn at-btn--sm at-btn--danger at-focusable">Cancel</button>
-                        </form>
-                    <?php else: ?>
-                        —
-                    <?php endif; ?>
+                    <section class="flex flex-wrap gap-2 items-center justify-end">
+                        <a href="<?= Security::escape((string) ($r['_view_href'] ?? '#')) ?>" class="at-btn at-btn--sm at-btn--ghost at-focusable">View</a>
+                        <?php if ($r['_action'] === 'retry'): ?>
+                            <form method="post" class="inline">
+                                <?= Csrf::field() ?>
+                                <input type="hidden" name="action" value="retry">
+                                <input type="hidden" name="job_id" value="<?= (int) $r['_job_id'] ?>">
+                                <button type="submit" class="at-btn at-btn--sm at-btn--secondary at-focusable">Retry</button>
+                            </form>
+                        <?php elseif ($r['_action'] === 'cancel'): ?>
+                            <form method="post" class="inline">
+                                <?= Csrf::field() ?>
+                                <input type="hidden" name="action" value="cancel">
+                                <input type="hidden" name="job_id" value="<?= (int) $r['_job_id'] ?>">
+                                <button type="submit" class="at-btn at-btn--sm at-btn--danger at-focusable">Cancel</button>
+                            </form>
+                        <?php endif; ?>
+                    </section>
                 </td>
             </tr>
         <?php endforeach; ?>

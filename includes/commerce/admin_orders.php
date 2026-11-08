@@ -26,6 +26,60 @@ final class AdminOrderService
         ];
     }
 
+    /** @return array<string, string> */
+    public static function refundFacetLabels(): array
+    {
+        return [
+            '' => 'All orders',
+            'cancelled' => 'Cancelled',
+            'refund_approval' => 'Refund approval required',
+            'refund_processing' => 'Refund processing',
+            'refund_failed' => 'Refund failed',
+            'refunded' => 'Refunded',
+        ];
+    }
+
+    /**
+     * @return array{sql: string, params: list<mixed>}|null
+     */
+    private static function refundFacetWhere(string $facet): ?array
+    {
+        $facet = trim($facet);
+        if ($facet === '') {
+            return null;
+        }
+        $req = [RefundStatus::REQUESTED, RefundStatus::UNDER_REVIEW];
+        $proc = [RefundStatus::PROCESSING, RefundStatus::REFUND_INITIATED, RefundStatus::APPROVED];
+        switch ($facet) {
+            case 'cancelled':
+                return ['o.status = ?', [OrderStatus::CANCELLED]];
+            case 'refund_approval':
+                return [
+                    "EXISTS (SELECT 1 FROM refund_requests rr WHERE rr.order_id = o.id AND rr.status IN ('"
+                    . implode("','", $req) . "'))",
+                    [],
+                ];
+            case 'refund_processing':
+                return [
+                    "EXISTS (SELECT 1 FROM refund_requests rr WHERE rr.order_id = o.id AND rr.status IN ('"
+                    . implode("','", $proc) . "'))",
+                    [],
+                ];
+            case 'refund_failed':
+                return [
+                    "EXISTS (SELECT 1 FROM refund_requests rr WHERE rr.order_id = o.id AND rr.status = ?)",
+                    [RefundStatus::REFUND_FAILED],
+                ];
+            case 'refunded':
+                return [
+                    "EXISTS (SELECT 1 FROM refund_requests rr WHERE rr.order_id = o.id AND rr.status = ?)",
+                    [RefundStatus::REFUNDED],
+                ];
+            default:
+                return null;
+        }
+    }
+
     /**
      * @return array{rows: list<array<string, mixed>>, total: int, page: int, per_page: int, total_pages: int}
      */
@@ -34,7 +88,8 @@ final class AdminOrderService
         int $page = 1,
         int $perPage = 20,
         string $sortColumn = 'created_at',
-        string $sortDirection = 'desc'
+        string $sortDirection = 'desc',
+        string $refundFacet = ''
     ): array {
         if (!Install::isSchemaReady()) {
             return ['rows' => [], 'total' => 0, 'page' => 1, 'per_page' => $perPage, 'total_pages' => 1];
@@ -55,6 +110,13 @@ final class AdminOrderService
             $params[] = $like;
             $params[] = $like;
             $params[] = $statusLike;
+        }
+        $facet = self::refundFacetWhere($refundFacet);
+        if ($facet !== null) {
+            $where[] = $facet['sql'];
+            foreach ($facet['params'] as $fp) {
+                $params[] = $fp;
+            }
         }
         $whereSql = implode(' AND ', $where);
         $sortMap = [
@@ -88,9 +150,12 @@ final class AdminOrderService
         $stmt->bindValue($i++, $perPage, PDO::PARAM_INT);
         $stmt->bindValue($i, $offset, PDO::PARAM_INT);
         $stmt->execute();
+        $rawRows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        $orderIds = array_values(array_filter(array_map(static fn (array $r): int => (int) ($r['id'] ?? 0), $rawRows)));
+        $refundSummaries = RefundRequestService::adminOrderListRefundSummaries($orderIds);
         $rows = [];
         $base = url_base() . '/admin/orders/view.php?id=';
-        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        foreach ($rawRows as $row) {
             $customer = trim((string) ($row['customer_name'] ?? ''));
             $mobile = trim((string) ($row['customer_mobile'] ?? ''));
             if ($customer === '' && $mobile === '') {
@@ -102,10 +167,24 @@ final class AdminOrderService
             }
             $statusLabel = self::statusLabel((string) ($row['status'] ?? ''));
             $oid = (int) ($row['id'] ?? 0);
+            $refundLine = '';
+            if (isset($refundSummaries[$oid])) {
+                $sum = $refundSummaries[$oid];
+                $lbl = (string) ($sum['label'] ?? '');
+                if ($lbl !== '') {
+                    $statusLabel = $lbl;
+                }
+                $rn = (string) ($sum['request_number'] ?? '');
+                $amt = isset($sum['amount']) ? catalogue_format_price((float) $sum['amount']) : '';
+                if ($rn !== '' && $amt !== '') {
+                    $refundLine = $rn . ' · ' . $amt;
+                }
+            }
             $rows[] = [
                 'id' => (string) ($row['order_number'] ?? ''),
                 'customer' => $customerLabel,
                 'status' => $statusLabel,
+                'refund' => $refundLine !== '' ? $refundLine : '—',
                 'total' => catalogue_format_price((float) ($row['grand_total'] ?? 0)),
                 'actions' => admin_action_edit_link($base . $oid, 'View order'),
             ];

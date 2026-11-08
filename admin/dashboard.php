@@ -423,6 +423,42 @@ $preset = $dashQuery['preset'] ?? 'last7';
     <?php endif; ?>
 </section>
 
+<?php
+$cancelRef = is_array($dash['cancellation_refunds'] ?? null) ? $dash['cancellation_refunds'] : [];
+$canRefundDash = AdminDemoPerms::can('refunds') || AdminDemoPerms::can('orders');
+if ($canRefundDash):
+    $crLinks = [
+        'new_cancellations' => ['label' => 'New cancellations (7d)', 'facet' => 'cancelled'],
+        'approval_required' => ['label' => 'Refund approval required', 'facet' => 'refund_approval'],
+        'processing' => ['label' => 'Refund processing', 'facet' => 'refund_processing'],
+        'failed' => ['label' => 'Refund failed', 'facet' => 'refund_failed'],
+        'completed' => ['label' => 'Refunded', 'facet' => 'refunded'],
+    ];
+    ?>
+    <section class="at-admin-card mt-4 at-dash-card">
+        <div class="at-admin-card__head">
+            <h2>Cancellation &amp; refund overview</h2>
+            <a href="<?= Security::escape($base) ?>/orders/index.php" class="text-sm font-semibold underline at-focusable">Orders</a>
+        </div>
+        <div class="at-admin-card__body">
+            <ul class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                <?php foreach ($crLinks as $key => $meta): ?>
+                    <?php
+                    $count = (int) ($cancelRef[$key] ?? 0);
+                    $href = $base . '/orders/index.php?refund_facet=' . rawurlencode((string) $meta['facet']);
+                    ?>
+                    <li>
+                        <a href="<?= Security::escape($href) ?>" class="at-dash-kpi block at-focusable border border-black/10 rounded-lg p-3">
+                            <p class="text-xs font-semibold at-muted"><?= Security::escape((string) $meta['label']) ?></p>
+                            <p class="text-2xl font-extrabold mt-1"><?= $count ?></p>
+                        </a>
+                    </li>
+                <?php endforeach; ?>
+            </ul>
+        </div>
+    </section>
+<?php endif; ?>
+
 <?php if (AdminDemoPerms::can('support')): ?>
     <section class="at-admin-card mt-4 at-dash-card">
         <div class="at-admin-card__head">

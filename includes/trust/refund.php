@@ -191,6 +191,167 @@ final class RefundRequestService
         return (float) $stmt->fetchColumn();
     }
 
+    /** Remaining refundable balance (captured minus completed refunds, minus open request allocations). */
+    public static function availableRefundAmountForOrder(int $orderId): float
+    {
+        if ($orderId <= 0) {
+            return 0.0;
+        }
+        $captured = self::capturedAmountForOrder($orderId);
+        $reserved = self::pendingRefundTotalForOrder($orderId);
+
+        return max(0.0, round($captured - $reserved, 2));
+    }
+
+    /**
+     * @return array{
+     *   new_cancellations: int,
+     *   approval_required: int,
+     *   processing: int,
+     *   failed: int,
+     *   completed: int
+     * }
+     */
+    public static function adminCancellationRefundDashboardCounts(): array
+    {
+        if (!Install::isSchemaReady()) {
+            return ['new_cancellations' => 0, 'approval_required' => 0, 'processing' => 0, 'failed' => 0, 'completed' => 0];
+        }
+        Install::ensureConnection();
+        $pdo = Database::pdo();
+        $newCancel = 0;
+        if (OrderCancellationService::eventsTableReady()) {
+            $newCancel = (int) $pdo->query(
+                "SELECT COUNT(*) FROM order_cancellation_events WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)"
+            )->fetchColumn();
+        }
+        $approval = (int) $pdo->query(
+            "SELECT COUNT(*) FROM refund_requests WHERE reason_code = 'cancellation'
+             AND status IN ('" . RefundStatus::REQUESTED . "', '" . RefundStatus::UNDER_REVIEW . "')"
+        )->fetchColumn();
+        $processing = (int) $pdo->query(
+            "SELECT COUNT(*) FROM refund_requests WHERE status IN ('" . RefundStatus::PROCESSING . "', '" . RefundStatus::REFUND_INITIATED . "')"
+        )->fetchColumn();
+        $failed = (int) $pdo->query(
+            "SELECT COUNT(*) FROM refund_requests WHERE status = '" . RefundStatus::REFUND_FAILED . "'"
+        )->fetchColumn();
+        $completed = (int) $pdo->query(
+            "SELECT COUNT(*) FROM refund_requests WHERE reason_code = 'cancellation' AND status = '" . RefundStatus::REFUNDED . "'"
+        )->fetchColumn();
+
+        return [
+            'new_cancellations' => $newCancel,
+            'approval_required' => $approval,
+            'processing' => $processing,
+            'failed' => $failed,
+            'completed' => $completed,
+        ];
+    }
+
+    /**
+     * @param list<int> $orderIds
+     * @return array<int, array{label: string, request_number: ?string, amount: ?float, refund_id: ?int}>
+     */
+    public static function adminOrderListRefundSummaries(array $orderIds): array
+    {
+        $orderIds = array_values(array_filter(array_map('intval', $orderIds)));
+        if ($orderIds === []) {
+            return [];
+        }
+        Install::ensureConnection();
+        $ph = implode(',', array_fill(0, count($orderIds), '?'));
+        $stmt = Database::pdo()->prepare(
+            "SELECT rr.order_id, rr.id, rr.request_number, rr.status, rr.approved_amount_inr
+             FROM refund_requests rr
+             INNER JOIN (SELECT order_id, MAX(id) AS max_id FROM refund_requests WHERE order_id IN ({$ph}) GROUP BY order_id) latest
+               ON latest.max_id = rr.id"
+        );
+        $stmt->execute($orderIds);
+        $out = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) ?: [] as $row) {
+            $oid = (int) ($row['order_id'] ?? 0);
+            $st = (string) ($row['status'] ?? '');
+            $out[$oid] = [
+                'label' => self::adminOrderRefundListLabel($st),
+                'request_number' => (string) ($row['request_number'] ?? ''),
+                'amount' => $row['approved_amount_inr'] !== null ? (float) $row['approved_amount_inr'] : RefundRequestService::sumLineItemsForRequest((int) $row['id']),
+                'refund_id' => (int) ($row['id'] ?? 0),
+            ];
+        }
+
+        return $out;
+    }
+
+    public static function adminOrderRefundListLabel(string $refundStatus): string
+    {
+        switch ($refundStatus) {
+            case RefundStatus::REQUESTED:
+            case RefundStatus::UNDER_REVIEW:
+                return 'Cancelled – Refund Required';
+            case RefundStatus::APPROVED:
+                return 'Cancelled – Refund Approved';
+            case RefundStatus::PROCESSING:
+            case RefundStatus::REFUND_INITIATED:
+                return 'Refund Processing';
+            case RefundStatus::REFUND_FAILED:
+                return 'Refund Failed';
+            case RefundStatus::REFUNDED:
+                return 'Refunded';
+            default:
+                return '';
+        }
+    }
+
+    /** @return array<string, mixed>|null */
+    public static function adminOrderCancellationRefundBlock(int $orderId): ?array
+    {
+        if ($orderId <= 0 || !Install::isSchemaReady()) {
+            return null;
+        }
+        $event = OrderCancellationService::cancellationEventForOrder($orderId);
+        $captured = self::capturedAmountForOrder($orderId);
+        $refunded = self::completedRefundTotalForOrder($orderId);
+        $available = self::availableRefundAmountForOrder($orderId);
+        $stmt = Database::pdo()->prepare(
+            "SELECT * FROM refund_requests WHERE order_id = ? AND reason_code = 'cancellation' ORDER BY id DESC LIMIT 1"
+        );
+        $stmt->execute([$orderId]);
+        $req = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+        if ($event === null && $req === null && $captured <= 0) {
+            return null;
+        }
+        $source = $event !== null ? ucfirst((string) ($event['requested_by'] ?? 'customer')) : null;
+        $reasonCode = $event !== null ? (string) ($event['reason_code'] ?? '') : null;
+        $reasonDetail = $event !== null ? trim((string) ($event['reason_detail'] ?? '')) : null;
+
+        return [
+            'cancellation_source' => $source,
+            'cancelled_at' => $event !== null ? (string) ($event['created_at'] ?? '') : null,
+            'reason_code' => $reasonCode,
+            'reason_detail' => $reasonDetail,
+            'captured_amount_inr' => $captured,
+            'refunded_amount_inr' => $refunded,
+            'remaining_refundable_inr' => $available,
+            'refund_request' => $req,
+            'review_url' => $req !== null ? url_base() . '/admin/refunds/index.php?id=' . (int) $req['id'] : null,
+            'needs_approval' => $req !== null && in_array((string) ($req['status'] ?? ''), [RefundStatus::REQUESTED, RefundStatus::UNDER_REVIEW], true),
+        ];
+    }
+
+    public static function completedRefundTotalForOrder(int $orderId): float
+    {
+        if ($orderId <= 0) {
+            return 0.0;
+        }
+        Install::ensureConnection();
+        $stmt = Database::pdo()->prepare(
+            'SELECT COALESCE(SUM(amount_refunded_inr), 0) FROM payments WHERE order_id = ?'
+        );
+        $stmt->execute([$orderId]);
+
+        return round((float) $stmt->fetchColumn(), 2);
+    }
+
     public static function pendingRefundTotalForOrder(int $orderId): float
     {
         Install::ensureConnection();
@@ -1570,17 +1731,6 @@ final class RefundRequestService
         $stmt->execute();
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
-    }
-
-    public static function completedRefundTotalForOrder(int $orderId): float
-    {
-        Install::ensureConnection();
-        $stmt = Database::pdo()->prepare(
-            "SELECT COALESCE(SUM(amount_refunded_inr), 0) FROM payments WHERE order_id = ? AND status = 'captured'"
-        );
-        $stmt->execute([$orderId]);
-
-        return (float) $stmt->fetchColumn();
     }
 
     /** @return list<array<string, mixed>> */

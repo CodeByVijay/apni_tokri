@@ -244,8 +244,11 @@ $insertPaymentRefund(
     'pending'
 );
 $httpLog = [];
-$setMock(static function (string $method, string $url) use ($merchantPend, $cfRefundIdPend): array {
-    if ($method !== 'GET' || !preg_match('#/refunds/' . preg_quote(rawurlencode($merchantPend), '#') . '$#', $url)) {
+$setMock(static function (string $method, string $url) use ($merchantPend, $cfRefundIdPend, $isoPend): array {
+    $orderEnc = rawurlencode((string) $isoPend['order_number']);
+    $refEnc = rawurlencode($merchantPend);
+    $expectedSuffix = '/orders/' . $orderEnc . '/refunds/' . $refEnc;
+    if ($method !== 'GET' || !str_ends_with($url, $expectedSuffix)) {
         return ['ok' => false, 'status' => 404, 'body' => '{"message":"not found"}', 'json' => ['message' => 'not found']];
     }
 
@@ -324,8 +327,9 @@ $httpLogBeforeRepeat = $httpLog;
 $httpLog = [];
 $setMock(static function (string $method, string $url) use ($merchantLookupSucc, $isoSucc): array {
     $orderEnc = rawurlencode((string) $isoSucc['order_number']);
-    $refEnc = rawurlencode('cf_ref_success_' . $merchantLookupSucc);
-    if ($method === 'GET' && str_contains($url, '/orders/' . $orderEnc . '/refunds/')) {
+    $refEnc = rawurlencode($merchantLookupSucc);
+    $expectedSuffix = '/orders/' . $orderEnc . '/refunds/' . $refEnc;
+    if ($method === 'GET' && str_ends_with($url, $expectedSuffix)) {
         return [
             'ok' => true,
             'status' => 200,

@@ -121,6 +121,7 @@ final class AdminDashboardService
             'inventory' => self::inventoryAlerts($pdo),
             'recent_orders' => self::recentOrdersForDashboard(8),
             'open_tickets' => self::openTicketsCount($pdo),
+            'cancellation_refunds' => RefundRequestService::adminCancellationRefundDashboardCounts(),
             'deliveries_today' => $deliveriesToday,
         ];
     }
@@ -167,6 +168,13 @@ final class AdminDashboardService
             'inventory' => ['low' => 0, 'out' => 0, 'attention' => 0],
             'recent_orders' => [],
             'open_tickets' => 0,
+            'cancellation_refunds' => [
+                'new_cancellations' => 0,
+                'approval_required' => 0,
+                'processing' => 0,
+                'failed' => 0,
+                'completed' => 0,
+            ],
             'deliveries_today' => ['scheduled_today' => 0, 'subscription_skips' => 0],
         ];
     }

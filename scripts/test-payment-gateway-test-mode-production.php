@@ -90,6 +90,10 @@ withConfig(['app' => ['env' => 'prod']], static function (): void {
         ok(true, 'cashfreePgApiBase throws on production with stored test mode');
     }
     ok(
+        PaymentGatewayConfig::cashfreePgApiBaseForRefundOperations() === 'https://sandbox.cashfree.com/pg',
+        'refund operations use sandbox base on production when stored test mode on'
+    );
+    ok(
         str_contains(PaymentGatewayConfig::cashfreeApiHostLabel(), 'checkout blocked'),
         'admin API host label warns when production has stored test mode'
     );

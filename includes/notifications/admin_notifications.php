@@ -6,6 +6,7 @@ final class AdminNotificationService
 {
     public const EVENT_SUPPORT_TICKET_CREATED = 'admin.support.ticket_created';
     public const EVENT_SUPPORT_CUSTOMER_REPLY = 'admin.support.ticket_customer_reply';
+    public const EVENT_ORDER_CANCEL_REFUND = 'admin.order_cancel.refund_required';
 
     public static function tableReady(): bool
     {
@@ -27,7 +28,58 @@ final class AdminNotificationService
 
     public static function viewerCanAccess(): bool
     {
-        return AdminAuth::check() && AdminDemoPerms::can('support');
+        return AdminAuth::check()
+            && (AdminDemoPerms::can('support') || AdminDemoPerms::can('refunds'));
+    }
+
+    public static function notifyOrderCancellationRefundRequired(int $refundRequestId): void
+    {
+        if (!self::tableReady() || $refundRequestId <= 0) {
+            return;
+        }
+        try {
+            Install::ensureConnection();
+            $stmt = Database::pdo()->prepare(
+                'SELECT rr.id, rr.request_number, rr.approved_amount_inr, rr.description, rr.created_at,
+                        o.order_number, c.name AS customer_name
+                 FROM refund_requests rr
+                 INNER JOIN orders o ON o.id = rr.order_id
+                 INNER JOIN customers c ON c.id = rr.customer_id
+                 WHERE rr.id = ? LIMIT 1'
+            );
+            $stmt->execute([$refundRequestId]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$row) {
+                return;
+            }
+            $amount = RefundRequestService::displayAmountInr($row);
+            $orderNumber = (string) ($row['order_number'] ?? '');
+            $customerName = trim((string) ($row['customer_name'] ?? '')) !== ''
+                ? (string) $row['customer_name']
+                : 'Customer';
+            $title = 'Customer cancelled order – Refund required';
+            $body = sprintf(
+                'Order #%s was cancelled by the customer. Refund of %s requires admin approval.',
+                $orderNumber,
+                catalogue_format_price($amount)
+            );
+            self::insert(
+                self::EVENT_ORDER_CANCEL_REFUND,
+                $title,
+                $body,
+                [
+                    'refund_request_id' => $refundRequestId,
+                    'request_number' => (string) ($row['request_number'] ?? ''),
+                    'order_number' => $orderNumber,
+                    'customer_name' => $customerName,
+                    'amount_inr' => $amount,
+                    'created_at' => (string) ($row['created_at'] ?? ''),
+                ],
+                'admin:order_cancel.refund:' . $refundRequestId
+            );
+        } catch (Throwable $e) {
+            error_log('AdminNotificationService::notifyOrderCancellationRefundRequired');
+        }
     }
 
     public static function notifySupportTicketCreated(int $ticketId): void
@@ -198,7 +250,6 @@ final class AdminNotificationService
                     $ctx = [];
                 }
             }
-            $ticketId = (int) ($ctx['ticket_id'] ?? 0);
             $eventType = (string) $row['event_type'];
             $out[] = [
                 'id' => (int) $row['id'],
@@ -208,9 +259,7 @@ final class AdminNotificationService
                 'body' => (string) $row['body'],
                 'ticket_number' => (string) ($ctx['ticket_number'] ?? ''),
                 'customer_name' => (string) ($ctx['customer_name'] ?? ''),
-                'href' => $ticketId > 0
-                    ? url_base() . '/admin/support/index.php?id=' . $ticketId
-                    : url_base() . '/admin/support/index.php',
+                'href' => self::notificationHref($eventType, $ctx),
                 'created_at' => (string) $row['created_at'],
                 'relative_time' => self::formatRelativeTime((string) ($row['created_at'] ?? '')),
                 'is_read' => !empty($row['is_read']),
@@ -337,6 +386,9 @@ final class AdminNotificationService
         } elseif ($filter === 'customer_reply') {
             $where = ' WHERE n.event_type = ?';
             $params[] = self::EVENT_SUPPORT_CUSTOMER_REPLY;
+        } elseif ($filter === 'refund_required') {
+            $where = ' WHERE n.event_type = ?';
+            $params[] = self::EVENT_ORDER_CANCEL_REFUND;
         }
 
         $countStmt = Database::pdo()->prepare('SELECT COUNT(*) ' . $join . $where);
@@ -396,8 +448,25 @@ final class AdminNotificationService
         if ($eventType === self::EVENT_SUPPORT_CUSTOMER_REPLY) {
             return 'customer_reply';
         }
+        if ($eventType === self::EVENT_ORDER_CANCEL_REFUND) {
+            return 'refund_required';
+        }
 
         return 'generic';
+    }
+
+    /** @param array<string, mixed> $ctx */
+    private static function notificationHref(string $eventType, array $ctx): string
+    {
+        $refundId = (int) ($ctx['refund_request_id'] ?? 0);
+        if ($eventType === self::EVENT_ORDER_CANCEL_REFUND && $refundId > 0) {
+            return url_base() . '/admin/refunds/index.php?id=' . $refundId;
+        }
+        $ticketId = (int) ($ctx['ticket_id'] ?? 0);
+
+        return $ticketId > 0
+            ? url_base() . '/admin/support/index.php?id=' . $ticketId
+            : url_base() . '/admin/support/index.php';
     }
 
     /**
@@ -419,7 +488,6 @@ final class AdminNotificationService
                     $ctx = [];
                 }
             }
-            $ticketId = (int) ($ctx['ticket_id'] ?? 0);
             $eventType = (string) ($row['event_type'] ?? '');
             $out[] = [
                 'id' => (int) $row['id'],
@@ -429,9 +497,7 @@ final class AdminNotificationService
                 'body' => (string) $row['body'],
                 'ticket_number' => (string) ($ctx['ticket_number'] ?? ''),
                 'customer_name' => (string) ($ctx['customer_name'] ?? ''),
-                'href' => $ticketId > 0
-                    ? url_base() . '/admin/support/index.php?id=' . $ticketId
-                    : url_base() . '/admin/support/index.php',
+                'href' => self::notificationHref($eventType, $ctx),
                 'created_at' => (string) $row['created_at'],
                 'relative_time' => self::formatRelativeTime((string) ($row['created_at'] ?? '')),
                 'is_read' => !empty($row['is_read']),

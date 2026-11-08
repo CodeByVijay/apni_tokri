@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/_init.php';
 
-AdminDemoPerms::denyIfCannot('support');
+if (!AdminNotificationService::viewerCanAccess()) {
+    AdminDemoPerms::denyIfCannot('support');
+}
 
 $filter = isset($_GET['filter']) ? trim((string) $_GET['filter']) : 'all';
-$allowedFilters = ['all', 'unread', 'read', 'ticket_created', 'customer_reply'];
+$allowedFilters = ['all', 'unread', 'read', 'ticket_created', 'customer_reply', 'refund_required'];
 if (!in_array($filter, $allowedFilters, true)) {
     $filter = 'all';
 }
@@ -41,7 +43,7 @@ $total = (int) $list['total'];
 $totalPages = max(1, (int) ceil($total / 25));
 
 $pageHeading = 'Notifications';
-$pageDescription = 'Support ticket alerts for your admin account. Shared with all support staff; read state is personal.';
+$pageDescription = 'Support and refund alerts for your admin account. Read state is personal per admin user.';
 $pageActionsHtml = '';
 if ($summary['unread'] > 0 && AdminNotificationService::tableReady()) {
     $pageActionsHtml .= '<form method="post" class="inline">';
@@ -87,6 +89,7 @@ if (!AdminNotificationService::tableReady()) {
             'read' => 'Read',
             'ticket_created' => 'Support tickets',
             'customer_reply' => 'Customer replies',
+            'refund_required' => 'Refund required',
         ];
         foreach ($filterLabels as $key => $label):
             $qs = http_build_query(array_filter(['filter' => $key !== 'all' ? $key : null]));

@@ -94,6 +94,20 @@ $refCnt = (int) $pdo->query('SELECT COUNT(*) FROM refund_requests WHERE order_id
 okc($refCnt === 1, 'Online paid cancel creates refund request');
 $refSt = (string) $pdo->query('SELECT status FROM refund_requests WHERE order_id = ' . $confirmedId . ' LIMIT 1')->fetchColumn();
 okc($refSt === RefundStatus::REQUESTED, 'Refund stays requested (not auto-completed)');
+$refId = (int) $pdo->query('SELECT id FROM refund_requests WHERE order_id = ' . $confirmedId . ' LIMIT 1')->fetchColumn();
+$gwCnt = (int) $pdo->query('SELECT COUNT(*) FROM payment_refunds WHERE payment_id IN (SELECT id FROM payments WHERE order_id = ' . $confirmedId . ')')->fetchColumn();
+okc($gwCnt === 0, 'No gateway refund row on auto request creation');
+if (AdminNotificationService::tableReady()) {
+    AdminNotificationService::notifyOrderCancellationRefundRequired($refId);
+    $idemKey = 'admin:order_cancel.refund:' . $refId;
+    $stmtN = $pdo->prepare('SELECT COUNT(*) FROM admin_notifications WHERE idempotency_key = ?');
+    $stmtN->execute([$idemKey]);
+    $nCnt = (int) $stmtN->fetchColumn();
+    okc($nCnt === 1, 'Admin notification for refund request');
+    AdminNotificationService::notifyOrderCancellationRefundRequired($refId);
+    $stmtN->execute([$idemKey]);
+    okc((int) $stmtN->fetchColumn() === 1, 'Admin notification idempotent');
+}
 
 $dup = OrderCancellationService::cancelByCustomer($customerA, $confirmedNum, 'no_longer_needed', '', $idemConf);
 okc(!empty($dup['ok']) && !empty($dup['idempotent']), 'Duplicate idempotency returns ok');

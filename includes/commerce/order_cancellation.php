@@ -264,7 +264,7 @@ final class OrderCancellationService
                     }
                 }
 
-                self::createRefundRequestIfPaidOnline($pdo, $fresh, $customerId, $humanReason, $reasonDetail);
+                $refundRequestId = self::createRefundRequestIfPaidOnline($pdo, $fresh, $customerId, $humanReason, $reasonDetail);
 
                 AuditLog::write('order.cancelled', 'orders', (string) $orderId, [
                     'by' => $requestedBy,
@@ -276,6 +276,7 @@ final class OrderCancellationService
                     'order_number' => $orderNumber,
                     'message' => 'Your order has been cancelled.',
                     'status_from' => $statusBeforeCancel,
+                    'refund_request_id' => $refundRequestId,
                 ];
             });
         } catch (Throwable $e) {
@@ -283,6 +284,10 @@ final class OrderCancellationService
             error_log('OrderCancellationService: ' . $e->getMessage());
 
             return ['ok' => false, 'message' => 'Could not cancel order. Please try again or contact support.'];
+        }
+
+        if (!empty($result['ok']) && empty($result['idempotent']) && !empty($result['refund_request_id'])) {
+            AdminNotificationService::notifyOrderCancellationRefundRequired((int) $result['refund_request_id']);
         }
 
         if (!empty($result['ok']) && empty($result['idempotent']) && !empty($result['status_from'])) {
@@ -404,26 +409,35 @@ final class OrderCancellationService
         ?int $customerId,
         string $humanReason,
         string $reasonDetail
-    ): void {
+    ): ?int {
         $orderId = (int) $orderRow['id'];
         if ((string) ($orderRow['payment_status'] ?? '') !== 'paid') {
-            return;
+            return null;
         }
-        $captured = RefundRequestService::capturedAmountForOrder($orderId);
-        if ($captured <= 0) {
-            return;
+        $refundable = RefundRequestService::availableRefundAmountForOrder($orderId);
+        if ($refundable <= 0) {
+            return null;
         }
         $open = $pdo->prepare(
             "SELECT id FROM refund_requests WHERE order_id = ? AND status NOT IN ('rejected', 'cancelled', 'refunded', 'refund_failed') LIMIT 1"
         );
         $open->execute([$orderId]);
-        if ($open->fetchColumn()) {
-            return;
+        $existingId = (int) ($open->fetchColumn() ?: 0);
+        if ($existingId > 0) {
+            return null;
+        }
+        $cancelRow = $pdo->prepare(
+            "SELECT id FROM refund_requests WHERE order_id = ? AND reason_code = 'cancellation'
+             AND status NOT IN ('rejected', 'cancelled', 'refunded', 'refund_failed') LIMIT 1"
+        );
+        $cancelRow->execute([$orderId]);
+        if ((int) ($cancelRow->fetchColumn() ?: 0) > 0) {
+            return null;
         }
 
         $custId = $customerId ?? (int) ($orderRow['customer_id'] ?? 0);
         if ($custId <= 0) {
-            return;
+            return null;
         }
 
         $requestNumber = RefundRequestService::nextRequestNumber();
@@ -447,17 +461,30 @@ final class OrderCancellationService
         $reqId = (int) $pdo->lastInsertId();
         $items = $pdo->prepare('SELECT id, quantity, unit_price FROM order_items WHERE order_id = ?');
         $items->execute([$orderId]);
+        $lineRows = [];
+        $lineTotal = 0.0;
         foreach ($items->fetchAll(PDO::FETCH_ASSOC) as $it) {
             $qty = (int) $it['quantity'];
             $amt = round((float) $it['unit_price'] * $qty, 2);
+            $lineRows[] = ['id' => (int) $it['id'], 'qty' => $qty, 'amt' => $amt];
+            $lineTotal += $amt;
+        }
+        $scale = ($lineTotal > $refundable + 0.01 && $lineTotal > 0) ? ($refundable / $lineTotal) : 1.0;
+        foreach ($lineRows as $line) {
+            $amt = round($line['amt'] * $scale, 2);
+            if ($amt <= 0) {
+                continue;
+            }
             $pdo->prepare(
                 'INSERT INTO refund_request_items (refund_request_id, order_item_id, quantity, amount_inr) VALUES (?, ?, ?, ?)'
-            )->execute([$reqId, (int) $it['id'], $qty, $amt]);
+            )->execute([$reqId, $line['id'], $line['qty'], $amt]);
         }
-        RefundRequestService::appendHistoryPublic($pdo, $reqId, 'system', null, 'requested', [
+        RefundRequestService::appendHistoryPublic($pdo, $reqId, 'system', null, 'auto_created', [
             'source' => 'order_cancellation',
-            'amount' => $captured,
+            'amount' => $refundable,
         ]);
+
+        return $reqId;
     }
 
     /** @return array<string, mixed>|null */

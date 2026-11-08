@@ -366,7 +366,7 @@ final class CashfreeGateway
 
     public static function ordersRefundApiPath(string $merchantOrderId): string
     {
-        return PaymentGatewayConfig::cashfreePgApiBase()
+        return PaymentGatewayConfig::cashfreePgApiBaseForRefundOperations()
             . '/orders/' . rawurlencode($merchantOrderId) . '/refunds';
     }
 
