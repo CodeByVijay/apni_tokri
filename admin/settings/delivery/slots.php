@@ -19,6 +19,7 @@ $listQ = isset($_GET['q']) ? trim((string) $_GET['q']) : '';
 $listPage = isset($_GET['page']) ? max(1, (int) $_GET['page']) : 1;
 $listPerPage = DeliverySlotRepository::normalizeListPerPage(isset($_GET['per_page']) ? (int) $_GET['per_page'] : 25);
 $listQueryBase = array_filter(['q' => $listQ !== '' ? $listQ : null]);
+$reorderMode = isset($_GET['reorder']) && (string) $_GET['reorder'] === '1';
 
 $capacityGrid = $useDb ? DeliverySlotAdminService::nextSevenDayCapacity() : [];
 $allSlots = $useDb ? DeliverySlotRepository::all() : [];
@@ -62,6 +63,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 header('Location: ' . $self . ($listQueryBase !== [] ? '?' . http_build_query(array_merge($listQueryBase, ['page' => $listPage, 'per_page' => $listPerPage])) : ''), true, 302);
                 exit;
             }
+            if ($action === 'reorder') {
+                $parseIds = static function (string $raw): array {
+                    $raw = trim($raw);
+                    if ($raw === '') {
+                        return [];
+                    }
+                    $parts = preg_split('/\s*,\s*/', $raw) ?: [];
+                    $out = [];
+                    foreach ($parts as $p) {
+                        $id = (int) $p;
+                        if ($id > 0) {
+                            $out[] = $id;
+                        }
+                    }
+
+                    return $out;
+                };
+                $ordered = $parseIds((string) ($_POST['slot_order'] ?? ''));
+                $baseline = $parseIds((string) ($_POST['baseline_order'] ?? ''));
+                $result = DeliverySlotAdminService::reorderAllSlots($ordered, $baseline);
+                admin_flash_set(
+                    (string) ($result['message'] ?? ($result['ok'] ? 'Order saved.' : 'Could not save order.')),
+                    !empty($result['ok']) ? 'success' : 'error'
+                );
+                header('Location: ' . $self, true, 302);
+                exit;
+            }
             $id = isset($_POST['slot_id']) && $_POST['slot_id'] !== '' ? (int) $_POST['slot_id'] : null;
             $result = DeliverySlotAdminService::saveFromPost($_POST, $id);
             if (!$result['ok']) {
@@ -80,6 +108,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $slotList = $useDb
     ? DeliverySlotRepository::listForAdmin($listQ !== '' ? $listQ : null, $listPage, $listPerPage)
     : ['rows' => [], 'total' => 0, 'page' => 1, 'per_page' => $listPerPage];
+$reorderSlots = ($useDb && $reorderMode) ? DeliverySlotRepository::all() : [];
+$reorderBaselineIds = $reorderSlots !== [] ? array_map(static fn (array $r): int => (int) $r['id'], $reorderSlots) : [];
 $providers = DeliverySlotService::knownProviderSlugs();
 $selectedProviders = $editRow
     ? DeliverySlotAdminService::decodeProviders((string) ($editRow['allowed_provider_slugs_json'] ?? ''))
@@ -138,7 +168,7 @@ if ($errors !== []): ?>
             <p class="text-xs at-muted">Booking deadline (Asia/Kolkata): the <strong>earliest</strong> of — (1) legacy cutoff time on the delivery date, (2) slot start minus booking cutoff minutes, (3) slot start minus prep buffer (slot override or store default from Dispatch). Customers cannot book after that moment.</p>
             <div class="grid grid-cols-2 gap-2">
                 <div><label class="at-label">Max orders</label><input name="capacity" type="number" min="1" class="at-input at-focusable w-full" value="<?= (int) ($editRow['capacity'] ?? 25) ?>"></div>
-                <div><label class="at-label">Sort order</label><input name="sort_order" type="number" class="at-input at-focusable w-full" value="<?= (int) ($editRow['sort_order'] ?? 0) ?>"></div>
+                <div><label class="at-label">Sort order</label><input name="sort_order" type="number" class="at-input at-focusable w-full" value="<?= (int) ($editRow['sort_order'] ?? 0) ?>"><p class="text-xs at-muted mt-1">To change checkout display order for all slots, use <a class="underline" href="<?= Security::escape($self . '?reorder=1') ?>">Reorder slots</a>.</p></div>
             </div>
             <div class="grid grid-cols-2 gap-2">
                 <div><label class="at-label">Prep buffer (min)</label><input name="prep_buffer_minutes" type="number" class="at-input at-focusable w-full" placeholder="Store default" value="<?= Security::escape((string) ($editRow['prep_buffer_minutes'] ?? '')) ?>"></div>
@@ -203,9 +233,77 @@ if ($errors !== []): ?>
     </div></div>
 </div>
 
+<?php if ($reorderMode): ?>
+<div class="at-admin-card mt-4" data-at-delivery-slot-reorder>
+    <div class="at-admin-card__body space-y-3">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+                <h3 class="font-bold">Reorder delivery slots</h3>
+                <p class="text-sm at-muted mt-1">Drag rows or use the arrow buttons. Sequence numbers update as you go. All slots appear here (including inactive); customers still only see active, bookable slots at checkout.</p>
+            </div>
+            <a class="at-btn at-btn--ghost at-focusable" href="<?= Security::escape($self) ?>">Back to list</a>
+        </div>
+        <p class="text-sm at-dslots-reorder-status hidden" data-at-dslots-reorder-status role="status" aria-live="polite"></p>
+        <?php if ($reorderSlots === []): ?>
+            <p class="text-sm at-muted">No slots configured.</p>
+        <?php else: ?>
+            <form method="post" class="space-y-3" data-at-dslots-reorder-form data-at-dslots-initial="<?= Security::escape(implode(',', $reorderBaselineIds)) ?>">
+                <?= Csrf::field() ?>
+                <input type="hidden" name="action" value="reorder">
+                <input type="hidden" name="slot_order" value="<?= Security::escape(implode(',', $reorderBaselineIds)) ?>" data-at-dslots-order-input>
+                <input type="hidden" name="baseline_order" value="<?= Security::escape(implode(',', $reorderBaselineIds)) ?>" data-at-dslots-baseline-input>
+                <div class="at-admin-table-wrap at-admin-table-wrap--delivery-slots">
+                    <table class="at-admin-table at-admin-table--delivery-slots at-admin-table--dslots-reorder">
+                        <thead><tr>
+                            <th class="at-dslots-reorder-col-handle" scope="col"><span class="sr-only">Drag</span></th>
+                            <th class="is-num at-dslots-reorder-col-seq" scope="col">#</th>
+                            <th class="at-dslots-col-name" scope="col">Name</th>
+                            <th class="at-dslots-col-slug" scope="col">Slug</th>
+                            <th class="at-dslots-col-active" scope="col">Active</th>
+                            <th class="at-dslots-reorder-col-move" scope="col"><span class="sr-only">Move</span></th>
+                        </tr></thead>
+                        <tbody data-at-dslots-reorder-body>
+                        <?php foreach ($reorderSlots as $index => $s):
+                            $sid = (int) $s['id'];
+                            $label = (string) ($s['label'] ?? $s['slug']);
+                            ?>
+                            <tr data-slot-id="<?= $sid ?>" data-at-dslots-row>
+                                <td class="at-dslots-reorder-col-handle">
+                                    <button type="button" class="at-dslots-reorder-handle at-focusable" draggable="true" aria-label="Drag to reorder <?= Security::escape($label) ?>" data-at-dslots-drag-handle>⋮⋮</button>
+                                </td>
+                                <td class="is-num at-dslots-reorder-col-seq" data-at-dslots-seq><?= $index + 1 ?></td>
+                                <td class="at-dslots-col-name"><?= Security::escape($label) ?></td>
+                                <td class="at-dslots-col-slug"><?= Security::escape((string) $s['slug']) ?></td>
+                                <td class="at-dslots-col-active"><?= admin_status_badge(!empty($s['is_active']) ? 'active' : 'inactive', !empty($s['is_active']) ? 'Active' : 'Inactive') ?></td>
+                                <td class="at-dslots-reorder-col-move">
+                                    <span class="at-dslots-reorder-arrows">
+                                        <button type="button" class="at-btn at-btn--sm at-btn--ghost at-focusable" data-at-dslots-up aria-label="Move <?= Security::escape($label) ?> up">↑</button>
+                                        <button type="button" class="at-btn at-btn--sm at-btn--ghost at-focusable" data-at-dslots-down aria-label="Move <?= Security::escape($label) ?> down">↓</button>
+                                    </span>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="flex flex-wrap gap-2 items-center">
+                    <button type="submit" class="at-btn at-btn--primary at-focusable" data-at-dslots-save disabled>Save order</button>
+                    <button type="button" class="at-btn at-btn--ghost at-focusable" data-at-dslots-cancel>Cancel</button>
+                    <span class="text-sm at-muted" data-at-dslots-unsaved-hint hidden>You have unsaved changes.</span>
+                </div>
+            </form>
+        <?php endif; ?>
+    </div>
+</div>
+<?php else: ?>
 <div class="at-admin-card mt-4"><div class="at-admin-card__body">
     <div class="flex flex-wrap items-end justify-between gap-3 mb-3">
-        <h3 class="font-bold">All slots</h3>
+        <div class="flex flex-wrap items-center gap-2">
+            <h3 class="font-bold">All slots</h3>
+            <?php if ($useDb && (int) ($slotList['total'] ?? 0) > 0): ?>
+                <a class="at-btn at-btn--secondary at-btn--sm at-focusable" href="<?= Security::escape($self . '?reorder=1') ?>">Reorder slots</a>
+            <?php endif; ?>
+        </div>
         <form method="get" class="flex flex-wrap gap-2 items-end">
             <div>
                 <label class="at-label" for="slot-search-q">Search</label>
@@ -296,4 +394,5 @@ if ($errors !== []): ?>
     );
     ?>
 </div></div>
+<?php endif; ?>
 <?php admin_layout_end(); ?>

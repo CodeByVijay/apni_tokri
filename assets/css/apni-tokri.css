@@ -4920,6 +4920,47 @@ body.at-gallery-lightbox-open {
 .at-admin-table--delivery-slots td.is-actions .at-btn {
   white-space: nowrap;
 }
+.at-admin-table--dslots-reorder .at-dslots-reorder-col-handle,
+.at-admin-table--dslots-reorder .at-dslots-reorder-col-seq,
+.at-admin-table--dslots-reorder .at-dslots-reorder-col-move {
+  width: 1%;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.at-dslots-reorder-handle {
+  cursor: grab;
+  border: none;
+  background: transparent;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0.35rem 0.5rem;
+  color: var(--at-muted-fg, #64748b);
+  border-radius: 0.25rem;
+}
+.at-dslots-reorder-handle:active {
+  cursor: grabbing;
+}
+.at-dslots-reorder-handle:focus-visible {
+  outline: 2px solid var(--at-ring, #2563eb);
+  outline-offset: 2px;
+}
+.at-dslots-reorder-arrows {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.at-dslots-reorder-arrows .at-btn {
+  min-width: 2rem;
+  padding-left: 0.35rem;
+  padding-right: 0.35rem;
+}
+[data-at-delivery-slot-reorder].is-dirty .at-dslots-reorder-status {
+  color: var(--at-warning-fg, #b45309);
+}
+[data-at-dslots-row].is-dragging td {
+  opacity: 0.65;
+  background: var(--at-surface-muted, #f8fafc);
+}
 .at-admin-table--dense th,
 .at-admin-table--dense td {
   padding: 0.55rem 0.7rem;

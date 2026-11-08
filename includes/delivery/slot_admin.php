@@ -24,6 +24,17 @@ final class DeliverySlotRepository
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
+    /** @return list<int> Slot IDs in current display order (all slots, including inactive). */
+    public static function orderedIdList(): array
+    {
+        $ids = [];
+        foreach (self::all() as $row) {
+            $ids[] = (int) ($row['id'] ?? 0);
+        }
+
+        return array_values(array_filter($ids, static fn (int $id): bool => $id > 0));
+    }
+
     /**
      * @return array{rows: list<array<string, mixed>>, total: int, page: int, per_page: int}
      */
@@ -312,6 +323,73 @@ final class DeliverySlotAdminService
         Install::ensureConnection();
         Database::pdo()->prepare('UPDATE delivery_slots SET is_active = ? WHERE id = ?')
             ->execute([$active ? 1 : 0, $id]);
+    }
+
+    /**
+     * Persist a new display sequence for every delivery slot (sort_order 1..N).
+     * Inactive slots stay in the admin reorder list; storefront lists still filter is_active = 1.
+     *
+     * @param list<int> $orderedIds     Desired ID sequence (complete set).
+     * @param list<int> $baselineIds    ID sequence when the reorder UI was loaded (optimistic concurrency).
+     * @return array{ok: bool, message: string}
+     */
+    public static function reorderAllSlots(array $orderedIds, array $baselineIds): array
+    {
+        $orderedIds = array_values(array_unique(array_filter(array_map('intval', $orderedIds), static fn (int $id): bool => $id > 0)));
+        $baselineIds = array_values(array_filter(array_map('intval', $baselineIds), static fn (int $id): bool => $id > 0));
+
+        if ($orderedIds === []) {
+            return ['ok' => false, 'message' => 'No slots to reorder.'];
+        }
+
+        if (!Install::isSchemaReady()) {
+            return ['ok' => false, 'message' => 'Database is not available.'];
+        }
+
+        Install::ensureConnection();
+        $pdo = Database::pdo();
+        $currentIds = DeliverySlotRepository::orderedIdList();
+
+        if ($currentIds === []) {
+            return ['ok' => false, 'message' => 'No slots to reorder.'];
+        }
+
+        if (count($orderedIds) !== count($currentIds)) {
+            return ['ok' => false, 'message' => 'Reorder must include every delivery slot. Refresh the page and try again.'];
+        }
+
+        $currentSet = $currentIds;
+        sort($currentSet);
+        $orderedSet = $orderedIds;
+        sort($orderedSet);
+        if ($orderedSet !== $currentSet) {
+            return ['ok' => false, 'message' => 'Invalid slot selection. Refresh the page and try again.'];
+        }
+
+        $baselineFiltered = array_values(array_filter($baselineIds, static fn (int $id): bool => in_array($id, $currentIds, true)));
+        if ($baselineFiltered !== $currentIds) {
+            return [
+                'ok' => false,
+                'message' => 'Slot order was changed elsewhere. Reload this page to see the latest sequence, then save again.',
+            ];
+        }
+
+        try {
+            $pdo->beginTransaction();
+            $update = $pdo->prepare('UPDATE delivery_slots SET sort_order = ? WHERE id = ?');
+            foreach ($orderedIds as $index => $id) {
+                $update->execute([$index + 1, $id]);
+            }
+            $pdo->commit();
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+
+            return ['ok' => false, 'message' => 'Could not save slot order. No changes were applied.'];
+        }
+
+        return ['ok' => true, 'message' => 'Delivery slot order saved.'];
     }
 
     /** @return array<int, array<string, array{booked: int, remaining: int, capacity: int}>> keyed by slot id */

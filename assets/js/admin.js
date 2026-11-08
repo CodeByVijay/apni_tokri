@@ -710,6 +710,132 @@
     bindGalleryDnD();
   }
 
+  function initDeliverySlotReorder() {
+    var $root = $('[data-at-delivery-slot-reorder]');
+    if (!$root.length) return;
+
+    var $form = $root.find('[data-at-dslots-reorder-form]');
+    if (!$form.length) return;
+
+    var $tbody = $root.find('[data-at-dslots-reorder-body]');
+    var $orderInput = $form.find('[data-at-dslots-order-input]');
+    var $baselineInput = $form.find('[data-at-dslots-baseline-input]');
+    var $save = $form.find('[data-at-dslots-save]');
+    var $cancel = $form.find('[data-at-dslots-cancel]');
+    var $unsaved = $form.find('[data-at-dslots-unsaved-hint]');
+    var $status = $root.find('[data-at-dslots-reorder-status]');
+    var initial = String($form.attr('data-at-dslots-initial') || $baselineInput.val() || '');
+    var dragId = null;
+
+    function currentOrder() {
+      var ids = [];
+      $tbody.find('[data-at-dslots-row]').each(function () {
+        ids.push($(this).attr('data-slot-id'));
+      });
+      return ids.join(',');
+    }
+
+    function syncUi() {
+      $tbody.find('[data-at-dslots-row]').each(function (i) {
+        var $row = $(this);
+        $row.find('[data-at-dslots-seq]').text(i + 1);
+        var isFirst = i === 0;
+        var isLast = i === $tbody.find('[data-at-dslots-row]').length - 1;
+        $row.find('[data-at-dslots-up]').prop('disabled', isFirst).attr('aria-disabled', isFirst ? 'true' : 'false');
+        $row.find('[data-at-dslots-down]').prop('disabled', isLast).attr('aria-disabled', isLast ? 'true' : 'false');
+      });
+      var order = currentOrder();
+      $orderInput.val(order);
+      var dirty = order !== initial;
+      $save.prop('disabled', !dirty);
+      $unsaved.toggleClass('hidden', !dirty);
+      $root.toggleClass('is-dirty', dirty);
+      if (dirty) {
+        $status.removeClass('hidden').text('Unsaved changes — save or cancel to finish.');
+      } else {
+        $status.addClass('hidden').text('');
+      }
+    }
+
+    function moveRow($row, direction) {
+      if (direction < 0) {
+        var $prev = $row.prev('[data-at-dslots-row]');
+        if ($prev.length) {
+          $prev.before($row);
+        }
+      } else {
+        var $next = $row.next('[data-at-dslots-row]');
+        if ($next.length) {
+          $next.after($row);
+        }
+      }
+      syncUi();
+    }
+
+    function restoreInitial() {
+      var ids = initial.split(',').filter(Boolean);
+      ids.forEach(function (id) {
+        var $row = $tbody.find('[data-slot-id="' + id + '"]');
+        if ($row.length) {
+          $tbody.append($row);
+        }
+      });
+      syncUi();
+    }
+
+    $form.on('click', '[data-at-dslots-up]', function () {
+      moveRow($(this).closest('[data-at-dslots-row]'), -1);
+    });
+    $form.on('click', '[data-at-dslots-down]', function () {
+      moveRow($(this).closest('[data-at-dslots-row]'), 1);
+    });
+    $cancel.on('click', function () {
+      restoreInitial();
+    });
+
+    $tbody.on('dragstart', '[data-at-dslots-drag-handle]', function (e) {
+      var $row = $(this).closest('[data-at-dslots-row]');
+      dragId = $row.attr('data-slot-id');
+      if (e.originalEvent && e.originalEvent.dataTransfer) {
+        e.originalEvent.dataTransfer.effectAllowed = 'move';
+        e.originalEvent.dataTransfer.setData('text/plain', dragId || '');
+      }
+      $row.addClass('is-dragging');
+    });
+    $tbody.on('dragend', '[data-at-dslots-drag-handle]', function () {
+      $(this).closest('[data-at-dslots-row]').removeClass('is-dragging');
+      dragId = null;
+    });
+    $tbody.on('dragover', '[data-at-dslots-row]', function (e) {
+      e.preventDefault();
+      if (e.originalEvent && e.originalEvent.dataTransfer) {
+        e.originalEvent.dataTransfer.dropEffect = 'move';
+      }
+    });
+    $tbody.on('drop', '[data-at-dslots-row]', function (e) {
+      e.preventDefault();
+      var targetId = $(this).attr('data-slot-id');
+      if (!dragId || !targetId || dragId === targetId) return;
+      var $drag = $tbody.find('[data-slot-id="' + dragId + '"]');
+      var $target = $tbody.find('[data-slot-id="' + targetId + '"]');
+      if (!$drag.length || !$target.length) return;
+      if ($drag.index() < $target.index()) {
+        $target.after($drag);
+      } else {
+        $target.before($drag);
+      }
+      syncUi();
+    });
+
+    $form.on('keydown', '[data-at-dslots-up], [data-at-dslots-down]', function (e) {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      e.preventDefault();
+      $(this).trigger('click');
+    });
+
+    syncUi();
+  }
+
   function initSubmitOnce() {
     $(document).on('click', 'button[type="submit"][data-at-submit-once], input[type="submit"][data-at-submit-once]', function () {
       var $btn = $(this);
@@ -756,5 +882,6 @@
     initSubmitOnce();
     initAdminFlashDismiss();
     initSettingsTabsNav();
+    initDeliverySlotReorder();
   });
 })(jQuery);
