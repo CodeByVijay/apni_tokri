@@ -47,10 +47,13 @@ final class PaymentGatewayDiagnosticState
 
         $result = self::API_VERIFIED;
         if (!$orderCreated) {
-            if ($httpStatus !== 401) {
-                return;
+            if ($httpStatus === 401) {
+                $result = self::API_AUTH_FAILED;
+            } elseif ($httpStatus === 0) {
+                $result = 'transport_error';
+            } else {
+                $result = 'api_error';
             }
-            $result = self::API_AUTH_FAILED;
         }
 
         $payload = [

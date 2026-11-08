@@ -204,6 +204,7 @@ require_once APNI_TOKRI_ROOT . '/includes/subscription/substitution_payment.php'
 require_once APNI_TOKRI_ROOT . '/includes/subscription/activation.php';
 require_once APNI_TOKRI_ROOT . '/includes/subscription/admin_lists.php';
 require_once APNI_TOKRI_ROOT . '/includes/subscription/checkout.php';
+require_once APNI_TOKRI_ROOT . '/includes/commerce/checkout_idempotency.php';
 require_once APNI_TOKRI_ROOT . '/includes/commerce/checkout.php';
 require_once APNI_TOKRI_ROOT . '/includes/commerce/customer_order_detail.php';
 require_once APNI_TOKRI_ROOT . '/includes/commerce/payment_gateway_settings.php';

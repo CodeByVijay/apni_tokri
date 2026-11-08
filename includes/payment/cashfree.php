@@ -91,31 +91,98 @@ final class CashfreeGateway
             ],
             'order_meta' => ['return_url' => $returnUrl, 'notify_url' => SeoUrl::absolute('/webhooks/cashfree.php')],
         ];
-        $resp = PaymentHttp::request('POST', self::baseUrl() . '/orders', $body, self::headers());
+        $apiBase = self::baseUrl();
+        $resp = PaymentHttp::request('POST', $apiBase . '/orders', $body, self::headers());
+        $httpStatus = (int) $resp['status'];
+        $timedOut = $httpStatus === 0 && !empty($resp['error']);
+        if ($timedOut || $httpStatus === 0) {
+            $reconcile = self::fetchOrder($orderId);
+            if ($reconcile['ok'] && trim((string) ($reconcile['payment_session_id'] ?? '')) !== '') {
+                PaymentInitDiagnostics::logInitAmbiguous(
+                    'cashfree',
+                    $referenceId,
+                    'timeout_reconcile',
+                    (int) ($internalOrderId ?? 0),
+                    $orderId,
+                    $httpStatus,
+                    true
+                );
+
+                return [
+                    'ok' => true,
+                    'gateway_order_id' => (string) ($reconcile['cf_order_id'] ?? ''),
+                    'payment_session_id' => (string) $reconcile['payment_session_id'],
+                    'order_expiry_time' => (string) ($reconcile['order_expiry_time'] ?? $orderExpiry->format(DateTimeInterface::ATOM)),
+                    'reconciled' => true,
+                ];
+            }
+        }
+        if ($httpStatus === 409) {
+            $reconcile = self::fetchOrder($orderId);
+            if ($reconcile['ok'] && trim((string) ($reconcile['payment_session_id'] ?? '')) !== '') {
+                PaymentInitDiagnostics::logInitAmbiguous(
+                    'cashfree',
+                    $referenceId,
+                    'duplicate_reconcile',
+                    (int) ($internalOrderId ?? 0),
+                    $orderId,
+                    $httpStatus,
+                    true
+                );
+
+                return [
+                    'ok' => true,
+                    'gateway_order_id' => (string) ($reconcile['cf_order_id'] ?? ''),
+                    'payment_session_id' => (string) $reconcile['payment_session_id'],
+                    'order_expiry_time' => (string) ($reconcile['order_expiry_time'] ?? $orderExpiry->format(DateTimeInterface::ATOM)),
+                    'reconciled' => true,
+                ];
+            }
+        }
         if (!$resp['ok'] || !is_array($resp['json'])) {
-            $stage = $resp['status'] === 401 ? 'gateway_authentication' : 'gateway_api';
+            $stage = $httpStatus === 401 ? 'gateway_authentication' : 'gateway_api';
             PaymentInitDiagnostics::logInitFailure(
                 'cashfree',
                 $referenceId,
                 $stage,
                 $internalOrderId,
-                (int) $resp['status'],
+                $httpStatus,
                 is_array($resp['json']) ? $resp['json'] : null,
-                $resp['error'] ?? null
+                $resp['error'] ?? null,
+                $orderId,
+                false,
+                $timedOut
             );
-            PaymentGatewayDiagnosticState::recordInitAttempt('cashfree', (int) $resp['status'], false, $referenceId);
+            PaymentGatewayDiagnosticState::recordInitAttempt('cashfree', $httpStatus, false, $referenceId);
 
-            return ['ok' => false, 'error' => PaymentInitDiagnostics::customerMessage('Cashfree', $referenceId), 'reference_id' => $referenceId];
+            return [
+                'ok' => false,
+                'error' => PaymentInitDiagnostics::customerMessage('Cashfree', $referenceId),
+                'reference_id' => $referenceId,
+                'http_status' => $httpStatus,
+            ];
         }
         $cfId = (string) ($resp['json']['cf_order_id'] ?? $resp['json']['order_id'] ?? '');
         $session = (string) ($resp['json']['payment_session_id'] ?? '');
         if ($cfId === '' || $session === '') {
-            PaymentInitDiagnostics::logInitFailure('cashfree', $referenceId, 'response_parse', $internalOrderId, (int) $resp['status'], $resp['json']);
+            PaymentInitDiagnostics::logInitFailure(
+                'cashfree',
+                $referenceId,
+                'response_parse',
+                $internalOrderId,
+                $httpStatus,
+                $resp['json'],
+                null,
+                $orderId,
+                false,
+                false
+            );
 
             return ['ok' => false, 'error' => PaymentInitDiagnostics::customerMessage('Cashfree', $referenceId), 'reference_id' => $referenceId];
         }
 
-        PaymentGatewayDiagnosticState::recordInitAttempt('cashfree', (int) $resp['status'], true, $referenceId);
+        PaymentInitDiagnostics::logInitSuccess('cashfree', $referenceId, $internalOrderId, $orderId, $httpStatus, true);
+        PaymentGatewayDiagnosticState::recordInitAttempt('cashfree', $httpStatus, true, $referenceId);
 
         return [
             'ok' => true,

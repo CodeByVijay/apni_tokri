@@ -22,7 +22,10 @@ final class PaymentInitDiagnostics
         ?int $orderId = null,
         int $httpStatus = 0,
         ?array $json = null,
-        ?string $curlError = null
+        ?string $curlError = null,
+        ?string $merchantOrderId = null,
+        ?bool $sessionReturned = null,
+        ?bool $timedOut = null
     ): void {
         $parts = [
             'Payment init failed',
@@ -33,8 +36,19 @@ final class PaymentInitDiagnostics
         if ($orderId !== null && $orderId > 0) {
             $parts[] = 'order_id=' . $orderId;
         }
+        if ($merchantOrderId !== null && $merchantOrderId !== '') {
+            $parts[] = 'merchant_order_id=' . self::truncate($merchantOrderId, 48);
+        }
         if ($httpStatus > 0) {
             $parts[] = 'http=' . $httpStatus;
+        } elseif ($timedOut === true) {
+            $parts[] = 'http=timeout';
+        }
+        if ($sessionReturned !== null) {
+            $parts[] = 'session=' . ($sessionReturned ? 'yes' : 'no');
+        }
+        if ($timedOut === true) {
+            $parts[] = 'timed_out=1';
         }
         $safe = self::safeErrorFromJson($gateway, $json);
         if ($safe['code'] !== '') {
@@ -47,6 +61,46 @@ final class PaymentInitDiagnostics
             $parts[] = 'transport=' . self::truncate($curlError, 80);
         }
         error_log(implode(' ', $parts));
+    }
+
+    public static function logInitSuccess(
+        string $gateway,
+        string $referenceId,
+        ?int $internalOrderId,
+        string $merchantOrderId,
+        int $httpStatus,
+        bool $sessionReturned
+    ): void {
+        error_log(implode(' ', [
+            'Payment init ok',
+            'gateway=' . $gateway,
+            'ref=' . $referenceId,
+            'order_id=' . (int) ($internalOrderId ?? 0),
+            'merchant_order_id=' . self::truncate($merchantOrderId, 48),
+            'http=' . $httpStatus,
+            'session=' . ($sessionReturned ? 'yes' : 'no'),
+        ]));
+    }
+
+    public static function logInitAmbiguous(
+        string $gateway,
+        string $referenceId,
+        string $stage,
+        int $orderId,
+        string $merchantOrderId,
+        int $httpStatus,
+        bool $reconciledSession
+    ): void {
+        error_log(implode(' ', [
+            'Payment init ambiguous',
+            'gateway=' . $gateway,
+            'ref=' . $referenceId,
+            'stage=' . $stage,
+            'order_id=' . $orderId,
+            'merchant_order_id=' . self::truncate($merchantOrderId, 48),
+            'http=' . $httpStatus,
+            'reconciled_session=' . ($reconciledSession ? 'yes' : 'no'),
+        ]));
     }
 
     public static function customerMessage(string $gatewayLabel, string $referenceId): string

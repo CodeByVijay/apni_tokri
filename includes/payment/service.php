@@ -213,8 +213,13 @@ final class PaymentService
             }
         }
 
-        $idempotency = self::nextIdempotencyKey($orderNumber);
         $pdo = Database::pdo();
+        $resume = self::tryResumeCashfreeBeforeNewAttempt($pdo, $orderId, $orderNumber, $amountInr, $customerMobile, $referenceId);
+        if ($resume !== null) {
+            return $resume;
+        }
+
+        $idempotency = self::nextIdempotencyKey($orderNumber);
         $envMeta = json_encode(
             ['payment_environment' => PaymentGatewayConfig::recordedPaymentEnvironment($gateway)],
             JSON_UNESCAPED_UNICODE
@@ -307,6 +312,101 @@ final class PaymentService
                 'payment_session_id' => (string) ($created['payment_session_id'] ?? ''),
                 'order_number' => $orderNumber,
                 'idempotency_key' => $idempotency,
+                'reference_id' => $referenceId,
+            ],
+        ];
+    }
+
+    /**
+     * Reuse an existing Cashfree session / open payment row instead of creating a duplicate PG order.
+     *
+     * @return array{ok: bool, payment_id?: int, checkout?: array<string, mixed>, error?: string, reference_id?: string}|null
+     */
+    private static function tryResumeCashfreeBeforeNewAttempt(
+        PDO $pdo,
+        int $orderId,
+        string $orderNumber,
+        float $amountInr,
+        string $customerMobile,
+        string $referenceId
+    ): ?array {
+        if (PaymentGatewayConfig::useSimulatedCheckout() || PaymentGatewayConfig::activeGateway() !== 'cashfree') {
+            return null;
+        }
+        $open = PaymentRepository::latestOpenCashfreePayment($orderId);
+        if ($open !== null && abs((float) ($open['amount'] ?? 0) - round($amountInr, 2)) < 0.02) {
+            $resume = self::resumeCashfreeCheckout($orderNumber, $open);
+            if (!empty($resume['ok'])) {
+                return [
+                    'ok' => true,
+                    'payment_id' => (int) ($open['id'] ?? 0),
+                    'checkout' => ($resume['checkout'] ?? []) + ['reference_id' => $referenceId],
+                ];
+            }
+        }
+
+        $existing = CashfreeGateway::fetchOrder($orderNumber);
+        if (empty($existing['ok'])) {
+            return null;
+        }
+        if (abs((float) ($existing['order_amount'] ?? 0) - round($amountInr, 2)) > 0.02) {
+            return null;
+        }
+        $session = trim((string) ($existing['payment_session_id'] ?? ''));
+        $gwStatus = strtoupper((string) ($existing['order_status'] ?? ''));
+        if ($session === '' || !in_array($gwStatus, ['ACTIVE', 'PENDING', ''], true)) {
+            return null;
+        }
+
+        $latest = PaymentRepository::latestPaymentForOrder($orderId);
+        $paymentRow = $open ?? $latest;
+        $idempotencyKey = '';
+        if ($paymentRow !== null && (string) ($paymentRow['gateway'] ?? '') === 'cashfree'
+            && (string) ($paymentRow['status'] ?? '') === 'failed') {
+            $paymentId = (int) $paymentRow['id'];
+            $idempotencyKey = (string) ($paymentRow['idempotency_key'] ?? '');
+            $pdo->prepare('UPDATE payments SET status = ?, gateway_order_id = ? WHERE id = ?')
+                ->execute(['pending', (string) ($existing['cf_order_id'] ?? ''), $paymentId]);
+        } elseif ($paymentRow === null || (string) ($paymentRow['status'] ?? '') === 'failed') {
+            $idempotencyKey = self::nextIdempotencyKey($orderNumber);
+            $envMeta = json_encode(
+                ['payment_environment' => PaymentGatewayConfig::recordedPaymentEnvironment('cashfree')],
+                JSON_UNESCAPED_UNICODE
+            );
+            $pdo->prepare(
+                'INSERT INTO payments (order_id, gateway, amount, currency, status, idempotency_key, gateway_order_id, metadata_json)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+            )->execute([
+                $orderId,
+                'cashfree',
+                round($amountInr, 2),
+                'INR',
+                'pending',
+                $idempotencyKey,
+                (string) ($existing['cf_order_id'] ?? ''),
+                $envMeta,
+            ]);
+            $paymentId = (int) $pdo->lastInsertId();
+        } else {
+            $paymentId = (int) ($paymentRow['id'] ?? 0);
+            $idempotencyKey = (string) ($paymentRow['idempotency_key'] ?? '');
+        }
+
+        $cfExpiry = PaymentSlotHoldService::cashfreeExpiryFromFetchOrder($existing);
+        PaymentSlotHoldService::afterPaymentSessionResumed($pdo, $orderId, $cfExpiry);
+        if ($paymentId > 0 && $cfExpiry !== null) {
+            PaymentSlotHoldService::storeSessionExpiryOnPayment($pdo, $paymentId, $cfExpiry);
+        }
+
+        return [
+            'ok' => true,
+            'payment_id' => $paymentId,
+            'checkout' => [
+                'mode' => 'cashfree',
+                'app_id' => CashfreeGateway::appId(),
+                'payment_session_id' => $session,
+                'order_number' => $orderNumber,
+                'idempotency_key' => $idempotencyKey !== '' ? $idempotencyKey : self::nextIdempotencyKey($orderNumber),
                 'reference_id' => $referenceId,
             ],
         ];

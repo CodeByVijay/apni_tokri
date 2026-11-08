@@ -569,6 +569,16 @@ final class CheckoutService
             return ['ok' => false, 'message' => 'The receiver phone on this address is not valid. Please edit the address.'];
         }
         $snapshot = json_encode(DeliveryQuoteService::buildSnapshot($quote, $addrSnapshot), JSON_UNESCAPED_UNICODE);
+        $checkoutSpec = CheckoutIdempotencyService::buildSpec(
+            $customerId,
+            $addressId,
+            $slot,
+            is_string($deliveryDate) ? $deliveryDate : null,
+            $slotId,
+            (float) $totals['total'],
+            isset($totals['coupon_code']) ? (string) $totals['coupon_code'] : null,
+            $lines
+        );
 
         try {
             $placed = Database::transaction(static function () use (
@@ -583,82 +593,121 @@ final class CheckoutService
                 $totals,
                 $lines,
                 $status,
-                $paymentStatus
+                $paymentStatus,
+                $checkoutSpec
             ): array {
                 $pdo = Database::pdo();
-                $orderNumber = OrderNumberService::allocate($pdo, 'storefront');
-                if ($slotId !== null && $slotId > 0 && is_string($deliveryDate) && $deliveryDate !== '') {
-                    DeliverySlotReservationService::lockSlotAndAssertCapacity($pdo, (int) $slotId, $deliveryDate, null);
-                }
 
-                $pdo->prepare(
-                    'INSERT INTO orders (order_number, customer_id, customer_address_id, status, subtotal, discount_total,
-                     delivery_fee, grand_total, payment_status, delivery_slot, delivery_zone_id, delivery_slot_id,
-                     delivery_date, delivery_eta, delivery_snapshot_json, coupon_code, placed_at)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())'
-                )->execute([
-                    $orderNumber,
-                    $customerId,
-                    $addressId,
-                    $status,
-                    $totals['subtotal'],
-                    (float) ($totals['coupon_discount'] ?? 0) + (float) ($totals['offer_discount'] ?? 0),
-                    $totals['delivery_fee'],
-                    $totals['total'],
-                    $paymentStatus,
-                    $slot,
-                    $zoneId,
-                    $slotId,
-                    $deliveryDate,
-                    $deliveryEta,
-                    $snapshot,
-                    $totals['coupon_code'],
-                ]);
-                $orderId = (int) $pdo->lastInsertId();
+                return CheckoutIdempotencyService::resolveOrCreateOrder(
+                    $pdo,
+                    $checkoutSpec,
+                    $lines,
+                    static function () use (
+                        $pdo,
+                        $customerId,
+                        $addressId,
+                        $slot,
+                        $slotId,
+                        $deliveryDate,
+                        $deliveryEta,
+                        $zoneId,
+                        $snapshot,
+                        $totals,
+                        $lines,
+                        $status,
+                        $paymentStatus,
+                        $checkoutSpec
+                    ): array {
+                        $orderNumber = OrderNumberService::allocate($pdo, 'storefront');
+                        if ($slotId !== null && $slotId > 0 && is_string($deliveryDate) && $deliveryDate !== '') {
+                            DeliverySlotReservationService::lockSlotAndAssertCapacity($pdo, (int) $slotId, $deliveryDate, null);
+                        }
 
-                $itemStmt = $pdo->prepare(
-                    'INSERT INTO order_items (order_id, variant_id, product_name, variant_name, sku, quantity, unit_price, line_total)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+                        $pdo->prepare(
+                            'INSERT INTO orders (order_number, customer_id, customer_address_id, status, subtotal, discount_total,
+                             delivery_fee, grand_total, payment_status, delivery_slot, delivery_zone_id, delivery_slot_id,
+                             delivery_date, delivery_eta, delivery_snapshot_json, coupon_code, checkout_nonce, placed_at)
+                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())'
+                        )->execute([
+                            $orderNumber,
+                            $customerId,
+                            $addressId,
+                            $status,
+                            $totals['subtotal'],
+                            (float) ($totals['coupon_discount'] ?? 0) + (float) ($totals['offer_discount'] ?? 0),
+                            $totals['delivery_fee'],
+                            $totals['total'],
+                            $paymentStatus,
+                            $slot,
+                            $zoneId,
+                            $slotId,
+                            $deliveryDate,
+                            $deliveryEta,
+                            $snapshot,
+                            $totals['coupon_code'],
+                            (string) $checkoutSpec['signature'],
+                        ]);
+                        $orderId = (int) $pdo->lastInsertId();
+
+                        $itemStmt = $pdo->prepare(
+                            'INSERT INTO order_items (order_id, variant_id, product_name, variant_name, sku, quantity, unit_price, line_total)
+                             VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+                        );
+                        foreach ($lines as $line) {
+                            $qty = (int) $line['qty'];
+                            $unit = (float) $line['unit_price'];
+                            $itemStmt->execute([
+                                $orderId,
+                                (int) $line['variant_id'],
+                                (string) $line['name'],
+                                (string) $line['label'],
+                                null,
+                                $qty,
+                                $unit,
+                                round($unit * $qty, 2),
+                            ]);
+                        }
+
+                        $pdo->prepare(
+                            'INSERT INTO order_status_history (order_id, status, note) VALUES (?, ?, ?)'
+                        )->execute([
+                            $orderId,
+                            'Awaiting payment',
+                            'Order created — complete payment to confirm',
+                        ]);
+
+                        if ($slotId !== null && $slotId > 0 && is_string($deliveryDate) && $deliveryDate !== ''
+                            && DeliverySlotReservationService::tableReady()) {
+                            DeliverySlotReservationService::createHold($pdo, (int) $slotId, $deliveryDate, $orderId);
+                        }
+
+                        return [
+                            'ok' => true,
+                            'order_id' => $orderId,
+                            'order_number' => $orderNumber,
+                            'reused' => false,
+                        ];
+                    }
                 );
-                foreach ($lines as $line) {
-                    $qty = (int) $line['qty'];
-                    $unit = (float) $line['unit_price'];
-                    $itemStmt->execute([
-                        $orderId,
-                        (int) $line['variant_id'],
-                        (string) $line['name'],
-                        (string) $line['label'],
-                        null,
-                        $qty,
-                        $unit,
-                        round($unit * $qty, 2),
-                    ]);
-                }
-
-                $pdo->prepare(
-                    'INSERT INTO order_status_history (order_id, status, note) VALUES (?, ?, ?)'
-                )->execute([
-                    $orderId,
-                    'Awaiting payment',
-                    'Order created — complete payment to confirm',
-                ]);
-
-                if ($slotId !== null && $slotId > 0 && is_string($deliveryDate) && $deliveryDate !== ''
-                    && DeliverySlotReservationService::tableReady()) {
-                    DeliverySlotReservationService::createHold($pdo, (int) $slotId, $deliveryDate, $orderId);
-                }
-
-                return ['id' => $orderId, 'number' => $orderNumber];
             });
-            $orderId = (int) $placed['id'];
-            $orderNumber = (string) $placed['number'];
+            if (empty($placed['ok'])) {
+                return ['ok' => false, 'message' => (string) ($placed['message'] ?? 'Could not place order. Please review your cart and try again.')];
+            }
+            $orderId = (int) $placed['order_id'];
+            $orderNumber = (string) $placed['order_number'];
+            $orderReused = !empty($placed['reused']);
         } catch (Throwable $e) {
             error_log('Checkout failed: ' . $e->getMessage());
 
             return ['ok' => false, 'message' => 'Could not place order. Please review your cart and try again.'];
         }
 
-        NotificationDispatcher::orderPlacedPendingPayment($orderId);
+        if (!$orderReused) {
+            NotificationDispatcher::orderPlacedPendingPayment($orderId);
+        } else {
+            $pdoHold = Database::pdo();
+            PaymentSlotHoldService::synchronizeOpenPaymentHold($pdoHold, $orderId);
+        }
 
         if (!PaymentGatewayConfig::useSimulatedCheckout()) {
             $liveReady = PaymentGatewayConfig::assertLivePaymentsReady();
@@ -672,10 +721,11 @@ final class CheckoutService
         $mobile = (string) (CustomerService::profile()['mobile'] ?? '');
         $init = PaymentService::initiateForOrder($orderId, $orderNumber, (float) $totals['total'], $mobile);
         if (!$init['ok']) {
-            DeliverySlotReservationService::releaseForOrder($orderId);
+            $_SESSION['checkout_pending_order'] = $orderNumber;
 
             return ['ok' => false, 'message' => $init['error'] ?? 'Could not start payment.'];
         }
+        unset($_SESSION['checkout_pending_order']);
         $_SESSION['checkout_payment'][$orderNumber] = $init['checkout'] ?? [];
         $checkoutMode = is_array($init['checkout'] ?? null) ? (string) ($init['checkout']['mode'] ?? '') : '';
         if (in_array($checkoutMode, ['cashfree', 'razorpay'], true)) {
