@@ -38,6 +38,12 @@ $od = (string) file_get_contents($root . '/order-details.php');
 okx(str_contains($od, 'order-payment-window.php'), 'order details shows payment window');
 okx(method_exists(OrderCancellationService::class, 'cancelForPaymentTimeout'), 'cancelForPaymentTimeout exists');
 okx(method_exists(NotificationDispatcher::class, 'orderPaymentTimeoutCancelled'), 'timeout notification exists');
+$expirySrc = (string) file_get_contents($root . '/includes/commerce/unpaid_order_expiry.php');
+okx(
+    !preg_match('/\$thisPrecheckEligible\s*\(/', $expirySrc),
+    'processOrder must call self::thisPrecheckEligible (not undefined $thisPrecheckEligible variable)'
+);
+okx(str_contains($expirySrc, 'self::thisPrecheckEligible($preOrder)'), 'pre-reconcile gate uses self::thisPrecheckEligible');
 
 if (!Install::isSchemaReady()) {
     echo "SKIP: Schema not ready (DB tests).\n";
@@ -148,6 +154,25 @@ $pdo->prepare(
 )->execute([$deferId, 'def-' . $deferId]);
 $outDef = UnpaidOrderExpiryService::processOrder($deferId);
 okx(($outDef['action'] ?? '') === 'defer', 'in-flight payment defers cancel');
+
+$cfMissId = $mk($pdo, $customerId, $variantId, 'CFNF', $pastExp, 'failed');
+$pdo->prepare(
+    "INSERT INTO payments (order_id, gateway, amount, currency, status, idempotency_key) VALUES (?, 'cashfree', 100, 'INR', 'failed', ?)"
+)->execute([$cfMissId, 'cfnf-' . $cfMissId]);
+$prevHandler = PaymentHttp::$testHandler;
+PaymentHttp::$testHandler = static function (string $method, string $url): array {
+    if ($method === 'GET' && str_contains($url, '/orders/') && !str_contains($url, '/payments')) {
+        return ['ok' => false, 'status' => 404, 'body' => '{"message":"not found"}', 'json' => ['message' => 'not found']];
+    }
+
+    return ['ok' => false, 'status' => 404, 'body' => '', 'json' => null];
+};
+try {
+    $outCfMiss = UnpaidOrderExpiryService::processOrder($cfMissId);
+    okx(($outCfMiss['action'] ?? '') === 'defer', 'expired cashfree 404 reaches reconcile defer without ErrorException');
+} finally {
+    PaymentHttp::$testHandler = $prevHandler;
+}
 
 $idempotentId = $mk($pdo, $customerId, $variantId, 'IDM', $pastExp);
 UnpaidOrderExpiryService::processOrder($idempotentId);

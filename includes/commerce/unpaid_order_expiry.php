@@ -155,7 +155,7 @@ final class UnpaidOrderExpiryService
         $pre = $pdo->prepare('SELECT * FROM orders WHERE id = ? LIMIT 1');
         $pre->execute([$orderId]);
         $preOrder = $pre->fetch(PDO::FETCH_ASSOC);
-        if (!$preOrder || !$thisPrecheckEligible($preOrder)) {
+        if (!$preOrder || !self::thisPrecheckEligible($preOrder)) {
             return self::skipActionForPreOrder($preOrder);
         }
 
@@ -442,6 +442,12 @@ final class UnpaidOrderExpiryService
         if ($message === '') {
             return 'unknown';
         }
+        // Preserve PHP "Undefined variable $name" identifiers for cron diagnostics.
+        $message = preg_replace_callback(
+            '/Undefined variable (\$\w+)/',
+            static fn (array $m): string => 'Undefined variable ' . $m[1],
+            $message
+        ) ?? $message;
         $message = preg_replace('/[A-Za-z0-9_\-]{20,}/', '[redacted]', $message) ?? $message;
         $message = preg_replace('/\b(sk|rzp|cf)_[a-zA-Z0-9]{8,}\b/i', '[redacted]', $message) ?? $message;
         $message = preg_replace('/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i', '[email]', $message) ?? $message;
