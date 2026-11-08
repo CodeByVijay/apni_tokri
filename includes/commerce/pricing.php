@@ -57,6 +57,7 @@ final class PricingService
             'offer_discount' => round($offerDiscount, 2),
             'offer_label' => $offer['label'] ?? null,
             'offer_id' => $offer['offer_id'] ?? null,
+            'offer_countdown_end_unix' => OfferStorefront::endsAtToUnix($offer['ends_at'] ?? null),
             'coupon_code' => $appliedCode,
             'coupon_discount' => round($discount, 2),
             'coupon_error' => !$couponResult['ok'] && $couponCode ? ($couponResult['message'] ?? '') : null,

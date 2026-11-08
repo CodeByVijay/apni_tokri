@@ -110,6 +110,17 @@ $baseCatUrl = url_base() . '/category.php?slug=' . rawurlencode($slug);
 </div>
 
 <div class="at-container py-6 md:py-8">
+    <?php
+    if (CommerceGateway::useDatabase() && Install::isSchemaReady()) {
+        $catRow = CategoryRepository::findBySlug($slug, true);
+        if ($catRow !== null) {
+            $applicableOffers = OfferStorefront::forCategory((int) $catRow['id'], CustomerAuth::id());
+            if ($applicableOffers !== []) {
+                require APNI_TOKRI_ROOT . '/includes/partials/store-offer-badges.php';
+            }
+        }
+    }
+    ?>
     <?php $childCats = catalogue_child_categories($category); ?>
     <?php if ($childCats !== []): ?>
         <nav class="at-catnav mb-4" aria-label="Sub-categories">

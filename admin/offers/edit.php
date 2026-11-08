@@ -8,6 +8,7 @@ AdminDemoPerms::denyIfCannot('offers');
 $useDb = Install::isSchemaReady() && AdminAuth::check();
 $id = isset($_GET['id']) ? (int) $_GET['id'] : null;
 $offer = ($useDb && $id) ? OfferRepository::find($id) : null;
+$errors = [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     Csrf::requireValid();
@@ -24,6 +25,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
     $target = $_POST['target_id'] !== '' ? (int) $_POST['target_id'] : null;
+    $window = OfferStorefront::parseAdminWindow($_POST);
+    if (!$window['ok']) {
+        admin_flash_set('Fix the highlighted fields.', 'error');
+        $errors = $window['errors'] ?? [];
+        $offer = array_merge($offer ?? [], $_POST);
+    } else {
     OfferRepository::save($postId, [
         'name' => trim((string) ($_POST['name'] ?? '')),
         'scope' => (string) ($_POST['scope'] ?? 'store'),
@@ -32,8 +39,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'discount_value' => (float) ($_POST['discount_value'] ?? 0),
         'max_discount' => $_POST['max_discount'] !== '' ? (float) $_POST['max_discount'] : null,
         'min_cart_value' => $_POST['min_cart_value'] !== '' ? (float) $_POST['min_cart_value'] : null,
-        'starts_at' => $_POST['starts_at'] !== '' ? date('Y-m-d H:i:s', strtotime((string) $_POST['starts_at'])) : null,
-        'ends_at' => $_POST['ends_at'] !== '' ? date('Y-m-d H:i:s', strtotime((string) $_POST['ends_at'])) : null,
+        'starts_at' => $window['starts_at'],
+        'ends_at' => $window['ends_at'],
         'priority' => (int) ($_POST['priority'] ?? 0),
         'stack_with_coupons' => !empty($_POST['stack_with_coupons']) ? 1 : 0,
         'is_active' => !empty($_POST['is_active']) ? 1 : 0,
@@ -41,6 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     admin_flash_set('Offer saved.');
     header('Location: ' . url_base() . '/admin/offers/index.php', true, 302);
     exit;
+    }
 }
 
 $o = $offer ?? [
@@ -73,8 +81,19 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
             <div><label class="at-label">Max discount</label><input name="max_discount" class="at-input at-focusable" value="<?= Security::escape((string) ($o['max_discount'] ?? '')) ?>"></div>
         </div>
         <div class="grid md:grid-cols-2 gap-3">
-            <div><label class="at-label">Starts</label><input type="datetime-local" name="starts_at" class="at-input at-focusable"></div>
-            <div><label class="at-label">Ends</label><input type="datetime-local" name="ends_at" class="at-input at-focusable"></div>
+            <div>
+                <label class="at-label">Start (Asia/Kolkata)</label>
+                <input type="datetime-local" name="starts_at" class="at-input at-focusable"
+                       value="<?= Security::escape(OfferStorefront::datetimeLocalFromDb(isset($o['starts_at']) ? (string) $o['starts_at'] : null)) ?>">
+                <?php if (isset($errors['starts_at'])): ?><p class="at-field-error"><?= Security::escape($errors['starts_at']) ?></p><?php endif; ?>
+            </div>
+            <div>
+                <label class="at-label">Expiry (Asia/Kolkata)</label>
+                <input type="datetime-local" name="ends_at" class="at-input at-focusable"
+                       value="<?= Security::escape(OfferStorefront::datetimeLocalFromDb(isset($o['ends_at']) ? (string) $o['ends_at'] : null)) ?>">
+                <p class="text-xs at-muted mt-1">Leave empty for no expiry. Storefront countdown shows only when expiry is set.</p>
+                <?php if (isset($errors['ends_at'])): ?><p class="at-field-error"><?= Security::escape($errors['ends_at']) ?></p><?php endif; ?>
+            </div>
         </div>
         <div><label class="at-label">Priority (higher wins when tied on discount amount)</label><input name="priority" type="number" class="at-input at-focusable" value="<?= (int) ($o['priority'] ?? 0) ?>"></div>
         <div><label class="at-label">Assigned customer IDs (comma, empty = all)</label><input name="assigned_customer_ids" class="at-input at-focusable"></div>

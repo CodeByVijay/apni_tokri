@@ -115,7 +115,7 @@ $countOrders = static function () use ($pdo, $cust): int {
     return (int) $pdo->query('SELECT COUNT(*) FROM orders WHERE customer_id = ' . (int) $cust)->fetchColumn();
 };
 
-$msg = 'Your minimum order value should be {amount} to proceed to checkout.';
+$msg = 'Minimum order value after discounts is {amount}.';
 
 // 1. Disabled — small cart allowed
 $saveMinOff();

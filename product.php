@@ -77,6 +77,18 @@ $pdpCartUrl = url_base() . '/cart.php';
             <?php if ($cat): ?><p class="at-eyebrow"><?= Security::escape($cat['name']) ?></p><?php endif; ?>
             <h1 class="at-h1 mt-1"><?= Security::escape((string) $product['name']) ?></h1>
             <p class="mt-2 at-muted"><?= Security::escape((string) ($product['short_description'] ?? '')) ?></p>
+            <?php
+            if (CommerceGateway::useDatabase() && Install::isSchemaReady()) {
+                $dbProd = ProductRepository::findBySlug($slug, true);
+                if ($dbProd !== null) {
+                    $catId = (int) ($dbProd['category_id'] ?? 0);
+                    $applicableOffers = OfferStorefront::forProduct((int) $dbProd['id'], $catId, CustomerAuth::id());
+                    if ($applicableOffers !== []) {
+                        require APNI_TOKRI_ROOT . '/includes/partials/store-offer-badges.php';
+                    }
+                }
+            }
+            ?>
 
             <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
                 <?php if ($rating !== null): ?>

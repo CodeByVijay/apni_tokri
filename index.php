@@ -119,19 +119,14 @@ if ($products !== []) {
 }
 ?>
 
-<?php if (!AppEnvironment::isProduction()): ?>
-<!-- Offer -->
-<section class="at-container pb-2" aria-label="Current offer">
-    <div class="at-offer">
-        <div class="relative">
-            <span class="at-badge at-badge--yellow">Offer (demo)</span>
-            <h2>Free delivery on orders above ₹499</h2>
-            <p>Your cart shows exactly how much more you need. Eligibility and the final fee are always confirmed at checkout.</p>
-        </div>
-        <a href="<?= Security::escape($base) ?>/cart.php" class="at-btn at-btn--accent at-btn--lg at-focusable relative">View cart</a>
-    </div>
-</section>
-<?php endif; ?>
+<?php
+if (CommerceGateway::useDatabase()) {
+    $storefrontOffers = OfferStorefront::activeCards(CustomerAuth::id());
+    if ($storefrontOffers !== []) {
+        require APNI_TOKRI_ROOT . '/includes/partials/home-store-offers.php';
+    }
+}
+?>
 
 <?php
 // Rails are grouped so each shelf is visually full with the small demo catalogue.

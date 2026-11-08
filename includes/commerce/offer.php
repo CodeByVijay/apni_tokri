@@ -89,6 +89,7 @@ final class PromotionService
                     'offer_id' => (int) $offer['id'],
                     'label' => (string) ($offer['name'] ?? 'Offer'),
                     'stack_with_coupons' => !empty($offer['stack_with_coupons']),
+                    'ends_at' => isset($offer['ends_at']) ? (string) $offer['ends_at'] : null,
                 ];
             }
         }

@@ -25,6 +25,9 @@ final class MarketingSettings
         return max(0, min(9999, $v));
     }
 
+    /**
+     * @deprecated Free delivery threshold is configured per delivery zone (`free_above`). Legacy key retained in DB only.
+     */
     public static function freeDeliveryThresholdInr(): ?float
     {
         $raw = trim(AppSettings::get(self::KEY_FREE_DELIVERY_THRESHOLD, '') ?? '');
@@ -65,7 +68,7 @@ final class MarketingSettings
             return $raw;
         }
 
-        return 'Your minimum order value should be {amount} to proceed to checkout.';
+        return 'Minimum order value after discounts is {amount}.';
     }
 
     /** Merchandise after automatic offers and coupon — excludes delivery fee. */
@@ -144,7 +147,7 @@ final class MarketingSettings
         $msg = (string) ($status['min_order_message'] ?? '');
         $shortfall = (float) ($status['min_order_shortfall'] ?? 0);
         if ($shortfall > 0.009) {
-            $msg .= ' Add ' . self::formatInr($shortfall) . ' more (after discounts, excluding delivery).';
+            $msg .= ' Add ' . self::formatInr($shortfall) . ' more to proceed to checkout.';
         }
 
         return $msg !== '' ? $msg : 'Your cart does not meet the minimum order value.';
@@ -170,7 +173,10 @@ final class MarketingSettings
         return '₹' . number_format(round($amount, 2), (floor($amount) !== $amount) ? 2 : 0, '.', ',');
     }
 
-    /** @return DateTimeImmutable|null Asia/Kolkata instant when countdown is active */
+    /**
+     * @deprecated Use per-offer `ends_at` in Admin → Offers. Legacy AppSettings key may still exist in DB.
+     * @return DateTimeImmutable|null Asia/Kolkata instant when countdown is active
+     */
     public static function offerCountdownEnd(): ?DateTimeImmutable
     {
         $raw = trim(AppSettings::get(self::KEY_OFFER_COUNTDOWN_END, '') ?? '');
@@ -190,7 +196,7 @@ final class MarketingSettings
         return $dt;
     }
 
-    /** @return array{low_stock: bool, threshold: int, free_threshold: string, offer_end_local: string, min_order: bool, min_order_amount: string, min_order_message: string} */
+    /** @return array{low_stock: bool, threshold: int, offer_end_local: string, min_order: bool, min_order_amount: string, min_order_message: string} */
     public static function adminFormState(): array
     {
         $offerLocal = '';
@@ -204,14 +210,11 @@ final class MarketingSettings
                 $offerLocal = '';
             }
         }
-        $free = AppSettings::get(self::KEY_FREE_DELIVERY_THRESHOLD, '499') ?? '499';
-
         $minAmt = trim(AppSettings::get(self::KEY_MIN_ORDER_AMOUNT_INR, '149') ?? '149');
 
         return [
             'low_stock' => self::lowStockEnabled(),
             'threshold' => self::defaultLowStockThreshold(),
-            'free_threshold' => $free !== '' ? (string) $free : '',
             'offer_end_local' => $offerLocal,
             'min_order' => self::minOrderEnabled(),
             'min_order_amount' => $minAmt !== '' ? $minAmt : '149',
@@ -235,32 +238,6 @@ final class MarketingSettings
         if ($threshold < 0 || $threshold > 9999) {
             $errors['threshold'] = 'Threshold must be between 0 and 9999.';
         }
-        $freeRaw = trim((string) ($post['free_threshold'] ?? ''));
-        $freeVal = null;
-        if ($freeRaw === '') {
-            $errors['free_threshold'] = 'Enter a free delivery threshold amount.';
-        } else {
-            $freeVal = round((float) $freeRaw, 2);
-            if ($freeVal <= 0 || $freeVal > 999999) {
-                $errors['free_threshold'] = 'Enter a valid amount between 1 and 999999.';
-            }
-        }
-        $offerEndIso = null;
-        $offerLocal = trim((string) ($post['offer_end'] ?? ''));
-        if ($offerLocal !== '') {
-            try {
-                $tz = new DateTimeZone(ReportDateRange::TIMEZONE);
-                $dt = DateTimeImmutable::createFromFormat('Y-m-d\TH:i', $offerLocal, $tz);
-                if ($dt === false) {
-                    $errors['offer_end'] = 'Enter a valid date and time.';
-                } else {
-                    $offerEndIso = $dt->format(DateTimeInterface::ATOM);
-                }
-            } catch (Throwable $e) {
-                $errors['offer_end'] = 'Enter a valid date and time.';
-            }
-        }
-
         $minOrder = isset($post['min_order']);
         $minOrderRaw = trim((string) ($post['min_order_amount'] ?? ''));
         $minOrderMsg = trim((string) ($post['min_order_message'] ?? ''));
@@ -289,8 +266,6 @@ final class MarketingSettings
 
         AppSettings::set(self::KEY_LOW_STOCK_ENABLED, $lowStock ? '1' : '0');
         AppSettings::set(self::KEY_LOW_STOCK_THRESHOLD, (string) $threshold);
-        AppSettings::set(self::KEY_FREE_DELIVERY_THRESHOLD, $freeVal !== null ? (string) $freeVal : null);
-        AppSettings::set(self::KEY_OFFER_COUNTDOWN_END, $offerEndIso);
         AppSettings::set(self::KEY_MIN_ORDER_ENABLED, $minOrder ? '1' : '0');
         if ($minOrder && $minOrderVal !== null) {
             AppSettings::set(self::KEY_MIN_ORDER_AMOUNT_INR, (string) $minOrderVal);

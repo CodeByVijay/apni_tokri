@@ -23,6 +23,13 @@ $couponApplied = catalogue_cart_coupon_applied($totals);
             <?php else: ?>
                 <div class="is-saving hidden" data-cart-offer-row><dt data-cart-offer-label>Automatic offer</dt><dd data-cart-offer-amount></dd></div>
             <?php endif; ?>
+            <div data-cart-offer-countdown-wrap class="<?= !empty($totals['offer_countdown_end_unix']) ? '' : 'hidden' ?>">
+                <?php
+                $countdownEndUnix = (int) ($totals['offer_countdown_end_unix'] ?? 0);
+                $countdownPrefix = 'Offer ends in ';
+                require APNI_TOKRI_ROOT . '/includes/partials/offer-countdown.php';
+                ?>
+            </div>
             <div class="is-saving<?= $couponApplied ? '' : ' hidden' ?>" data-cart-coupon-row<?= $couponApplied ? '' : ' hidden' ?>>
                 <dt>Coupon (<span data-cart-coupon-code><?= $couponApplied ? Security::escape(trim((string) $totals['coupon_code'])) : '' ?></span>)</dt>
                 <dd data-cart-coupon-amount><?= $couponApplied ? '−' . Security::escape(catalogue_format_price((float) $totals['coupon_discount'])) : '' ?></dd>

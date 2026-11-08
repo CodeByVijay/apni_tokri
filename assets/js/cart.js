@@ -206,6 +206,22 @@
         $offerRow.addClass('hidden');
       }
     }
+    var $offerCdWrap = $('[data-cart-offer-countdown-wrap]');
+    if ($offerCdWrap.length) {
+      var endUnix = parseInt(totals.offer_countdown_end_unix, 10) || 0;
+      if (offerDisc > 0 && endUnix > 0) {
+        $offerCdWrap.removeClass('hidden');
+        var $cd = $offerCdWrap.find('[data-at-offer-countdown]');
+        if ($cd.length) {
+          $cd.attr('data-countdown-end', String(endUnix));
+        }
+        if (typeof window.ATOfferCountdownTick === 'function') {
+          window.ATOfferCountdownTick();
+        }
+      } else {
+        $offerCdWrap.addClass('hidden');
+      }
+    }
 
     var $couponRow = $('[data-cart-coupon-row]');
     if ($couponRow.length) {
@@ -247,20 +263,43 @@
     refreshMinimumOrder(totals);
   }
 
+  function minOrderMetFromTotals(totals) {
+    if (!totals) {
+      return true;
+    }
+    if (!totals.min_order_enabled) {
+      return true;
+    }
+    return totals.min_order_met === true || totals.min_order_met === 1 || totals.min_order_met === '1';
+  }
+
+  function fillMinOrderCopy($root, totals) {
+    if (!$root || !$root.length) {
+      return;
+    }
+    var shortfall = parseFloat(totals.min_order_shortfall) || 0;
+    $root.find('[data-cart-min-order-text]').text(String(totals.min_order_message || ''));
+    $root
+      .find('[data-cart-min-order-remaining]')
+      .text('Add ' + formatMoney(shortfall) + ' more to proceed to checkout.');
+  }
+
   function refreshMinimumOrder(totals) {
-    var $wrap = $('[data-cart-min-order]');
-    if (!$wrap.length || !totals) return;
+    if (!totals) {
+      return;
+    }
     var enabled = !!totals.min_order_enabled;
-    var met = !!totals.min_order_met;
+    var met = minOrderMetFromTotals(totals);
+    var $wrap = $('[data-cart-min-order]');
+    var $alert = $('[data-cart-min-order-alert]');
     if (!enabled || met) {
       $wrap.addClass('hidden');
+      $alert.addClass('hidden');
     } else {
       $wrap.removeClass('hidden');
-      $wrap.find('[data-cart-min-order-text]').text(String(totals.min_order_message || ''));
-      var shortfall = parseFloat(totals.min_order_shortfall) || 0;
-      $wrap
-        .find('[data-cart-min-order-remaining]')
-        .text('Add ' + formatMoney(shortfall) + ' more to proceed to checkout.');
+      $alert.removeClass('hidden');
+      fillMinOrderCopy($wrap, totals);
+      fillMinOrderCopy($alert, totals);
     }
     var block = enabled && !met;
     $('[data-cart-checkout-cta]').each(function () {
@@ -302,8 +341,12 @@
 
   var couponBusy = false;
   var qtyBusy = false;
+  var cartMutationSeq = 0;
 
-  function applyCartMutationResponse($row, res) {
+  function applyCartMutationResponse($row, res, seq) {
+    if (seq !== undefined && seq !== cartMutationSeq) {
+      return;
+    }
     if (!res || !res.success || !res.data) return;
     var totals = res.data.totals || null;
     refreshSummary(totals);
@@ -323,6 +366,7 @@
   function postCartLine(action, lineKey, extra, $row, prevQty) {
     if (qtyBusy) return;
     qtyBusy = true;
+    var seq = ++cartMutationSeq;
     var $qty = $row.find('.js-cart-qty');
     $qty.prop('disabled', true);
     $row.find('[data-qty-step], .js-cart-remove').prop('disabled', true);
@@ -338,7 +382,7 @@
           location.reload();
           return;
         }
-        applyCartMutationResponse($row, res);
+        applyCartMutationResponse($row, res, seq);
       } else {
         var errMsg = res.error && res.error.message ? res.error.message : 'Update failed';
         if (prevQty !== undefined && $qty.length) {
@@ -383,6 +427,7 @@
   function postCoupon(payload, done) {
     if (couponBusy) return;
     couponBusy = true;
+    var seq = ++cartMutationSeq;
     var $btn = $('[data-at-coupon-apply]');
     var prevLabel = $btn.text();
     $btn.prop('disabled', true).attr('aria-busy', 'true').text('Applying…');
@@ -395,6 +440,9 @@
       dataType: 'json',
       data: $.extend({ _csrf_token: csrfToken() }, payload)
     }).done(function (res) {
+      if (seq !== cartMutationSeq) {
+        return;
+      }
       if (res.success) {
         var totals = res.data && res.data.totals ? res.data.totals : null;
         refreshSummary(totals);
@@ -416,6 +464,9 @@
         if (typeof done === 'function') done(new Error(errMsg));
       }
     }).fail(function (xhr) {
+      if (seq !== cartMutationSeq) {
+        return;
+      }
       var errMsg = parseAjaxError(xhr, 'Could not apply coupon. Check your connection and try again.');
       showCouponFeedback(errMsg, true);
       toast(errMsg, 'error');
@@ -567,14 +618,16 @@
         var $minAlert = $('[data-checkout-min-order]');
         if ($minAlert.length) {
           if (totals.min_order_enabled && !totals.min_order_met) {
-            var minMsg = String(totals.min_order_message || '');
             var minShort = parseFloat(totals.min_order_shortfall) || 0;
-            if (minShort > 0) {
-              minMsg += ' Add ' + formatMoney(minShort) + ' more to proceed to checkout.';
-            }
-            $minAlert.removeClass('hidden').text(minMsg);
+            $minAlert.removeClass('hidden');
+            $minAlert.find('[data-checkout-min-order-text]').text(String(totals.min_order_message || ''));
+            $minAlert
+              .find('[data-checkout-min-order-remaining]')
+              .text('Add ' + formatMoney(minShort) + ' more to proceed to checkout.');
           } else {
-            $minAlert.addClass('hidden').text('');
+            $minAlert.addClass('hidden');
+            $minAlert.find('[data-checkout-min-order-text]').text('');
+            $minAlert.find('[data-checkout-min-order-remaining]').text('');
           }
         }
         if ($alert.length) {

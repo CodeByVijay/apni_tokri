@@ -190,6 +190,7 @@ final class DeliveryService
         return (float) $r['fee'];
     }
 
+    /** Free-delivery minimum merchandise (eligible lines) for the customer’s resolved zone — see `delivery_zones.free_above`. */
     public static function freeDeliveryThreshold(): float
     {
         $pin = DeliveryContext::sessionPin() ?? '452001';

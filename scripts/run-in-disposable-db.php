@@ -11,8 +11,11 @@ declare(strict_types=1);
 require_once dirname(__DIR__) . '/includes/bootstrap.php';
 
 $target = $argv[1] ?? '';
-$targetPath = realpath(dirname(__DIR__) . '/' . ltrim($target, '/')) ?: realpath($target);
-if ($targetPath === false || strpos($targetPath, dirname(__DIR__) . '/scripts/') !== 0) {
+$root = dirname(__DIR__);
+$targetPath = realpath($root . '/' . ltrim(str_replace('\\', '/', $target), '/')) ?: realpath($target);
+$scriptsPrefix = str_replace('\\', '/', $root) . '/scripts/';
+$targetNorm = $targetPath !== false ? str_replace('\\', '/', $targetPath) : '';
+if ($targetPath === false || !str_starts_with($targetNorm, $scriptsPrefix)) {
     fwrite(STDERR, "Usage: php scripts/run-in-disposable-db.php scripts/<test>.php\n");
     exit(2);
 }

@@ -388,11 +388,14 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
             ?>
             <?php if (!empty($totals['min_order_enabled']) && empty($totals['min_order_met'])): ?>
             <div class="at-alert at-alert--warning text-sm mb-3" data-checkout-min-order role="alert">
-                <?= Security::escape((string) ($totals['min_order_message'] ?? '')) ?>
-                Add <?= Security::escape(catalogue_format_price((float) ($totals['min_order_shortfall'] ?? 0))) ?> more to proceed to checkout.
+                <span data-checkout-min-order-text><?= Security::escape((string) ($totals['min_order_message'] ?? '')) ?></span>
+                <span class="block mt-1 font-normal" data-checkout-min-order-remaining>Add <?= Security::escape(catalogue_format_price((float) ($totals['min_order_shortfall'] ?? 0))) ?> more to proceed to checkout.</span>
             </div>
             <?php else: ?>
-            <div class="at-alert at-alert--warning text-sm mb-3 hidden" data-checkout-min-order role="alert"></div>
+            <div class="at-alert at-alert--warning text-sm mb-3 hidden" data-checkout-min-order role="alert">
+                <span data-checkout-min-order-text></span>
+                <span class="block mt-1 font-normal" data-checkout-min-order-remaining></span>
+            </div>
             <?php endif; ?>
             <div class="at-alert at-alert--warning text-sm mb-3 hidden" data-checkout-quote-error role="alert"></div>
             <div class="flex flex-col sm:flex-row gap-3">

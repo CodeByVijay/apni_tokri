@@ -65,6 +65,11 @@ t(str_contains($src, "REQUEST_METHOD'] !== 'POST'") && str_contains($src, 'cartA
 $js = (string) file_get_contents(APNI_TOKRI_ROOT . '/assets/js/cart.js');
 t(strpos($js, 'qtyBusy') !== false && strpos($js, 'postCartLine') !== false, 'cart.js duplicate-request guard');
 t(strpos($js, "postCartLine('update'") !== false && strpos($js, '/ajax/cart/update.php') === false, 'cart.js extensionless update URL');
+t(str_contains($js, 'data-cart-min-order-alert'), 'cart.js updates cart min-order alert');
+t(str_contains($js, 'cartMutationSeq'), 'cart.js stale cart AJAX guard');
+t(str_contains($js, 'minOrderMetFromTotals'), 'cart.js authoritative min_order_met parsing');
+$cartPhp = (string) file_get_contents(APNI_TOKRI_ROOT . '/cart.php');
+t(str_contains($cartPhp, 'data-cart-min-order-alert'), 'cart.php min-order alert hook for AJAX');
 
 $ht = (string) file_get_contents(APNI_TOKRI_ROOT . '/.htaccess');
 t(str_contains($ht, 'REQUEST_METHOD') && str_contains($ht, '!POST'), '.htaccess skips .php redirect for POST');
