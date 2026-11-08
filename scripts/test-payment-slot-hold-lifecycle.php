@@ -89,6 +89,27 @@ $ok($n >= 1, 'Failed payment allows expiry cleanup');
 $holdAfterFail = DeliverySlotReservationService::activeHoldForOrder($pdo, $orderId);
 $ok($holdAfterFail === null, 'Hold released after payment failure + expiry');
 
+// Reentrancy: released hold + open Cashfree attempt must not recurse refresh → lock → refresh (HTTP 500 OOM).
+$pdo->prepare(
+    'INSERT INTO payments (order_id, gateway, amount, currency, status, idempotency_key) VALUES (?, ?, ?, ?, ?, ?)'
+)->execute([$orderId, 'cashfree', 100, 'INR', 'pending', 'pay_' . $orderNumber . '_2']);
+$pdo->exec(
+    "INSERT INTO delivery_slot_reservations (delivery_slot_id, delivery_date, order_id, status, expires_at, created_at, updated_at)
+     VALUES ($slotId, '$date', $orderId, 'released', NOW() - INTERVAL 10 MINUTE, NOW(), NOW())
+     ON DUPLICATE KEY UPDATE status = 'released', expires_at = NOW() - INTERVAL 10 MINUTE"
+);
+$reentryOk = true;
+try {
+    PaymentSlotHoldService::synchronizeOpenPaymentHold($pdo, $orderId);
+    DeliverySlotReservationService::lockSlotAndAssertCapacity($pdo, $slotId, $date, $orderId);
+} catch (Throwable $e) {
+    $reentryOk = false;
+}
+$ok($reentryOk, 'released hold + open payment refresh does not recurse fatally');
+
+$holdSrc = (string) file_get_contents(APNI_TOKRI_ROOT . '/includes/delivery/payment_slot_hold.php');
+$ok(str_contains($holdSrc, 'refreshHoldsInProgress'), 'refreshHolds reentrancy guard present');
+
 $pdo->prepare('DELETE FROM delivery_slot_reservations WHERE order_id = ?')->execute([$orderId]);
 $pdo->prepare('DELETE FROM payments WHERE order_id = ?')->execute([$orderId]);
 $pdo->prepare('DELETE FROM orders WHERE id = ?')->execute([$orderId]);

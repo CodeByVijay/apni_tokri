@@ -18,7 +18,11 @@ if ($id !== '' && CommerceGateway::useDatabase() && CustomerAuth::id() !== null)
     $custId = (int) CustomerAuth::id();
     $orderRow = PaymentRepository::orderByNumberForCustomer($id, $custId);
     $isRetryPaymentPost = $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['storefront_retry_payment']);
+    $pendingAutolaunchGet = $_SERVER['REQUEST_METHOD'] === 'GET'
+        && !empty($_SESSION['checkout_payment_autolaunch'][$id])
+        && is_array($_SESSION['checkout_payment'][$id] ?? null);
     if (!$isRetryPaymentPost
+        && !$pendingAutolaunchGet
         && $orderRow !== null
         && PaymentService::customerCanRetryStorefrontPayment($orderRow)
         && PaymentGatewayConfig::activeGateway() === 'cashfree') {
@@ -147,7 +151,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['storefront_retry_paym
                         $retryPaymentError = 'Could not open secure checkout. Please try again.';
                     }
                 } else {
-                    header('Location: ' . url_base() . '/order-details.php?id=' . rawurlencode($id), true, 303);
+                    header('Location: ' . url_to('/order-details?id=' . rawurlencode($id)), true, 303);
                     exit;
                 }
             }

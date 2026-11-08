@@ -200,6 +200,8 @@ try {
     $od = (string) file_get_contents(APNI_TOKRI_ROOT . '/order-details.php');
     okR(str_contains($od, 'storefront_retry_payment:'), 'order-details logs retry Throwable safely');
     okR(str_contains($od, 'isRetryPaymentPost'), 'order-details skips sync on retry POST');
+    okR(str_contains($od, 'pendingAutolaunchGet'), 'order-details skips Cashfree sync during autolaunch GET');
+    okR(str_contains($od, "url_to('/order-details?id='"), 'retry redirect uses extensionless order-details URL');
 
     $pdo->prepare('DELETE FROM payments WHERE order_id = ?')->execute([$orderId]);
     $pdo->prepare('DELETE FROM order_items WHERE order_id = ?')->execute([$orderId]);

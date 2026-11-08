@@ -10,6 +10,9 @@ declare(strict_types=1);
  */
 final class PaymentSlotHoldService
 {
+    /** Prevents recursive refresh → synchronize → lockSlot → releaseExpired → refresh loops. */
+    private static bool $refreshHoldsInProgress = false;
+
     /** Maximum total hold duration from first reservation row (prevents indefinite extension). */
     public const ABSOLUTE_MAX_HOLD_MINUTES = 240;
 
@@ -51,22 +54,27 @@ final class PaymentSlotHoldService
      */
     public static function refreshHoldsForOpenPayments(PDO $pdo): void
     {
-        if (!DeliverySlotReservationService::tableReady()) {
+        if (self::$refreshHoldsInProgress || !DeliverySlotReservationService::tableReady()) {
             return;
         }
-        $stmt = $pdo->query(
-            "SELECT DISTINCT r.order_id FROM delivery_slot_reservations r
-             WHERE r.status IN ('held', 'released') AND r.order_id IS NOT NULL
-             AND r.expires_at <= DATE_ADD(NOW(), INTERVAL 2 MINUTE)"
-        );
-        if ($stmt === false) {
-            return;
-        }
-        while (($orderId = $stmt->fetchColumn()) !== false) {
-            $oid = (int) $orderId;
-            if ($oid > 0) {
-                self::synchronizeOpenPaymentHold($pdo, $oid);
+        self::$refreshHoldsInProgress = true;
+        try {
+            $stmt = $pdo->query(
+                "SELECT DISTINCT r.order_id FROM delivery_slot_reservations r
+                 WHERE r.status IN ('held', 'released') AND r.order_id IS NOT NULL
+                 AND r.expires_at <= DATE_ADD(NOW(), INTERVAL 2 MINUTE)"
+            );
+            if ($stmt === false) {
+                return;
             }
+            while (($orderId = $stmt->fetchColumn()) !== false) {
+                $oid = (int) $orderId;
+                if ($oid > 0) {
+                    self::synchronizeOpenPaymentHold($pdo, $oid);
+                }
+            }
+        } finally {
+            self::$refreshHoldsInProgress = false;
         }
     }
 
