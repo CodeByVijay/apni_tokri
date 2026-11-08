@@ -9,12 +9,25 @@ AdminDemoPerms::denyIfCannot('orders');
 
 $listQ = AdminServerList::searchFromRequest(isset($_GET['q']) ? (string) $_GET['q'] : '');
 $listPage = AdminServerList::pageFromRequest(isset($_GET['page']) ? (int) $_GET['page'] : null);
-$listPerPage = AdminServerList::perPageFromRequest(isset($_GET['per_page']) ? (int) $_GET['per_page'] : null);
-$sort = AdminServerList::resolveSort((string) ($_GET['sort'] ?? 'placed_at'), [
-    'placed_at' => 'placed_at', 'order_number' => 'order_number', 'grand_total' => 'grand_total', 'status' => 'status',
-], 'placed_at');
+$listPerPage = AdminServerList::perPageFromRequestWithOptions(
+    isset($_GET['per_page']) ? (int) $_GET['per_page'] : null,
+    AdminOrderService::PER_PAGE_OPTIONS,
+    AdminOrderService::PER_PAGE
+);
+$sort = AdminServerList::resolveSort((string) ($_GET['sort'] ?? 'created_at'), [
+    'created_at' => 'created_at',
+    'placed_at' => 'placed_at',
+    'order_number' => 'order_number',
+    'grand_total' => 'grand_total',
+    'status' => 'status',
+], 'created_at');
 $dir = (string) ($_GET['dir'] ?? 'desc');
-$queryBase = array_filter(['q' => $listQ !== '' ? $listQ : null]);
+$queryBase = array_filter([
+    'q' => $listQ !== '' ? $listQ : null,
+    'sort' => $sort !== 'created_at' ? $sort : null,
+    'dir' => strtolower($dir) !== 'desc' ? $dir : null,
+    'per_page' => $listPerPage !== AdminOrderService::PER_PAGE ? $listPerPage : null,
+]);
 
 admin_layout_start(['pageTitle' => 'Orders', 'activeAdminNav' => 'orders']);
 $pageHeading = 'Orders';
@@ -32,6 +45,7 @@ if (!Install::isSchemaReady()) {
             <label class="at-label" for="q">Search</label>
             <input id="q" name="q" class="at-input at-focusable" value="<?= Security::escape($listQ) ?>" placeholder="Order #, customer, mobile, status">
         </div>
+        <input type="hidden" name="page" value="1">
         <input type="hidden" name="sort" value="<?= Security::escape($sort) ?>">
         <input type="hidden" name="dir" value="<?= Security::escape($dir) ?>">
         <input type="hidden" name="per_page" value="<?= (int) $listPerPage ?>">
@@ -48,12 +62,19 @@ $columns = [
     ['label' => 'Actions', 'key' => 'actions', 'align' => 'actions', 'raw' => true],
 ];
 $rows = $list['rows'];
-$emptyMessage = 'No orders yet.';
+$emptyMessage = $listQ !== '' ? 'No orders match your search.' : 'No orders yet.';
 require APNI_TOKRI_ROOT . '/includes/partials/admin/data-table.php';
 
 $total = (int) $list['total'];
 $listPage = (int) $list['page'];
-if ((int) $list['total_pages'] > 1) {
-    admin_list_pagination($listPage, $total, $listPerPage, $queryBase, url_base() . '/admin/orders/index.php');
-}
+admin_list_pagination(
+    $listPage,
+    $total,
+    $listPerPage,
+    $queryBase,
+    url_base() . '/admin/orders/index.php',
+    AdminOrderService::PER_PAGE_OPTIONS,
+    $total === 1 ? 'order' : 'orders',
+    true
+);
 admin_layout_end();

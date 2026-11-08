@@ -17,10 +17,16 @@ $order = null;
 if ($id !== '' && CommerceGateway::useDatabase() && CustomerAuth::id() !== null) {
     $custId = (int) CustomerAuth::id();
     $orderRow = PaymentRepository::orderByNumberForCustomer($id, $custId);
-    if ($orderRow !== null
+    $isRetryPaymentPost = $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['storefront_retry_payment']);
+    if (!$isRetryPaymentPost
+        && $orderRow !== null
         && PaymentService::customerCanRetryStorefrontPayment($orderRow)
         && PaymentGatewayConfig::activeGateway() === 'cashfree') {
-        PaymentService::syncCashfreeOrderPayment($id, $custId);
+        try {
+            PaymentService::syncCashfreeOrderPayment($id, $custId);
+        } catch (Throwable $e) {
+            error_log('order-details cashfree sync: ' . $e->getMessage());
+        }
     }
     $order = OrderRepository::forCustomerDetail($id, $custId);
 }
@@ -114,7 +120,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['storefront_retry_paym
             $retryPaymentError = 'This order cannot accept payment right now.';
         } else {
             $orderNumber = (string) ($retryRow['order_number'] ?? $id);
-            $prep = PaymentService::prepareStorefrontOrderPayment($orderNumber, $custId, true);
+            try {
+                $prep = PaymentService::prepareStorefrontOrderPayment($orderNumber, $custId, true);
+            } catch (Throwable $e) {
+                error_log('storefront_retry_payment: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
+                $prep = ['ok' => false, 'error' => 'Could not start payment. Please try again in a moment.'];
+            }
             if (!empty($prep['redirect'])) {
                 header('Location: ' . $prep['redirect'], true, 302);
                 exit;
@@ -124,11 +135,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['storefront_retry_paym
                 $retryPaymentInfo = (string) ($prep['info'] ?? '');
             } else {
                 $launchMode = (string) (($prep['checkout'] ?? [])['mode'] ?? '');
-                if (!in_array($launchMode, ['cashfree', 'razorpay'], true)) {
+                $sessionReady = ($launchMode === 'cashfree'
+                        && trim((string) (($prep['checkout'] ?? [])['payment_session_id'] ?? '')) !== '')
+                    || ($launchMode === 'razorpay'
+                        && trim((string) (($prep['checkout'] ?? [])['gateway_order_id'] ?? '')) !== '')
+                    || $launchMode === 'simulate';
+                if (!in_array($launchMode, ['cashfree', 'razorpay', 'simulate'], true) || !$sessionReady) {
                     unset($_SESSION['checkout_payment_autolaunch'][$orderNumber]);
+                    unset($_SESSION['checkout_payment'][$orderNumber]);
+                    if (in_array($launchMode, ['cashfree', 'razorpay'], true) && !$sessionReady) {
+                        $retryPaymentError = 'Could not open secure checkout. Please try again.';
+                    }
+                } else {
+                    header('Location: ' . url_base() . '/order-details.php?id=' . rawurlencode($id), true, 303);
+                    exit;
                 }
-                header('Location: ' . url_base() . '/order-details.php?id=' . rawurlencode($id), true, 303);
-                exit;
             }
         }
     }

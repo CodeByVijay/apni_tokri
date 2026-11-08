@@ -227,6 +227,43 @@ try {
     $tl9 = timelineForOrder($pdo, $o9, $cid, $n9);
     tok(pendingLabels($tl9) !== [], 'Failed delivery alone does not hide pending milestones');
 
+    // 10. Unpaid pending_payment highlights Awaiting payment, not Order confirmed
+    $n10 = 'TL-PP-' . $tag;
+    $o10 = insertOrder($pdo, $cid, $n10, OrderStatus::PENDING_PAYMENT, 'pending');
+    $tl10 = timelineForOrder($pdo, $o10, $cid, $n10);
+    tok(in_array('Awaiting payment', pendingLabels($tl10), true), '10 pending_payment shows Awaiting payment step');
+    tok(!in_array('Order confirmed', pendingLabels($tl10), true), '10 pending_payment never highlights Order confirmed');
+
+    // 11. Failed Cashfree attempts are attempt history, not confirmation
+    $pdo->prepare(
+        'INSERT INTO payments (order_id, gateway, amount, currency, status, idempotency_key) VALUES (?, ?, 100, ?, ?, ?)'
+    )->execute([$o10, 'cashfree', 'INR', 'failed', 'idem-fail-1']);
+    $pdo->prepare(
+        'INSERT INTO payments (order_id, gateway, amount, currency, status, idempotency_key) VALUES (?, ?, 100, ?, ?, ?)'
+    )->execute([$o10, 'cashfree', 'INR', 'failed', 'idem-fail-2']);
+    $tl11 = timelineForOrder($pdo, $o10, $cid, $n10);
+    $attemptFails = 0;
+    $confirmedDone = false;
+    foreach ($tl11 as $s) {
+        if (!empty($s['done']) && stripos((string) $s['status'], 'attempt failed') !== false) {
+            $attemptFails++;
+        }
+        if (!empty($s['done']) && (string) $s['status'] === 'Order confirmed') {
+            $confirmedDone = true;
+        }
+    }
+    tok($attemptFails >= 1, '11 failed payments appear as attempt history');
+    tok(!$confirmedDone, '11 failed attempts do not mark Order confirmed done');
+
+    // 12. Paid confirmed order may show Order confirmed pending milestone chain
+    $n12 = 'TL-PAID-' . $tag;
+    $o12 = insertOrder($pdo, $cid, $n12, OrderStatus::CONFIRMED, 'paid');
+    $pdo->prepare(
+        'INSERT INTO payments (order_id, gateway, amount, currency, status, idempotency_key, captured_at) VALUES (?, ?, 100, ?, ?, ?, NOW())'
+    )->execute([$o12, 'cashfree', 'INR', 'captured', 'idem-ok-1']);
+    $tl12 = timelineForOrder($pdo, $o12, $cid, $n12);
+    tok(in_array('Order processing', pendingLabels($tl12), true) || in_array('Out for delivery', pendingLabels($tl12), true), '12 paid confirmed shows fulfilment pending steps');
+
     $pdo->rollBack();
     tok(true, 'All fixtures rolled back (no order rows persisted)');
 } catch (Throwable $e) {

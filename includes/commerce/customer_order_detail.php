@@ -633,12 +633,12 @@ final class CustomerOrderTimeline
                     'payment'
                 );
             } elseif (($p['status'] ?? '') === 'failed') {
-                $at = (string) ($p['created_at'] ?? '');
+                $at = (string) ($p['updated_at'] ?? $p['created_at'] ?? '');
                 if ($at !== '') {
                     $events[] = self::event(
-                        'Payment failed (' . $gw . ')',
+                        'Payment attempt failed (' . $gw . ')',
                         $at,
-                        'payment.failed.' . $at . '.' . $payKey,
+                        'payment.attempt_failed.' . $payKey,
                         'payment'
                     );
                 }
@@ -720,9 +720,13 @@ final class CustomerOrderTimeline
             $events[] = ['status' => 'Order received', 'at' => '', 'done' => true];
         }
 
-        if (!$hidePending && $paymentStatus !== 'failed') {
-            foreach (self::pendingMilestones($status) as $pending) {
-                $events[] = ['status' => $pending, 'at' => '', 'done' => false];
+        if (!$hidePending) {
+            if ($status === OrderStatus::PENDING_PAYMENT) {
+                $events[] = ['status' => 'Awaiting payment', 'at' => '', 'done' => false];
+            } elseif ($paymentStatus !== 'failed') {
+                foreach (self::pendingMilestones($status) as $pending) {
+                    $events[] = ['status' => $pending, 'at' => '', 'done' => false];
+                }
             }
         }
 
@@ -1053,10 +1057,6 @@ final class CustomerOrderTimeline
         ];
         $idx = array_search($orderStatus, $order, true);
         if ($idx === false) {
-            if ($orderStatus === OrderStatus::PENDING_PAYMENT) {
-                return ['Order confirmed', 'Order processing', 'Out for delivery', 'Delivered'];
-            }
-
             return [];
         }
         $pending = [];

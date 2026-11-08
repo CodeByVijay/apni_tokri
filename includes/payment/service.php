@@ -69,6 +69,20 @@ final class PaymentRepository
     }
 
     /** @return array<string, mixed>|null */
+    public static function latestFailedCashfreePayment(int $orderId): ?array
+    {
+        Install::ensureConnection();
+        $stmt = Database::pdo()->prepare(
+            "SELECT * FROM payments WHERE order_id = ? AND gateway = 'cashfree'
+             AND status = 'failed' ORDER BY id DESC LIMIT 1"
+        );
+        $stmt->execute([$orderId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        return $row ?: null;
+    }
+
+    /** @return array<string, mixed>|null */
     public static function paymentByIdempotency(string $key): ?array
     {
         Install::ensureConnection();
@@ -215,20 +229,13 @@ final class PaymentService
 
         $pdo = Database::pdo();
         $resume = self::tryResumeCashfreeBeforeNewAttempt($pdo, $orderId, $orderNumber, $amountInr, $customerMobile, $referenceId);
-        if ($resume !== null) {
+        if ($resume !== null && !empty($resume['ok'])) {
             return $resume;
         }
 
-        $idempotency = self::nextIdempotencyKey($orderNumber);
-        $envMeta = json_encode(
-            ['payment_environment' => PaymentGatewayConfig::recordedPaymentEnvironment($gateway)],
-            JSON_UNESCAPED_UNICODE
-        );
-        $pdo->prepare(
-            'INSERT INTO payments (order_id, gateway, amount, currency, status, idempotency_key, metadata_json)
-             VALUES (?, ?, ?, ?, ?, ?, ?)'
-        )->execute([$orderId, $gateway, round($amountInr, 2), 'INR', 'created', $idempotency, $envMeta]);
-        $paymentId = (int) $pdo->lastInsertId();
+        $attempt = self::allocatePaymentAttemptRow($pdo, $orderId, $orderNumber, $gateway, $amountInr);
+        $paymentId = (int) $attempt['payment_id'];
+        $idempotency = (string) $attempt['idempotency_key'];
 
         if ($gateway === 'simulate') {
             $token = self::issueSimulateToken($orderNumber);
@@ -354,12 +361,13 @@ final class PaymentService
         }
         $session = trim((string) ($existing['payment_session_id'] ?? ''));
         $gwStatus = strtoupper((string) ($existing['order_status'] ?? ''));
-        if ($session === '' || !in_array($gwStatus, ['ACTIVE', 'PENDING', ''], true)) {
+        if ($session === '' || !in_array($gwStatus, ['ACTIVE', 'PENDING'], true)) {
             return null;
         }
 
         $latest = PaymentRepository::latestPaymentForOrder($orderId);
         $paymentRow = $open ?? $latest;
+        $paymentId = 0;
         $idempotencyKey = '';
         if ($paymentRow !== null && (string) ($paymentRow['gateway'] ?? '') === 'cashfree'
             && (string) ($paymentRow['status'] ?? '') === 'failed') {
@@ -398,6 +406,10 @@ final class PaymentService
             PaymentSlotHoldService::storeSessionExpiryOnPayment($pdo, $paymentId, $cfExpiry);
         }
 
+        if ($paymentId <= 0 || $session === '') {
+            return null;
+        }
+
         return [
             'ok' => true,
             'payment_id' => $paymentId,
@@ -409,6 +421,60 @@ final class PaymentService
                 'idempotency_key' => $idempotencyKey !== '' ? $idempotencyKey : self::nextIdempotencyKey($orderNumber),
                 'reference_id' => $referenceId,
             ],
+        ];
+    }
+
+    /**
+     * Reuse an open/failed payment row when retrying; otherwise insert one new attempt row.
+     *
+     * @return array{payment_id: int, idempotency_key: string, reopened: bool}
+     */
+    private static function allocatePaymentAttemptRow(
+        PDO $pdo,
+        int $orderId,
+        string $orderNumber,
+        string $gateway,
+        float $amountInr
+    ): array {
+        $amountInr = round($amountInr, 2);
+        if ($gateway === 'cashfree') {
+            $open = PaymentRepository::latestOpenCashfreePayment($orderId);
+            if ($open !== null && abs((float) ($open['amount'] ?? 0) - $amountInr) < 0.02) {
+                return [
+                    'payment_id' => (int) $open['id'],
+                    'idempotency_key' => (string) ($open['idempotency_key'] ?? ''),
+                    'reopened' => false,
+                ];
+            }
+            $failed = PaymentRepository::latestFailedCashfreePayment($orderId);
+            if ($failed !== null && abs((float) ($failed['amount'] ?? 0) - $amountInr) < 0.02
+                && PaymentRepository::latestOpenCashfreePayment($orderId) === null) {
+                $pid = (int) $failed['id'];
+                $pdo->prepare('UPDATE payments SET status = ?, updated_at = NOW() WHERE id = ? AND status = ?')
+                    ->execute(['created', $pid, 'failed']);
+
+                return [
+                    'payment_id' => $pid,
+                    'idempotency_key' => (string) ($failed['idempotency_key'] ?? ''),
+                    'reopened' => true,
+                ];
+            }
+        }
+
+        $idempotency = self::nextIdempotencyKey($orderNumber);
+        $envMeta = json_encode(
+            ['payment_environment' => PaymentGatewayConfig::recordedPaymentEnvironment($gateway)],
+            JSON_UNESCAPED_UNICODE
+        );
+        $pdo->prepare(
+            'INSERT INTO payments (order_id, gateway, amount, currency, status, idempotency_key, metadata_json)
+             VALUES (?, ?, ?, ?, ?, ?, ?)'
+        )->execute([$orderId, $gateway, $amountInr, 'INR', 'created', $idempotency, $envMeta]);
+
+        return [
+            'payment_id' => (int) $pdo->lastInsertId(),
+            'idempotency_key' => $idempotency,
+            'reopened' => false,
         ];
     }
 
@@ -1384,13 +1450,14 @@ final class PaymentService
             $markOrderFailed = false;
             Database::transaction(static function () use ($orderNumber, $idempotencyKey, $note, &$markOrderFailed): void {
                 $pdo = Database::pdo();
-                $stmt = $pdo->prepare('SELECT id, payment_status FROM orders WHERE order_number = ? FOR UPDATE');
+                $stmt = $pdo->prepare('SELECT id, status, payment_status FROM orders WHERE order_number = ? FOR UPDATE');
                 $stmt->execute([$orderNumber]);
                 $order = $stmt->fetch(PDO::FETCH_ASSOC);
                 if (!$order || (string) $order['payment_status'] === 'paid') {
                     return;
                 }
                 $orderId = (int) $order['id'];
+                $orderStatus = (string) ($order['status'] ?? '');
                 $pdo->prepare('UPDATE payments SET status = ? WHERE order_id = ? AND idempotency_key = ?')
                     ->execute(['failed', $orderId, $idempotencyKey]);
                 $openStmt = $pdo->prepare(
@@ -1399,7 +1466,13 @@ final class PaymentService
                 );
                 $openStmt->execute([$orderId, $idempotencyKey]);
                 $otherOpen = (int) $openStmt->fetchColumn();
-                if ($otherOpen === 0) {
+                $awaitingCheckout = $orderStatus === OrderStatus::PENDING_PAYMENT;
+                if ($otherOpen === 0 && $awaitingCheckout) {
+                    $pdo->prepare('UPDATE orders SET payment_status = ?, updated_at = NOW() WHERE id = ?')
+                        ->execute(['failed', $orderId]);
+                    $pdo->prepare('INSERT INTO order_status_history (order_id, status, note) VALUES (?, ?, ?)')
+                        ->execute([$orderId, 'Payment attempt failed', $note]);
+                } elseif ($otherOpen === 0) {
                     $pdo->prepare('UPDATE orders SET status = ?, payment_status = ?, updated_at = NOW() WHERE id = ?')
                         ->execute(['payment_failed', 'failed', $orderId]);
                     $pdo->prepare('INSERT INTO order_status_history (order_id, status, note) VALUES (?, ?, ?)')

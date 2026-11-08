@@ -20,9 +20,17 @@ final class AdminServerList
 
     public static function perPageFromRequest(?int $raw): int
     {
-        $v = $raw ?? self::DEFAULT_PER_PAGE;
+        return self::perPageFromRequestWithOptions($raw, self::PER_PAGE_OPTIONS, self::DEFAULT_PER_PAGE);
+    }
 
-        return in_array($v, self::PER_PAGE_OPTIONS, true) ? $v : self::DEFAULT_PER_PAGE;
+    /**
+     * @param list<int> $allowed
+     */
+    public static function perPageFromRequestWithOptions(?int $raw, array $allowed, int $default): int
+    {
+        $v = $raw ?? $default;
+
+        return in_array($v, $allowed, true) ? $v : $default;
     }
 
     public static function searchFromRequest(?string $raw): string

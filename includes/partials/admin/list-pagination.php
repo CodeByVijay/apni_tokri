@@ -14,18 +14,29 @@ function admin_list_pagination(
     int $perPage,
     array $queryBase,
     string $formAction,
-    array $perPageOptions = [10, 25, 50, 100]
+    array $perPageOptions = [10, 25, 50, 100],
+    string $recordLabel = 'records',
+    bool $showWhenSinglePage = false
 ): void {
     $perPage = max(1, $perPage);
     $totalPages = max(1, (int) ceil($total / $perPage));
     $page = max(1, min($page, $totalPages));
+    if ($total <= 0) {
+        if (!$showWhenSinglePage) {
+            return;
+        }
+    } elseif ($totalPages <= 1 && !$showWhenSinglePage) {
+        return;
+    }
     $base = array_filter($queryBase, static function ($v): bool {
         return $v !== null && $v !== '';
     });
+    $rangeStart = $total > 0 ? (($page - 1) * $perPage) + 1 : 0;
+    $rangeEnd = $total > 0 ? min($total, $page * $perPage) : 0;
     ?>
     <div class="at-admin-pager flex flex-wrap items-center justify-between gap-3 mt-3">
-        <span class="text-sm at-muted">
-            Page <?= (int) $page ?> of <?= (int) $totalPages ?> · <?= (int) $total ?> record<?= $total === 1 ? '' : 's' ?>
+        <span class="text-sm at-muted" role="status">
+            Showing <?= (int) $rangeStart ?>–<?= (int) $rangeEnd ?> of <?= (int) $total ?> <?= Security::escape($recordLabel) ?>
         </span>
         <form method="get" action="<?= Security::escape($formAction) ?>" class="flex flex-wrap items-center gap-2 text-sm">
             <?php foreach ($base as $k => $v): ?>
@@ -41,22 +52,44 @@ function admin_list_pagination(
                 </select>
             </label>
         </form>
-        <span class="at-admin-pager__nav">
+        <nav class="at-admin-pager__nav flex flex-wrap items-center gap-1" aria-label="Pagination">
             <?php
-            $prevQs = http_build_query(array_merge($base, ['page' => max(1, $page - 1), 'per_page' => $perPage]));
-            $nextQs = http_build_query(array_merge($base, ['page' => min($totalPages, $page + 1), 'per_page' => $perPage]));
+            $linkQs = static function (int $p) use ($base, $perPage): string {
+                return http_build_query(array_merge($base, ['page' => $p, 'per_page' => $perPage]));
+            };
+            $prevQs = $linkQs(max(1, $page - 1));
+            $nextQs = $linkQs(min($totalPages, $page + 1));
             ?>
             <?php if ($page > 1): ?>
                 <a class="at-btn at-btn--sm at-btn--secondary at-focusable" href="?<?= Security::escape($prevQs) ?>">Previous</a>
             <?php else: ?>
                 <span class="at-btn at-btn--sm at-btn--secondary opacity-50 pointer-events-none" aria-disabled="true">Previous</span>
             <?php endif; ?>
+            <?php
+            $window = 2;
+            $fromPage = max(1, $page - $window);
+            $toPage = min($totalPages, $page + $window);
+            if ($fromPage > 1): ?>
+                <a class="at-btn at-btn--sm at-btn--ghost at-focusable" href="?<?= Security::escape($linkQs(1)) ?>">1</a>
+                <?php if ($fromPage > 2): ?><span class="px-1 at-muted" aria-hidden="true">…</span><?php endif; ?>
+            <?php endif; ?>
+            <?php for ($p = $fromPage; $p <= $toPage; $p++): ?>
+                <?php if ($p === $page): ?>
+                    <span class="at-btn at-btn--sm at-btn--primary pointer-events-none" aria-current="page"><?= (int) $p ?></span>
+                <?php else: ?>
+                    <a class="at-btn at-btn--sm at-btn--ghost at-focusable" href="?<?= Security::escape($linkQs($p)) ?>"><?= (int) $p ?></a>
+                <?php endif; ?>
+            <?php endfor; ?>
+            <?php if ($toPage < $totalPages): ?>
+                <?php if ($toPage < $totalPages - 1): ?><span class="px-1 at-muted" aria-hidden="true">…</span><?php endif; ?>
+                <a class="at-btn at-btn--sm at-btn--ghost at-focusable" href="?<?= Security::escape($linkQs($totalPages)) ?>"><?= (int) $totalPages ?></a>
+            <?php endif; ?>
             <?php if ($page < $totalPages): ?>
                 <a class="at-btn at-btn--sm at-btn--secondary at-focusable" href="?<?= Security::escape($nextQs) ?>">Next</a>
             <?php else: ?>
                 <span class="at-btn at-btn--sm at-btn--secondary opacity-50 pointer-events-none" aria-disabled="true">Next</span>
             <?php endif; ?>
-        </span>
+        </nav>
     </div>
     <?php
 }

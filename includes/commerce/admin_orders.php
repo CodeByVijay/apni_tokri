@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 final class AdminOrderService
 {
-    public const PER_PAGE = 50;
+    public const PER_PAGE = 20;
+
+    /** @var list<int> */
+    public const PER_PAGE_OPTIONS = [20, 50, 100];
 
     /** Status values an admin may set manually from the order detail screen. */
     public static function adminUpdatableStatuses(): array
@@ -29,8 +32,8 @@ final class AdminOrderService
     public static function searchForAdmin(
         string $query,
         int $page = 1,
-        int $perPage = 25,
-        string $sortColumn = 'placed_at',
+        int $perPage = 20,
+        string $sortColumn = 'created_at',
         string $sortDirection = 'desc'
     ): array {
         if (!Install::isSchemaReady()) {
@@ -45,21 +48,24 @@ final class AdminOrderService
         $q = trim($query);
         if ($q !== '') {
             $like = '%' . AdminServerList::escapeLike($q) . '%';
-            $where[] = '(o.order_number LIKE ? OR c.name LIKE ? OR c.mobile LIKE ? OR o.status LIKE ?)';
+            $statusLike = '%' . AdminServerList::escapeLike(str_replace(' ', '_', strtolower($q))) . '%';
+            $where[] = '(o.order_number LIKE ? OR c.name LIKE ? OR c.mobile LIKE ? OR o.status LIKE ? OR o.status LIKE ?)';
             $params[] = $like;
             $params[] = $like;
             $params[] = $like;
             $params[] = $like;
+            $params[] = $statusLike;
         }
         $whereSql = implode(' AND ', $where);
         $sortMap = [
+            'created_at' => 'o.created_at',
             'placed_at' => 'COALESCE(o.placed_at, o.created_at)',
             'order_number' => 'o.order_number',
             'grand_total' => 'o.grand_total',
             'status' => 'o.status',
             'id' => 'o.id',
         ];
-        $orderSql = AdminServerList::orderBySql($sortColumn, $sortDirection, $sortMap, 'placed_at');
+        $orderSql = AdminServerList::orderBySql($sortColumn, $sortDirection, $sortMap, 'created_at');
         $from = ' FROM orders o LEFT JOIN customers c ON c.id = o.customer_id WHERE ' . $whereSql;
         $countStmt = $pdo->prepare('SELECT COUNT(*)' . $from);
         $countStmt->execute($params);
