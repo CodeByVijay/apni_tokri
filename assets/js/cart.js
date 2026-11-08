@@ -273,15 +273,36 @@
     return totals.min_order_met === true || totals.min_order_met === 1 || totals.min_order_met === '1';
   }
 
-  function fillMinOrderCopy($root, totals) {
-    if (!$root || !$root.length) {
+  function fillMinOrderSummary($wrap, totals) {
+    if (!$wrap || !$wrap.length) {
+      return;
+    }
+    var minAmt = parseFloat(totals.min_order_amount_inr) || 0;
+    var merch = parseFloat(totals.min_order_merchandise_inr) || 0;
+    var shortfall = parseFloat(totals.min_order_shortfall) || 0;
+    $wrap
+      .find('[data-cart-min-order-min]')
+      .text('Minimum order value: ' + formatMoney(minAmt));
+    $wrap
+      .find('[data-cart-min-order-merch]')
+      .text('Your order value after discounts is ' + formatMoney(merch) + '.');
+    $wrap
+      .find('[data-cart-min-order-remaining]')
+      .html(
+        'Add <span class="font-bold tabular-nums">' +
+          formatMoney(shortfall) +
+          '</span> more in products to proceed to checkout.'
+      );
+  }
+
+  function fillMinOrderCtaHint($alert, totals) {
+    if (!$alert || !$alert.length) {
       return;
     }
     var shortfall = parseFloat(totals.min_order_shortfall) || 0;
-    $root.find('[data-cart-min-order-text]').text(String(totals.min_order_message || ''));
-    $root
+    $alert
       .find('[data-cart-min-order-remaining]')
-      .text('Add ' + formatMoney(shortfall) + ' more to proceed to checkout.');
+      .text('Add ' + formatMoney(shortfall) + ' more to unlock checkout.');
   }
 
   function refreshMinimumOrder(totals) {
@@ -298,8 +319,8 @@
     } else {
       $wrap.removeClass('hidden');
       $alert.removeClass('hidden');
-      fillMinOrderCopy($wrap, totals);
-      fillMinOrderCopy($alert, totals);
+      fillMinOrderSummary($wrap, totals);
+      fillMinOrderCtaHint($alert, totals);
     }
     var block = enabled && !met;
     $('[data-cart-checkout-cta]').each(function () {

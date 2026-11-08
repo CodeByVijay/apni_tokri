@@ -168,9 +168,8 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
             <?php if ($cartQtyBlocking): ?>
                 <p class="text-sm text-red-600 mb-3" role="alert">Fix quantity issues above before checkout.</p>
             <?php endif; ?>
-            <p class="text-sm text-red-600 mb-3<?= $cartMinOrderBlocking ? '' : ' hidden' ?>" data-cart-min-order-alert role="alert">
-                <span data-cart-min-order-text><?= Security::escape((string) ($totals['min_order_message'] ?? '')) ?></span>
-                <span class="block mt-1" data-cart-min-order-remaining>Add <?= Security::escape(catalogue_format_price((float) ($totals['min_order_shortfall'] ?? 0))) ?> more to proceed to checkout.</span>
+            <p class="text-sm mb-3 px-3 py-2 rounded-lg bg-[var(--at-cream-2)] border border-[var(--at-line)] text-[var(--at-yellow-ink)]<?= $cartMinOrderBlocking ? '' : ' hidden' ?>" data-cart-min-order-alert role="status">
+                <span data-cart-min-order-remaining>Add <?= Security::escape(catalogue_format_price((float) ($totals['min_order_shortfall'] ?? 0))) ?> more to unlock checkout.</span>
             </p>
             <a href="<?= $cartCheckoutBlocked ? '#' : Security::escape(url_base()) . '/checkout.php' ?>" class="at-btn at-btn--primary at-btn--lg at-btn--block at-focusable mt-4 <?= $cartCheckoutBlocked ? 'pointer-events-none opacity-50' : '' ?>" data-cart-checkout-cta <?= $cartCheckoutBlocked ? 'aria-disabled="true"' : '' ?>>Proceed to checkout <?= at_icon('arrow-right', 'w-5 h-5') ?></a>
             <a href="<?= Security::escape(url_base()) ?>/index.php" class="at-btn at-btn--ghost at-btn--block at-focusable mt-2">Continue shopping</a>

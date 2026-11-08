@@ -43,15 +43,25 @@ $couponApplied = catalogue_cart_coupon_applied($totals);
             <p class="text-xs mt-3 px-3 py-2 rounded-lg bg-[var(--at-cream-2)] at-muted hidden" data-cart-quote-message role="status"></p>
         <?php endif; ?>
         <?php if (!empty($totals['min_order_enabled']) && empty($totals['min_order_met'])): ?>
-            <p data-cart-min-order class="text-xs mt-3 px-3 py-2 rounded-lg bg-[var(--at-cream-2)] border border-[var(--at-line)] font-semibold" role="alert">
-                <span data-cart-min-order-text><?= Security::escape((string) ($totals['min_order_message'] ?? '')) ?></span>
-                <span class="block mt-1 font-normal" data-cart-min-order-remaining>Add <?= Security::escape(catalogue_format_price((float) ($totals['min_order_shortfall'] ?? 0))) ?> more to proceed to checkout.</span>
-            </p>
+            <div data-cart-min-order class="at-cart-min-order text-sm mt-3 px-3 py-3 rounded-lg bg-[var(--at-yellow-100)] border border-[var(--at-yellow-200,var(--at-line))] space-y-1.5" role="status">
+                <p class="font-semibold text-[var(--at-yellow-ink)] leading-snug" data-cart-min-order-text>
+                    <span data-cart-min-order-min>Minimum order value: <?= Security::escape(catalogue_format_price((float) ($totals['min_order_amount_inr'] ?? 0))) ?></span>
+                </p>
+                <p class="text-[var(--at-yellow-ink)] leading-snug" data-cart-min-order-merch>
+                    Your order value after discounts is <?= Security::escape(catalogue_format_price((float) ($totals['min_order_merchandise_inr'] ?? 0))) ?>.
+                </p>
+                <p class="leading-snug" data-cart-min-order-remaining>
+                    Add <span class="font-bold tabular-nums"><?= Security::escape(catalogue_format_price((float) ($totals['min_order_shortfall'] ?? 0))) ?></span> more in products to proceed to checkout.
+                </p>
+                <p class="text-xs at-muted pt-0.5" data-cart-min-order-reassurance>Your applied discounts are safe.</p>
+            </div>
         <?php else: ?>
-            <p data-cart-min-order class="text-xs mt-3 px-3 py-2 rounded-lg bg-[var(--at-cream-2)] border border-[var(--at-line)] font-semibold hidden" role="alert">
-                <span data-cart-min-order-text></span>
-                <span class="block mt-1 font-normal" data-cart-min-order-remaining></span>
-            </p>
+            <div data-cart-min-order class="at-cart-min-order text-sm mt-3 px-3 py-3 rounded-lg bg-[var(--at-yellow-100)] border border-[var(--at-line)] space-y-1.5 hidden" role="status">
+                <p class="font-semibold leading-snug" data-cart-min-order-text><span data-cart-min-order-min></span></p>
+                <p class="leading-snug" data-cart-min-order-merch></p>
+                <p class="leading-snug" data-cart-min-order-remaining></p>
+                <p class="text-xs at-muted pt-0.5" data-cart-min-order-reassurance>Your applied discounts are safe.</p>
+            </div>
         <?php endif; ?>
         <?php if (empty($totals['delivery_quote_message']) && !empty($totals['delivery_quote_accurate']) && !empty($totals['delivery_serviceable']) && !empty($totals['free_delivery_eligible']) && (float) ($totals['amount_to_free_delivery'] ?? 0) > 0): ?>
             <p data-cart-free-delivery class="text-xs mt-3 px-3 py-2 rounded-lg bg-[var(--at-yellow-100)] text-[var(--at-yellow-ink)] font-semibold">
