@@ -28,6 +28,8 @@ final class ProductBulkImport
     public const SAMPLE_CODE_ONION = 'DEMO-ONION';
     public const DOWNLOAD_TEMPLATE_NAME = 'apni-tokri-product-import-template.xlsx';
     public const DOWNLOAD_SAMPLE_PACKAGE_NAME = 'apni-tokri-product-import-sample-package.zip';
+    /** Shown when the Images sheet lists filenames but no images ZIP was uploaded. */
+    public const MSG_MISSING_IMAGES_ZIP = 'This workbook references product images. Please upload the matching Images ZIP.';
 
     /**
      * @return array{ok: bool, path?: string, message?: string}
@@ -919,7 +921,7 @@ final class ProductBulkImport
 
         $imagesReferenced = self::workbookReferencesImages($parsed);
         if ($imagesReferenced && ($imageIndex === null || $imageIndex === [])) {
-            $addError(self::SHEET_IMAGES, '', '', 'Images ZIP is required when the Images sheet lists filenames.');
+            $addError(self::SHEET_IMAGES, '', '', self::MSG_MISSING_IMAGES_ZIP);
         }
 
         $primaryCounts = [];

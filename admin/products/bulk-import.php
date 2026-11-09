@@ -73,12 +73,19 @@ $pageActionsHtml = '<a href="' . Security::escape($base) . '/admin/products/inde
 require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
 $ajaxUrl = $base . '/admin/ajax/product-bulk-import.php';
 $csrf = Csrf::token();
+$missingImagesZipMessage = ProductBulkImport::MSG_MISSING_IMAGES_ZIP;
 ?>
 <div class="grid gap-4 md:grid-cols-2 mb-4">
     <div class="at-admin-card h-full">
         <div class="at-admin-card__body space-y-2">
             <h2 class="text-base font-semibold m-0">Filled sample package</h2>
-            <p class="text-sm at-muted m-0">ZIP with <code>sample_products.xlsx</code>, <code>images.zip</code>, and <code>README.txt</code>. Includes Peeled Garlic and Chopped Onion demo data (2 products, 3 variants each).</p>
+            <p class="text-sm at-muted m-0">Ready-made Peeled Garlic and Chopped Onion demo data (2 products, 3 variants each) so you can try validate and preview before using your own catalogue.</p>
+            <p class="text-sm font-medium m-0 mb-0">The downloaded sample package ZIP contains:</p>
+            <ul class="text-sm list-disc pl-5 space-y-1 m-0">
+                <li><code>sample_products.xlsx</code> — filled workbook to upload below</li>
+                <li><code>images.zip</code> — product images referenced on the Images sheet (extract and upload in the Images ZIP field)</li>
+                <li><code>README.txt</code> — short usage notes</li>
+            </ul>
             <a href="<?= Security::escape($base) ?>/admin/products/bulk-import.php?download_sample_package=1" class="at-btn at-btn--primary at-btn--sm at-focusable">Download sample package</a>
         </div>
     </div>
@@ -95,7 +102,7 @@ $csrf = Csrf::token();
     <div class="at-admin-card__body space-y-4">
         <h2 class="text-base font-semibold m-0">Steps</h2>
         <ol class="text-sm list-decimal pl-5 space-y-1 mb-0">
-            <li>Download the <strong>sample package</strong> and open the workbook to understand the format (read the Instructions sheet).</li>
+            <li>Download the <strong>sample package</strong>. Open <code>sample_products.xlsx</code> to learn the format (read the Instructions sheet), and keep <code>images.zip</code> from the same download for step 5 when you try the demo.</li>
             <li>Download the <strong>blank template</strong> for actual data entry.</li>
             <li>Fill Products, Variants, Attributes, Images (optional), and SEO. Repeat the same <code>product_code</code> on every sheet for one product — it is not stored in the database.</li>
             <li>If the Images sheet lists filenames, add those files to a ZIP (basename must match). Skip the ZIP when there are no image rows.</li>
@@ -146,7 +153,8 @@ $csrf = Csrf::token();
             </div>
             <div>
                 <label class="at-label" for="images_zip">Images ZIP (required only when Images sheet lists files)</label>
-                <input type="file" id="images_zip" name="images_zip" class="at-input at-focusable" accept=".zip,application/zip">
+                <p class="text-sm at-muted m-0 mt-1" id="at-bulk-import-zip-hint">For the sample workbook, upload the <code>images.zip</code> included inside the downloaded sample package.</p>
+                <input type="file" id="images_zip" name="images_zip" class="at-input at-focusable mt-2" accept=".zip,application/zip">
             </div>
             <div class="flex flex-wrap gap-2">
                 <button type="button" class="at-btn at-btn--secondary at-focusable" id="at-bulk-import-validate">Validate &amp; preview</button>
@@ -171,7 +179,14 @@ $csrf = Csrf::token();
   const btnValidate = document.getElementById('at-bulk-import-validate');
   const btnImport = document.getElementById('at-bulk-import-run');
   const csrfFieldName = <?= json_encode(Csrf::fieldName(), JSON_THROW_ON_ERROR) ?>;
+  const missingImagesZipMessage = <?= json_encode($missingImagesZipMessage, JSON_THROW_ON_ERROR) ?>;
   let jobId = '';
+
+  function validationHasMissingImagesZip(errors) {
+    return Array.isArray(errors) && errors.some(function (e) {
+      return e && e.reason === missingImagesZipMessage;
+    });
+  }
 
   function ajaxEnvelope(body) {
     if (!body || body.success !== true) {
@@ -281,7 +296,11 @@ $csrf = Csrf::token();
         }
         jobId = parsed.data.job_id ? parsed.data.job_id : '';
         const v = parsed.data.validation ? parsed.data.validation : {};
-        setStatus(parsed.message || 'Validation complete.', v.ok ? 'success' : 'error');
+        if (!v.ok && validationHasMissingImagesZip(v.errors)) {
+          setStatus(missingImagesZipMessage, 'error');
+        } else {
+          setStatus(parsed.message || 'Validation complete.', v.ok ? 'success' : 'error');
+        }
         renderErrors(v.errors || []);
         renderPreview(v.products || [], v.ready_count || 0);
         btnImport.disabled = !jobId || !(v.ready_count > 0);

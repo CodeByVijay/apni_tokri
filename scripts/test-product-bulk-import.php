@@ -144,6 +144,14 @@ okB($partialImport['imported'] === 0, 'partial set empty when duplicate SKU bloc
 
 $noZipVal = ProductBulkImport::validate($parsed, null);
 okB(!$noZipVal['ok'], 'images zip required when sheet lists files');
+$missingZipReason = false;
+foreach (is_array($noZipVal['errors'] ?? null) ? $noZipVal['errors'] : [] as $err) {
+    if (is_array($err) && ($err['reason'] ?? '') === ProductBulkImport::MSG_MISSING_IMAGES_ZIP) {
+        $missingZipReason = true;
+        break;
+    }
+}
+okB($missingZipReason, 'missing images zip validation returns helpful message');
 
 $badZip = $workDir . '/bad.zip';
 $bz = new ZipArchive();
@@ -334,10 +342,26 @@ foreach (ProductBulkImport::samplePackageImageBasenames() as $bn) {
 
 $sampleImgEx = ProductBulkImport::extractImageZip($innerZipPath);
 $sampleVal = ProductBulkImport::validate($sampleParsed, $sampleImgEx['index'] ?? null);
+okB(!empty($sampleVal['ok']), 'sample package workbook validates with images zip');
 okB(($sampleVal['ready_count'] ?? 0) === 2, 'sample workbook validates 2 demo products');
+$sampleNoZip = ProductBulkImport::validate($sampleParsed, null);
+okB(empty($sampleNoZip['ok']), 'sample package without images zip fails validation');
+$sampleNoZipHelpful = false;
+foreach (is_array($sampleNoZip['errors'] ?? null) ? $sampleNoZip['errors'] : [] as $err) {
+    if (is_array($err) && ($err['reason'] ?? '') === ProductBulkImport::MSG_MISSING_IMAGES_ZIP) {
+        $sampleNoZipHelpful = true;
+        break;
+    }
+}
+okB($sampleNoZipHelpful, 'sample package without zip surfaces helpful missing-zip message');
 
 $page = (string) file_get_contents(APNI_TOKRI_ROOT . '/admin/products/bulk-import.php');
 okB(str_contains($page, 'download_sample_package=1'), 'static: sample package download on admin page');
+okB(str_contains($page, 'sample_products.xlsx'), 'static: sample package lists sample_products.xlsx');
+okB(str_contains($page, 'images.zip'), 'static: sample package explains images.zip');
+okB(str_contains($page, 'README.txt'), 'static: sample package lists README.txt');
+okB(str_contains($page, 'images.zip</code> included inside the downloaded sample package'), 'static: images zip field sample hint');
+okB(str_contains($page, 'missingImagesZipMessage'), 'static: JS promotes missing images zip message');
 okB(str_contains($page, 'download_template=1'), 'static: blank template download on admin page');
 okB(str_contains($page, 'denyIfCannot(\'products\')'), 'static: products permission on bulk-import page');
 okB(str_contains($page, 'Csrf::field()'), 'static: bulk-import form uses Csrf::field');
