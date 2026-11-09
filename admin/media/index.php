@@ -155,7 +155,7 @@ return; ?>
                 $canSelect = $tab === 'trash' || $usageCount === 0;
                 ?>
                 <li
-                    class="at-media-card<?= $tab === 'trash' ? ' at-media-card--trash' : '' ?>"
+                    class="at-media-card<?= $tab === 'trash' ? ' at-media-card--trash' : ' at-media-card--all' ?>"
                     data-media-id="<?= $mid ?>"
                     data-media-usage="<?= $usageCount ?>"
                     data-media-filename="<?= Security::escape($client['original_filename']) ?>"
@@ -195,16 +195,23 @@ return; ?>
                                 <?= Security::escape($client['created_at']) ?>
                             <?php endif; ?>
                         </p>
-                        <div class="at-media-card__actions<?= $tab === 'trash' ? ' at-media-card__actions--stacked' : '' ?>">
+                        <div class="at-media-card__actions at-media-card__actions--stacked">
                             <?php if ($tab === 'all'): ?>
                                 <?php if ($usageCount === 0): ?>
                                     <button
                                         type="button"
-                                        class="at-btn at-btn--ghost at-btn--xs at-focusable at-media-card__action-btn"
+                                        class="at-btn at-btn--secondary at-btn--sm at-focusable at-media-card__action-btn at-media-card__trash-btn"
                                         data-at-media-soft-delete="<?= $mid ?>"
-                                    >Move to trash</button>
+                                    >
+                                        <span class="at-media-card__btn-label">
+                                            <svg class="at-media-card__btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                                                <path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M10 11v6"/><path d="M14 11v6"/>
+                                            </svg>
+                                            <span>Move to trash</span>
+                                        </span>
+                                    </button>
                                 <?php else: ?>
-                                    <span class="text-xs text-amber-800 at-media-card__in-use">In use</span>
+                                    <span class="at-media-card__in-use text-xs text-amber-800">In use</span>
                                 <?php endif; ?>
                             <?php else: ?>
                                 <button
