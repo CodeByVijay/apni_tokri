@@ -48,7 +48,7 @@ Run on **non-production** DSN only (`AppEnvironment::guardCliScript` blocks prod
 ```bash
 php scripts/verify-install.php
 php scripts/test-production-readiness.php
-php scripts/test-phase21-demo-fallback-audit.php
+php scripts/test-production-readiness.php
 php scripts/test-phase22-production-blockers.php
 php scripts/validate-apni-tokri-production-sql.php   # disposable DB; long-running
 ```
@@ -63,8 +63,8 @@ Domain spot-checks (pick one per area touched): e.g. `test-subscription-stage11.
 
 | Script | Type | DB | Fixture | Network / external | Notes |
 |--------|------|-----|---------|-------------------|--------|
-| `test-production-readiness.php` | Security / regression | R0 | — | — | Patches config in-process only |
-| `test-phase21-demo-fallback-audit.php` | Security / regression | R0 | — | — | Reads PHP sources |
+| `test-production-readiness.php` | Security / regression | R0–R1 | — | — | Production gates, demo-fallback wiring, dev surfaces, storefront UI |
+| `test-verify-otp-registration.php` | Security / regression | R2 | OTP fixtures | — | Registration + verify-otp UI + test OTP display |
 | `test-phase22-production-blockers.php` | Security / regression | R2 | — | — | May call subscription checkout paths |
 | `test-admin-listing-audit-phase24.php` | Regression | R0 | — | — | Static + repo checks |
 | `test-cli-guard-probe.php` | Security | R0 | — | — | Invoked by production-readiness |

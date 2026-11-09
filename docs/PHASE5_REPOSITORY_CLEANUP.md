@@ -46,7 +46,7 @@ All remaining `scripts/test-*.php` files (~85), including:
 | Payments | `test-payment-stage9.php`, `test-payment-initiation.php`, `test-invoices.php` |
 | Trust / refunds | `test-trust-stage12*.php` |
 | Stage 13–14 | CMS, SEO, FAQ, SMTP, SMS, notifications, reports, RBAC |
-| Production gates | `test-production-readiness.php`, `test-phase21-demo-fallback-audit.php`, `test-phase22-production-blockers.php`, `test-admin-listing-audit-phase24.php` |
+| Production gates | `test-production-readiness.php` (consolidated demo-fallback + dev-surface + storefront UI), `test-phase22-production-blockers.php`, `test-admin-listing-audit-phase24.php` |
 
 **Note:** Most test scripts are **not referenced** from application code; they are invoked via CLI. Lack of `grep` hits is **not** grounds for deletion.
 

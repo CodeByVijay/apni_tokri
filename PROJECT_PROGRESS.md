@@ -152,7 +152,7 @@ php scripts/test-stage13-integration-phase9.php
 
 ### Phase 2.2 — production blockers (code)
 
-**Automated:** `php scripts/test-phase22-production-blockers.php` (with `test-phase21-demo-fallback-audit.php`, `test-production-readiness.php`).
+**Automated:** `php scripts/test-phase22-production-blockers.php` and `php scripts/test-production-readiness.php` (includes former phase 2.1 demo-fallback + storefront dev-surface checks).
 
 | Area | Status |
 |------|--------|

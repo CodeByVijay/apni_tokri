@@ -12,6 +12,12 @@ Status legend: **Quarantined** | **Proposed** | **Retained** | **Manual review**
 | Path | Class | Reason | References | Action |
 |------|-------|--------|------------|--------|
 | `scripts/qa-customer-order-detail.php` | D — Remove | Superseded by `scripts/test-customer-order-detail.php`; **zero** repo references; overlapping “customer order detail” QA with DB fixtures | None | **Quarantined** → `/home/admin1/apni_tokri_phase5_quarantine/scripts/qa-customer-order-detail.php` |
+| `scripts/test-verify-otp-name.php` | D — Remove | UI assertions merged into `scripts/test-verify-otp-registration.php` | Docs updated | **Deleted** (2026-11-09) |
+| `scripts/test-verify-otp-test-display.php` | D — Remove | OTP display gates merged into `scripts/test-verify-otp-registration.php` | — | **Deleted** (2026-11-09) |
+| `scripts/test-order-details-retry-payment-cta.php` | D — Remove | Static CTA checks merged into `scripts/test-order-details-retry-payment-flow.php` | — | **Deleted** (2026-11-09) |
+| `scripts/test-phase21-demo-fallback-audit.php` | D — Remove | Merged into `scripts/test-production-readiness.php` | PROJECT_PROGRESS | **Deleted** (2026-11-09) |
+| `scripts/test-storefront-dev-tools-production.php` | D — Remove | Merged into `scripts/test-production-readiness.php` | — | **Deleted** (2026-11-09) |
+| `scripts/test-storefront-production-ui.php` | D — Remove | Merged into `scripts/test-production-readiness.php` | — | **Deleted** (2026-11-09) |
 
 **Restore if needed:** `cp /home/admin1/apni_tokri_phase5_quarantine/scripts/qa-customer-order-detail.php scripts/`
 
@@ -45,8 +51,7 @@ Status legend: **Quarantined** | **Proposed** | **Retained** | **Manual review**
 | `scripts/audit-demo-test-data-readonly.php` | A |
 | `scripts/preview-phase3-cleanup.php` | A |
 | `scripts/seed-catalogue.php` | A |
-| `scripts/test-production-readiness.php` | B |
-| `scripts/test-phase21-demo-fallback-audit.php` | B |
+| `scripts/test-production-readiness.php` | B (includes former phase21 + dev-surface + storefront UI checks) |
 | `scripts/test-phase22-production-blockers.php` | B |
 | `scripts/test-cli-guard-probe.php` | B (used by production-readiness) |
 | `scripts/includes/*_fixture.php` | B |

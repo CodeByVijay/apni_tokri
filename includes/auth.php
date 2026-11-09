@@ -419,11 +419,27 @@ final class CustomerAuth
         array $registration = [],
         int $maxAttempts = 5
     ): array {
-        if (!self::attemptOtpVerification($mobile, $otp, $maxAttempts)) {
-            return ['ok' => false, 'error' => 'Incorrect or expired OTP.'];
+        $precheck = CustomerOtpRegistration::validateForMobileBeforeOtpConsume($mobile, $registration);
+        if (empty($precheck['ok'])) {
+            $out = ['ok' => false, 'field_errors' => $precheck['field_errors'] ?? []];
+            if (!empty($precheck['error'])) {
+                $out['error'] = (string) $precheck['error'];
+            }
+
+            return $out;
         }
 
-        return CustomerOtpRegistration::completeAfterOtp($mobile, $registration);
+        $otpAttempt = self::verifyOtpCredentials($mobile, $otp, $maxAttempts);
+        if (empty($otpAttempt['ok'])) {
+            return ['ok' => false, 'error' => (string) ($otpAttempt['error'] ?? 'Incorrect or expired OTP.')];
+        }
+
+        $complete = CustomerOtpRegistration::completeAfterOtp($mobile, $registration);
+        if (!empty($complete['ok'])) {
+            self::markOtpAttemptVerified((int) $otpAttempt['attempt_id']);
+        }
+
+        return $complete;
     }
 
     public static function verifyOtp(string $mobile, string $otp, ?string $name = null, int $maxAttempts = 5): bool
@@ -439,10 +455,22 @@ final class CustomerAuth
 
     private static function attemptOtpVerification(string $mobile, string $otp, int $maxAttempts): bool
     {
+        $result = self::verifyOtpCredentials($mobile, $otp, $maxAttempts);
+        if (empty($result['ok'])) {
+            return false;
+        }
+        self::markOtpAttemptVerified((int) $result['attempt_id']);
+
+        return true;
+    }
+
+    /** @return array{ok: bool, attempt_id?: int, error?: string} */
+    private static function verifyOtpCredentials(string $mobile, string $otp, int $maxAttempts): array
+    {
         Install::ensureConnection();
         $mobile = Validation::normalizeMobileIndia($mobile) ?? '';
         if ($mobile === '' || !preg_match('/^\d{6}$/', $otp)) {
-            return false;
+            return ['ok' => false, 'error' => 'Incorrect or expired OTP.'];
         }
         $stmt = Database::pdo()->prepare(
             'SELECT id, otp_hash, attempt_count FROM customer_otp_attempts
@@ -452,30 +480,36 @@ final class CustomerAuth
         $stmt->execute([$mobile]);
         $row = $stmt->fetch();
         if (!$row) {
-            return false;
+            return ['ok' => false, 'error' => 'Incorrect or expired OTP.'];
         }
         if ((int) $row['attempt_count'] >= $maxAttempts) {
-            return false;
+            return ['ok' => false, 'error' => 'Incorrect or expired OTP.'];
         }
-        $ok = password_verify($otp, (string) $row['otp_hash']);
-        if (!$ok) {
+        if (!password_verify($otp, (string) $row['otp_hash'])) {
             Database::pdo()->prepare(
                 'UPDATE customer_otp_attempts SET attempt_count = attempt_count + 1 WHERE id = ?'
             )->execute([(int) $row['id']]);
 
-            return false;
+            return ['ok' => false, 'error' => 'Incorrect or expired OTP.'];
         }
         if (self::isExistingInactiveCustomer($mobile)) {
             Database::pdo()->prepare(
                 'UPDATE customer_otp_attempts SET attempt_count = attempt_count + 1 WHERE id = ?'
             )->execute([(int) $row['id']]);
 
-            return false;
+            return ['ok' => false, 'error' => 'Incorrect or expired OTP.'];
+        }
+
+        return ['ok' => true, 'attempt_id' => (int) $row['id']];
+    }
+
+    private static function markOtpAttemptVerified(int $attemptId): void
+    {
+        if ($attemptId <= 0) {
+            return;
         }
         Database::pdo()->prepare(
-            'UPDATE customer_otp_attempts SET attempt_count = attempt_count + 1, verified_at = NOW() WHERE id = ?'
-        )->execute([(int) $row['id']]);
-
-        return true;
+            'UPDATE customer_otp_attempts SET attempt_count = attempt_count + 1, verified_at = NOW() WHERE id = ? AND verified_at IS NULL'
+        )->execute([$attemptId]);
     }
 }
