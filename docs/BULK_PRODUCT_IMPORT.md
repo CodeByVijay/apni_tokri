@@ -83,13 +83,26 @@ No `meta_keywords` — the product form does not use them.
 - Rejects `..`, absolute paths, drive prefixes, and unsafe filenames.
 - Extracted files live under `uploads/tmp/bulk-import/{job_id}/` and are removed after import completes.
 
+## Downloads (admin UI)
+
+| Action | URL query | Contents |
+|--------|-----------|----------|
+| **Blank template** | `admin/products/bulk-import.php?download_template=1` | `apni-tokri-product-import-template.xlsx` — Instructions, Reference, one example row (`P-EXAMPLE`). |
+| **Sample package** | `admin/products/bulk-import.php?download_sample_package=1` | ZIP: `sample_products.xlsx`, `images.zip`, `README.txt` — Peeled Garlic + Chopped Onion demo data (neutral demo images). |
+
+Generated files are also written under `uploads/tmp/bulk-import/template/` when downloaded.
+
+The **Instructions** sheet in both downloads documents every worksheet, required columns, example rows, ZIP rules, Reference usage, validation rules, and draft/promo defaults.
+
 ## Workflow
 
-1. Download template (`?download_template=1`).
-2. Fill sheets; optionally build image ZIP.
+1. Download the **sample package** to learn the format; then download the **blank template** for real data.
+2. Fill sheets; optionally build image ZIP (see Instructions).
 3. Upload workbook (+ ZIP if Images sheet is used) → **Validate & preview**.
 4. Fix errors (sheet, row, `product_code`, reason).
 5. **Import valid products** → download CSV result report.
+
+The bulk import page includes a step-by-step guide and collapsible FAQ for common questions (variants, attributes, images, SKU conflicts, draft status).
 
 Permissions: admin auth + **products** (`AdminDemoPerms::denyIfCannot('products')`). CSRF on all POST actions.
 

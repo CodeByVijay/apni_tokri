@@ -446,8 +446,105 @@
     }
   }
 
+  function initProductShare() {
+    var $root = $('[data-at-product-share]');
+    if (!$root.length) return;
+    var $data = $('#at-product-share-data');
+    var config = {};
+  try {
+      config = JSON.parse($data.text() || '{}');
+    } catch (e) {
+      config = {};
+    }
+    var hasNativeShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
+    var $menu = $root.find('[data-at-product-share-menu]');
+    var $trigger = $root.find('[data-at-product-share-trigger]');
+
+    function toastUi(msg, type) {
+      var ui = window.VeggieTokri || window.ApniTokri;
+      if (ui && typeof ui.toast === 'function') {
+        ui.toast(msg, type || 'success');
+      }
+    }
+
+    function openMenu() {
+      $menu.removeClass('hidden').prop('hidden', false);
+      $trigger.attr('aria-expanded', 'true');
+    }
+
+    function closeMenu() {
+      $menu.addClass('hidden').prop('hidden', true);
+      $trigger.attr('aria-expanded', 'false');
+    }
+
+    function copyLink() {
+      var url = String(config.url || '').trim();
+      if (!url) return;
+      function onCopied() {
+        toastUi('Link copied to clipboard');
+        closeMenu();
+      }
+      if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        navigator.clipboard.writeText(url).then(onCopied).catch(function () {
+          fallbackCopy(url, onCopied);
+        });
+      } else {
+        fallbackCopy(url, onCopied);
+      }
+    }
+
+    function fallbackCopy(text, done) {
+      var $ta = $('<textarea readonly></textarea>').val(text).css({ position: 'fixed', left: '-9999px' });
+      $('body').append($ta);
+      $ta[0].select();
+      try {
+        document.execCommand('copy');
+        if (typeof done === 'function') done();
+      } catch (err) {
+        toastUi('Could not copy link', 'error');
+      }
+      $ta.remove();
+    }
+
+    $trigger.on('click', function () {
+      var menuOpen = $trigger.attr('aria-expanded') === 'true';
+      if (hasNativeShare && !menuOpen) {
+        navigator.share({
+          title: config.title || document.title,
+          text: config.text || '',
+          url: config.url || window.location.href
+        }).catch(function (err) {
+          if (err && err.name === 'AbortError') return;
+          openMenu();
+        });
+        return;
+      }
+      if (menuOpen) {
+        closeMenu();
+      } else {
+        openMenu();
+      }
+    });
+
+    $root.on('click', '[data-at-share-copy]', function (e) {
+      e.preventDefault();
+      copyLink();
+    });
+
+    $(document).on('click', function (e) {
+      if (!$root.is(e.target) && !$root.has(e.target).length) {
+        closeMenu();
+      }
+    });
+
+    $(document).on('keydown', function (e) {
+      if (e.key === 'Escape') closeMenu();
+    });
+  }
+
   $(function () {
     initGallery();
+    initProductShare();
     initVariantPicker();
 
     $('.js-demo-add-cart').on('click', function (e) {

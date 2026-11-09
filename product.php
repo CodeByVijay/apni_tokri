@@ -34,6 +34,7 @@ $mainProduct = $product; // product-grid partial reuses $product for related car
 $cat = demo_catalogue()->category((string) $product['category_slug']);
 
 $seoProduct = SeoResolver::forStorefrontProduct($product);
+$productSharePayload = ProductShare::clientPayload($product);
 layout_public_start([
     'seo' => $seoProduct,
     'jsonLd' => SeoStructuredData::forProductPage($product, $cat ?: null, $rating, $reviews, $seoProduct),
@@ -91,7 +92,7 @@ $pdpCartUrl = url_base() . '/cart.php';
             }
             ?>
 
-            <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+            <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
                 <?php if ($rating !== null): ?>
                     <a href="#reviews" class="flex items-center gap-2 font-semibold no-underline">
                         <span class="at-stars" aria-hidden="true"><?= str_repeat('★', (int) round($rating['average'])) ?><span class="is-off"><?= str_repeat('★', 5 - (int) round($rating['average'])) ?></span></span>
@@ -102,6 +103,7 @@ $pdpCartUrl = url_base() . '/cart.php';
                     <span class="at-muted">No reviews yet — verified customers can review after delivery</span>
                 <?php endif; ?>
                 <span class="at-muted">SKU <?= Security::escape((string) ($product['sku'] ?? '')) ?></span>
+                <?php require APNI_TOKRI_ROOT . '/includes/partials/product-share.php'; ?>
             </div>
         </div>
 

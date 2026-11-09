@@ -248,6 +248,99 @@ okB(
     'no-image import draft and promo off'
 );
 
+$tplDir = ProductBulkImport::jobDir('template');
+@mkdir($tplDir, 0755, true);
+$blankTpl = $tplDir . '/test-blank-' . $tok . '.xlsx';
+$tplGen = ProductBulkImport::writeTemplate($blankTpl);
+okB(!empty($tplGen['ok']) && is_file($blankTpl), 'writeTemplate blank workbook');
+$tplSheets = SimpleXlsx::read($blankTpl);
+foreach (
+    [
+        ProductBulkImport::SHEET_INSTRUCTIONS,
+        ProductBulkImport::SHEET_PRODUCTS,
+        ProductBulkImport::SHEET_VARIANTS,
+        ProductBulkImport::SHEET_ATTRIBUTES,
+        ProductBulkImport::SHEET_IMAGES,
+        ProductBulkImport::SHEET_SEO,
+        ProductBulkImport::SHEET_REFERENCE,
+    ] as $requiredSheet
+) {
+    $found = false;
+    foreach (array_keys($tplSheets) as $k) {
+        if (strcasecmp((string) $k, $requiredSheet) === 0) {
+            $found = true;
+            break;
+        }
+    }
+    okB($found, 'blank template has sheet: ' . $requiredSheet);
+}
+$instr = $tplSheets[ProductBulkImport::SHEET_INSTRUCTIONS]
+    ?? $tplSheets[array_key_first($tplSheets)] ?? [];
+$instrFlat = json_encode($instr);
+okB(is_string($instrFlat) && str_contains($instrFlat, 'product_code is used only in Excel'), 'Instructions explain product_code not stored');
+
+$samplePkgPath = $tplDir . '/test-sample-package-' . $tok . '.zip';
+$pkgGen = ProductBulkImport::writeSamplePackage($samplePkgPath);
+okB(!empty($pkgGen['ok']) && is_file($samplePkgPath), 'writeSamplePackage');
+okB(filesize($samplePkgPath) > 500, 'sample package non-empty zip');
+
+$sampleExtract = $workDir . '/sample-pkg';
+@mkdir($sampleExtract, 0755, true);
+$outer = new ZipArchive();
+okB($outer->open($samplePkgPath) === true, 'open sample package zip');
+okB($outer->locateName('sample_products.xlsx') !== false, 'package contains sample_products.xlsx');
+okB($outer->locateName('images.zip') !== false, 'package contains images.zip');
+okB($outer->locateName('README.txt') !== false, 'package contains README.txt');
+$outer->extractTo($sampleExtract, ['sample_products.xlsx', 'images.zip', 'README.txt']);
+$outer->close();
+
+$sampleXlsx = $sampleExtract . '/sample_products.xlsx';
+$sampleSheets = SimpleXlsx::read($sampleXlsx);
+okB($sampleSheets !== [], 'read sample_products.xlsx');
+foreach (ProductBulkImport::productsHeaders() as $h) {
+    $hdr = $sampleSheets[ProductBulkImport::SHEET_PRODUCTS][0] ?? [];
+    okB(in_array($h, $hdr, true), 'sample Products header: ' . $h);
+}
+
+$sampleParsed = ProductBulkImport::parseWorkbook($sampleXlsx);
+$codes = array_column($sampleParsed['products'], 'product_code');
+okB(in_array(ProductBulkImport::SAMPLE_CODE_GARLIC, $codes, true), 'sample has DEMO-GARLIC');
+okB(in_array(ProductBulkImport::SAMPLE_CODE_ONION, $codes, true), 'sample has DEMO-ONION');
+
+$gVariants = array_filter($sampleParsed['variants'], static fn ($r) => ($r['product_code'] ?? '') === ProductBulkImport::SAMPLE_CODE_GARLIC);
+$gAttrs = array_filter($sampleParsed['attributes'], static fn ($r) => ($r['product_code'] ?? '') === ProductBulkImport::SAMPLE_CODE_GARLIC);
+okB(count($gVariants) === 3, 'DEMO-GARLIC has 3 variants');
+okB(count($gAttrs) >= 4, 'DEMO-GARLIC has 4+ attributes');
+
+$imageNames = array_map(static fn ($r) => strtolower((string) ($r['filename'] ?? '')), $sampleParsed['images']);
+$expectedImages = array_map('strtolower', ProductBulkImport::samplePackageImageBasenames());
+foreach ($expectedImages as $bn) {
+    okB(in_array($bn, $imageNames, true), 'Images sheet lists: ' . $bn);
+}
+
+$innerZipPath = $sampleExtract . '/images.zip';
+$inner = new ZipArchive();
+okB($inner->open($innerZipPath) === true, 'open sample images.zip');
+$innerExtract = $workDir . '/sample-images';
+@mkdir($innerExtract, 0755, true);
+$inner->extractTo($innerExtract);
+$inner->close();
+foreach (ProductBulkImport::samplePackageImageBasenames() as $bn) {
+    $p = $innerExtract . '/' . $bn;
+    okB(is_file($p), 'sample image file in images.zip: ' . $bn);
+    $dim = @getimagesize($p);
+    okB(is_array($dim) && ($dim[0] ?? 0) > 0, 'sample image valid raster: ' . $bn);
+}
+
+$sampleImgEx = ProductBulkImport::extractImageZip($innerZipPath);
+$sampleVal = ProductBulkImport::validate($sampleParsed, $sampleImgEx['index'] ?? null);
+okB(($sampleVal['ready_count'] ?? 0) === 2, 'sample workbook validates 2 demo products');
+
+$page = (string) file_get_contents(APNI_TOKRI_ROOT . '/admin/products/bulk-import.php');
+okB(str_contains($page, 'download_sample_package=1'), 'static: sample package download on admin page');
+okB(str_contains($page, 'download_template=1'), 'static: blank template download on admin page');
+okB(str_contains($page, 'denyIfCannot(\'products\')'), 'static: products permission on bulk-import page');
+
 $ajax = (string) file_get_contents(APNI_TOKRI_ROOT . '/admin/ajax/product-bulk-import.php');
 okB(str_contains($ajax, 'Csrf::requireValid'), 'static: CSRF on bulk import AJAX');
 okB(str_contains($ajax, "denyIfCannot('products')"), 'static: products permission');

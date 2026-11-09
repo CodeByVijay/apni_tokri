@@ -47,16 +47,22 @@ final class SeoResolver
         $canonical = SeoUrl::absolute('/product.php?slug=' . rawurlencode($slug));
         $robots = !empty($row['robots_index']) ? 'index, follow' : 'noindex, nofollow';
         $ogImage = self::productOgImage((int) ($row['id'] ?? 0));
+        $ogTitle = $name . ' | ' . $site;
+        $shareDescription = trim((string) ($row['short_description'] ?? ''));
+        if ($shareDescription === '') {
+            $shareDescription = $metaDesc;
+        }
 
         return new SeoMetadata(
             $documentTitle,
             SeoMetadata::cleanDescription($metaDesc),
             $canonical,
             $robots,
-            $metaTitle !== '' ? $metaTitle : $name,
-            SeoMetadata::cleanDescription($metaDesc),
+            $ogTitle,
+            SeoMetadata::cleanDescription($shareDescription !== '' ? $shareDescription : $metaDesc),
             $ogImage,
-            'product'
+            'product',
+            'summary_large_image'
         );
     }
 
@@ -221,22 +227,46 @@ final class SeoResolver
         $site = SeoUrl::siteName();
         $name = (string) ($product['name'] ?? 'Product');
         $desc = (string) ($product['short_description'] ?? $product['description'] ?? '');
-        $images = $product['images'] ?? [];
-        $og = null;
-        if (is_array($images) && isset($images[0]) && is_string($images[0])) {
-            $og = SeoUrl::validateOgImage($images[0]);
-        }
+        $og = self::storefrontProductOgImage($product);
 
         return new SeoMetadata(
             $name . ' — ' . $site,
             SeoMetadata::cleanDescription($desc),
             SeoUrl::absolute('/product.php?slug=' . rawurlencode($slug)),
             'index, follow',
-            $name,
+            $name . ' | ' . $site,
             SeoMetadata::cleanDescription($desc),
             $og,
-            'product'
+            'product',
+            'summary_large_image'
         );
+    }
+
+    /** @param array<string, mixed> $product */
+    private static function storefrontProductOgImage(array $product): ?string
+    {
+        $slug = trim((string) ($product['slug'] ?? ''));
+        if ($slug !== '' && Install::isSchemaReady()) {
+            try {
+                $row = ProductRepository::findBySlug($slug, true);
+                if ($row !== null) {
+                    return self::productOgImage((int) ($row['id'] ?? 0));
+                }
+            } catch (Throwable $e) {
+                // fall through to storefront image list
+            }
+        }
+        foreach ($product['images'] ?? [] as $img) {
+            if (!is_string($img) || $img === '') {
+                continue;
+            }
+            $valid = SeoUrl::validateOgImage($img);
+            if ($valid !== null) {
+                return $valid;
+            }
+        }
+
+        return self::defaultOgImage();
     }
 
     /** @param array<string, mixed> $category Storefront category array. */

@@ -27,6 +27,25 @@ if (isset($_GET['download_template']) && (string) $_GET['download_template'] ===
     exit;
 }
 
+if (isset($_GET['download_sample_package']) && (string) $_GET['download_sample_package'] === '1') {
+    $dir = ProductBulkImport::jobDir('template');
+    if (!is_dir($dir)) {
+        @mkdir($dir, 0755, true);
+    }
+    $pkg = $dir . '/apni-tokri-product-import-sample-package.zip';
+    $gen = ProductBulkImport::writeSamplePackage($pkg);
+    if (empty($gen['ok']) || !is_file($pkg)) {
+        http_response_code(500);
+        echo 'Could not build sample package.';
+        exit;
+    }
+    header('Content-Type: application/zip');
+    header('Content-Disposition: attachment; filename="apni-tokri-product-import-sample-package.zip"');
+    header('Content-Length: ' . (string) filesize($pkg));
+    readfile($pkg);
+    exit;
+}
+
 $jobDownload = isset($_GET['download_report']) && (string) $_GET['download_report'] === '1'
     ? trim((string) ($_GET['job_id'] ?? ''))
     : '';
@@ -52,15 +71,70 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
 $ajaxUrl = $base . '/admin/ajax/product-bulk-import.php';
 $csrf = Csrf::token();
 ?>
+<div class="grid gap-4 md:grid-cols-2 mb-4">
+    <div class="at-admin-card h-full">
+        <div class="at-admin-card__body space-y-2">
+            <h2 class="text-base font-semibold m-0">Filled sample package</h2>
+            <p class="text-sm at-muted m-0">ZIP with <code>sample_products.xlsx</code>, <code>images.zip</code>, and <code>README.txt</code>. Includes Peeled Garlic and Chopped Onion demo data (2 products, 3 variants each).</p>
+            <a href="<?= Security::escape($base) ?>/admin/products/bulk-import.php?download_sample_package=1" class="at-btn at-btn--primary at-btn--sm at-focusable">Download sample package</a>
+        </div>
+    </div>
+    <div class="at-admin-card h-full">
+        <div class="at-admin-card__body space-y-2">
+            <h2 class="text-base font-semibold m-0">Blank Excel template</h2>
+            <p class="text-sm at-muted m-0">Empty workbook with Instructions, Reference, and one example row. Use this for your real catalogue data.</p>
+            <a href="<?= Security::escape($base) ?>/admin/products/bulk-import.php?download_template=1" class="at-btn at-btn--secondary at-btn--sm at-focusable">Download blank template</a>
+        </div>
+    </div>
+</div>
+
 <div class="at-admin-card mb-4" id="at-bulk-import-panel">
     <div class="at-admin-card__body space-y-4">
-        <ol class="text-sm list-decimal pl-5 space-y-1">
-            <li><a class="at-link" href="<?= Security::escape($base) ?>/admin/products/bulk-import.php?download_template=1">Download template</a> (read the <strong>Instructions</strong> sheet first).</li>
-            <li>Fill Products, Variants, Attributes, Images (optional), and SEO. Use <code>product_code</code> to link rows; it is not stored in the database.</li>
-            <li>If the Images sheet lists filenames, upload a ZIP containing those files (basenames must match). Products without image rows do not require a ZIP.</li>
-            <li>Upload, validate, preview, then import. Partial import runs when some products have errors.</li>
+        <h2 class="text-base font-semibold m-0">Steps</h2>
+        <ol class="text-sm list-decimal pl-5 space-y-1 mb-0">
+            <li>Download the <strong>sample package</strong> and open the workbook to understand the format (read the Instructions sheet).</li>
+            <li>Download the <strong>blank template</strong> for actual data entry.</li>
+            <li>Fill Products, Variants, Attributes, Images (optional), and SEO. Repeat the same <code>product_code</code> on every sheet for one product — it is not stored in the database.</li>
+            <li>If the Images sheet lists filenames, add those files to a ZIP (basename must match). Skip the ZIP when there are no image rows.</li>
+            <li>Upload the workbook and optional images ZIP below.</li>
+            <li>Click <strong>Validate &amp; preview</strong> and fix any errors shown in the table.</li>
+            <li>Click <strong>Import valid products</strong>. Partial import imports rows that passed validation.</li>
         </ol>
-        <p class="text-sm at-muted mb-0">Every imported product is saved as <strong>draft</strong>. Promotional flags (featured, bestseller, new arrival) are always off — they are not in the template.</p>
+        <p class="text-sm at-muted mb-0">Every imported product is saved as <strong>draft</strong>. Featured, bestseller, and new arrival are always off. Existing products are never overwritten.</p>
+
+        <details class="at-admin-card border">
+            <summary class="at-admin-card__body cursor-pointer font-medium text-sm">FAQ</summary>
+            <dl class="at-admin-card__body text-sm space-y-3 border-t mb-0">
+                <div>
+                    <dt class="font-medium">How do I add multiple variants?</dt>
+                    <dd class="at-muted m-0">Add one row per variant on the Variants sheet with the same <code>product_code</code>. Each variant needs its own <code>sku</code> and <code>variant_name</code>.</dd>
+                </div>
+                <div>
+                    <dt class="font-medium">How do I add multiple attributes?</dt>
+                    <dd class="at-muted m-0">Add one row per label/value pair on the Attributes sheet with the same <code>product_code</code>. Use <code>sort_order</code> for display order.</dd>
+                </div>
+                <div>
+                    <dt class="font-medium">How do I link images?</dt>
+                    <dd class="at-muted m-0">Put the filename (basename only) on the Images sheet, then include that file in your upload ZIP. Set <code>is_primary</code> to <code>yes</code> for one image per product.</dd>
+                </div>
+                <div>
+                    <dt class="font-medium">Is the image ZIP mandatory?</dt>
+                    <dd class="at-muted m-0">Only when the Images sheet has at least one data row. If you omit images entirely, no ZIP is required.</dd>
+                </div>
+                <div>
+                    <dt class="font-medium">Can I import products without images?</dt>
+                    <dd class="at-muted m-0">Yes. Leave the Images sheet empty for that product (or remove all image rows) and do not upload a ZIP unless another product references files.</dd>
+                </div>
+                <div>
+                    <dt class="font-medium">What happens if SKU already exists?</dt>
+                    <dd class="at-muted m-0">Validation fails for that product or variant. Import does not update existing catalogue rows.</dd>
+                </div>
+                <div>
+                    <dt class="font-medium">Are imported products published automatically?</dt>
+                    <dd class="at-muted m-0">No. All imports are saved as <strong>draft</strong>. Publish from the product editor when ready.</dd>
+                </div>
+            </dl>
+        </details>
         <form id="at-bulk-import-form" class="space-y-3" enctype="multipart/form-data">
             <input type="hidden" name="csrf" value="<?= Security::escape($csrf) ?>">
             <div>

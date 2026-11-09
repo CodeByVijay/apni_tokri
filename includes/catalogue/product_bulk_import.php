@@ -24,46 +24,204 @@ final class ProductBulkImport
     public const SHEET_SEO = 'SEO';
     public const SHEET_REFERENCE = 'Reference';
 
+    public const SAMPLE_CODE_GARLIC = 'DEMO-GARLIC';
+    public const SAMPLE_CODE_ONION = 'DEMO-ONION';
+
+    /** @return list<string> */
+    public static function samplePackageImageBasenames(): array
+    {
+        return [
+            'demo-peeled-garlic-hero.jpg',
+            'demo-peeled-garlic-pack.png',
+            'demo-chopped-onion-hero.jpg',
+            'demo-chopped-onion-pack.png',
+        ];
+    }
+
+    /**
+     * @return array{ok: bool, path?: string, message?: string, xlsx_path?: string, images_zip_path?: string, readme_path?: string}
+     */
+    public static function writeSamplePackage(string $destZipPath): array
+    {
+        $parent = dirname($destZipPath);
+        if (!is_dir($parent) && !@mkdir($parent, 0755, true)) {
+            return ['ok' => false, 'message' => 'Could not create package directory.'];
+        }
+        if (!class_exists(ZipArchive::class)) {
+            return ['ok' => false, 'message' => 'PHP Zip extension is required.'];
+        }
+
+        $build = $parent . '/sample-pkg-build-' . bin2hex(random_bytes(4));
+        if (!@mkdir($build, 0755, true)) {
+            return ['ok' => false, 'message' => 'Could not create build workspace.'];
+        }
+
+        $xlsxPath = $build . '/sample_products.xlsx';
+        $wb = self::writeSampleWorkbook($xlsxPath);
+        if (empty($wb['ok'])) {
+            self::removeDirRecursive($build);
+
+            return ['ok' => false, 'message' => $wb['message'] ?? 'Could not build sample workbook.'];
+        }
+
+        $imgDir = $build . '/images-flat';
+        if (!@mkdir($imgDir, 0755, true)) {
+            self::removeDirRecursive($build);
+
+            return ['ok' => false, 'message' => 'Could not create image workspace.'];
+        }
+        foreach (self::samplePackageImageBasenames() as $i => $basename) {
+            if (!self::writeNeutralDemoImage($imgDir . '/' . $basename, $i + 1)) {
+                self::removeDirRecursive($build);
+
+                return ['ok' => false, 'message' => 'Could not create demo image: ' . $basename];
+            }
+        }
+
+        $imagesZipPath = $build . '/images.zip';
+        $innerZip = new ZipArchive();
+        if ($innerZip->open($imagesZipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+            self::removeDirRecursive($build);
+
+            return ['ok' => false, 'message' => 'Could not create images ZIP.'];
+        }
+        foreach (self::samplePackageImageBasenames() as $basename) {
+            $innerZip->addFile($imgDir . '/' . $basename, $basename);
+        }
+        $innerZip->close();
+
+        $readmePath = $build . '/README.txt';
+        file_put_contents($readmePath, self::samplePackageReadmeText());
+
+        $outer = new ZipArchive();
+        if ($outer->open($destZipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+            self::removeDirRecursive($build);
+
+            return ['ok' => false, 'message' => 'Could not create sample package ZIP.'];
+        }
+        $outer->addFile($xlsxPath, 'sample_products.xlsx');
+        $outer->addFile($imagesZipPath, 'images.zip');
+        $outer->addFile($readmePath, 'README.txt');
+        $outer->close();
+
+        self::removeDirRecursive($build);
+
+        return [
+            'ok' => true,
+            'path' => $destZipPath,
+            'xlsx_path' => $xlsxPath,
+            'images_zip_path' => $imagesZipPath,
+            'readme_path' => $readmePath,
+        ];
+    }
+
+    /**
+     * @return array{ok: bool, path?: string, message?: string}
+     */
+    public static function writeSampleWorkbook(string $destPath): array
+    {
+        ['categories' => $categories, 'types' => $types] = self::referenceLists();
+        $cat = $categories[0][0] ?? 'vegetables';
+        $ptype = $types[0][0] ?? ProductTypeRepository::defaultCode();
+        $g = self::SAMPLE_CODE_GARLIC;
+        $o = self::SAMPLE_CODE_ONION;
+        $sheets = [
+            self::SHEET_INSTRUCTIONS => self::instructionsSheetRows(),
+            self::SHEET_PRODUCTS => [
+                self::productsHeaders(),
+                [
+                    $g, 'Peeled Garlic', 'demo-peeled-garlic', 'DEMO-GARLIC-001', $cat, $ptype,
+                    'Ready-to-use peeled garlic cloves.', 'Demonstration product: peeled garlic for bulk import sample only.',
+                ],
+                [
+                    $o, 'Chopped Onion', 'demo-chopped-onion', 'DEMO-ONION-001', $cat, $ptype,
+                    'Freshly chopped onion, ready for cooking.', 'Demonstration product: chopped onion for bulk import sample only.',
+                ],
+            ],
+            self::SHEET_VARIANTS => array_merge(
+                [self::variantsHeaders()],
+                [
+                    [$g, '200 g', 'DEMO-GARLIC-200G', '55', '49', '120', '10', '1', '0', '1', '1'],
+                    [$g, '500 g', 'DEMO-GARLIC-500G', '120', '109', '80', '10', '1', '0', '2', '2'],
+                    [$g, '1 kg', 'DEMO-GARLIC-1KG', '220', '', '40', '5', '1', '0', '3', '3'],
+                    [$o, '200 g', 'DEMO-ONION-200G', '35', '32', '150', '10', '1', '0', '1', '1'],
+                    [$o, '500 g', 'DEMO-ONION-500G', '75', '69', '100', '10', '1', '0', '2', '2'],
+                    [$o, '1 kg', 'DEMO-ONION-1KG', '140', '', '60', '5', '1', '0', '3', '3'],
+                ]
+            ),
+            self::SHEET_ATTRIBUTES => array_merge(
+                [self::attributesHeaders()],
+                [
+                    [$g, 'Packaging', 'Resealable pouch', '1'],
+                    [$g, 'Shelf life', '7 days refrigerated', '2'],
+                    [$g, 'Ingredients', 'Garlic', '3'],
+                    [$g, 'Storage', 'Keep refrigerated', '4'],
+                    [$g, 'Allergens', 'None', '5'],
+                    [$o, 'Packaging', 'Resealable pouch', '1'],
+                    [$o, 'Cut style', 'Medium dice', '2'],
+                    [$o, 'Shelf life', '5 days refrigerated', '3'],
+                    [$o, 'Storage', 'Keep refrigerated', '4'],
+                    [$o, 'Allergens', 'None', '5'],
+                ]
+            ),
+            self::SHEET_IMAGES => array_merge(
+                [self::imagesHeaders()],
+                [
+                    [$g, 'demo-peeled-garlic-hero.jpg', 'yes', '1', 'Peeled garlic demonstration photo'],
+                    [$g, 'demo-peeled-garlic-pack.png', 'no', '2', 'Sample pack shot'],
+                    [$o, 'demo-chopped-onion-hero.jpg', 'yes', '1', 'Chopped onion demonstration photo'],
+                    [$o, 'demo-chopped-onion-pack.png', 'no', '2', 'Sample pack shot'],
+                ]
+            ),
+            self::SHEET_SEO => array_merge(
+                [self::seoHeaders()],
+                [
+                    [$g, 'Peeled Garlic | Demo', 'Order ready-to-use peeled garlic — sample SEO text only.', 'yes'],
+                    [$o, 'Chopped Onion | Demo', 'Fresh chopped onion for quick meals — sample SEO text only.', 'yes'],
+                ]
+            ),
+            self::SHEET_REFERENCE => self::referenceSheetRows($categories, $types),
+        ];
+        if (!SimpleXlsx::write($sheets, $destPath)) {
+            return ['ok' => false, 'message' => 'Could not create sample workbook.'];
+        }
+
+        return ['ok' => true, 'path' => $destPath];
+    }
+
+    public static function samplePackageReadmeText(): string
+    {
+        return implode("\n", [
+            'Apni Tokri — bulk product import sample package',
+            str_repeat('=', 48),
+            '',
+            'This ZIP is for learning the import format only. Imagery is neutral demonstration art, not production media.',
+            '',
+            'Contents:',
+            '  sample_products.xlsx — filled workbook (Peeled Garlic, Chopped Onion)',
+            '  images.zip          — JPEG/PNG files named in the Images sheet',
+            '  README.txt          — this file',
+            '',
+            'How to use:',
+            '  1. Open sample_products.xlsx and read the Instructions sheet.',
+            '  2. Open images.zip and note how filenames match the Images sheet (basename only).',
+            '  3. In admin, use Bulk import: upload sample_products.xlsx and images.zip to validate (do not import demo SKUs on production).',
+            '  4. When entering real data, download the blank template and replace all demo SKUs and slugs.',
+            '',
+            'product_code links rows across sheets but is never stored in the database.',
+            '',
+        ]);
+    }
+
     /**
      * @return array{ok: bool, path?: string, message?: string}
      */
     public static function writeTemplate(string $destPath): array
     {
-        $categories = [];
-        $types = [];
-        if (Install::isSchemaReady()) {
-            Install::ensureConnection();
-            foreach (CategoryRepository::allForAdmin() as $c) {
-                if ((string) ($c['status'] ?? '') !== 'published') {
-                    continue;
-                }
-                $categories[] = [
-                    (string) ($c['name'] ?? ''),
-                    (string) ($c['slug'] ?? ''),
-                ];
-            }
-            foreach (ProductTypeRepository::optionsForProductForm() as $t) {
-                $types[] = [(string) ($t['code'] ?? ''), (string) ($t['name'] ?? '')];
-            }
-        }
+        ['categories' => $categories, 'types' => $types] = self::referenceLists();
         $sampleCode = 'P-EXAMPLE';
         $sheets = [
-            self::SHEET_INSTRUCTIONS => [
-                ['Bulk import instructions'],
-                [''],
-                ['Defaults (not editable via workbook)'],
-                ['All imported products are saved as status = draft.'],
-                ['Featured, bestseller, and new arrival are always off (0).'],
-                ['Existing catalogue products are never updated by import.'],
-                [''],
-                ['product_code'],
-                ['Linking key across sheets only — not stored in the database.'],
-                [''],
-                ['Images ZIP'],
-                ['Optional when the Images sheet has no rows.'],
-                ['Required when any Images row references a filename — ZIP must include every referenced file (match basename, case-insensitive).'],
-                ['Filenames: use simple names (e.g. mango-01.jpg). JPEG, PNG, or WebP only; max 5 MB per file.'],
-            ],
+            self::SHEET_INSTRUCTIONS => self::instructionsSheetRows(),
             self::SHEET_PRODUCTS => [
                 self::productsHeaders(),
                 [
@@ -91,17 +249,175 @@ final class ProductBulkImport
                 self::seoHeaders(),
                 [$sampleCode, 'Sample tomato | Veggie Tokri', 'Buy fresh sample tomatoes online.', 'yes'],
             ],
-            self::SHEET_REFERENCE => array_merge(
-                [['Categories (published)', '', 'Product types (active code)', '']],
-                [['Category name', 'Category slug', 'Type code', 'Type name']],
-                self::referenceMergeRows($categories, $types)
-            ),
+            self::SHEET_REFERENCE => self::referenceSheetRows($categories, $types),
         ];
         if (!SimpleXlsx::write($sheets, $destPath)) {
             return ['ok' => false, 'message' => 'Could not create template file.'];
         }
 
         return ['ok' => true, 'path' => $destPath];
+    }
+
+    /**
+     * @return array{categories: list<array{0: string, 1: string}>, types: list<array{0: string, 1: string}>}
+     */
+    private static function referenceLists(): array
+    {
+        $categories = [];
+        $types = [];
+        if (Install::isSchemaReady()) {
+            Install::ensureConnection();
+            foreach (CategoryRepository::allForAdmin() as $c) {
+                if ((string) ($c['status'] ?? '') !== 'published') {
+                    continue;
+                }
+                $categories[] = [
+                    (string) ($c['name'] ?? ''),
+                    (string) ($c['slug'] ?? ''),
+                ];
+            }
+            foreach (ProductTypeRepository::optionsForProductForm() as $t) {
+                $types[] = [(string) ($t['code'] ?? ''), (string) ($t['name'] ?? '')];
+            }
+        }
+
+        return ['categories' => $categories, 'types' => $types];
+    }
+
+    /** @return list<list<string>> */
+    private static function instructionsSheetRows(): array
+    {
+        return [
+            ['Bulk product import — instructions (read first)'],
+            [''],
+            ['Worksheets'],
+            ['Instructions', 'This guide (not imported).'],
+            ['Products', 'One row per product — General tab fields.'],
+            ['Variants', 'One row per pack size / SKU — Variants & stock tab.'],
+            ['Attributes', 'Optional label/value pairs — Attributes tab.'],
+            ['Images', 'Optional image filenames — Images tab.'],
+            ['SEO', 'Meta title, description, indexing — SEO tab.'],
+            ['Reference', 'Published categories and active product types (copy values from here).'],
+            [''],
+            ['product_code (linking key)'],
+            ['Repeat the same product_code on Products, Variants, Attributes, Images, and SEO rows for one product.'],
+            ['product_code is used only in Excel to group rows; it is NOT stored in the database.'],
+            [''],
+            ['Products — required columns'],
+            ['product_name, category, product_type are required. sku and slug must be unique in the store when set.'],
+            ['Optional: short_description, full_description. Slug may be left blank to auto-generate from name.'],
+            ['Example Products row', 'MY-VEG-01', 'Alphonso mango', 'alphonso-mango', 'SKU-MANGO-01', '(category name)', '(type code)', 'Sweet mangoes', 'Long description…'],
+            [''],
+            ['Variants — multiple rows per product'],
+            ['Add one row per variant; use the same product_code. Each variant needs variant_name and sku (unique).'],
+            ['price required; sale_price optional; stock_quantity and low_stock_threshold numeric; min/max order qty optional.'],
+            ['Example Variants row', 'MY-VEG-01', '1 kg', 'SKU-MANGO-01-1KG', '220', '199', '50', '5', '1', '0', '1'],
+            [''],
+            ['Attributes — multiple rows per product'],
+            ['Same product_code; attribute_label + attribute_value; sort_order controls display order.'],
+            ['Example Attributes row', 'MY-VEG-01', 'Origin', 'Ratnagiri', '1'],
+            [''],
+            ['Images — filenames and ZIP'],
+            ['filename = basename only (e.g. mango-hero.jpg). List files on the Images sheet, then put them in images.zip for upload.'],
+            ['ZIP required when any Images row exists. Match basename case-insensitively. JPEG, PNG, or WebP; max 5 MB each; max 10 images per product; one primary (is_primary=yes).'],
+            ['Example Images row', 'MY-VEG-01', 'mango-hero.jpg', 'yes', '1', 'Fresh Alphonso mangoes'],
+            ['To build images.zip: select only image files (not the folder), compress to ZIP; names must match the sheet.'],
+            ['Products with no Images rows do not require a ZIP.'],
+            [''],
+            ['SEO'],
+            ['meta_title ≤ 70 chars; meta_description ≤ 160 chars; allow_indexing = yes/no → robots_index.'],
+            ['Example SEO row', 'MY-VEG-01', 'Alphonso mango online', 'Buy ripe Alphonso mangoes.', 'yes'],
+            [''],
+            ['Category and product_type'],
+            ['category = published category name OR slug (see Reference sheet).'],
+            ['product_type = active type code (see Reference sheet).'],
+            [''],
+            ['Import defaults (not in workbook)'],
+            ['status is always draft. Featured, bestseller, and new arrival are always off.'],
+            ['Existing products are never updated — duplicate SKU or slug in the catalogue is rejected.'],
+            ['Partial import: rows with errors are skipped; valid products still import.'],
+        ];
+    }
+
+    /**
+     * @param list<array{0: string, 1: string}> $categories
+     * @param list<array{0: string, 1: string}> $types
+     * @return list<list<string>>
+     */
+    private static function referenceSheetRows(array $categories, array $types): array
+    {
+        return array_merge(
+            [['Categories (published)', '', 'Product types (active code)', '']],
+            [['Category name', 'Category slug', 'Type code', 'Type name']],
+            self::referenceMergeRows($categories, $types)
+        );
+    }
+
+    private static function writeNeutralDemoImage(string $destPath, int $seed): bool
+    {
+        $ext = strtolower(pathinfo($destPath, PATHINFO_EXTENSION));
+        if (function_exists('imagecreatetruecolor')) {
+            $w = 180;
+            $h = 140;
+            $im = imagecreatetruecolor($w, $h);
+            if ($im === false) {
+                return false;
+            }
+            $r = 50 + ($seed * 41) % 160;
+            $g = 90 + ($seed * 59) % 140;
+            $b = 110 + ($seed * 67) % 120;
+            $bg = imagecolorallocate($im, $r, $g, $b);
+            if ($bg === false) {
+                imagedestroy($im);
+
+                return false;
+            }
+            imagefill($im, 0, 0, $bg);
+            $fg = imagecolorallocate($im, 245, 245, 245);
+            if ($fg !== false) {
+                imagestring($im, 5, 24, 58, 'DEMO', $fg);
+            }
+            $ok = ($ext === 'jpg' || $ext === 'jpeg')
+                ? imagejpeg($im, $destPath, 88)
+                : imagepng($im, $destPath);
+            imagedestroy($im);
+
+            return (bool) $ok && is_file($destPath);
+        }
+
+        $png = base64_decode(
+            'iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAFklEQVQYV2P8z8BQz0AEYBxVSF+FABJADveWkH6oAAAAAElFTkSuQmCC',
+            true
+        );
+        if ($png === false) {
+            return false;
+        }
+        $png .= chr(48 + ($seed % 10));
+
+        return file_put_contents($destPath, $png) !== false;
+    }
+
+    private static function removeDirRecursive(string $dir): void
+    {
+        if (!is_dir($dir)) {
+            return;
+        }
+        $items = scandir($dir);
+        if ($items === false) {
+            return;
+        }
+        foreach ($items as $item) {
+            if ($item === '.' || $item === '..') {
+                continue;
+            }
+            $path = $dir . '/' . $item;
+            if (is_dir($path)) {
+                self::removeDirRecursive($path);
+            } else {
+                @unlink($path);
+            }
+        }
+        @rmdir($dir);
     }
 
     /**

@@ -63,6 +63,8 @@ function at_icon(string $name, string $class = ''): string
             'chevron-right' => '<path d="m9 6 6 6-6 6"/>',
             'heart' => '<path d="M12 20s-7.5-4.6-7.5-10A4.5 4.5 0 0 1 12 7a4.5 4.5 0 0 1 7.5 3c0 5.4-7.5 10-7.5 10z"/>',
             'basket' => '<path d="M3 10h18l-2 9H5l-2-9z"/><path d="m8 10 3-6M16 10l-3-6M9 14v2M12 14v2M15 14v2"/>',
+            'share' => '<path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><path d="M12 16V4"/><path d="m8 8 4-4 4 4"/>',
+            'link' => '<path d="M10 13a5 5 0 0 1 7.1 0l1.4 1.4a5 5 0 0 1 0 7.1 5 5 0 0 1-7.1 0"/><path d="M14 11a5 5 0 0 1-7.1 0l-1.4-1.4a5 5 0 0 1 0-7.1 5 5 0 0 1 7.1 0"/>',
         ];
     }
     $inner = $paths[$name] ?? $paths['info'];
