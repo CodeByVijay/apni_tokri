@@ -85,6 +85,7 @@ admin_layout_start(['pageTitle' => 'Products', 'activeAdminNav' => 'products']);
 $pageHeading = 'Products';
 $pageDescription = 'Manage catalogue, variants, images and visibility.';
 $pageActionsHtml = '<a href="' . Security::escape(url_base()) . '/admin/products/product-types.php" class="at-btn at-btn--secondary at-btn--sm at-focusable">Product types</a>'
+    . ' <a href="' . Security::escape(url_base()) . '/admin/products/bulk-export.php" class="at-btn at-btn--secondary at-btn--sm at-focusable">Bulk export</a>'
     . ' <a href="' . Security::escape(url_base()) . '/admin/products/bulk-import.php" class="at-btn at-btn--secondary at-btn--sm at-focusable">Bulk import</a>'
     . ' <a href="' . Security::escape(url_base()) . '/admin/products/edit.php" class="at-btn at-btn--primary at-btn--sm at-focusable">Add product</a>';
 require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
@@ -138,7 +139,8 @@ $bulkFormId = 'at-products-bulk-form';
 
 if ($useDb) {
     if ($enableBulkSelect): ?>
-    <form method="post" class="at-admin-card mb-4" id="at-products-bulk-form" data-at-products-bulk>
+    <form method="post" class="at-admin-card mb-4" id="at-products-bulk-form" data-at-products-bulk
+        data-export-url="<?= Security::escape(url_base() . '/admin/products/bulk-export.php') ?>">
         <?= Csrf::field() ?>
         <input type="hidden" name="action" value="bulk_status">
         <input type="hidden" name="list_q" value="<?= Security::escape($filterQ) ?>">
@@ -157,6 +159,7 @@ if ($useDb) {
                 </select>
             </div>
             <button type="button" class="at-btn at-btn--primary at-focusable" id="at-products-bulk-apply" disabled>Apply</button>
+            <button type="button" class="at-btn at-btn--secondary at-focusable" id="at-products-bulk-export" disabled>Export selected</button>
             <p class="text-sm at-muted mb-0" id="at-products-bulk-count" role="status" aria-live="polite">0 products selected</p>
         </div>
     </form>

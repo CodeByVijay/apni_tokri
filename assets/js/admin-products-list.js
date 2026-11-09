@@ -16,7 +16,9 @@
     var $selectAll = $('#at-products-select-all');
     var $rowChecks = $('.js-product-bulk-select');
     var $apply = $('#at-products-bulk-apply');
+    var $exportBtn = $('#at-products-bulk-export');
     var $count = $('#at-products-bulk-count');
+    var exportBase = $form.data('exportUrl') || '';
     var $target = $('#bulk_status');
     var $modal = $('#at-products-bulk-confirm');
     var $summary = $('#at-products-bulk-confirm-summary');
@@ -32,6 +34,9 @@
       var n = $sel.length;
       $count.text(n === 1 ? '1 product selected' : n + ' products selected');
       $apply.prop('disabled', n === 0);
+      if ($exportBtn.length) {
+        $exportBtn.prop('disabled', n === 0);
+      }
       if (!$selectAll.length) return;
       var total = $rowChecks.length;
       $selectAll.prop('checked', total > 0 && n === total);
@@ -79,6 +84,17 @@
 
     $apply.on('click', function () {
       if (selectedChecks().length) openModal();
+    });
+
+    $exportBtn.on('click', function () {
+      if (!exportBase) return;
+      var ids = [];
+      selectedChecks().each(function () {
+        ids.push(String($(this).val()));
+      });
+      if (!ids.length) return;
+      var url = exportBase + '?scope=selected&product_ids=' + encodeURIComponent(ids.join(','));
+      window.location.href = url;
     });
 
     $modal.on('click', '[data-at-bulk-confirm-close]', closeModal);

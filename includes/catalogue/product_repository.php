@@ -173,6 +173,209 @@ final class ProductRepository
         ];
     }
 
+    /**
+     * @return array{sql: string, params: list<mixed>}
+     */
+    public static function adminExportWhere(string $query, string $categorySlug, string $status): array
+    {
+        $where = ['1=1'];
+        $params = [];
+        $q = trim($query);
+        if ($q !== '') {
+            $like = '%' . AdminServerList::escapeLike($q) . '%';
+            $where[] = '(p.name LIKE ? OR p.sku LIKE ? OR p.slug LIKE ?)';
+            $params[] = $like;
+            $params[] = $like;
+            $params[] = $like;
+        }
+        if ($categorySlug !== '') {
+            $where[] = 'c.slug = ?';
+            $params[] = $categorySlug;
+        }
+        if ($status !== '') {
+            $where[] = 'p.status = ?';
+            $params[] = $status;
+        }
+
+        return ['sql' => implode(' AND ', $where), 'params' => $params];
+    }
+
+    public static function countAdminExport(string $query, string $categorySlug, string $status): int
+    {
+        if (!Install::isSchemaReady()) {
+            return 0;
+        }
+        Install::ensureConnection();
+        ['sql' => $whereSql, 'params' => $params] = self::adminExportWhere($query, $categorySlug, $status);
+        $stmt = Database::pdo()->prepare(
+            'SELECT COUNT(*) FROM products p LEFT JOIN categories c ON c.id = p.category_id WHERE ' . $whereSql
+        );
+        $stmt->execute($params);
+
+        return (int) $stmt->fetchColumn();
+    }
+
+    /**
+     * @return list<int>
+     */
+    public static function idsForAdminExport(string $query, string $categorySlug, string $status, int $limit): array
+    {
+        if (!Install::isSchemaReady() || $limit <= 0) {
+            return [];
+        }
+        Install::ensureConnection();
+        ['sql' => $whereSql, 'params' => $params] = self::adminExportWhere($query, $categorySlug, $status);
+        $limit = max(1, min(5000, $limit));
+        $stmt = Database::pdo()->prepare(
+            'SELECT p.id FROM products p LEFT JOIN categories c ON c.id = p.category_id WHERE '
+            . $whereSql . ' ORDER BY p.id ASC LIMIT ' . (int) $limit
+        );
+        $stmt->execute($params);
+        $ids = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $id) {
+            $ids[] = (int) $id;
+        }
+
+        return $ids;
+    }
+
+    /**
+     * @param list<int> $ids
+     * @return list<array<string, mixed>>
+     */
+    public static function rowsForExportByIds(array $ids): array
+    {
+        $ids = self::normalizePositiveIntIds($ids);
+        if ($ids === []) {
+            return [];
+        }
+        Install::ensureConnection();
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $stmt = Database::pdo()->prepare(
+            'SELECT p.*, c.slug AS category_slug, c.name AS category_name FROM products p
+             LEFT JOIN categories c ON c.id = p.category_id WHERE p.id IN (' . $placeholders . ')
+             ORDER BY p.id ASC'
+        );
+        $stmt->execute($ids);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    /**
+     * @param list<int> $ids
+     * @return array<int, list<array<string, mixed>>>
+     */
+    public static function variantsGroupedByProductIds(array $ids): array
+    {
+        $ids = self::normalizePositiveIntIds($ids);
+        if ($ids === []) {
+            return [];
+        }
+        Install::ensureConnection();
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $stmt = Database::pdo()->prepare(
+            'SELECT * FROM product_variants WHERE product_id IN (' . $placeholders . ') ORDER BY product_id, sort_order, id'
+        );
+        $stmt->execute($ids);
+        $out = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) ?: [] as $row) {
+            $pid = (int) ($row['product_id'] ?? 0);
+            $out[$pid][] = $row;
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param list<int> $ids
+     * @return array<int, list<array<string, mixed>>>
+     */
+    public static function attributesGroupedByProductIds(array $ids): array
+    {
+        $ids = self::normalizePositiveIntIds($ids);
+        if ($ids === []) {
+            return [];
+        }
+        Install::ensureConnection();
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $stmt = Database::pdo()->prepare(
+            'SELECT * FROM product_attributes WHERE product_id IN (' . $placeholders . ') ORDER BY product_id, sort_order, id'
+        );
+        $stmt->execute($ids);
+        $out = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) ?: [] as $row) {
+            $pid = (int) ($row['product_id'] ?? 0);
+            $out[$pid][] = $row;
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param list<int> $ids
+     * @return array<int, list<array<string, mixed>>>
+     */
+    public static function imagesGroupedByProductIds(array $ids): array
+    {
+        $ids = self::normalizePositiveIntIds($ids);
+        if ($ids === []) {
+            return [];
+        }
+        Install::ensureConnection();
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $stmt = Database::pdo()->prepare(
+            'SELECT * FROM product_images WHERE product_id IN (' . $placeholders . ') ORDER BY product_id, sort_order, id'
+        );
+        $stmt->execute($ids);
+        $out = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) ?: [] as $row) {
+            $pid = (int) ($row['product_id'] ?? 0);
+            $out[$pid][] = $row;
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param list<mixed> $ids
+     * @return list<int>
+     */
+    public static function normalizePositiveIntIds(array $ids): array
+    {
+        $out = [];
+        foreach ($ids as $id) {
+            $n = (int) $id;
+            if ($n > 0) {
+                $out[$n] = $n;
+            }
+        }
+
+        return array_values($out);
+    }
+
+    /**
+     * @param list<int> $ids
+     * @return list<int> ids that exist in products table
+     */
+    public static function filterExistingProductIds(array $ids): array
+    {
+        $ids = self::normalizePositiveIntIds($ids);
+        if ($ids === []) {
+            return [];
+        }
+        Install::ensureConnection();
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $stmt = Database::pdo()->prepare('SELECT id FROM products WHERE id IN (' . $placeholders . ')');
+        $stmt->execute($ids);
+        $existing = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $id) {
+            $existing[] = (int) $id;
+        }
+        sort($existing);
+
+        return $existing;
+    }
+
     public static function find(int $id): ?array
     {
         Install::ensureConnection();
