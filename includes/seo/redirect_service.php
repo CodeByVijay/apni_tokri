@@ -142,7 +142,13 @@ final class SeoRedirectService
         }
         $dest = self::resolveFinalDestination($current);
         if ($dest === null || $dest === $current) {
-            return;
+            if (!SeoRedirectPath::isHomepageAlias($current)) {
+                return;
+            }
+            $dest = SeoRedirectPath::homepageRedirectDestination();
+            if ($dest === '' || $dest === $current) {
+                return;
+            }
         }
         if (self::redirectDestinationBlocked($dest)) {
             return;
@@ -372,12 +378,20 @@ final class SeoRedirectService
     /** Build 301 Location URL; canonical destination plus safe request tracking params only. */
     public static function redirectLocationWithSafeTracking(string $canonicalDest, string $requestUri): string
     {
-        $location = url_to($canonicalDest);
+        $destNorm = SeoRedirectPath::normalize($canonicalDest);
+        $homeNorm = SeoRedirectPath::homepageRedirectDestination();
+        if ($destNorm === $homeNorm || $destNorm === '/') {
+            $location = SeoUrl::homepageCanonicalUrl();
+        } elseif ($destNorm !== '' && str_starts_with($destNorm, '/')) {
+            $location = SeoUrl::absolute($destNorm);
+        } else {
+            $location = url_to($canonicalDest);
+        }
         $tracking = SeoRedirectPath::safeTrackingQueryForRedirect($requestUri);
         if ($tracking === '') {
             return $location;
         }
 
-        return $location . (str_contains($canonicalDest, '?') ? '&' : '?') . $tracking;
+        return $location . (str_contains($location, '?') ? '&' : '?') . $tracking;
     }
 }

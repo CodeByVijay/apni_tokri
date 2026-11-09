@@ -84,6 +84,31 @@ final class SeoRedirectPath
         return $pathOnly . '?slug=' . rawurlencode($slug);
     }
 
+    /** App-relative paths that should 301 to the storefront homepage canonical URL. */
+    public static function isHomepageAlias(string $identity): bool
+    {
+        if ($identity === '') {
+            return false;
+        }
+        $relative = self::normalize($identity);
+        $pathOnly = parse_url($relative, PHP_URL_PATH);
+        if (!is_string($pathOnly) || $pathOnly === '') {
+            $pathOnly = $relative;
+        }
+        $base = url_base();
+        if ($base !== '' && (str_starts_with($pathOnly, $base . '/') || $pathOnly === $base)) {
+            $pathOnly = substr($pathOnly, strlen($base)) ?: '/';
+        }
+
+        return in_array($pathOnly, ['/index.php', '/index'], true);
+    }
+
+    /** Destination path for homepage alias redirects (respects url_path prefix). */
+    public static function homepageRedirectDestination(): string
+    {
+        return self::normalize('/');
+    }
+
     /** Identity key for the current HTTP request (redirect lookup). */
     public static function currentRedirectIdentity(): string
     {
