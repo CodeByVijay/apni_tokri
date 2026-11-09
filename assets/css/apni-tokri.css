@@ -1378,6 +1378,7 @@ input:disabled + .at-chip {
   position: relative;
   flex: 0 0 auto;
   margin-top: 0.1rem;
+  margin-left: auto;
 }
 .at-pdp-share__trigger {
   display: inline-flex;
@@ -1436,23 +1437,24 @@ input:disabled + .at-chip {
 }
 @media (max-width: 767px) {
   .at-pdp-title-row {
-    flex-wrap: wrap;
-    row-gap: 0.45rem;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.35rem;
   }
   .at-pdp-title-row__title {
-    flex: 1 1 auto;
-    min-width: 0;
+    width: 100%;
+    flex: none;
     max-width: 100%;
   }
   .at-pdp-share {
-    flex: 0 0 auto;
-    margin-left: auto;
-    max-width: 100%;
+    margin-left: 0;
+    margin-top: 0;
+    align-self: flex-start;
   }
   .at-pdp-share__trigger {
     min-height: 2.75rem;
-    min-width: 2.75rem;
-    padding: 0 0.7rem;
+    height: 2.75rem;
+    padding: 0 0.85rem;
     border: 1px solid var(--at-border);
     background: var(--at-surface);
     border-radius: var(--at-radius-pill);
@@ -1470,8 +1472,8 @@ input:disabled + .at-chip {
     letter-spacing: 0.01em;
   }
   .at-share-menu {
-    right: 0;
-    left: auto;
+    left: 0;
+    right: auto;
     max-width: min(11.5rem, calc(100vw - 1.5rem));
   }
 }
