@@ -153,6 +153,7 @@ require_once APNI_TOKRI_ROOT . '/includes/payment/cashfree.php';
 require_once APNI_TOKRI_ROOT . '/includes/payment/config.php';
 require_once APNI_TOKRI_ROOT . '/includes/payment/gateway_diagnostic_state.php';
 require_once APNI_TOKRI_ROOT . '/includes/payment/service.php';
+require_once APNI_TOKRI_ROOT . '/includes/payment/payment_admin_detail.php';
 require_once APNI_TOKRI_ROOT . '/includes/commerce/unpaid_order_expiry.php';
 require_once APNI_TOKRI_ROOT . '/includes/payment/refund_gateway.php';
 require_once APNI_TOKRI_ROOT . '/includes/payment/completion_exception.php';

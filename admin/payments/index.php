@@ -24,39 +24,46 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
 <p class="mb-4 text-sm"><a class="underline at-focusable" href="<?= Security::escape(url_base()) ?>/admin/payments/completion_exceptions.php">Payment completion exceptions (captured / slot conflict) →</a></p>
 <?php if (!Install::isSchemaReady() || !AdminAuth::check()): ?>
 <div class="at-alert at-alert--info">Database admin session required.</div>
-<?php else: ?>
-<form method="get" class="at-admin-card mb-4">
-    <div class="at-admin-card__body flex flex-wrap gap-3 items-end">
-        <div class="flex-1 min-w-[10rem]">
-            <label class="at-label" for="q">Search</label>
-            <input id="q" name="q" class="at-input at-focusable" value="<?= Security::escape($listQ) ?>" placeholder="Order #, gateway ref, status">
-        </div>
-        <input type="hidden" name="per_page" value="<?= (int) $listPerPage ?>">
-        <button type="submit" class="at-btn at-btn--secondary at-focusable">Search</button>
-    </div>
-</form>
-<?php
-$list = PaymentRepository::searchForAdmin($listQ, $listPage, $listPerPage, $sort, $dir);
-$rows = [];
-foreach ($list['rows'] as $p) {
-    $rows[] = [
-        'id' => (string) ($p['gateway_payment_id'] ?? $p['idempotency_key'] ?? $p['id']),
-        'gw' => ucfirst((string) ($p['gateway'] ?? '')),
-        'amount' => catalogue_format_price((float) ($p['amount'] ?? 0)),
-        'status' => ucfirst((string) ($p['status'] ?? '')),
-        'order' => (string) ($p['order_number'] ?? ''),
+<?php else:
+    $list = PaymentRepository::searchForAdmin($listQ, $listPage, $listPerPage, $sort, $dir);
+    $base = url_base();
+    $listQs = http_build_query(array_filter([
+        'q' => $listQ !== '' ? $listQ : null,
+        'page' => $listPage > 1 ? $listPage : null,
+        'per_page' => $listPerPage !== 25 ? $listPerPage : null,
+    ]));
+    $viewQs = $listQs !== '' ? '&' . $listQs : '';
+    $rows = [];
+    foreach ($list['rows'] as $p) {
+        $paymentId = (int) ($p['id'] ?? 0);
+        $orderId = (int) ($p['order_id'] ?? 0);
+        $orderNumber = (string) ($p['order_number'] ?? '');
+        $viewHref = $base . '/admin/payments/view.php?id=' . $paymentId . $viewQs;
+        $orderHref = $orderId > 0 ? $base . '/admin/orders/view.php?id=' . $orderId : '';
+        $orderCell = $orderNumber !== '' && $orderHref !== ''
+            ? '<a class="underline font-semibold at-focusable" href="' . Security::escape($orderHref) . '">' . Security::escape($orderNumber) . '</a>'
+            : Security::escape($orderNumber !== '' ? $orderNumber : '—');
+        $rows[] = [
+            'id' => PaymentAdminDetailService::publicReference($p),
+            'order' => $orderCell,
+            'gw' => ucfirst((string) ($p['gateway'] ?? '')),
+            'amount' => catalogue_format_price((float) ($p['amount'] ?? 0)),
+            'status' => (string) ($p['status'] ?? ''),
+            'actions' => '<span class="at-admin-actions"><a class="at-btn at-btn--sm at-btn--ghost at-focusable" href="'
+                . Security::escape($viewHref) . '">View</a></span>',
+        ];
+    }
+    $columns = [
+        ['label' => 'Reference', 'key' => 'id'],
+        ['label' => 'Order', 'key' => 'order', 'raw' => true],
+        ['label' => 'Gateway', 'key' => 'gw'],
+        ['label' => 'Amount', 'key' => 'amount', 'align' => 'num'],
+        ['label' => 'Status', 'key' => 'status'],
+        ['label' => 'Actions', 'key' => 'actions', 'align' => 'actions', 'raw' => true],
     ];
-}
-$columns = [
-    ['label' => 'Reference', 'key' => 'id'],
-    ['label' => 'Order', 'key' => 'order'],
-    ['label' => 'Gateway', 'key' => 'gw'],
-    ['label' => 'Amount', 'key' => 'amount', 'align' => 'num'],
-    ['label' => 'Status', 'key' => 'status'],
-];
-require APNI_TOKRI_ROOT . '/includes/partials/admin/data-table.php';
-if ((int) $list['total_pages'] > 1) {
-    admin_list_pagination((int) $list['page'], (int) $list['total'], $listPerPage, $queryBase, url_base() . '/admin/payments/index.php');
-}
+    require APNI_TOKRI_ROOT . '/includes/partials/admin/data-table.php';
+    if ((int) $list['total_pages'] > 1) {
+        admin_list_pagination((int) $list['page'], (int) $list['total'], $listPerPage, $queryBase, url_base() . '/admin/payments/index.php');
+    }
 endif;
 admin_layout_end();
