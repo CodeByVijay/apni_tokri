@@ -167,7 +167,15 @@ $missingImagesZipMessage = ProductBulkImport::MSG_MISSING_IMAGES_ZIP;
                 <strong id="at-bulk-import-action-ready">0 products ready</strong>
                 <span id="at-bulk-import-action-skip" class="at-muted"></span>
             </p>
-            <button type="button" class="at-btn at-btn--primary at-focusable" id="at-bulk-import-run" disabled>Import valid products</button>
+            <button type="button" class="at-btn at-btn--primary at-focusable at-bulk-import-run-btn" id="at-bulk-import-run" disabled>
+                <span class="at-bulk-import-run-btn__icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M12 3v12"/><path d="M8 11l4 4 4-4"/><path d="M5 21h14"/></svg>
+                </span>
+                <span class="at-bulk-import-run-btn__spinner" hidden aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" focusable="false"><circle cx="12" cy="12" r="9" opacity="0.25"/><path d="M21 12a9 9 0 0 0-9-9" stroke-linecap="round"/></svg>
+                </span>
+                <span class="at-bulk-import-run-btn__label" id="at-bulk-import-run-label">Import valid products</span>
+            </button>
         </div>
         <div id="at-bulk-import-result" class="hidden" role="status" aria-live="polite"></div>
     </div>
@@ -182,6 +190,8 @@ $missingImagesZipMessage = ProductBulkImport::MSG_MISSING_IMAGES_ZIP;
   const resultEl = document.getElementById('at-bulk-import-result');
   const btnValidate = document.getElementById('at-bulk-import-validate');
   const btnImport = document.getElementById('at-bulk-import-run');
+  const btnImportLabel = document.getElementById('at-bulk-import-run-label');
+  const btnImportSpinner = btnImport ? btnImport.querySelector('.at-bulk-import-run-btn__spinner') : null;
   const actionPanel = document.getElementById('at-bulk-import-action');
   const actionReadyEl = document.getElementById('at-bulk-import-action-ready');
   const actionSkipEl = document.getElementById('at-bulk-import-action-skip');
@@ -314,6 +324,23 @@ $missingImagesZipMessage = ProductBulkImport::MSG_MISSING_IMAGES_ZIP;
     });
   }
 
+  function setImportButtonLoading(isBusy) {
+    if (!btnImport) {
+      return;
+    }
+    btnImport.classList.toggle('is-busy', isBusy);
+    if (btnImportSpinner) {
+      btnImportSpinner.hidden = !isBusy;
+    }
+    if (btnImportLabel) {
+      btnImportLabel.textContent = isBusy
+        ? 'Importing...'
+        : (lastReadyCount > 0
+          ? 'Import ' + lastReadyCount + ' ready product' + (lastReadyCount === 1 ? '' : 's')
+          : 'Import valid products');
+    }
+  }
+
   function updateImportAction() {
     const skipped = Math.max(0, lastTotalProducts - lastReadyCount);
     if (lastReadyCount > 0 && jobId) {
@@ -324,13 +351,63 @@ $missingImagesZipMessage = ProductBulkImport::MSG_MISSING_IMAGES_ZIP;
       } else {
         actionSkipEl.textContent = '';
       }
-      btnImport.textContent = 'Import ' + lastReadyCount + ' ready product' + (lastReadyCount === 1 ? '' : 's');
+      if (!importInFlight) {
+        setImportButtonLoading(false);
+      }
       btnImport.disabled = importInFlight;
     } else {
       actionPanel.classList.add('hidden');
-      btnImport.textContent = 'Import valid products';
+      if (btnImportLabel) {
+        btnImportLabel.textContent = 'Import valid products';
+      }
       btnImport.disabled = true;
+      setImportButtonLoading(false);
     }
+  }
+
+  const ICON_SUCCESS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 6 9 17l-5-5"/></svg>';
+  const ICON_PARTIAL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 9v4"/><path d="M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>';
+  const ICON_ERROR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M15 9l-6 6"/><path d="M9 9l6 6"/></svg>';
+  const ICON_DOWNLOAD = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 3v12"/><path d="M8 11l4 4 4-4"/><path d="M5 21h14"/></svg>';
+
+  function importOutcomeState(imported, failed) {
+    if (failed > 0 && imported === 0) {
+      return 'error';
+    }
+    if (failed > 0 && imported > 0) {
+      return 'partial';
+    }
+    if (imported > 0) {
+      return 'success';
+    }
+    return 'error';
+  }
+
+  function importOutcomeCopy(state, imported, failed, skipped) {
+    if (state === 'success') {
+      return {
+        title: 'Import completed successfully',
+        lead: 'Your products have been imported into the catalogue.',
+      };
+    }
+    if (state === 'partial') {
+      return {
+        title: 'Import partially completed',
+        lead: 'Some products were imported. Review the failures below and fix the workbook before retrying.',
+      };
+    }
+    if (imported === 0 && failed === 0 && skipped > 0) {
+      return {
+        title: 'No products imported',
+        lead: 'Every product in the workbook was skipped because of validation errors. Fix the issues and validate again.',
+      };
+    }
+    return {
+      title: 'Import failed',
+      lead: failed > 0
+        ? 'No products could be imported. Review the failure details below.'
+        : 'The import did not complete. Try validating again and re-run import.',
+    };
   }
 
   function bindExpandCollapseControls() {
@@ -602,31 +679,45 @@ $missingImagesZipMessage = ProductBulkImport::MSG_MISSING_IMAGES_ZIP;
 
   function renderImportOutcome(data, message) {
     const imp = data.result || {};
-    const imported = imp.imported || 0;
-    const failed = imp.failed || 0;
-    const skipped = data.skipped_validation != null ? data.skipped_validation : Math.max(0, lastTotalProducts - lastReadyCount);
-    const allFailed = failed > 0 && imported === 0;
-    const partialFail = failed > 0 && imported > 0;
-    const kind = allFailed ? 'error' : (partialFail ? 'error' : 'success');
-    setStatus(message || (allFailed ? 'Import failed.' : 'Import finished.'), kind);
+    const imported = Number(imp.imported) || 0;
+    const failed = Number(imp.failed) || 0;
+    const skipped = data.skipped_validation != null ? Number(data.skipped_validation) : Math.max(0, lastTotalProducts - lastReadyCount);
+    const state = importOutcomeState(imported, failed);
+    const copy = importOutcomeCopy(state, imported, failed, skipped);
+    const statusKind = state === 'success' ? 'success' : 'error';
+    setStatus(message || copy.title, statusKind);
     resultEl.classList.remove('hidden');
-    resultEl.className = 'at-bulk-import-import-result at-bulk-import-import-result--' + (allFailed ? 'error' : 'success');
-    let html = '<p class="m-0 font-medium">' + escapeHtml(message || '') + '</p>';
-    html += '<ul>';
-    html += '<li><strong>Imported successfully:</strong> ' + imported + '</li>';
-    html += '<li><strong>Failed during import:</strong> ' + failed + '</li>';
-    html += '<li><strong>Skipped (validation errors):</strong> ' + skipped + '</li>';
-    html += '</ul>';
+    resultEl.className = 'at-bulk-import-import-result at-bulk-import-import-result--' + state;
+    const icon = state === 'success' ? ICON_SUCCESS : (state === 'partial' ? ICON_PARTIAL : ICON_ERROR);
+    let html = '<div class="at-bulk-import-import-result__head">';
+    html += '<div class="at-bulk-import-import-result__icon">' + icon + '</div>';
+    html += '<div>';
+    html += '<h3 class="at-bulk-import-import-result__title">' + escapeHtml(copy.title) + '</h3>';
+    html += '<p class="at-bulk-import-import-result__lead">' + escapeHtml(copy.lead) + '</p>';
+    html += '</div></div>';
+    html += '<div class="at-bulk-import-import-result__metrics" role="group" aria-label="Import outcome counts">';
+    html += '<div class="at-bulk-import-import-result__metric at-bulk-import-import-result__metric--success">'
+      + '<p class="at-bulk-import-import-result__metric-value">' + escapeHtml(String(imported)) + '</p>'
+      + '<p class="at-bulk-import-import-result__metric-label">Imported successfully</p></div>';
+    html += '<div class="at-bulk-import-import-result__metric at-bulk-import-import-result__metric--fail">'
+      + '<p class="at-bulk-import-import-result__metric-value">' + escapeHtml(String(failed)) + '</p>'
+      + '<p class="at-bulk-import-import-result__metric-label">Failed during import</p></div>';
+    html += '<div class="at-bulk-import-import-result__metric at-bulk-import-import-result__metric--skip">'
+      + '<p class="at-bulk-import-import-result__metric-value">' + escapeHtml(String(skipped)) + '</p>'
+      + '<p class="at-bulk-import-import-result__metric-label">Skipped due to validation errors</p></div>';
+    html += '</div>';
     const fails = (imp.results || []).filter(function (r) { return r && r.ok === false; });
     if (fails.length) {
-      html += '<p class="font-medium m-0 mt-2">Import failure details</p><ul>';
+      html += '<div class="at-bulk-import-import-result__failures">';
+      html += '<p class="at-bulk-import-import-result__failures-title">Failure details</p><ul>';
       fails.forEach(function (r) {
         html += '<li><code>' + escapeHtml(r.product_code || '') + '</code>: ' + escapeHtml(r.message || 'Import failed.') + '</li>';
       });
-      html += '</ul>';
+      html += '</ul></div>';
     }
     if (data.report_url) {
-      html += '<p class="m-0 mt-2"><a class="at-link" href="' + escapeHtml(data.report_url) + '">Download result report (CSV)</a></p>';
+      html += '<a class="at-bulk-import-result-report at-focusable" href="' + escapeHtml(data.report_url) + '">'
+        + ICON_DOWNLOAD + '<span>Download result report</span></a>';
     }
     resultEl.innerHTML = html;
   }
@@ -648,6 +739,7 @@ $missingImagesZipMessage = ProductBulkImport::MSG_MISSING_IMAGES_ZIP;
     setStatus('Importing…');
     btnImport.disabled = true;
     btnImport.setAttribute('aria-busy', 'true');
+    setImportButtonLoading(true);
     resultEl.classList.add('hidden');
     resultEl.innerHTML = '';
     fetch(ajaxUrl, { method: 'POST', body: fd, credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
@@ -666,6 +758,7 @@ $missingImagesZipMessage = ProductBulkImport::MSG_MISSING_IMAGES_ZIP;
       .finally(function () {
         importInFlight = false;
         btnImport.removeAttribute('aria-busy');
+        setImportButtonLoading(false);
         updateImportAction();
       });
   });

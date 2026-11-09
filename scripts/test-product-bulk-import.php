@@ -395,6 +395,10 @@ okB(str_contains($page, 'renderValidationResults'), 'static: product-wise valida
 okB(str_contains($page, 'import_ready'), 'static: uses import_ready from validation payload');
 okB(str_contains($page, 'at-bulk-import-action'), 'static: dedicated import action panel');
 okB(str_contains($page, 'renderImportOutcome'), 'static: import outcome panel with failure details');
+okB(str_contains($page, 'at-bulk-import-run-btn'), 'static: polished import run button');
+okB(str_contains($page, 'at-bulk-import-import-result__metrics'), 'static: import result metric cards');
+okB(str_contains($page, 'at-bulk-import-result-report'), 'static: import result report button');
+okB(str_contains($page, 'Import completed successfully'), 'static: import success heading copy');
 okB(str_contains($page, 'download_template=1'), 'static: blank template download on admin page');
 okB(str_contains($page, 'denyIfCannot(\'products\')'), 'static: products permission on bulk-import page');
 okB(str_contains($page, 'Csrf::field()'), 'static: bulk-import form uses Csrf::field');
