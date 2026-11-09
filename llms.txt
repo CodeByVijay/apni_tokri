@@ -1,40 +1,46 @@
 # Veggie Tokri
 
-> Freshness, Ready for Your Kitchen. An online store for fresh vegetables, fruits, ready-cut produce, and pantry favourites for Indore homes.
+> Freshness, Ready for Your Kitchen.
 
-This file describes the public Veggie Tokri website at https://veggietokri.com/ for people and tools that prefer a concise Markdown overview. Product names, prices, delivery areas, and timings change in the live catalogue and checkout flow; only pages and patterns verified in the application are linked below. Publishing this file does not affect search or AI inclusion.
+This file describes the public Veggie Tokri website at https://veggietokri.com/ for people and tools that prefer a concise Markdown overview. Pack sizes, prices, inventory, delivery fees, and service areas are shown on the live site and checkout; only indexable public pages from the current catalogue are linked below. Publishing this file does not affect search or AI inclusion.
 
 ## Main Website
 
-- [Homepage](https://veggietokri.com/index.php): Storefront home with category navigation and published products from the database catalogue.
-- [FAQs](https://veggietokri.com/faqs.php): Help articles about general topics, delivery, and payments (content managed in the admin FAQ module).
+- [Homepage](https://veggietokri.com/): Storefront home with category navigation and published products.
+- [FAQs](https://veggietokri.com/faqs.php): Help articles about orders, delivery, and payments (content managed in admin).
 
 ## Product Categories
 
-- Categories are reached from the homepage and via `https://veggietokri.com/category.php?slug={slug}` for each active, published category slug in the database.
-- The catalogue can classify products as fresh produce, cut or prepared items, or packaged food. Exact category names and slugs depend on what is published in the live database.
+- [Fresh & Chopped](https://veggietokri.com/category.php?slug=fresh-chopped): Published category page.
+- [Ready-to-Cook Combos](https://veggietokri.com/category.php?slug=ready-to-cook-combos): Published category page.
 
-## Popular Products
+## Products
 
-- Published products use `https://veggietokri.com/product.php?slug={slug}` when status is published, the product is storefront-visible, at least one variant is active, and the product is allowed in robots metadata.
-- Pack sizes and weights appear as selectable variants on each product page (for example weight labels on the product detail page). Specific product links are omitted here because they must match the current published catalogue; see the XML sitemap for the authoritative list of indexable product URLs.
+Published products allowed for search indexing (active variant, visible category, indexable SEO).
+
+### Fresh & Chopped
+
+- [Cut Lauki (Bottle Gourd)](https://veggietokri.com/product.php?slug=cut-lauki)
+
+### Ready-to-Cook Combos
+
+- [Bharwa Shimla Mirch Kit](https://veggietokri.com/product.php?slug=bharwa-shimla-mirch-kit)
+- [Bhindi Masala Kit](https://veggietokri.com/product.php?slug=bhindi-masala-kit)
+- [Samosa Filling Kit](https://veggietokri.com/product.php?slug=samosa-filling-kit)
+- [Vegetable Handvo Kit](https://veggietokri.com/product.php?slug=vegetable-handvo-kit)
 
 ## Shopping and Ordering
 
-- Shoppers add items from product pages, review the cart, and complete checkout on the website when logged in and when delivery rules allow the saved address (fees and serviceability are calculated in the application, not fixed in this file).
-- FAQs explain how variants are chosen and how failed payments can be retried; see the Products and Payments topics on the FAQ page.
-- Subscription purchase and management require a customer account and are not linked here.
+- Shoppers add items from product pages, review the cart, and complete checkout on the website when logged in and when delivery rules allow the saved address.
+- FAQs explain variants, payments, and retries when applicable.
+- Subscription purchase and management require a customer account; subscription checkout URLs are not listed here.
 
 ## Customer Support
 
-- [Contact](https://veggietokri.com/contact.php): Support phone, email, and WhatsApp when enabled in business settings (unused fields stay hidden on the page).
+- [Contact](https://veggietokri.com/contact.php): Support phone, email, and WhatsApp when configured in business settings.
 - [Support tickets](https://veggietokri.com/support.php): Form to raise help requests; logged-in customers can link an order when applicable.
-
-## Policies
-
-Public legal and informational pages are served from the CMS at `https://veggietokri.com/page.php?slug={slug}` when status is published, visibility is public, and robots indexing is allowed. Footer policy links (for example privacy or terms) appear only after those CMS pages are published. Placeholder legal pages in the reference database export remain draft and have no public URL.
 
 ## Optional
 
-- [XML sitemap](https://veggietokri.com/sitemap.xml): Indexable storefront URLs (products, categories, CMS pages, and homepage), regenerated dynamically from the database.
+- [XML sitemap](https://veggietokri.com/sitemap.xml): Indexable storefront URLs regenerated from the database.
 - [llms.txt](https://veggietokri.com/llms.txt): This overview file.

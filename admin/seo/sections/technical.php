@@ -39,7 +39,7 @@ $sitemapPublic = url_base() . '/sitemap.php';
                 <input type="hidden" name="seo_action" value="regenerate_static_sitemap">
                 <button type="submit" class="at-btn at-btn--secondary at-focusable"<?= $useDb ? '' : ' disabled' ?>>Regenerate sitemap.xml file</button>
             </form>
-            <p class="text-xs at-muted mt-1">CLI: <code class="font-mono">php scripts/regenerate-sitemap-xml.php</code> — also updates automatically after catalogue and CMS changes.</p>
+            <p class="text-xs at-muted mt-1">CLI: <code class="font-mono">php scripts/regenerate-sitemap-xml.php</code> and <code class="font-mono">php scripts/regenerate-llms-txt.php</code> — also updates automatically after catalogue and CMS changes (sitemap.xml and llms.txt).</p>
     </div>
 
     <div class="at-seo-saas__panel">

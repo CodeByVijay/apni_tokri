@@ -182,6 +182,7 @@ final class SeoSitemap
         self::clearResponseCache();
         self::resetCollectMemo();
         self::writeStaticXmlFiles();
+        LlmsTxt::writeStaticFile();
     }
 
     public static function staticRootPath(): string

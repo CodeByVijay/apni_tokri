@@ -85,7 +85,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 SeoSitemap::clearResponseCache();
                 SeoSitemap::resetCollectMemo();
                 $n = (int) ($result['url_count'] ?? 0);
-                admin_flash_set('sitemap.xml regenerated (' . $n . ' URL(s)).');
+                $llms = LlmsTxt::writeStaticFile();
+                $llmsNote = !empty($llms['ok']) ? ' llms.txt updated.' : '';
+                admin_flash_set('sitemap.xml regenerated (' . $n . ' URL(s)).' . $llmsNote);
                 SeoAdminCenter::markWizardStep('sitemap', $n > 0);
             } else {
                 admin_flash_set((string) ($result['message'] ?? 'Could not regenerate sitemap.xml.'), 'error');
