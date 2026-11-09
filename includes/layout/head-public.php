@@ -13,6 +13,7 @@ $locale = Lang::locale();
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="csrf-token" content="<?= Security::escape(Csrf::token()) ?>">
     <link rel="icon" href="<?= Security::escape(BrandingSettings::faviconUrl()) ?>" sizes="any">
+    <link rel="describedby" href="<?= Security::escape(rtrim(BusinessSettings::websiteUrl(), '/') . '/llms.txt') ?>">
     <title><?= Security::escape($seo->documentTitle) ?></title>
     <?php
     $gscMeta = SeoAdminCenter::gscVerificationMeta();

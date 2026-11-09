@@ -10,5 +10,6 @@ if ($part !== null && $part < 1) {
 }
 
 header('Content-Type: ' . SeoSitemap::CONTENT_TYPE);
+header('Cache-Control: public, max-age=' . SeoSitemap::CACHE_TTL_SECONDS);
 header('X-Robots-Tag: noindex');
 echo SeoSitemap::renderForRequest($part);

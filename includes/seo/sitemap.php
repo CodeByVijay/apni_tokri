@@ -6,9 +6,18 @@ final class SeoSitemap
 {
     public const MAX_URLS_PER_FILE = 50000;
 
+    public const CACHE_TTL_SECONDS = 3600;
+
     public const CONTENT_TYPE = 'application/xml; charset=UTF-8';
 
-    /** @return list<array{loc: string, lastmod?: string}> */
+    private const CACHE_DIR_RELATIVE = '/storage/cache/seo-sitemap';
+
+    public const STATIC_FILENAME = 'sitemap.xml';
+
+    /** @var list<array{loc: string, lastmod?: string, images?: list<string>}>|null */
+    private static ?array $collectedEntriesMemo = null;
+
+    /** @return list<array{loc: string, lastmod?: string, images?: list<string>}> */
     public static function collectIndexableUrls(): array
     {
         $byLoc = [];
@@ -55,6 +64,7 @@ final class SeoSitemap
                    )
                  ORDER BY p.id"
             );
+            $publishedProductRows = [];
             if ($prodStmt !== false) {
                 foreach ($prodStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
                     if (!ProductRepository::isPubliclyVisibleRow($row)) {
@@ -64,11 +74,19 @@ final class SeoSitemap
                     if (!$meta->isIndexableForSitemap() || $meta->canonicalUrl === null || $meta->canonicalUrl === '') {
                         continue;
                     }
+                    $productId = (int) ($row['id'] ?? 0);
+                    if ($productId > 0) {
+                        $publishedProductRows[$productId] = $row;
+                    }
                     self::addEntry($byLoc, [
                         'loc' => $meta->canonicalUrl,
                         'lastmod' => self::formatLastmod($row['updated_at'] ?? null),
                     ], $redirectSources);
                 }
+            }
+
+            if ($publishedProductRows !== []) {
+                self::attachProductImagesToEntries($byLoc, $publishedProductRows, $pdo);
             }
 
             $catRows = CategoryRepository::published();
@@ -87,16 +105,45 @@ final class SeoSitemap
                     ], $redirectSources);
                 }
             }
+
+            $faqMeta = SeoResolver::forFaqPage(false);
+            if ($faqMeta->isIndexableForSitemap() && $faqMeta->canonicalUrl !== null && $faqMeta->canonicalUrl !== '') {
+                self::addEntry($byLoc, [
+                    'loc' => $faqMeta->canonicalUrl,
+                ], $redirectSources);
+            }
         } catch (Throwable $e) {
             error_log('SeoSitemap::collectIndexableUrls: ' . $e->getMessage());
         }
 
-        return array_values($byLoc);
+        $entries = array_values($byLoc);
+        self::$collectedEntriesMemo = $entries;
+
+        return $entries;
     }
 
-    public static function renderForRequest(?int $part = null): string
+    public static function renderForRequest(?int $part = null, bool $bypassCache = false): string
     {
-        $entries = self::collectIndexableUrls();
+        if (!$bypassCache) {
+            $cached = self::readResponseCache($part);
+            if ($cached !== null) {
+                return $cached;
+            }
+        }
+
+        $xml = self::renderForEntries(self::collectIndexableUrls(), $part);
+        if (!$bypassCache && self::isCacheableXml($xml)) {
+            self::writeResponseCache($part, $xml);
+        }
+
+        return $xml;
+    }
+
+    /**
+     * @param list<array{loc: string, lastmod?: string, images?: list<string>}> $entries
+     */
+    public static function renderForEntries(array $entries, ?int $part = null): string
+    {
         $total = count($entries);
         if ($total <= self::MAX_URLS_PER_FILE) {
             return self::renderUrlset($entries);
@@ -116,13 +163,171 @@ final class SeoSitemap
         return self::renderUrlset($slice);
     }
 
+    public static function clearResponseCache(): void
+    {
+        $dir = self::cacheDirectory();
+        if (!is_dir($dir)) {
+            return;
+        }
+        foreach (glob($dir . '/*.xml') ?: [] as $file) {
+            if (is_file($file)) {
+                @unlink($file);
+            }
+        }
+    }
+
+    /** Clear rendered XML cache after catalogue or CMS mutations (TTL remains fallback). */
+    public static function invalidateResponseCache(): void
+    {
+        self::clearResponseCache();
+        self::resetCollectMemo();
+        self::writeStaticXmlFiles();
+    }
+
+    public static function staticRootPath(): string
+    {
+        return APNI_TOKRI_ROOT . '/' . self::STATIC_FILENAME;
+    }
+
+    public static function staticPartPath(int $part): string
+    {
+        return APNI_TOKRI_ROOT . '/sitemap-' . $part . '.xml';
+    }
+
     /**
-     * @param list<array{loc: string, lastmod?: string}> $entries
+     * Write sitemap.xml (and sitemap-N.xml parts when required) to the web document root.
+     *
+     * @return array{ok: bool, message?: string, path?: string, url_count?: int, files?: list<string>, parts?: int}
+     */
+    public static function writeStaticXmlFiles(): array
+    {
+        try {
+            $entries = self::collectIndexableUrls();
+            $total = count($entries);
+            $written = [];
+            $mainPath = self::staticRootPath();
+
+            if ($total <= self::MAX_URLS_PER_FILE) {
+                $xml = self::renderUrlset($entries);
+                if (!self::isCacheableXml($xml) || !self::writeStaticFileAtomic($mainPath, $xml)) {
+                    return ['ok' => false, 'message' => 'Could not write sitemap.xml to the document root.'];
+                }
+                $written[] = $mainPath;
+                self::removeAllStaticPartFiles();
+
+                return [
+                    'ok' => true,
+                    'path' => $mainPath,
+                    'url_count' => $total,
+                    'files' => $written,
+                    'parts' => 1,
+                ];
+            }
+
+            $chunks = (int) ceil($total / self::MAX_URLS_PER_FILE);
+            for ($i = 1; $i <= $chunks; $i++) {
+                $offset = ($i - 1) * self::MAX_URLS_PER_FILE;
+                $slice = array_slice($entries, $offset, self::MAX_URLS_PER_FILE);
+                $partXml = self::renderUrlset($slice);
+                $partPath = self::staticPartPath($i);
+                if (!self::isCacheableXml($partXml) || !self::writeStaticFileAtomic($partPath, $partXml)) {
+                    return ['ok' => false, 'message' => 'Could not write sitemap part ' . $i . '.'];
+                }
+                $written[] = $partPath;
+            }
+            self::removeStaticPartFilesAbove($chunks);
+
+            $locs = [];
+            for ($i = 1; $i <= $chunks; $i++) {
+                $locs[] = SeoUrl::absolute('/sitemap-' . $i . '.xml');
+            }
+            $indexXml = self::renderSitemapIndex($locs);
+            if (!self::isCacheableXml($indexXml) || !self::writeStaticFileAtomic($mainPath, $indexXml)) {
+                return ['ok' => false, 'message' => 'Could not write sitemap index to sitemap.xml.'];
+            }
+            $written[] = $mainPath;
+
+            return [
+                'ok' => true,
+                'path' => $mainPath,
+                'url_count' => $total,
+                'files' => $written,
+                'parts' => $chunks,
+            ];
+        } catch (Throwable $e) {
+            error_log('SeoSitemap::writeStaticXmlFiles: ' . $e->getMessage());
+
+            return ['ok' => false, 'message' => 'Sitemap file generation failed.'];
+        }
+    }
+
+    private static function writeStaticFileAtomic(string $path, string $xml): bool
+    {
+        $dir = dirname($path);
+        if (!is_dir($dir)) {
+            return false;
+        }
+        $tmp = $path . '.' . bin2hex(random_bytes(4)) . '.tmp';
+        if (@file_put_contents($tmp, $xml, LOCK_EX) === false) {
+            @unlink($tmp);
+
+            return false;
+        }
+        if (!@rename($tmp, $path)) {
+            @unlink($tmp);
+
+            return false;
+        }
+
+        return true;
+    }
+
+    private static function removeAllStaticPartFiles(): void
+    {
+        foreach (glob(APNI_TOKRI_ROOT . '/sitemap-[0-9]*.xml') ?: [] as $file) {
+            if (is_file($file)) {
+                @unlink($file);
+            }
+        }
+    }
+
+    private static function removeStaticPartFilesAbove(int $maxPart): void
+    {
+        foreach (glob(APNI_TOKRI_ROOT . '/sitemap-[0-9]*.xml') ?: [] as $file) {
+            if (!preg_match('#/sitemap-([0-9]+)\.xml$#', str_replace('\\', '/', $file), $m)) {
+                continue;
+            }
+            if ((int) $m[1] > $maxPart && is_file($file)) {
+                @unlink($file);
+            }
+        }
+    }
+
+    public static function resetCollectMemo(): void
+    {
+        self::$collectedEntriesMemo = null;
+    }
+
+    /**
+     * @param list<array{loc: string, lastmod?: string, images?: list<string>}> $entries
      */
     public static function renderUrlset(array $entries): string
     {
+        $hasImages = false;
+        foreach ($entries as $entry) {
+            if (!empty($entry['images'])) {
+                $hasImages = true;
+                break;
+            }
+        }
+
         $xml = '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
-        $xml .= '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
+        if ($hasImages) {
+            $xml .= '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"'
+                . ' xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">' . "\n";
+        } else {
+            $xml .= '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
+        }
         foreach ($entries as $entry) {
             $loc = self::xmlEscape((string) ($entry['loc'] ?? ''));
             if ($loc === '') {
@@ -133,6 +338,14 @@ final class SeoSitemap
             $lastmod = $entry['lastmod'] ?? null;
             if (is_string($lastmod) && $lastmod !== '') {
                 $xml .= '    <lastmod>' . self::xmlEscape($lastmod) . "</lastmod>\n";
+            }
+            foreach ($entry['images'] ?? [] as $imageLoc) {
+                if (!is_string($imageLoc) || $imageLoc === '') {
+                    continue;
+                }
+                $xml .= "    <image:image>\n";
+                $xml .= '      <image:loc>' . self::xmlEscape($imageLoc) . "</image:loc>\n";
+                $xml .= "    </image:image>\n";
             }
             $xml .= "  </url>\n";
         }
@@ -178,6 +391,8 @@ final class SeoSitemap
             '/order-details.php',
             '/refund-details.php',
             '/account.php',
+            '/payment.php',
+            '/subscription-payment.php',
         ];
         foreach ($blocked as $b) {
             if ($path === $b || str_starts_with($path, $b . '/')) {
@@ -223,23 +438,155 @@ final class SeoSitemap
     }
 
     /**
-     * @param array<string, array{loc: string, lastmod?: string}> $byLoc
-     * @param array{loc: string, lastmod?: string} $entry
+     * @param array<string, array{loc: string, lastmod?: string, images?: list<string>}> $byLoc
+     * @param array{loc: string, lastmod?: string, images?: list<string>} $entry
      * @param array<string, true> $redirectSources
      */
     private static function addEntry(array &$byLoc, array $entry, array $redirectSources): void
     {
-        $loc = (string) ($entry['loc'] ?? '');
+        $loc = SeoUrl::normalizeSitemapLoc((string) ($entry['loc'] ?? ''));
         if ($loc === '' || !self::isEligibleAbsoluteUrl($loc)) {
             return;
         }
         if (isset($redirectSources[$loc])) {
             return;
         }
-        $byLoc[$loc] = [
-            'loc' => $loc,
-            'lastmod' => $entry['lastmod'] ?? ($byLoc[$loc]['lastmod'] ?? null),
-        ];
+        if (!isset($byLoc[$loc])) {
+            $byLoc[$loc] = [
+                'loc' => $loc,
+                'lastmod' => $entry['lastmod'] ?? null,
+                'images' => $entry['images'] ?? [],
+            ];
+
+            return;
+        }
+        if (isset($entry['lastmod']) && is_string($entry['lastmod']) && $entry['lastmod'] !== '') {
+            $byLoc[$loc]['lastmod'] = $entry['lastmod'];
+        }
+        if (!empty($entry['images'])) {
+            $merged = array_values(array_unique(array_merge($byLoc[$loc]['images'] ?? [], $entry['images'])));
+            $byLoc[$loc]['images'] = $merged;
+        }
+    }
+
+    /**
+     * @param array<string, array{loc: string, lastmod?: string, images?: list<string>}> $byLoc
+     * @param array<int, array<string, mixed>> $productRows
+     */
+    private static function attachProductImagesToEntries(array &$byLoc, array $productRows, PDO $pdo): void
+    {
+        $ids = array_keys($productRows);
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $useMedia = class_exists('MediaLibrary', false) && MediaLibrary::isEnabled();
+        $sql = $useMedia
+            ? "SELECT pi.product_id, pi.file_path, pi.media_id, pi.is_primary, pi.sort_order,
+                      m.file_sha256 AS media_file_sha256
+               FROM product_images pi
+               LEFT JOIN media_assets m ON m.id = pi.media_id AND m.deleted_at IS NULL
+               WHERE pi.product_id IN ({$placeholders})
+               ORDER BY pi.product_id, pi.is_primary DESC, pi.sort_order ASC, pi.id ASC"
+            : "SELECT pi.product_id, pi.file_path, pi.media_id, pi.is_primary, pi.sort_order, NULL AS media_file_sha256
+               FROM product_images pi
+               WHERE pi.product_id IN ({$placeholders})
+               ORDER BY pi.product_id, pi.is_primary DESC, pi.sort_order ASC, pi.id ASC";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($ids);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        if ($rows === []) {
+            return;
+        }
+
+        $imagesByProduct = [];
+        foreach ($rows as $imgRow) {
+            $productId = (int) ($imgRow['product_id'] ?? 0);
+            if ($productId <= 0) {
+                continue;
+            }
+            $mediaId = (int) ($imgRow['media_id'] ?? 0);
+            if ($useMedia && $mediaId > 0 && empty($imgRow['media_file_sha256'])) {
+                continue;
+            }
+            $absolute = self::productImageAbsoluteUrl($imgRow);
+            if ($absolute === null) {
+                continue;
+            }
+            $imagesByProduct[$productId][] = $absolute;
+        }
+
+        foreach ($productRows as $productId => $row) {
+            $imageLocs = $imagesByProduct[$productId] ?? [];
+            if ($imageLocs === []) {
+                continue;
+            }
+            $meta = SeoResolver::forProductRow($row);
+            $loc = (string) ($meta->canonicalUrl ?? '');
+            if ($loc === '' || !isset($byLoc[$loc])) {
+                continue;
+            }
+            $byLoc[$loc]['images'] = array_values(array_unique(array_merge($byLoc[$loc]['images'] ?? [], $imageLocs)));
+        }
+    }
+
+    /** @param array<string, mixed> $imageRow */
+    private static function productImageAbsoluteUrl(array $imageRow): ?string
+    {
+        $path = (string) ($imageRow['file_path'] ?? '');
+        if ($path === '') {
+            return null;
+        }
+        if (preg_match('#^https?://#i', $path)) {
+            return SeoUrl::validateOgImage($path);
+        }
+
+        return SeoUrl::validateOgImage(SeoUrl::absolute('/' . ltrim($path, '/')));
+    }
+
+    private static function cacheDirectory(): string
+    {
+        return APNI_TOKRI_ROOT . self::CACHE_DIR_RELATIVE;
+    }
+
+    private static function cacheFilePath(?int $part): string
+    {
+        $key = hash('sha256', rtrim(App::baseUrl(), '/') . '|' . url_base() . '|' . ($part ?? 0));
+
+        return self::cacheDirectory() . '/' . $key . '.xml';
+    }
+
+    private static function readResponseCache(?int $part): ?string
+    {
+        $path = self::cacheFilePath($part);
+        if (!is_file($path)) {
+            return null;
+        }
+        $mtime = filemtime($path);
+        if ($mtime === false || (time() - $mtime) > self::CACHE_TTL_SECONDS) {
+            @unlink($path);
+
+            return null;
+        }
+        $body = file_get_contents($path);
+
+        return is_string($body) && $body !== '' && self::isCacheableXml($body) ? $body : null;
+    }
+
+    private static function writeResponseCache(?int $part, string $xml): void
+    {
+        $dir = self::cacheDirectory();
+        if (!is_dir($dir) && !@mkdir($dir, 0755, true) && !is_dir($dir)) {
+            return;
+        }
+        $htaccess = $dir . '/.htaccess';
+        if (!is_file($htaccess)) {
+            @file_put_contents($htaccess, "Require all denied\n");
+        }
+        @file_put_contents(self::cacheFilePath($part), $xml, LOCK_EX);
+    }
+
+    private static function isCacheableXml(string $xml): bool
+    {
+        return str_contains($xml, '<urlset')
+            || str_contains($xml, '<sitemapindex');
     }
 
     /** @return array<string, true> */
@@ -280,7 +627,7 @@ final class SeoSitemap
             return null;
         }
 
-        return gmdate('Y-m-d', $ts);
+        return gmdate('Y-m-d\TH:i:s\Z', $ts);
     }
 
     private static function xmlEscape(string $value): string

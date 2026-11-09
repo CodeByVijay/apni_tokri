@@ -318,12 +318,17 @@ final class CmsPageService
         $data['published_at'] = null;
 
         try {
-            return Database::transaction(static function () use ($id, $data, $adminId, $changeSummary): array {
+            $result = Database::transaction(static function () use ($id, $data, $adminId, $changeSummary): array {
                 CmsPageRepository::update($id, $data);
                 self::appendVersion($id, $data, $adminId, $changeSummary ?? 'Unpublished');
 
                 return ['ok' => true, 'id' => $id];
             });
+            if (!empty($result['ok'])) {
+                SeoSitemap::invalidateResponseCache();
+            }
+
+            return $result;
         } catch (Throwable $e) {
             error_log('CmsPageService::unpublish: ' . $e->getMessage());
 
@@ -446,7 +451,7 @@ final class CmsPageService
         ?int $adminId,
         string $summary
     ): array {
-        return Database::transaction(static function () use ($id, $existing, $data, $adminId, $summary): array {
+        $result = Database::transaction(static function () use ($id, $existing, $data, $adminId, $summary): array {
             $redirect = SeoRedirectService::registerCmsSlugChangeIfNeeded($existing, $data);
             if (!$redirect['ok']) {
                 throw new RuntimeException($redirect['message'] ?? 'Redirect registration failed.');
@@ -456,6 +461,11 @@ final class CmsPageService
 
             return ['ok' => true, 'id' => $id];
         });
+        if (!empty($result['ok'])) {
+            SeoSitemap::invalidateResponseCache();
+        }
+
+        return $result;
     }
 
     /** @param array<string, mixed> $data */

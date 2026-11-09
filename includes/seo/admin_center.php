@@ -524,6 +524,7 @@ final class SeoAdminCenter
         AppSettings::set('seo.home.meta_description', $desc !== '' ? $desc : null);
         AppSettings::set('seo.home.robots_index', $index);
         self::markWizardStep('homepage', $title !== '' && $desc !== '');
+        SeoSitemap::invalidateResponseCache();
 
         return ['ok' => true, 'message' => 'Homepage SEO saved.'];
     }

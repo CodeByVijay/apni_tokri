@@ -665,6 +665,7 @@ final class ProductRepository
         AuditLog::write('product.seo_update', 'product', (string) $id, [
             'from' => 'seo_catalog',
         ]);
+        SeoSitemap::invalidateResponseCache();
 
         return ['ok' => true, 'message' => 'Product SEO saved.'];
     }
@@ -718,7 +719,7 @@ final class ProductRepository
         Install::ensureConnection();
 
         if ($id === null) {
-            return Database::transaction(static function () use (
+            $createResult = Database::transaction(static function () use (
                 $categoryId,
                 $name,
                 $slug,
@@ -762,6 +763,12 @@ final class ProductRepository
 
                 return ['ok' => true, 'id' => $newId];
             });
+            if (!empty($createResult['ok'])) {
+                SeoSitemap::invalidateResponseCache();
+                CatalogueGateway::reset();
+            }
+
+            return $createResult;
         }
 
         $sku = $skuInput !== '' ? ProductSkuService::normalize($skuInput) : null;
@@ -822,6 +829,8 @@ final class ProductRepository
             return ['ok' => false, 'message' => 'Could not save product.'];
         }
         AuditLog::write('product.update', 'product', (string) $id, ['slug' => $slug]);
+        SeoSitemap::invalidateResponseCache();
+        CatalogueGateway::reset();
 
         return ['ok' => true, 'id' => $id];
     }
@@ -913,6 +922,9 @@ final class ProductRepository
                 $pdo->prepare('DELETE FROM product_variants WHERE id = ? AND product_id = ?')->execute([$eid, $productId]);
             }
         }
+
+        SeoSitemap::invalidateResponseCache();
+        CatalogueGateway::reset();
 
         return ['ok' => true];
     }
@@ -1231,6 +1243,7 @@ final class ProductRepository
         if ($viaVariant > 0 || $viaSku > 0) {
             $pdo->prepare("UPDATE products SET status = 'archived', updated_at = NOW() WHERE id = ?")->execute([$id]);
             CatalogueGateway::reset();
+            SeoSitemap::invalidateResponseCache();
             AuditLog::write('product.archive', 'product', (string) $id, ['reason' => 'order_history']);
 
             return [
@@ -1242,6 +1255,7 @@ final class ProductRepository
         try {
             $pdo->prepare('DELETE FROM products WHERE id = ?')->execute([$id]);
             CatalogueGateway::reset();
+            SeoSitemap::invalidateResponseCache();
             AuditLog::write('product.delete', 'product', (string) $id, ['slug' => (string) $row['slug']]);
 
             return ['ok' => true, 'message' => 'Product deleted successfully.'];
@@ -1352,6 +1366,10 @@ final class ProductRepository
                 $failed++;
                 $failedNames[] = $name !== '' ? $name : 'ID ' . $id;
             }
+        }
+
+        if ($succeeded > 0) {
+            SeoSitemap::invalidateResponseCache();
         }
 
         return [

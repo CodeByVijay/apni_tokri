@@ -79,6 +79,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             admin_flash_set((string) ($result['message'] ?? 'Saved.'), !empty($result['ok']) ? 'success' : 'error');
             break;
+        case 'regenerate_static_sitemap':
+            $result = SeoSitemap::writeStaticXmlFiles();
+            if (!empty($result['ok'])) {
+                SeoSitemap::clearResponseCache();
+                SeoSitemap::resetCollectMemo();
+                $n = (int) ($result['url_count'] ?? 0);
+                admin_flash_set('sitemap.xml regenerated (' . $n . ' URL(s)).');
+                SeoAdminCenter::markWizardStep('sitemap', $n > 0);
+            } else {
+                admin_flash_set((string) ($result['message'] ?? 'Could not regenerate sitemap.xml.'), 'error');
+            }
+            break;
         case 'save_templates':
             $result = SeoAdminCenter::saveTemplatesFromPost($_POST);
             admin_flash_set((string) ($result['message'] ?? 'Saved.'), !empty($result['ok']) ? 'success' : 'error');

@@ -12,7 +12,7 @@ final class SeoStructuredData
             return null;
         }
         $graph = new SeoJsonLd();
-        $siteUrl = self::validatedUrl($seo->canonicalUrl ?? SeoUrl::absolute('/index.php'));
+        $siteUrl = self::validatedUrl($seo->canonicalUrl ?? SeoUrl::homepageCanonicalUrl());
         if ($siteUrl === null) {
             return null;
         }
@@ -97,7 +97,7 @@ final class SeoStructuredData
         }
         $graph = new SeoJsonLd();
         $crumbs = [
-            ['Home', SeoUrl::absolute('/index.php')],
+            ['Home', SeoUrl::homepageCanonicalUrl()],
         ];
         if ($category !== null) {
             $catName = (string) ($category['name'] ?? '');
@@ -188,7 +188,7 @@ final class SeoStructuredData
         }
         $graph = new SeoJsonLd();
         $graph->add(self::breadcrumbList([
-            ['Home', SeoUrl::absolute('/index.php')],
+            ['Home', SeoUrl::homepageCanonicalUrl()],
             [$name, $canonical],
         ]));
 
@@ -217,7 +217,7 @@ final class SeoStructuredData
         }
         $graph = new SeoJsonLd();
         $graph->add(self::breadcrumbList([
-            ['Home', SeoUrl::absolute('/index.php')],
+            ['Home', SeoUrl::homepageCanonicalUrl()],
             [$title, $canonical],
         ]));
         $graph->add([

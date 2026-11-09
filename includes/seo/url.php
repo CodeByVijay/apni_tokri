@@ -16,6 +16,30 @@ final class SeoUrl
     }
 
     /**
+     * Homepage canonical: site root when installed at web root (production), else /index.php under a url_path prefix.
+     */
+    public static function homepageCanonicalUrl(): string
+    {
+        if (url_base() === '') {
+            return self::absolute('/');
+        }
+
+        return self::absolute('/index.php');
+    }
+
+    /** Collapse /index.php homepage loc to root canonical when they are equivalent for sitemap deduplication. */
+    public static function normalizeSitemapLoc(string $absoluteUrl): string
+    {
+        $canonical = self::homepageCanonicalUrl();
+        $legacyIndex = self::absolute('/index.php');
+        if ($absoluteUrl === $legacyIndex && $canonical !== $legacyIndex) {
+            return $canonical;
+        }
+
+        return $absoluteUrl;
+    }
+
+    /**
      * Customer-facing absolute URL (admin Website URL + url_path on production).
      * Use for payment gateway return/callback URLs and customer notification links.
      */

@@ -20,7 +20,7 @@ final class SeoResolver
         return new SeoMetadata(
             $title,
             SeoMetadata::cleanDescription($desc),
-            SeoUrl::absolute('/index.php'),
+            SeoUrl::homepageCanonicalUrl(),
             $robots,
             $title,
             SeoMetadata::cleanDescription($desc),

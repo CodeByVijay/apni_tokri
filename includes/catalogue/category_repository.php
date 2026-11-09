@@ -433,6 +433,8 @@ final class CategoryRepository
             ]);
             $newId = (int) $pdo->lastInsertId();
             AuditLog::write('category.create', 'category', (string) $newId, ['slug' => $slug]);
+            SeoSitemap::invalidateResponseCache();
+            CatalogueGateway::reset();
 
             return ['ok' => true, 'id' => $newId];
         }
@@ -482,6 +484,8 @@ final class CategoryRepository
             return ['ok' => false, 'message' => 'Could not save category.'];
         }
         AuditLog::write('category.update', 'category', (string) $id, ['slug' => $slug]);
+        SeoSitemap::invalidateResponseCache();
+        CatalogueGateway::reset();
 
         return ['ok' => true, 'id' => $id];
     }
@@ -507,6 +511,7 @@ final class CategoryRepository
         try {
             $pdo->prepare('DELETE FROM categories WHERE id = ?')->execute([$id]);
             CatalogueGateway::reset();
+            SeoSitemap::invalidateResponseCache();
             AuditLog::write('category.delete', 'category', (string) $id, ['slug' => (string) $row['slug']]);
 
             return ['ok' => true, 'message' => 'Category deleted.'];

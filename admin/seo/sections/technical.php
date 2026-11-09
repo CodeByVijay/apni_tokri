@@ -25,6 +25,21 @@ $sitemapPublic = url_base() . '/sitemap.php';
                 <div><dt class="at-muted">Status</dt><dd><?= $urlCount > 0 ? 'Ready' : 'Not configured yet — publish products or pages first.' ?></dd></div>
             </dl>
             <p class="text-xs at-muted">Submit the sitemap URL in Google Search Console after verification. Generating the sitemap does not mean Google has indexed your site.</p>
+            <?php
+            $staticPath = SeoSitemap::staticRootPath();
+            $staticMtime = is_file($staticPath) ? filemtime($staticPath) : false;
+            ?>
+            <dl class="text-sm grid sm:grid-cols-2 gap-2 mt-3">
+                <div><dt class="at-muted">Static file</dt><dd class="font-mono text-xs break-all"><?= Security::escape($staticPath) ?></dd></div>
+                <div><dt class="at-muted">Last regenerated</dt><dd><?= $staticMtime !== false ? Security::escape(date('Y-m-d H:i:s', $staticMtime)) : '—' ?></dd></div>
+            </dl>
+            <form method="post" class="mt-3">
+                <?= Csrf::field() ?>
+                <input type="hidden" name="section" value="technical">
+                <input type="hidden" name="seo_action" value="regenerate_static_sitemap">
+                <button type="submit" class="at-btn at-btn--secondary at-focusable"<?= $useDb ? '' : ' disabled' ?>>Regenerate sitemap.xml file</button>
+            </form>
+            <p class="text-xs at-muted mt-1">CLI: <code class="font-mono">php scripts/regenerate-sitemap-xml.php</code> — also updates automatically after catalogue and CMS changes.</p>
     </div>
 
     <div class="at-seo-saas__panel">
