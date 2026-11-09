@@ -29,8 +29,8 @@ final class NominatimReverseGeocoder
             return ['ok' => false, 'error' => 'Invalid coordinates.'];
         }
 
-        $base = App::baseUrl();
-        $ua = 'VeggieTokriCheckout/1.0 (+' . ($base !== '' ? $base : 'https://veggietokri.com') . ')';
+        $base = BusinessSettings::websiteUrl();
+        $ua = 'VeggieTokriCheckout/1.0 (+' . $base . ')';
 
         $url = self::ENDPOINT . '?format=jsonv2&lat=' . rawurlencode((string) $lat)
             . '&lon=' . rawurlencode((string) $lng) . '&addressdetails=1';

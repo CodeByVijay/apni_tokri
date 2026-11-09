@@ -589,6 +589,8 @@ final class BusinessSettings
             AppSettings::set(self::KEY_UDYAM_CERTIFICATE_FILE, null);
         }
 
+        SeoSitemap::invalidateResponseCache();
+
         return ['ok' => true, 'message' => 'Business profile saved.'];
     }
 

@@ -220,7 +220,7 @@ final class InvoiceEmailService
         $subject = $isCredit
             ? 'Your Veggie Tokri Credit Note – Order #' . $orderNo
             : 'Your Veggie Tokri Invoice – Order #' . $orderNo;
-        $link = App::baseUrl() . '/invoice-view.php?ref=' . $invoice['public_ref'];
+        $link = SeoUrl::storefrontAbsolute('/invoice-view.php?ref=' . rawurlencode((string) $invoice['public_ref']));
         $name = trim($customerName) !== '' ? trim($customerName) : 'there';
         $amount = InvoiceFormat::money((float) $invoice['grand_total']);
         $e = static function (string $s): string {

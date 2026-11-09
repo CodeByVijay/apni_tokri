@@ -415,9 +415,25 @@ final class SeoSitemap
 
     public static function isEligibleAbsoluteUrl(string $absoluteUrl): bool
     {
-        $base = rtrim(App::baseUrl(), '/');
+        $base = SeoUrl::publicSiteBaseUrl();
         if ($base !== '' && !str_starts_with($absoluteUrl, $base)) {
-            return false;
+            $legacyBase = rtrim(App::baseUrl(), '/');
+            if ($legacyBase === '' || $legacyBase === $base || !str_starts_with($absoluteUrl, $legacyBase)) {
+                return false;
+            }
+            $relative = substr($absoluteUrl, strlen($legacyBase)) ?: '/';
+            $pathPart = parse_url($relative, PHP_URL_PATH);
+            if (!is_string($pathPart) || $pathPart === '') {
+                return false;
+            }
+            $appPath = $pathPart;
+            if (url_base() !== '' && str_starts_with($pathPart, url_base())) {
+                $appPath = substr($pathPart, strlen(url_base())) ?: '/';
+            }
+            $query = parse_url($relative, PHP_URL_QUERY);
+            $check = $appPath . (is_string($query) && $query !== '' ? '?' . $query : '');
+
+            return !self::isBlockedAppPath($check);
         }
         $relative = $absoluteUrl;
         if ($base !== '') {
@@ -548,7 +564,7 @@ final class SeoSitemap
 
     private static function cacheFilePath(?int $part): string
     {
-        $key = hash('sha256', rtrim(App::baseUrl(), '/') . '|' . url_base() . '|' . ($part ?? 0));
+        $key = hash('sha256', SeoUrl::publicSiteBaseUrl() . '|' . url_base() . '|' . ($part ?? 0));
 
         return self::cacheDirectory() . '/' . $key . '.xml';
     }

@@ -114,8 +114,8 @@ final class InvoiceSettings
 
         return [
             'footer' => $f['footer'] !== '' ? $f['footer'] : 'Thank you for shopping with Veggie Tokri.',
-            'return_url' => $f['return_url'] !== '' ? $f['return_url'] : App::baseUrl() . '/page.php?slug=refund-policy',
-            'terms_url' => $f['terms_url'] !== '' ? $f['terms_url'] : App::baseUrl() . '/page.php?slug=terms',
+            'return_url' => $f['return_url'] !== '' ? $f['return_url'] : SeoUrl::absolute('/page.php?slug=refund-policy'),
+            'terms_url' => $f['terms_url'] !== '' ? $f['terms_url'] : SeoUrl::absolute('/page.php?slug=terms'),
             'show_sku' => $f['show_sku'] === '1',
             'show_delivery_slot' => $f['show_delivery_slot'] === '1',
             'show_map_link' => $f['show_map_link'] === '1',

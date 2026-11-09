@@ -189,8 +189,8 @@ final class GooglePlacesGeocoder
         int $timeoutSeconds,
         string $operation
     ): array {
-        $base = App::baseUrl();
-        $ua = 'VeggieTokriGooglePlaces/2.0 (+' . ($base !== '' ? $base : 'https://veggietokri.com') . ')';
+        $base = BusinessSettings::websiteUrl();
+        $ua = 'VeggieTokriGooglePlaces/2.0 (+' . $base . ')';
         $endpointSafe = self::safeEndpointForLog($url);
         $provider = 'google_places_v1';
 

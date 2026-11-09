@@ -243,8 +243,8 @@ final class PhotonForwardGeocoder
         }
         $url = $r['base'] . '?' . $query;
 
-        $base = App::baseUrl();
-        $ua = 'VeggieTokriPhoton/1.0 (+' . ($base !== '' ? $base : 'https://veggietokri.com') . ')';
+        $base = BusinessSettings::websiteUrl();
+        $ua = 'VeggieTokriPhoton/1.0 (+' . $base . ')';
 
         $ch = curl_init($url);
         if ($ch === false) {

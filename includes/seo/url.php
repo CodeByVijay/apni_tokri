@@ -9,10 +9,19 @@ final class SeoUrl
         return BrandingSettings::siteName();
     }
 
-    /** Absolute site URL for a public app path (deployment {@see App::baseUrl()}, not the request Host header). */
+    /**
+     * Canonical public site origin (scheme + host + optional url_path), not the HTTP request host.
+     * Admin → Settings → Website URL on production; local dev keeps {@see App::baseUrl()}.
+     */
+    public static function publicSiteBaseUrl(): string
+    {
+        return rtrim(BusinessSettings::storefrontBaseUrl(), '/');
+    }
+
+    /** Absolute storefront URL for a public app path (canonical domain + relative path). */
     public static function absolute(string $path): string
     {
-        return self::absoluteWithBase(rtrim(App::baseUrl(), '/'), $path);
+        return self::absoluteWithBase(self::publicSiteBaseUrl(), $path);
     }
 
     /**
@@ -45,7 +54,7 @@ final class SeoUrl
      */
     public static function storefrontAbsolute(string $path): string
     {
-        return self::absoluteWithBase(BusinessSettings::storefrontBaseUrl(), $path);
+        return self::absolute($path);
     }
 
     private static function absoluteWithBase(string $base, string $path): string
@@ -83,7 +92,9 @@ final class SeoUrl
             return null;
         }
         if (preg_match('#^https?://#i', $url)) {
-            return self::normalizeAbsolute($url);
+            $normalized = self::normalizeAbsolute($url);
+
+            return $normalized !== null ? self::rewriteLegacyStorefrontOrigin($normalized) : null;
         }
         if (str_starts_with($url, '//')) {
             return null;
@@ -130,5 +141,38 @@ final class SeoUrl
         }
 
         return $url;
+    }
+
+    /**
+     * Remap stored absolute URLs on a retired Veggie Tokri hostname to the configured Website URL.
+     * Does not alter legitimate third-party URLs.
+     */
+    public static function rewriteLegacyStorefrontOrigin(string $absoluteUrl): string
+    {
+        $parts = parse_url($absoluteUrl);
+        if ($parts === false || empty($parts['host'])) {
+            return $absoluteUrl;
+        }
+        $host = strtolower((string) $parts['host']);
+        $legacyHosts = ['veggietokri.in', 'www.veggietokri.in', 'apnitokri.in', 'www.apnitokri.in'];
+        if (!in_array($host, $legacyHosts, true)) {
+            return $absoluteUrl;
+        }
+        $targetBase = self::publicSiteBaseUrl();
+        if ($targetBase === '') {
+            return $absoluteUrl;
+        }
+        $targetHost = strtolower((string) parse_url($targetBase, PHP_URL_HOST));
+        if ($targetHost === '' || $targetHost === $host) {
+            return $absoluteUrl;
+        }
+        $scheme = strtolower((string) (parse_url($targetBase, PHP_URL_SCHEME) ?: 'https'));
+        $path = (string) ($parts['path'] ?? '/');
+        $query = isset($parts['query']) && $parts['query'] !== '' ? '?' . $parts['query'] : '';
+        $fragment = isset($parts['fragment']) && $parts['fragment'] !== '' ? '#' . $parts['fragment'] : '';
+        $port = parse_url($targetBase, PHP_URL_PORT);
+        $authority = $targetHost . (is_int($port) ? ':' . $port : '');
+
+        return $scheme . '://' . $authority . ($path !== '' ? $path : '/') . $query . $fragment;
     }
 }
