@@ -37,7 +37,7 @@
 # Disable directory listing
 Options -Indexes
 
-# Long cache for versioned or stable static assets (CSS/JS use ?v=filemtime).
+# Long cache for static assets (CSS/JS and uploads use ?v=filemtime from asset_url()).
 <IfModule mod_headers.c>
     <FilesMatch "\.(css|js|jpg|jpeg|png|gif|webp|svg|ico|woff2?)$">
         Header set Cache-Control "public, max-age=31536000, immutable"

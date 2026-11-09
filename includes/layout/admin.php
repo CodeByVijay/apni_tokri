@@ -138,6 +138,16 @@ function layout_admin_start(array $vars): void
         echo '<span class="hidden md:inline text-sm at-muted">' . Security::escape($adminUser['email']) . '</span>';
     }
     echo '<div class="flex items-center gap-2 flex-shrink-0 overflow-visible">';
+    if (AdminAuth::check()) {
+        $refreshTarget = AdminHttpCache::refreshTargetFromRequest();
+        $refreshIsGet = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) === 'GET';
+        echo '<button type="button" id="at-admin-refresh" class="at-iconbtn at-focusable"';
+        echo ' title="Refresh admin" aria-label="Refresh admin"';
+        echo ' data-at-admin-refresh data-refresh-url="' . Security::escape($refreshTarget) . '"';
+        echo ' data-request-method="' . Security::escape($refreshIsGet ? 'GET' : 'POST') . '">';
+        echo at_icon('refresh', 'at-admin-refresh__icon');
+        echo '</button>';
+    }
     if (AdminAuth::check() && AdminNotificationService::viewerCanAccess() && AdminNotificationService::tableReady()) {
         $bellUnread = AdminNotificationService::unreadCountForCurrentAdmin();
         $inboxUrl = url_base() . '/admin/notifications/index.php';

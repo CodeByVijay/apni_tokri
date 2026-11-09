@@ -132,11 +132,15 @@ function asset_url(string $relativePath): string
     $relativePath = ltrim($relativePath, '/');
 
     $url = ($base === '' ? '' : $base) . '/' . $relativePath;
-    if (preg_match('#^assets/(css|js)/[^?]+\.(css|js)$#', $relativePath)) {
+    $needsVersion = preg_match('#^assets/(css|js)/.+\.(css|js)$#', $relativePath) === 1
+        || preg_match('#^uploads/.+\.(jpe?g|png|gif|webp|svg|ico)$#i', $relativePath) === 1;
+    if ($needsVersion) {
         $file = APNI_TOKRI_ROOT . '/' . $relativePath;
         if (is_file($file)) {
-            // Cache-bust so stylesheet/script fixes are never masked by a stale browser cache.
-            $url .= '?v=' . filemtime($file);
+            $mtime = filemtime($file);
+            if ($mtime !== false) {
+                $url .= (str_contains($url, '?') ? '&' : '?') . 'v=' . $mtime;
+            }
         }
     }
 

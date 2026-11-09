@@ -1685,6 +1685,36 @@
     });
   }
 
+  function initAdminRefresh() {
+    var $btn = $('#at-admin-refresh');
+    if (!$btn.length) {
+      return;
+    }
+    $btn.on('click', function () {
+      if ($btn.hasClass('is-loading')) {
+        return;
+      }
+      var base = $btn.attr('data-refresh-url') || '';
+      if (base === '') {
+        return;
+      }
+      $btn.addClass('is-loading').prop('disabled', true).attr('aria-busy', 'true');
+      var target;
+      try {
+        target = new URL(base, window.location.origin);
+      } catch (e) {
+        target = new URL(window.location.pathname, window.location.origin);
+      }
+      target.searchParams.delete('_at_r');
+      target.searchParams.delete('_at_cb');
+      target.searchParams.set('_at_r', String(Date.now()));
+      if (window.location.hash) {
+        target.hash = window.location.hash;
+      }
+      window.location.replace(target.pathname + target.search + target.hash);
+    });
+  }
+
   function initSubmitOnce() {
     $(document).on('click', 'button[type="submit"][data-at-submit-once], input[type="submit"][data-at-submit-once]', function () {
       var $btn = $(this);
@@ -1720,6 +1750,7 @@
     $('.js-image-sortable li').each(function (i) {
       $(this).attr('data-order', i + 1);
     });
+    initAdminRefresh();
     initAdminNotifications();
     initNotificationCenter();
     initSecretCredentialToggles();

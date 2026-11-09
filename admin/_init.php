@@ -8,6 +8,7 @@ require_once APNI_TOKRI_ROOT . '/includes/admin/menu_plan_submit_guard.php';
 require_once APNI_TOKRI_ROOT . '/includes/admin/bootstrap.php';
 require_once APNI_TOKRI_ROOT . '/includes/admin/guard.php';
 
-Security::sendSecurityHeaders(Security::isHttps());
+Security::sendSecurityHeaders(Security::isHttps(), true);
+AdminHttpCache::sendNoStoreHeaders();
 
 AdminGuard::requireAuthentication();

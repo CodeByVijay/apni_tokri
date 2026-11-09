@@ -55,7 +55,9 @@ final class Ajax
     {
         http_response_code($httpCode);
         header('Content-Type: application/json; charset=utf-8');
-        header('Cache-Control: no-store');
+        header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+        header('Pragma: no-cache');
+        header('Expires: 0');
         echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
         exit;
     }

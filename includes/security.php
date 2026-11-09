@@ -18,8 +18,9 @@ final class Security
         header('Referrer-Policy: strict-origin-when-cross-origin');
 
         if ($noStore) {
-            header('Cache-Control: no-store, no-cache, must-revalidate');
+            header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
             header('Pragma: no-cache');
+            header('Expires: 0');
         }
 
         if ($isHttps) {

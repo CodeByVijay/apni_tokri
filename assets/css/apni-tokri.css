@@ -1822,6 +1822,13 @@ body.at-modal-open {
 .at-iconbtn:hover {
   background: var(--at-green-50);
 }
+.at-iconbtn.is-loading {
+  opacity: 0.7;
+  pointer-events: none;
+}
+.at-iconbtn.is-loading .at-admin-refresh__icon {
+  animation: at-spin 0.75s linear infinite;
+}
 .at-iconbtn svg {
   width: 1.5rem;
   height: 1.5rem;
