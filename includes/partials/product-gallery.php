@@ -7,15 +7,23 @@ $images = $product['images'] ?? [];
 if ($images === []) {
     $images = [asset_url('assets/images/logo-placeholder.svg')];
 }
+$galleryInitial = 0;
+if (count($images) > 1) {
+    $galleryInitial = (int) ($product['gallery_initial_index'] ?? 0);
+    if ($galleryInitial < 0 || $galleryInitial >= count($images)) {
+        $galleryInitial = 0;
+    }
+}
+$mainSrc = $images[$galleryInitial] ?? $images[0];
 ?>
-<div class="at-gallery" data-at-gallery>
+<div class="at-gallery" data-at-gallery data-initial-index="<?= (int) $galleryInitial ?>">
     <div class="at-gallery__stage" data-at-gallery-stage>
-        <img id="at-gallery-main" class="at-img-fit" src="<?= Security::escape($images[0]) ?>" alt="<?= Security::escape((string) $product['name']) ?>" width="640" height="480" decoding="async" fetchpriority="high">
+        <img id="at-gallery-main" class="at-img-fit" src="<?= Security::escape($mainSrc) ?>" alt="<?= Security::escape((string) $product['name']) ?>" width="640" height="480" decoding="async" fetchpriority="high">
         <?php if (count($images) > 1): ?>
             <button type="button" class="at-gallery__nav at-gallery-nav at-gallery-prev at-focusable" style="left:.6rem" aria-label="Previous image">‹</button>
             <button type="button" class="at-gallery__nav at-gallery-nav at-gallery-next at-focusable" style="right:.6rem" aria-label="Next image">›</button>
             <div class="at-gallery__dots" aria-hidden="true">
-                <?php foreach ($images as $i => $src): ?><i class="<?= $i === 0 ? 'is-on' : '' ?>"></i><?php endforeach; ?>
+                <?php foreach ($images as $i => $src): ?><i class="<?= $i === $galleryInitial ? 'is-on' : '' ?>"></i><?php endforeach; ?>
             </div>
         <?php endif; ?>
         <button type="button" class="at-badge at-badge--dark at-focusable js-gallery-zoom absolute top-3 right-3" aria-label="View larger image">
@@ -27,7 +35,7 @@ if ($images === []) {
             <?php foreach ($images as $i => $src): ?>
                 <li>
                     <button type="button"
-                        class="at-gallery-thumb at-focusable <?= $i === 0 ? 'border-brand-green' : 'border-transparent' ?>"
+                        class="at-gallery-thumb at-focusable <?= $i === $galleryInitial ? 'border-brand-green' : 'border-transparent' ?>"
                         data-index="<?= (int) $i ?>"
                         data-src="<?= Security::escape($src) ?>"
                         aria-label="Image <?= (int) ($i + 1) ?>">

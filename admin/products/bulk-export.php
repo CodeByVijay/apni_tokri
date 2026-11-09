@@ -12,7 +12,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     Csrf::requireValid();
     $action = (string) ($_POST['action'] ?? '');
     if ($action === 'export') {
-        $filters = ProductBulkExport::normalizeExportFilters([
+        $validated = ProductBulkExport::validateAndNormalizeExportFilters([
             'scope' => (string) ($_POST['scope'] ?? ProductBulkExport::SCOPE_FILTERED),
             'query' => (string) ($_POST['query'] ?? ''),
             'category' => (string) ($_POST['category'] ?? ''),
@@ -20,6 +20,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'product_ids' => is_array($_POST['product_ids'] ?? null) ? $_POST['product_ids'] : [],
             'include_images' => (string) ($_POST['export_format'] ?? 'xlsx') === 'package',
         ]);
+        if (empty($validated['ok']) || empty($validated['filters'])) {
+            http_response_code(400);
+            header('Content-Type: text/plain; charset=UTF-8');
+            echo (string) ($validated['message'] ?? 'Invalid export request.');
+            exit;
+        }
+        $filters = $validated['filters'];
         if ($filters['scope'] === ProductBulkExport::SCOPE_SELECTED && $filters['product_ids'] === []) {
             http_response_code(400);
             header('Content-Type: text/plain; charset=UTF-8');
@@ -45,7 +52,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$scope = isset($_GET['scope']) ? trim((string) $_GET['scope']) : ProductBulkExport::SCOPE_FILTERED;
+$scope = ProductBulkExport::SCOPE_FILTERED;
+$filterQ = '';
+$filterCat = '';
+$filterStatus = '';
+$getValidated = ProductBulkExport::validateAndNormalizeExportFilters([
+    'scope' => (string) ($_GET['scope'] ?? ProductBulkExport::SCOPE_FILTERED),
+    'query' => (string) ($_GET['q'] ?? ''),
+    'category' => (string) ($_GET['category'] ?? ''),
+    'status' => (string) ($_GET['status'] ?? ''),
+]);
+if (!empty($getValidated['ok']) && !empty($getValidated['filters'])) {
+    $scope = $getValidated['filters']['scope'];
+    $filterQ = $getValidated['filters']['query'];
+    $filterCat = $getValidated['filters']['category'];
+    $filterStatus = $getValidated['filters']['status'];
+}
+
 $prefillIds = [];
 if (isset($_GET['product_ids']) && is_string($_GET['product_ids'])) {
     foreach (explode(',', $_GET['product_ids']) as $part) {
@@ -59,10 +82,6 @@ if (isset($_GET['product_ids']) && is_string($_GET['product_ids'])) {
         $scope = ProductBulkExport::SCOPE_SELECTED;
     }
 }
-
-$filterQ = trim((string) ($_GET['q'] ?? ''));
-$filterCat = trim((string) ($_GET['category'] ?? ''));
-$filterStatus = trim((string) ($_GET['status'] ?? ''));
 
 admin_layout_start(['pageTitle' => 'Bulk product export', 'activeAdminNav' => 'products']);
 $pageHeading = 'Bulk product export';

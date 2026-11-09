@@ -97,14 +97,21 @@ okEx(
 
 okEx(SimpleXlsx::sanitizeCellString('=1+1')[0] === "'", 'spreadsheet sanitize leading equals');
 okEx(SimpleXlsx::sanitizeCellString('+cmd') === "'+cmd", 'spreadsheet sanitize leading plus');
+okEx(SimpleXlsx::sanitizeCellString('-1+2') === "'-1+2", 'spreadsheet sanitize leading minus');
 okEx(SimpleXlsx::sanitizeCellString('@evil') === "'@evil", 'spreadsheet sanitize leading at');
 okEx(SimpleXlsx::sanitizeCellString('hello') === 'hello', 'spreadsheet sanitize plain text');
+okEx(SimpleXlsx::sanitizeCellString('Export Product 1') === 'Export Product 1', 'spreadsheet leaves normal product name');
 
-okEx(ProductBulkExport::normalizeExportScope('bogus') === ProductBulkExport::SCOPE_FILTERED, 'invalid export scope defaults filtered');
-okEx(ProductBulkExport::normalizeExportStatus('invalid') === '', 'invalid export status cleared');
+$badScope = ProductBulkExport::validateAndNormalizeExportFilters(['scope' => 'injected']);
+okEx(empty($badScope['ok']), 'invalid export scope rejected');
+$badStatus = ProductBulkExport::validateAndNormalizeExportFilters(['scope' => ProductBulkExport::SCOPE_FILTERED, 'status' => 'invalid']);
+okEx(empty($badStatus['ok']), 'invalid export status rejected');
+$okScope = ProductBulkExport::validateAndNormalizeExportFilters(['scope' => ProductBulkExport::SCOPE_ALL]);
+okEx(!empty($okScope['ok']) && ($okScope['filters']['scope'] ?? '') === ProductBulkExport::SCOPE_ALL, 'valid scope all accepted');
 $bogusCount = ProductBulkExport::resolveExportCount(['scope' => 'injected', 'status' => 'draft']);
-$draftCount = ProductBulkExport::resolveExportCount(['scope' => ProductBulkExport::SCOPE_FILTERED, 'status' => 'draft']);
-okEx(($bogusCount['count'] ?? -1) === ($draftCount['count'] ?? -2), 'invalid scope applies same filters as filtered');
+okEx(empty($bogusCount['ok']), 'resolveExportCount rejects invalid scope');
+$badStatusCount = ProductBulkExport::resolveExportCount(['scope' => ProductBulkExport::SCOPE_FILTERED, 'status' => 'bogus']);
+okEx(empty($badStatusCount['ok']), 'resolveExportCount rejects invalid status');
 
 $listTotal = ProductRepository::searchForAdmin('Export Product', 'ex-cat-' . $tok, '', 1, 50, 'updated_at', 'desc')['total'];
 $exportTotal = ProductRepository::countAdminExport('Export Product', 'ex-cat-' . $tok, '');
@@ -160,6 +167,8 @@ $dl = ProductBulkExport::prepareDownloadFile(['scope' => ProductBulkExport::SCOP
 okEx(!empty($dl['ok']) && is_file($dl['path'] ?? ''), 'xlsx download prepare');
 $read = SimpleXlsx::read((string) $dl['path']);
 okEx(isset($read[ProductBulkImport::SHEET_PRODUCTS]), 'xlsx readable');
+$plainName = $read[ProductBulkImport::SHEET_PRODUCTS][1][2] ?? '';
+okEx($plainName === 'Export Product 1', 'normal product name unchanged in xlsx export');
 ProductBulkExport::unlinkDownloadTempFile($dl['path'] ?? null);
 
 $formulaDl = ProductBulkExport::prepareDownloadFile([
@@ -180,6 +189,12 @@ $seoRowF = $formulaRead[ProductBulkImport::SHEET_SEO][1] ?? [];
 okEx(str_starts_with((string) ($seoRowF[1] ?? ''), "'"), 'xlsx seo meta_title formula injection sanitized');
 okEx(str_starts_with((string) ($seoRowF[2] ?? ''), "'"), 'xlsx seo meta_description formula injection sanitized');
 ProductBulkExport::unlinkDownloadTempFile($formulaDl['path'] ?? null);
+
+$dbFormula = $pdo->prepare('SELECT name, short_description, description, meta_title, meta_description FROM products WHERE id = ?');
+$dbFormula->execute([$formulaId]);
+$dbRow = $dbFormula->fetch(PDO::FETCH_ASSOC) ?: [];
+okEx(($dbRow['name'] ?? '') === '=SUM(1+1)', 'export does not modify DB product name');
+okEx(($dbRow['short_description'] ?? '') === '-1+2', 'export does not modify DB short description');
 
 $zipSafe = new ReflectionMethod(ProductBulkExport::class, 'safeZipEntryName');
 $zipSafe->setAccessible(true);

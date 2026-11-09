@@ -16,7 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 Csrf::requireValid();
 
 $action = (string) ($_POST['action'] ?? '');
-$filters = ProductBulkExport::normalizeExportFilters([
+$validated = ProductBulkExport::validateAndNormalizeExportFilters([
     'scope' => (string) ($_POST['scope'] ?? ProductBulkExport::SCOPE_FILTERED),
     'query' => (string) ($_POST['query'] ?? ''),
     'category' => (string) ($_POST['category'] ?? ''),
@@ -24,6 +24,10 @@ $filters = ProductBulkExport::normalizeExportFilters([
     'product_ids' => is_array($_POST['product_ids'] ?? null) ? $_POST['product_ids'] : [],
     'include_images' => !empty($_POST['include_images']),
 ]);
+if (empty($validated['ok']) || empty($validated['filters'])) {
+    Ajax::error((string) ($validated['message'] ?? 'Invalid export request.'));
+}
+$filters = $validated['filters'];
 
 if ($action === 'count') {
     $count = ProductBulkExport::resolveExportCount($filters);

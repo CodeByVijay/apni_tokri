@@ -42,7 +42,7 @@ Only paths under `uploads/` are included. Internal server paths are never expose
 - Selected IDs validated against the `products` table.
 - Downloads streamed via `AdminFileDownload` with `nosniff` (temp files under system temp, removed after send).
 - Text cells that could be interpreted as spreadsheet formulas (`=`, `+`, `-`, `@` at the start) are prefixed so Excel opens them as plain text.
-- Export `scope` and `status` filters are normalized server-side; unknown scope falls back to **filtered**; invalid status is ignored.
+- Export `scope` and `status` are validated on count and download requests; unknown scope or invalid status return **400** / AJAX error (empty status means no status filter).
 
 ## Limits
 

@@ -347,5 +347,20 @@ $ajax = (string) file_get_contents(APNI_TOKRI_ROOT . '/admin/ajax/product-bulk-i
 okB(str_contains($ajax, 'Csrf::requireValid'), 'static: CSRF on bulk import AJAX');
 okB(str_contains($ajax, "denyIfCannot('products')"), 'static: products permission');
 
+$roundTrip = $workDir . '/roundtrip-' . $tok . '.xlsx';
+$roundSheets = [
+    'Check' => [
+        ['Product name', 'Note'],
+        ['Cherry Tomato', 'Fresh veg — no formula prefix'],
+        ['Potato', 'Storage tips'],
+    ],
+];
+okB(SimpleXlsx::write($roundSheets, $roundTrip), 'SimpleXlsx write round-trip workbook');
+$roundRead = SimpleXlsx::read($roundTrip);
+okB(($roundRead['Check'][1][0] ?? '') === 'Cherry Tomato', 'SimpleXlsx read preserves normal product name');
+okB(($roundRead['Check'][1][1] ?? '') === 'Fresh veg — no formula prefix', 'SimpleXlsx read preserves normal description');
+okB(SimpleXlsx::sanitizeCellString('Cherry Tomato') === 'Cherry Tomato', 'sanitize does not alter normal import labels');
+okB(SimpleXlsx::sanitizeCellString('=IMPORT') === "'=IMPORT", 'sanitize still prefixes formula-like template text on write');
+
 echo "\nSUMMARY fail={$fail}\n";
 exit($fail > 0 ? 1 : 0);

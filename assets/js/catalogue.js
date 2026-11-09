@@ -12,6 +12,10 @@
       images = [];
     }
     var index = 0;
+    var initialIndex = parseInt($gallery.attr('data-initial-index'), 10);
+    if (isNaN(initialIndex) || initialIndex < 0) {
+      initialIndex = 0;
+    }
     var $main = $('#at-gallery-main');
     var productName = $main.attr('alt') || 'Product image';
 
@@ -230,6 +234,13 @@
         if ($(e.target).closest('button').length) return;
         openLightbox(index);
       });
+    }
+
+    if (images.length) {
+      if (initialIndex >= images.length) {
+        initialIndex = 0;
+      }
+      show(initialIndex);
     }
   }
 

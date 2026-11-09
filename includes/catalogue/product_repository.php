@@ -470,6 +470,22 @@ final class ProductRepository
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
+    /**
+     * Storefront PDP / cards: primary image first, then remaining images by sort_order.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public static function storefrontImages(int $productId): array
+    {
+        Install::ensureConnection();
+        $stmt = Database::pdo()->prepare(
+            'SELECT * FROM product_images WHERE product_id = ? ORDER BY is_primary DESC, sort_order ASC, id ASC'
+        );
+        $stmt->execute([$productId]);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
     /** @return list<array<string, mixed>> */
     public static function attributes(int $productId): array
     {
@@ -959,7 +975,7 @@ final class ProductRepository
         }
 
         $images = [];
-        foreach (self::images($productId) as $img) {
+        foreach (self::storefrontImages($productId) as $img) {
             $path = (string) $img['file_path'];
             $images[] = strpos($path, 'http') === 0 ? $path : asset_url($path);
         }
@@ -992,6 +1008,7 @@ final class ProductRepository
             'short_description' => (string) ($row['short_description'] ?? ''),
             'description' => (string) ($row['description'] ?? ''),
             'images' => $images !== [] ? $images : [asset_url('assets/images/logo-placeholder.svg')],
+            'gallery_initial_index' => 0,
             'flags' => $flags,
             'variants' => $variants,
             'attributes' => $attributes,

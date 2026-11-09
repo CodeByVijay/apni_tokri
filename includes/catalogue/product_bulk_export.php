@@ -21,41 +21,35 @@ final class ProductBulkExport
         return 'P-' . $productId;
     }
 
-    public static function normalizeExportScope(string $scope): string
-    {
-        $scope = strtolower(trim($scope));
-        if ($scope === self::SCOPE_ALL || $scope === self::SCOPE_FILTERED || $scope === self::SCOPE_SELECTED) {
-            return $scope;
-        }
-
-        return self::SCOPE_FILTERED;
-    }
-
-    public static function normalizeExportStatus(string $status): string
-    {
-        $status = strtolower(trim($status));
-        if ($status === 'published' || $status === 'draft' || $status === 'archived') {
-            return $status;
-        }
-
-        return '';
-    }
-
     /**
      * @param array{scope?: string, query?: string, category?: string, status?: string, product_ids?: mixed, include_images?: bool} $filters
-     * @return array{scope: string, query: string, category: string, status: string, product_ids: list<int>, include_images: bool}
+     * @return array{ok: bool, filters?: array{scope: string, query: string, category: string, status: string, product_ids: list<int>, include_images: bool}, message?: string}
      */
-    public static function normalizeExportFilters(array $filters): array
+    public static function validateAndNormalizeExportFilters(array $filters): array
     {
+        $scopeRaw = strtolower(trim((string) ($filters['scope'] ?? '')));
+        if ($scopeRaw === '') {
+            $scopeRaw = self::SCOPE_FILTERED;
+        }
+        if ($scopeRaw !== self::SCOPE_ALL && $scopeRaw !== self::SCOPE_FILTERED && $scopeRaw !== self::SCOPE_SELECTED) {
+            return ['ok' => false, 'message' => 'Invalid export scope.'];
+        }
+        $statusRaw = strtolower(trim((string) ($filters['status'] ?? '')));
+        if ($statusRaw !== '' && $statusRaw !== 'published' && $statusRaw !== 'draft' && $statusRaw !== 'archived') {
+            return ['ok' => false, 'message' => 'Invalid status filter.'];
+        }
         $rawIds = $filters['product_ids'] ?? [];
 
         return [
-            'scope' => self::normalizeExportScope((string) ($filters['scope'] ?? self::SCOPE_FILTERED)),
-            'query' => trim((string) ($filters['query'] ?? '')),
-            'category' => trim((string) ($filters['category'] ?? '')),
-            'status' => self::normalizeExportStatus((string) ($filters['status'] ?? '')),
-            'product_ids' => is_array($rawIds) ? ProductRepository::normalizePositiveIntIds($rawIds) : [],
-            'include_images' => !empty($filters['include_images']),
+            'ok' => true,
+            'filters' => [
+                'scope' => $scopeRaw,
+                'query' => trim((string) ($filters['query'] ?? '')),
+                'category' => trim((string) ($filters['category'] ?? '')),
+                'status' => $statusRaw,
+                'product_ids' => is_array($rawIds) ? ProductRepository::normalizePositiveIntIds($rawIds) : [],
+                'include_images' => !empty($filters['include_images']),
+            ],
         ];
     }
 
@@ -77,7 +71,11 @@ final class ProductBulkExport
         if (!Install::isSchemaReady()) {
             return ['ok' => false, 'message' => 'Database not available.'];
         }
-        $filters = self::normalizeExportFilters($filters);
+        $validated = self::validateAndNormalizeExportFilters($filters);
+        if (empty($validated['ok']) || empty($validated['filters'])) {
+            return ['ok' => false, 'message' => $validated['message'] ?? 'Invalid export request.'];
+        }
+        $filters = $validated['filters'];
         $scope = $filters['scope'];
         if ($scope === self::SCOPE_SELECTED) {
             $candidate = ProductRepository::normalizePositiveIntIds($filters['product_ids']);
@@ -117,7 +115,11 @@ final class ProductBulkExport
         if (!Install::isSchemaReady()) {
             return ['ok' => false, 'message' => 'Database not available.'];
         }
-        $filters = self::normalizeExportFilters($filters);
+        $validated = self::validateAndNormalizeExportFilters($filters);
+        if (empty($validated['ok']) || empty($validated['filters'])) {
+            return ['ok' => false, 'message' => $validated['message'] ?? 'Invalid export request.'];
+        }
+        $filters = $validated['filters'];
         $scope = $filters['scope'];
         if ($scope === self::SCOPE_SELECTED) {
             $candidate = ProductRepository::normalizePositiveIntIds($filters['product_ids']);
@@ -286,7 +288,11 @@ final class ProductBulkExport
      */
     public static function prepareDownloadFile(array $filters): array
     {
-        $filters = self::normalizeExportFilters($filters);
+        $validated = self::validateAndNormalizeExportFilters($filters);
+        if (empty($validated['ok']) || empty($validated['filters'])) {
+            return ['ok' => false, 'message' => $validated['message'] ?? 'Invalid export request.'];
+        }
+        $filters = $validated['filters'];
         $resolved = self::resolveExportProductIds($filters);
         if (empty($resolved['ok'])) {
             return ['ok' => false, 'message' => $resolved['message'] ?? 'Export failed.'];
