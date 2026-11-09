@@ -11,6 +11,7 @@ $useDb = Install::isSchemaReady() && AdminAuth::check() && MediaLibrary::isEnabl
 $ajaxUrl = url_base() . '/admin/ajax/media-library.php';
 $csrf = Csrf::token();
 
+$tab = isset($_GET['tab']) && $_GET['tab'] === 'trash' ? 'trash' : 'all';
 $q = isset($_GET['q']) ? trim((string) $_GET['q']) : '';
 $usage = isset($_GET['usage']) ? (string) $_GET['usage'] : '';
 $sort = isset($_GET['sort']) && $_GET['sort'] === 'oldest' ? 'oldest' : 'newest';
@@ -21,20 +22,25 @@ if ($perPage > 48) {
 }
 
 $list = $useDb
-    ? MediaLibrary::search($q, in_array($usage, ['used', 'unused'], true) ? $usage : '', $sort, $page, $perPage)
+    ? ($tab === 'trash'
+        ? MediaLibrary::searchTrash($q, $sort, $page, $perPage)
+        : MediaLibrary::search($q, in_array($usage, ['used', 'unused'], true) ? $usage : '', $sort, $page, $perPage))
     : ['rows' => [], 'total' => 0, 'page' => 1, 'per_page' => $perPage, 'total_pages' => 0];
 
 $queryBase = array_filter([
+    'tab' => $tab === 'trash' ? 'trash' : null,
     'q' => $q !== '' ? $q : null,
-    'usage' => $usage !== '' ? $usage : null,
+    'usage' => $tab === 'all' && $usage !== '' ? $usage : null,
     'sort' => $sort !== 'newest' ? $sort : null,
     'per_page' => $perPage !== AdminServerList::DEFAULT_PER_PAGE ? $perPage : null,
 ]);
 $self = url_base() . '/admin/media/index.php';
+$tabAllUrl = $self . '?tab=all' . ($q !== '' ? '&q=' . rawurlencode($q) : '');
+$tabTrashUrl = $self . '?tab=trash' . ($q !== '' ? '&q=' . rawurlencode($q) : '');
 
 admin_layout_start(['pageTitle' => 'Media library', 'activeAdminNav' => 'media']);
 $pageHeading = 'Media library';
-$pageDescription = 'Upload once, reuse across products. Removing an image from a product does not delete the shared file.';
+$pageDescription = 'Upload once, reuse across products. Unused images can be moved to trash and restored or permanently deleted.';
 require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
 
 if (!$useDb): ?>
@@ -57,13 +63,30 @@ return; ?>
     data-ajax-url="<?= Security::escape($ajaxUrl) ?>"
     data-csrf="<?= Security::escape($csrf) ?>"
 >
+    <nav class="at-media-library__tabs mb-4 flex gap-2 border-b border-neutral-200" role="tablist" aria-label="Media library views">
+        <a
+            href="<?= Security::escape($tabAllUrl) ?>"
+            class="at-media-library__tab px-4 py-2 font-semibold <?= $tab === 'all' ? 'is-active' : '' ?>"
+            role="tab"
+            aria-selected="<?= $tab === 'all' ? 'true' : 'false' ?>"
+        >All Images</a>
+        <a
+            href="<?= Security::escape($tabTrashUrl) ?>"
+            class="at-media-library__tab px-4 py-2 font-semibold <?= $tab === 'trash' ? 'is-active' : '' ?>"
+            role="tab"
+            aria-selected="<?= $tab === 'trash' ? 'true' : 'false' ?>"
+        >Trash</a>
+    </nav>
+
     <div class="at-admin-card mb-4">
         <div class="at-admin-card__body space-y-4">
             <form method="get" class="flex flex-wrap gap-3 items-end">
+                <input type="hidden" name="tab" value="<?= Security::escape($tab) ?>">
                 <div class="flex-1 min-w-[12rem]">
                     <label class="at-label" for="media-q">Search filename</label>
                     <input id="media-q" name="q" class="at-input at-focusable" value="<?= Security::escape($q) ?>" placeholder="e.g. mango">
                 </div>
+                <?php if ($tab === 'all'): ?>
                 <div>
                     <label class="at-label" for="media-usage">Usage</label>
                     <select id="media-usage" name="usage" class="at-input at-focusable">
@@ -72,6 +95,7 @@ return; ?>
                         <option value="unused"<?= $usage === 'unused' ? ' selected' : '' ?>>Unused</option>
                     </select>
                 </div>
+                <?php endif; ?>
                 <div>
                     <label class="at-label" for="media-sort">Sort</label>
                     <select id="media-sort" name="sort" class="at-input at-focusable">
@@ -83,6 +107,7 @@ return; ?>
                 <button type="submit" class="at-btn at-btn--secondary at-focusable">Apply</button>
             </form>
 
+            <?php if ($tab === 'all'): ?>
             <div class="at-media-library__upload border border-dashed border-neutral-300 rounded-lg p-4" data-at-media-dropzone tabindex="0" role="button" aria-label="Upload images">
                 <p class="font-semibold">Upload images</p>
                 <p class="text-sm at-muted">JPEG, PNG or WebP · max 5 MB each · multiple files supported</p>
@@ -92,15 +117,18 @@ return; ?>
                 </div>
                 <div class="mt-2 text-sm space-y-1" data-at-media-upload-status role="status" aria-live="polite"></div>
             </div>
+            <?php else: ?>
+            <p class="text-sm at-muted">Trashed images stay on disk until permanently deleted. Referenced files cannot be removed.</p>
+            <?php endif; ?>
         </div>
     </div>
 
     <?php if ($list['rows'] === []): ?>
-        <p class="text-sm at-muted">No media found.</p>
+        <p class="text-sm at-muted"><?= $tab === 'trash' ? 'Trash is empty.' : 'No media found.' ?></p>
     <?php else: ?>
         <ul class="at-media-library__grid" role="list">
             <?php foreach ($list['rows'] as $row):
-                $client = MediaLibrary::rowForClient($row);
+                $client = $tab === 'trash' ? MediaLibrary::rowForClientTrash($row) : MediaLibrary::rowForClient($row);
                 $mid = (int) $client['id'];
                 $usageCount = (int) $client['usage_count'];
                 ?>
@@ -114,18 +142,42 @@ return; ?>
                     <p class="at-media-card__meta text-xs at-muted">
                         <?= (int) $client['width'] ?>×<?= (int) $client['height'] ?>
                         · <?= Security::escape(number_format($client['file_size'] / 1024, 1)) ?> KB
+                        <?php if ($tab === 'all'): ?>
                         · <?= $usageCount ?> product<?= $usageCount === 1 ? '' : 's' ?>
+                        <?php endif; ?>
                     </p>
-                    <p class="at-media-card__meta text-xs at-muted"><?= Security::escape($client['created_at']) ?></p>
+                    <p class="at-media-card__meta text-xs at-muted">
+                        <?php if ($tab === 'trash' && ($client['deleted_at'] ?? '') !== ''): ?>
+                            Deleted <?= Security::escape($client['deleted_at']) ?>
+                        <?php else: ?>
+                            <?= Security::escape($client['created_at']) ?>
+                        <?php endif; ?>
+                    </p>
                     <div class="at-media-card__actions flex flex-wrap gap-1 mt-2">
-                        <?php if ($usageCount === 0): ?>
+                        <?php if ($tab === 'all'): ?>
+                            <?php if ($usageCount === 0): ?>
+                                <button
+                                    type="button"
+                                    class="at-btn at-btn--ghost at-btn--xs at-focusable"
+                                    data-at-media-soft-delete="<?= $mid ?>"
+                                >Move to trash</button>
+                            <?php else: ?>
+                                <span class="text-xs text-amber-800">In use</span>
+                            <?php endif; ?>
+                        <?php else: ?>
                             <button
                                 type="button"
-                                class="at-btn at-btn--ghost at-btn--xs at-focusable"
-                                data-at-media-soft-delete="<?= $mid ?>"
-                            >Soft delete</button>
-                        <?php else: ?>
-                            <span class="text-xs text-amber-800">In use</span>
+                                class="at-btn at-btn--secondary at-btn--xs at-focusable"
+                                data-at-media-restore="<?= $mid ?>"
+                            >Restore</button>
+                            <button
+                                type="button"
+                                class="at-btn at-btn--danger at-btn--xs at-focusable"
+                                data-at-media-purge="<?= $mid ?>"
+                                data-media-url="<?= Security::escape($client['url']) ?>"
+                                data-media-filename="<?= Security::escape($client['original_filename']) ?>"
+                                data-media-size="<?= (int) $client['file_size'] ?>"
+                            >Permanent delete</button>
                         <?php endif; ?>
                     </div>
                 </li>
@@ -137,6 +189,31 @@ return; ?>
         }
         ?>
     <?php endif; ?>
+
+    <div class="at-media-purge-modal hidden" data-at-media-purge-modal role="dialog" aria-modal="true" aria-labelledby="at-media-purge-title">
+        <div class="at-media-purge-modal__backdrop" data-at-media-purge-close tabindex="-1"></div>
+        <div class="at-media-purge-modal__panel">
+            <h2 id="at-media-purge-title" class="font-bold text-lg">Permanently delete image?</h2>
+            <p class="text-sm text-red-800 font-semibold mt-1">This cannot be undone.</p>
+            <div class="mt-4 flex gap-4 items-start">
+                <img src="" alt="" class="at-media-purge-modal__preview" data-at-media-purge-preview width="120" height="120">
+                <dl class="text-sm space-y-1">
+                    <div><dt class="inline font-semibold">File: </dt><dd class="inline" data-at-media-purge-filename></dd></div>
+                    <div><dt class="inline font-semibold">Size: </dt><dd class="inline" data-at-media-purge-size></dd></div>
+                </dl>
+            </div>
+            <p class="text-sm at-muted mt-3">The database record and file on disk will be removed if nothing else references this image.</p>
+            <label class="flex items-center gap-2 mt-4 text-sm">
+                <input type="checkbox" data-at-media-purge-confirm class="at-focusable">
+                I understand this is permanent
+            </label>
+            <p class="text-xs text-red-700 mt-2 hidden" data-at-media-purge-confirm-hint>Check the box above to enable delete.</p>
+            <div class="flex gap-2 justify-end mt-5">
+                <button type="button" class="at-btn at-btn--secondary at-focusable" data-at-media-purge-close>Cancel</button>
+                <button type="button" class="at-btn at-btn--danger at-focusable" disabled data-at-media-purge-submit>Delete permanently</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <?php admin_layout_end(); ?>

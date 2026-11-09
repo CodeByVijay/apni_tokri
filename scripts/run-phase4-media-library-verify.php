@@ -37,6 +37,11 @@ phase4_run('Parallel: test-media-library-concurrent.php', [
     '--migrate-media-library',
     $root . '/scripts/test-media-library-concurrent.php',
 ], $fail);
+phase4_run('Trash: test-media-library-trash.php', [
+    $runner,
+    '--migrate-media-library',
+    $root . '/scripts/test-media-library-trash.php',
+], $fail);
 phase4_run('Production readiness', [
     $root . DIRECTORY_SEPARATOR . 'scripts' . DIRECTORY_SEPARATOR . 'test-production-readiness.php',
 ], $fail);

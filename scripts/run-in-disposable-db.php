@@ -37,7 +37,11 @@ if ($targetPath === false || !str_starts_with($targetNorm, $scriptsPrefix)) {
     exit(2);
 }
 
-$needsMediaMigration = in_array(basename($targetPath), ['test-media-library.php', 'test-media-library-concurrent.php'], true);
+$needsMediaMigration = in_array(
+    basename($targetPath),
+    ['test-media-library.php', 'test-media-library-concurrent.php', 'test-media-library-trash.php'],
+    true
+);
 if ($needsMediaMigration && !$migrateMediaLibrary) {
     fwrite(STDERR, "Hint: Media Library tests require --migrate-media-library (production SQL has no media_assets).\n");
     exit(2);

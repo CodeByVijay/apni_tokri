@@ -8,6 +8,9 @@ final class MediaLibrary
     public const MSG_SOFT_DELETED_REUPLOAD =
         'This file matches media that was soft-deleted. Purge it permanently before re-uploading the same content.';
 
+    public const MSG_RESTORE_SHA_CONFLICT =
+        'Cannot restore: another active image already has the same file content (SHA-256). Permanently delete or deduplicate before restoring.';
+
     public static function isEnabled(): bool
     {
         static $cache = null;
@@ -346,6 +349,114 @@ final class MediaLibrary
     }
 
     /**
+     * Trash listing (soft-deleted assets only).
+     *
+     * @return array{rows: list<array<string,mixed>>, total: int, page: int, per_page: int, total_pages: int}
+     */
+    public static function searchTrash(string $q, string $sort, int $page, int $perPage): array
+    {
+        if (!self::isEnabled()) {
+            return ['rows' => [], 'total' => 0, 'page' => 1, 'per_page' => $perPage, 'total_pages' => 0];
+        }
+        $page = max(1, $page);
+        $perPage = max(1, min(60, $perPage));
+        $q = trim($q);
+        $params = [];
+        $where = ['m.deleted_at IS NOT NULL'];
+        if ($q !== '') {
+            $where[] = 'm.original_filename LIKE ?';
+            $params[] = '%' . str_replace(['%', '_'], ['\\%', '\\_'], $q) . '%';
+        }
+        $order = $sort === 'oldest' ? 'm.deleted_at ASC' : 'm.deleted_at DESC';
+        $whereSql = implode(' AND ', $where);
+        $countSql = "SELECT COUNT(*) FROM media_assets m WHERE {$whereSql}";
+        $stmt = Database::pdo()->prepare($countSql);
+        $stmt->execute($params);
+        $total = (int) $stmt->fetchColumn();
+        $offset = ($page - 1) * $perPage;
+        $sql = "SELECT m.* FROM media_assets m WHERE {$whereSql} ORDER BY {$order} LIMIT "
+            . (int) $perPage . ' OFFSET ' . (int) $offset;
+        $stmt = Database::pdo()->prepare($sql);
+        $stmt->execute($params);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        return [
+            'rows' => $rows,
+            'total' => $total,
+            'page' => $page,
+            'per_page' => $perPage,
+            'total_pages' => $total > 0 ? (int) ceil($total / $perPage) : 0,
+        ];
+    }
+
+    /** @return array<string, mixed>|null */
+    public static function findDeleted(int $mediaId): ?array
+    {
+        if ($mediaId <= 0 || !self::isEnabled()) {
+            return null;
+        }
+        $stmt = Database::pdo()->prepare(
+            'SELECT * FROM media_assets WHERE id = ? AND deleted_at IS NOT NULL LIMIT 1'
+        );
+        $stmt->execute([$mediaId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        return $row !== false ? $row : null;
+    }
+
+    /**
+     * @return array{ok: bool, message?: string}
+     */
+    public static function restore(int $mediaId): array
+    {
+        if ($mediaId <= 0) {
+            return ['ok' => false, 'message' => 'Invalid media.'];
+        }
+        $pdo = Database::pdo();
+        try {
+            $pdo->beginTransaction();
+            $stmt = $pdo->prepare('SELECT * FROM media_assets WHERE id = ? LIMIT 1 FOR UPDATE');
+            $stmt->execute([$mediaId]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($row === false || empty($row['deleted_at'])) {
+                $pdo->rollBack();
+
+                return ['ok' => false, 'message' => 'Media is not in trash or was already restored.'];
+            }
+            $sha = (string) ($row['file_sha256'] ?? '');
+            if ($sha !== '') {
+                $dup = $pdo->prepare(
+                    'SELECT id FROM media_assets WHERE file_sha256 = ? AND deleted_at IS NULL AND id <> ? LIMIT 1'
+                );
+                $dup->execute([$sha, $mediaId]);
+                $conflict = $dup->fetch(PDO::FETCH_ASSOC);
+                if (is_array($conflict)) {
+                    $pdo->rollBack();
+
+                    return ['ok' => false, 'message' => self::MSG_RESTORE_SHA_CONFLICT];
+                }
+            }
+            $upd = $pdo->prepare('UPDATE media_assets SET deleted_at = NULL WHERE id = ? AND deleted_at IS NOT NULL');
+            $upd->execute([$mediaId]);
+            if ($upd->rowCount() < 1) {
+                $pdo->rollBack();
+
+                return ['ok' => false, 'message' => 'Could not restore media.'];
+            }
+            $pdo->commit();
+
+            return ['ok' => true];
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            error_log('MediaLibrary::restore: ' . $e->getMessage());
+
+            return ['ok' => false, 'message' => 'Could not restore media.'];
+        }
+    }
+
+    /**
      * @param list<int> $mediaIds
      * @return array{attached: list<int>, skipped: list<int>, errors: list<string>}
      */
@@ -493,6 +604,18 @@ final class MediaLibrary
                         'message' => 'Cannot purge: product image rows still reference this file path.',
                     ];
                 }
+                $otherMedia = $pdo->prepare(
+                    'SELECT COUNT(*) FROM media_assets WHERE file_path = ? AND id <> ?'
+                );
+                $otherMedia->execute([$path, $mediaId]);
+                if ((int) $otherMedia->fetchColumn() > 0) {
+                    $pdo->rollBack();
+
+                    return [
+                        'ok' => false,
+                        'message' => 'Cannot purge: another media record uses this file path.',
+                    ];
+                }
             }
             $del = $pdo->prepare('DELETE FROM media_assets WHERE id = ? AND deleted_at IS NOT NULL');
             $del->execute([$mediaId]);
@@ -583,8 +706,18 @@ final class MediaLibrary
             'height' => (int) ($row['height'] ?? 0),
             'alt_text' => (string) ($row['alt_text'] ?? ''),
             'created_at' => (string) ($row['created_at'] ?? ''),
+            'deleted_at' => (string) ($row['deleted_at'] ?? ''),
             'usage_count' => (int) ($row['usage_count'] ?? self::productUsageCount($id)),
         ];
+    }
+
+    /** @return array<string, mixed> */
+    public static function rowForClientTrash(array $row): array
+    {
+        $client = self::rowForClient($row);
+        $client['usage_count'] = 0;
+
+        return $client;
     }
 
     private static function safeOriginalName(string $name): string

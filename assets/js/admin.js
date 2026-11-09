@@ -1067,7 +1067,7 @@
     });
     $root.on('click', '[data-at-media-soft-delete]', function () {
       var mid = $(this).attr('data-at-media-soft-delete');
-      if (!window.confirm('Soft-delete this unused image?')) return;
+      if (!window.confirm('Move this unused image to trash?')) return;
       $.ajax({
         url: ajaxUrl,
         method: 'POST',
@@ -1077,6 +1077,88 @@
         if (res && res.success) window.location.reload();
         else alert((res.error && res.error.message) || 'Delete failed.');
       });
+    });
+
+    $root.on('click', '[data-at-media-restore]', function () {
+      var mid = $(this).attr('data-at-media-restore');
+      $.ajax({
+        url: ajaxUrl,
+        method: 'POST',
+        data: { _csrf_token: csrf, action: 'restore', media_id: mid },
+        dataType: 'json',
+      }).done(function (res) {
+        if (res && res.success) window.location.reload();
+        else alert((res.error && res.error.message) || 'Restore failed.');
+      });
+    });
+
+    var $purgeModal = $root.find('[data-at-media-purge-modal]');
+    var $purgePreview = $root.find('[data-at-media-purge-preview]');
+    var $purgeFilename = $root.find('[data-at-media-purge-filename]');
+    var $purgeSize = $root.find('[data-at-media-purge-size]');
+    var $purgeConfirm = $root.find('[data-at-media-purge-confirm]');
+    var $purgeSubmit = $root.find('[data-at-media-purge-submit]');
+    var $purgeHint = $root.find('[data-at-media-purge-confirm-hint]');
+    var purgeMediaId = null;
+
+    function closePurgeModal() {
+      purgeMediaId = null;
+      $purgeModal.addClass('hidden');
+      $purgeConfirm.prop('checked', false);
+      $purgeSubmit.prop('disabled', true);
+      $purgeHint.addClass('hidden');
+    }
+
+    $root.on('click', '[data-at-media-purge]', function () {
+      var $btn = $(this);
+      purgeMediaId = $btn.attr('data-at-media-purge');
+      $purgePreview.attr('src', $btn.attr('data-media-url') || '');
+      $purgeFilename.text($btn.attr('data-media-filename') || '');
+      var bytes = parseInt($btn.attr('data-media-size') || '0', 10);
+      $purgeSize.text(bytes > 0 ? (Math.round((bytes / 1024) * 10) / 10) + ' KB' : '—');
+      $purgeConfirm.prop('checked', false);
+      $purgeSubmit.prop('disabled', true);
+      $purgeHint.addClass('hidden');
+      $purgeModal.removeClass('hidden');
+    });
+    $root.on('click', '[data-at-media-purge-close]', closePurgeModal);
+    $purgeConfirm.on('change', function () {
+      var on = $purgeConfirm.prop('checked');
+      $purgeSubmit.prop('disabled', !on);
+      $purgeHint.toggleClass('hidden', on);
+    });
+    $purgeSubmit.on('click', function () {
+      if (!purgeMediaId || !$purgeConfirm.prop('checked')) {
+        $purgeHint.removeClass('hidden');
+        return;
+      }
+      $purgeSubmit.prop('disabled', true);
+      $.ajax({
+        url: ajaxUrl,
+        method: 'POST',
+        data: {
+          _csrf_token: csrf,
+          action: 'purge',
+          media_id: purgeMediaId,
+          confirm_purge: '1',
+        },
+        dataType: 'json',
+      })
+        .done(function (res) {
+          if (res && res.success) {
+            if (res.message && res.message.indexOf('could not be deleted') !== -1) {
+              alert(res.message);
+            }
+            window.location.reload();
+          } else {
+            alert((res.error && res.error.message) || 'Permanent delete failed.');
+            $purgeSubmit.prop('disabled', !$purgeConfirm.prop('checked'));
+          }
+        })
+        .fail(function () {
+          alert('Permanent delete failed.');
+          $purgeSubmit.prop('disabled', !$purgeConfirm.prop('checked'));
+        });
     });
   }
 

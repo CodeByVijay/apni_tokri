@@ -21,6 +21,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     Csrf::requireValid();
 }
 
+if ($action === 'trash_list') {
+    $q = isset($_REQUEST['q']) ? (string) $_REQUEST['q'] : '';
+    $sort = isset($_REQUEST['sort']) ? (string) $_REQUEST['sort'] : 'newest';
+    $page = isset($_REQUEST['page']) ? (int) $_REQUEST['page'] : 1;
+    $per = isset($_REQUEST['per_page']) ? (int) $_REQUEST['per_page'] : 24;
+    $result = MediaLibrary::searchTrash($q, $sort === 'oldest' ? 'oldest' : 'newest', $page, $per);
+    $items = [];
+    foreach ($result['rows'] as $row) {
+        $items[] = MediaLibrary::rowForClientTrash($row);
+    }
+    Ajax::success([
+        'items' => $items,
+        'total' => $result['total'],
+        'page' => $result['page'],
+        'per_page' => $result['per_page'],
+        'total_pages' => $result['total_pages'],
+    ]);
+}
+
 if ($action === 'list') {
     $q = isset($_REQUEST['q']) ? (string) $_REQUEST['q'] : '';
     $usage = isset($_REQUEST['usage']) ? (string) $_REQUEST['usage'] : '';
@@ -89,7 +108,16 @@ if ($action === 'soft_delete' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         Ajax::error($msg, 400, 'in_use');
     }
-    Ajax::success([], 'Media moved to deleted state.');
+    Ajax::success([], 'Media moved to trash.');
+}
+
+if ($action === 'restore' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    $mediaId = isset($_POST['media_id']) ? (int) $_POST['media_id'] : 0;
+    $res = MediaLibrary::restore($mediaId);
+    if (!$res['ok']) {
+        Ajax::error((string) ($res['message'] ?? 'Restore failed.'), 400);
+    }
+    Ajax::success([], 'Media restored.');
 }
 
 if ($action === 'purge' && $_SERVER['REQUEST_METHOD'] === 'POST') {
