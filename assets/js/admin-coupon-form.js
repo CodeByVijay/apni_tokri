@@ -201,7 +201,7 @@
             gen.addEventListener('click', function () {
                 gen.disabled = true;
                 var url = gen.getAttribute('data-url');
-                fetch(url + '?type=code&prefix=APNI', {
+                fetch(url + '?type=code', {
                     credentials: 'same-origin', headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
                 }).then(function (r) { return r.json(); }).then(function (j) {
                     if (j.success && j.data && j.data.code) { code.value = j.data.code; code.focus(); }

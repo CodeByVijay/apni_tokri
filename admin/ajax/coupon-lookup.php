@@ -28,7 +28,7 @@ if ($type === 'customers') {
     Ajax::success(['items' => CouponAdminService::searchCustomers($q, 20)]);
 }
 if ($type === 'code') {
-    $prefix = isset($_GET['prefix']) && is_string($_GET['prefix']) ? $_GET['prefix'] : 'APNI';
+    $prefix = isset($_GET['prefix']) && is_string($_GET['prefix']) ? $_GET['prefix'] : CouponAdminService::GENERATED_CODE_PREFIX;
     try {
         Ajax::success(['code' => CouponAdminService::generateUniqueCode($prefix)]);
     } catch (Throwable $e) {

@@ -18,6 +18,9 @@ final class CouponAdminService
     public const CUSTOMERS_SELECTED = 'selected';
     public const CUSTOMERS_FIRST_ORDER = 'first_order';
 
+    /** Default prefix for admin “Generate code” (Veggie Tokri). */
+    public const GENERATED_CODE_PREFIX = 'VT';
+
     private const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
     public static function normalizeCode(string $code): string
@@ -46,7 +49,7 @@ final class CouponAdminService
     }
 
     /** Random uppercase alphanumeric code, unique against existing coupons. */
-    public static function generateUniqueCode(string $prefix = 'APNI', int $randomLength = 6): string
+    public static function generateUniqueCode(string $prefix = self::GENERATED_CODE_PREFIX, int $randomLength = 6): string
     {
         $prefix = preg_replace('/[^A-Z0-9]/', '', strtoupper($prefix)) ?? '';
         $prefix = substr($prefix, 0, 10);
