@@ -7,6 +7,29 @@ declare(strict_types=1);
  */
 final class TestScriptSafety
 {
+    /** Refuse tests that mutate auth/admin state against production or protected DB names. */
+    public static function assertDisposableDatabaseOrAbort(?string $databaseName = null): void
+    {
+        $name = $databaseName ?? (string) (App::config()['database']['name'] ?? '');
+        if (getenv('APNI_TOKRI_DISPOSABLE_DB') === '1') {
+            return;
+        }
+        if ($name !== '' && preg_match('/^apni_tokri_(tmp|phase4|phase41|rl|sec_p1)_/i', $name)) {
+            return;
+        }
+        $expected = getenv('APNI_EXPECTED_DB');
+        if (is_string($expected) && $expected !== '' && hash_equals($expected, $name)) {
+            fwrite(STDERR, "ABORT: Refusing test against protected database (APNI_EXPECTED_DB).\n");
+            exit(2);
+        }
+        if (AppEnvironment::isProduction()) {
+            fwrite(STDERR, "ABORT: Test requires a disposable database when app.env is production.\n");
+            exit(2);
+        }
+        fwrite(STDERR, "ABORT: Run via scripts/run-in-disposable-db.php or use a throwaway database name prefix.\n");
+        exit(2);
+    }
+
     public static function assertSafeToMutateSettings(): void
     {
         if (getenv('APNI_TOKRI_DISPOSABLE_DB') === '1' || getenv('APNI_TOKRI_ALLOW_SETTINGS_MUTATION') === '1') {

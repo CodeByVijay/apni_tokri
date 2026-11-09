@@ -8,6 +8,12 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/includes/bootstrap.php';
 require_once APNI_TOKRI_ROOT . '/includes/admin/guard.php';
+require_once dirname(__DIR__) . '/scripts/lib/test_script_safety.php';
+
+if (AppEnvironment::isProduction()) {
+    fwrite(STDERR, "ABORT: Refusing admin auth HTTP tests when app.env is production.\n");
+    exit(2);
+}
 
 $fail = 0;
 
@@ -129,7 +135,12 @@ ok($demoRole['code'] === 302 && str_contains((string) $demoRole['location'], 'lo
 $storefront = httpRequest('GET', $base . '/index.php');
 ok($storefront['code'] === 200, 'Customer storefront index remains reachable');
 
-// --- Authenticated HTTP (default admin) ---
+// --- Authenticated HTTP (optional local smoke; credentials from env only) ---
+$httpAdminEmail = getenv('APNI_TEST_HTTP_ADMIN_EMAIL');
+$httpAdminPassword = getenv('APNI_TEST_HTTP_ADMIN_PASSWORD');
+if (!is_string($httpAdminEmail) || $httpAdminEmail === '' || !is_string($httpAdminPassword) || $httpAdminPassword === '') {
+    skip('Authenticated HTTP tests (set APNI_TEST_HTTP_ADMIN_EMAIL and APNI_TEST_HTTP_ADMIN_PASSWORD on a non-production dev host)');
+} else {
 $jar = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'at_admin_auth_test_cookies.txt';
 @unlink($jar);
 $loginGet = httpRequest('GET', $base . '/admin/login.php', [], $jar);
@@ -139,8 +150,8 @@ if ($parsed['csrf'] === null) {
 } else {
     $body = http_build_query([
         '_csrf_token' => $parsed['csrf'],
-        'email' => 'admin@apnitokri.local',
-        'password' => 'ChangeMe123!',
+        'email' => $httpAdminEmail,
+        'password' => $httpAdminPassword,
     ]);
     $loginPost = httpRequest(
         'POST',
@@ -174,6 +185,7 @@ if ($parsed['csrf'] === null) {
     ok($afterLogout['code'] === 302 && str_contains((string) $afterLogout['location'], 'login.php'), 'Dashboard blocked after logout (session invalidated)');
 }
 @unlink($jar);
+}
 
 // --- Internal guard (invalid session simulation) ---
 $_SESSION = ['admin_user_id' => 999999999];

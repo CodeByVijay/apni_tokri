@@ -404,19 +404,40 @@ final class CustomerAuth
     /** Saved name for a mobile from the server-side customer record ('' when none/unknown). */
     public static function savedNameForMobile(string $mobile): string
     {
-        $mobile = Validation::normalizeMobileIndia($mobile) ?? '';
-        if ($mobile === '') {
-            return '';
-        }
-        Install::ensureConnection();
-        $stmt = Database::pdo()->prepare('SELECT name FROM customers WHERE mobile = ? LIMIT 1');
-        $stmt->execute([$mobile]);
-        $v = $stmt->fetchColumn();
+        $ctx = CustomerOtpRegistration::uiContextForMobile($mobile);
 
-        return is_string($v) ? trim($v) : '';
+        return $ctx['name'] ?? '';
+    }
+
+    /**
+     * @param array{name?: string, email?: string, consent?: mixed} $registration
+     * @return array{ok: bool, error?: string, field_errors?: array<string, string>, customer_id?: int}
+     */
+    public static function verifyOtpWithRegistration(
+        string $mobile,
+        string $otp,
+        array $registration = [],
+        int $maxAttempts = 5
+    ): array {
+        if (!self::attemptOtpVerification($mobile, $otp, $maxAttempts)) {
+            return ['ok' => false, 'error' => 'Incorrect or expired OTP.'];
+        }
+
+        return CustomerOtpRegistration::completeAfterOtp($mobile, $registration);
     }
 
     public static function verifyOtp(string $mobile, string $otp, ?string $name = null, int $maxAttempts = 5): bool
+    {
+        $registration = [];
+        if ($name !== null && trim($name) !== '') {
+            $registration['name'] = trim($name);
+        }
+        $result = self::verifyOtpWithRegistration($mobile, $otp, $registration, $maxAttempts);
+
+        return !empty($result['ok']);
+    }
+
+    private static function attemptOtpVerification(string $mobile, string $otp, int $maxAttempts): bool
     {
         Install::ensureConnection();
         $mobile = Validation::normalizeMobileIndia($mobile) ?? '';
@@ -454,25 +475,6 @@ final class CustomerAuth
         Database::pdo()->prepare(
             'UPDATE customer_otp_attempts SET attempt_count = attempt_count + 1, verified_at = NOW() WHERE id = ?'
         )->execute([(int) $row['id']]);
-
-        $cust = Database::pdo()->prepare('SELECT id, name, is_active FROM customers WHERE mobile = ? LIMIT 1');
-        $cust->execute([$mobile]);
-        $custRow = $cust->fetch(PDO::FETCH_ASSOC);
-        $customerId = $custRow ? $custRow['id'] : null;
-        $savedName = $custRow ? trim((string) ($custRow['name'] ?? '')) : '';
-        if (!$customerId) {
-            $ins = Database::pdo()->prepare('INSERT INTO customers (mobile) VALUES (?)');
-            $ins->execute([$mobile]);
-            $customerId = Database::pdo()->lastInsertId();
-        }
-        $customerId = (int) $customerId;
-        // A saved name is never overwritten here; profile page is the place to change it.
-        if ($savedName === '' && $name !== null && trim($name) !== '') {
-            Database::pdo()->prepare('UPDATE customers SET name = ?, updated_at = NOW() WHERE id = ?')
-                ->execute([trim($name), $customerId]);
-        }
-        self::loginById($customerId);
-        CartService::mergeGuestIntoCustomer($customerId);
 
         return true;
     }

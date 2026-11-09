@@ -8,6 +8,8 @@ declare(strict_types=1);
  */
 require_once dirname(__DIR__) . '/includes/bootstrap.php';
 require_once APNI_TOKRI_ROOT . '/includes/admin/guard.php';
+require_once dirname(__DIR__) . '/scripts/lib/test_script_safety.php';
+require_once dirname(__DIR__) . '/scripts/includes/disposable_test_admin.php';
 
 $pass = 0;
 $fail = 0;
@@ -113,7 +115,9 @@ okP1(mysqlP1($dbCfg, '-e ' . escapeshellarg("CREATE DATABASE `{$freshDb}` CHARAC
 okP1(mysqlP1($dbCfg, escapeshellarg($freshDb) . ' < ' . escapeshellarg($sqlFile)) === 0, 'Import production SQL');
 okP1(mysqlP1($dbCfg, escapeshellarg($freshDb) . ' < ' . escapeshellarg($migration)) === 0, 'Apply 1.21.0 migration');
 
-withCfgP1(['database' => array_merge($dbCfg, ['name' => $freshDb])], static function () use (&$pass, &$fail): void {
+withCfgP1(['database' => array_merge($dbCfg, ['name' => $freshDb])], static function () use (&$pass, &$fail, $freshDb): void {
+    putenv('APNI_TOKRI_DISPOSABLE_DB=1');
+    TestScriptSafety::assertDisposableDatabaseOrAbort($freshDb);
     Install::ensureConnection();
     $_SERVER['REMOTE_ADDR'] = '203.0.113.50';
 
@@ -121,6 +125,7 @@ withCfgP1(['database' => array_merge($dbCfg, ['name' => $freshDb])], static func
     okP1(AdminPasswordRecovery::tablesReady(), 'admin_password_reset_tokens present');
 
     $email = Install::SEED_ADMIN_EMAIL;
+    $knownPassword = disposable_test_set_admin_password(1);
     for ($i = 0; $i < 6; $i++) {
         AdminAuth::attempt($email, 'wrong-password-' . $i);
     }
@@ -128,7 +133,7 @@ withCfgP1(['database' => array_merge($dbCfg, ['name' => $freshDb])], static func
 
     $_SERVER['REMOTE_ADDR'] = '203.0.113.51';
     okP1(AdminLoginSecurity::blockReason($email) === 'throttled', 'Same email still throttled from new IP (wrong password path)');
-    okP1(AdminAuth::attempt($email, 'ChangeMe123!'), 'Correct password succeeds while email throttled');
+    okP1(AdminAuth::attempt($email, $knownPassword), 'Correct password succeeds while email throttled');
     AdminAuth::logout();
     okP1(AdminLoginSecurity::blockReason($email) === null, 'Email failures cleared after successful login');
 

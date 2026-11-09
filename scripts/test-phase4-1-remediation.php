@@ -8,6 +8,8 @@ declare(strict_types=1);
  */
 require_once dirname(__DIR__) . '/includes/bootstrap.php';
 require_once APNI_TOKRI_ROOT . '/includes/admin/guard.php';
+require_once dirname(__DIR__) . '/scripts/lib/test_script_safety.php';
+require_once dirname(__DIR__) . '/scripts/includes/disposable_test_admin.php';
 
 $fail41 = 0;
 $pass41 = 0;
@@ -71,6 +73,8 @@ ok41($code === 0, 'Import production SQL into disposable database');
 $origConfig = App::config();
 App::setConfig(array_replace_recursive($origConfig, ['database' => array_merge($origConfig['database'] ?? [], ['name' => $freshDb])]));
 Database::disconnect();
+putenv('APNI_TOKRI_DISPOSABLE_DB=1');
+TestScriptSafety::assertDisposableDatabaseOrAbort($freshDb);
 
 try {
     Install::ensureConnection();
@@ -89,24 +93,30 @@ try {
     ok41($blocked !== null, 'CMS publish blocked for placeholder seed content');
 
     $_SESSION = [];
-    ok41(AdminAuth::attempt(Install::SEED_ADMIN_EMAIL, 'ChangeMe123!'), 'Default admin login on disposable DB');
-    ok41(AdminAuth::requiresMandatoryPasswordChange(), 'Seed admin requires mandatory password change');
-    $change = AdminAuth::changePasswordMandatory('ChangeMe123!', 'StrongPass41x', 'StrongPass41x');
-    ok41($change['ok'], 'Mandatory password change succeeds with strong password');
-    ok41(!AdminAuth::requiresMandatoryPasswordChange(), 'Password change clears mandatory flag');
-    $hashAfter = (string) $pdo->query('SELECT password_hash FROM admin_users WHERE id = 1')->fetchColumn();
-    ok41(!hash_equals(Install::SEED_ADMIN_PASSWORD_HASH, $hashAfter), 'Password hash updated in database');
-    $authSrc = (string) file_get_contents(APNI_TOKRI_ROOT . '/includes/auth.php');
-    ok41(str_contains($authSrc, 'changePasswordMandatory') && str_contains($authSrc, 'AppSession::regenerate'), 'Mandatory password change regenerates session (code path)');
-    $pdo->prepare('UPDATE admin_users SET password_hash = ? WHERE id = 1')->execute([Install::SEED_ADMIN_PASSWORD_HASH]);
-    ok41(AdminAuth::check(), 'Admin session valid after password change');
+    $seedPassword = disposable_test_seed_admin_password_from_env();
+    if ($seedPassword === null) {
+        echo "SKIP: Seed admin login tests (set APNI_TEST_SEED_ADMIN_PASSWORD for local disposable DB)\n";
+    } else {
+        ok41(AdminAuth::attempt(Install::SEED_ADMIN_EMAIL, $seedPassword), 'Default admin login on disposable DB');
+        ok41(AdminAuth::requiresMandatoryPasswordChange(), 'Seed admin requires mandatory password change');
+        $strongPassword = 'StrongPass41x_' . bin2hex(random_bytes(4));
+        $change = AdminAuth::changePasswordMandatory($seedPassword, $strongPassword, $strongPassword);
+        ok41($change['ok'], 'Mandatory password change succeeds with strong password');
+        ok41(!AdminAuth::requiresMandatoryPasswordChange(), 'Password change clears mandatory flag');
+        $hashAfter = (string) $pdo->query('SELECT password_hash FROM admin_users WHERE id = 1')->fetchColumn();
+        ok41(!hash_equals(Install::SEED_ADMIN_PASSWORD_HASH, $hashAfter), 'Password hash updated in database');
+        $authSrc = (string) file_get_contents(APNI_TOKRI_ROOT . '/includes/auth.php');
+        ok41(str_contains($authSrc, 'changePasswordMandatory') && str_contains($authSrc, 'AppSession::regenerate'), 'Mandatory password change regenerates session (code path)');
+        $pdo->prepare('UPDATE admin_users SET password_hash = ? WHERE id = 1')->execute([Install::SEED_ADMIN_PASSWORD_HASH]);
+        ok41(AdminAuth::check(), 'Admin session valid after password change');
 
-    AdminAuth::attempt(Install::SEED_ADMIN_EMAIL, 'ChangeMe123!');
-    $rejectDefault = AdminAuth::changePasswordMandatory('ChangeMe123!', 'ChangeMe123!', 'ChangeMe123!');
-    ok41(empty($rejectDefault['ok']), 'Cannot set password back to factory default');
+        AdminAuth::attempt(Install::SEED_ADMIN_EMAIL, $seedPassword);
+        $rejectDefault = AdminAuth::changePasswordMandatory($seedPassword, $seedPassword, $seedPassword);
+        ok41(empty($rejectDefault['ok']), 'Cannot set password back to factory default');
 
-    AdminAuth::logout();
-    ok41(!AdminAuth::check(), 'Logout clears admin session');
+        AdminAuth::logout();
+        ok41(!AdminAuth::check(), 'Logout clears admin session');
+    }
 
     withConfig41(['app' => ['env' => 'production', 'debug' => false]], static function (): void {
         ok41(!AppEnvironment::allowsSimulatedPaymentEndpoint(), 'Production blocks simulate endpoint');

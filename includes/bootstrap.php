@@ -50,6 +50,7 @@ require_once APNI_TOKRI_ROOT . '/includes/install/wizard_service.php';
 require_once APNI_TOKRI_ROOT . '/includes/install.php';
 require_once APNI_TOKRI_ROOT . '/includes/admin/login_security.php';
 require_once APNI_TOKRI_ROOT . '/includes/admin/password_recovery.php';
+require_once APNI_TOKRI_ROOT . '/includes/commerce/customer_otp_registration.php';
 require_once APNI_TOKRI_ROOT . '/includes/auth.php';
 require_once APNI_TOKRI_ROOT . '/includes/admin/persistence.php';
 require_once APNI_TOKRI_ROOT . '/includes/permissions.php';

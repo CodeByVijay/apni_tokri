@@ -54,6 +54,17 @@ final class Validation
         return is_string($value) && filter_var($value, FILTER_VALIDATE_EMAIL) !== false;
     }
 
+  /** Lowercase trim; null when empty or invalid. */
+    public static function normalizeEmail(string $value): ?string
+    {
+        $email = strtolower(trim($value));
+        if ($email === '' || strlen($email) > 191 || !self::email($email)) {
+            return null;
+        }
+
+        return $email;
+    }
+
     public static function positiveInt($value): bool
     {
         return is_numeric($value) && (int) $value > 0 && (string) (int) $value === (string) $value;

@@ -1,4 +1,6 @@
 /includes/config.local.php
+/storage/backups/*
+!/storage/backups/.gitkeep
 /storage/logs/*
 !/storage/logs/.gitkeep
 /storage/temporary/*

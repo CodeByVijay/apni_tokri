@@ -43,8 +43,8 @@ php scripts/run-phase4-fresh-install-audit.php
 
 ## Default admin (change immediately)
 
-- **Email:** `admin@apnitokri.local`
-- **Password:** `ChangeMe123!` (documented in SQL/README for first bootstrap only)
+- **Email:** `admin@apnitokri.local` (seed row in `apni_tokri_production.sql`)
+- **Password:** use your team’s secure bootstrap credential (matches the seeded `password_hash` in SQL). Do not commit or paste it into docs or tickets.
 - After import, sign in once; the admin console **requires a new password** before any other admin module is accessible.
 
 ## Import — phpMyAdmin

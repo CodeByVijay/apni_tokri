@@ -17,12 +17,21 @@ if ($accountInactive) {
     unset($_SESSION['otp_pending_mobile'], $_SESSION['otp_debug_plain'], $_SESSION['otp_demo_code']);
 }
 
-$savedName = '';
-if (Install::isSchemaReady() && !$accountInactive) {
-    $savedName = CustomerAuth::savedNameForMobile($mobile);
-}
+$otpUi = Install::isSchemaReady() && !$accountInactive
+    ? CustomerOtpRegistration::uiContextForMobile($mobile)
+    : [
+        'mode' => CustomerOtpRegistration::MODE_NEW,
+        'name' => '',
+        'email' => '',
+        'show_consent' => true,
+        'customer_id' => null,
+    ];
+
+$termsUrl = CmsPageService::publicPageUrl('terms');
+$privacyUrl = CmsPageService::publicPageUrl('privacy-policy');
 
 $error = '';
+$fieldErrors = [];
 $resendNotice = '';
 $verifyPageTestOtp = $accountInactive ? null : OtpSmsService::fixedTestOtpForVerifyPageDisplay();
 $resendRemaining = Install::isSchemaReady() && !$accountInactive ? OtpResendCooldown::remainingSeconds($mobile) : 0;
@@ -30,6 +39,9 @@ $resendUntil = $resendRemaining > 0 ? time() + $resendRemaining : 0;
 if (AppEnvironment::allowsDebugOtpDisplay() && !empty($_SESSION['otp_debug_plain'])) {
     unset($_SESSION['otp_debug_plain']);
 }
+
+$postName = '';
+$postEmail = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     Csrf::requireValid();
@@ -57,11 +69,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
     $otp = isset($_POST['otp']) && is_string($_POST['otp']) ? preg_replace('/\D+/', '', $_POST['otp']) : '';
-    $name = isset($_POST['name']) && is_string($_POST['name']) ? trim($_POST['name']) : '';
-    if ($savedName !== '') {
-        // Existing customer: the server-side name is authoritative; ignore any submitted value.
-        $name = '';
-    }
     if ($accountInactive) {
         // No OTP processing for deactivated accounts.
     } elseif (!empty($_POST['resend_otp'])) {
@@ -69,24 +76,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif (strlen($otp) !== 6) {
         $error = 'Enter the 6-digit OTP.';
     } elseif (Install::isSchemaReady()) {
+        $otpUi = CustomerOtpRegistration::uiContextForMobile($mobile);
         if (CustomerAuth::isExistingInactiveCustomer($mobile)) {
             $accountInactive = true;
             unset($_SESSION['otp_pending_mobile'], $_SESSION['otp_debug_plain'], $_SESSION['otp_demo_code']);
-        } elseif (CustomerAuth::verifyOtp($mobile, $otp, $name !== '' ? $name : null)) {
-            unset($_SESSION['otp_pending_mobile']);
-            OtpResendCooldown::clear();
-            $return = $_SESSION['checkout_return'] ?? url_base() . '/my-account.php';
-            unset($_SESSION['checkout_return']);
-            header('Location: ' . $return, true, 302);
-            exit;
-        } elseif (CustomerAuth::isExistingInactiveCustomer($mobile)) {
-            $accountInactive = true;
-            unset($_SESSION['otp_pending_mobile'], $_SESSION['otp_debug_plain'], $_SESSION['otp_demo_code']);
         } else {
-            $error = 'Incorrect or expired OTP.';
+            $registration = [];
+            if ($otpUi['mode'] !== CustomerOtpRegistration::MODE_RETURNING) {
+                $postName = isset($_POST['name']) && is_string($_POST['name']) ? $_POST['name'] : '';
+                $postEmail = isset($_POST['email']) && is_string($_POST['email']) ? $_POST['email'] : '';
+                $registration['name'] = $postName;
+                $registration['email'] = $postEmail;
+                if ($otpUi['show_consent']) {
+                    $registration['consent'] = !empty($_POST['consent']) ? '1' : '';
+                }
+            }
+
+            $result = CustomerAuth::verifyOtpWithRegistration($mobile, $otp, $registration);
+            if (!empty($result['ok'])) {
+                unset($_SESSION['otp_pending_mobile']);
+                OtpResendCooldown::clear();
+                $return = $_SESSION['checkout_return'] ?? url_base() . '/my-account.php';
+                unset($_SESSION['checkout_return']);
+                header('Location: ' . $return, true, 302);
+                exit;
+            }
+            if (CustomerAuth::isExistingInactiveCustomer($mobile)) {
+                $accountInactive = true;
+                unset($_SESSION['otp_pending_mobile'], $_SESSION['otp_debug_plain'], $_SESSION['otp_demo_code']);
+            } elseif (!empty($result['field_errors']) && is_array($result['field_errors'])) {
+                $fieldErrors = $result['field_errors'];
+                $error = 'Please correct the highlighted fields.';
+            } else {
+                $error = (string) ($result['error'] ?? 'Incorrect or expired OTP.');
+            }
         }
     } elseif (!AppEnvironment::isProduction() && Security::hashEquals((string) ($_SESSION['otp_demo_code'] ?? '123456'), $otp)) {
-        CustomerService::loginDemoSession($mobile, $name);
+        $demoName = isset($_POST['name']) && is_string($_POST['name']) ? trim($_POST['name']) : '';
+        CustomerService::loginDemoSession($mobile, $demoName);
         unset($_SESSION['otp_pending_mobile'], $_SESSION['otp_demo_code']);
         $return = $_SESSION['checkout_return'] ?? url_base() . '/my-account.php';
         unset($_SESSION['checkout_return']);
@@ -98,6 +125,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             : 'Incorrect OTP. Demo code: 123456';
     }
 }
+
+$displayName = $postName !== '' ? $postName : (string) ($otpUi['name'] ?? '');
+$displayEmail = $postEmail !== '' ? $postEmail : (string) ($otpUi['email'] ?? '');
+$isReturning = ($otpUi['mode'] ?? '') === CustomerOtpRegistration::MODE_RETURNING;
+$isLegacy = ($otpUi['mode'] ?? '') === CustomerOtpRegistration::MODE_LEGACY_PROFILE;
+$showConsent = !empty($otpUi['show_consent']);
+$fieldsEditable = !$isReturning;
 
 layout_public_start([
     'pageTitle' => 'Verify OTP — Veggie Tokri',
@@ -134,13 +168,16 @@ layout_public_start([
             <?php elseif (Install::isSchemaReady() && OtpSmsService::operationMode() === OtpSmsService::MODE_TEST): ?>
                 <p class="mt-2"><span class="at-badge at-badge--neutral">Test mode — no real SMS sent</span></p>
             <?php endif; ?>
+            <?php if ($isLegacy): ?>
+                <p class="mt-2 text-sm at-muted">Please add your name and email to finish setting up your account.</p>
+            <?php endif; ?>
             <?php if ($resendNotice !== ''): ?>
                 <div class="at-alert mt-4" role="status"><?= Security::escape($resendNotice) ?></div>
             <?php endif; ?>
             <?php if ($error !== ''): ?>
                 <div class="at-alert at-alert--error mt-4" role="alert"><?= at_icon('info', 'w-5 h-5 flex-shrink-0') ?><span><?= Security::escape($error) ?></span></div>
             <?php endif; ?>
-            <form method="post" class="at-card mt-6" id="otp-form">
+            <form method="post" class="at-card mt-6" id="otp-form" data-otp-reg-mode="<?= Security::escape((string) ($otpUi['mode'] ?? 'new')) ?>">
                 <div class="at-card__body grid gap-4">
                     <?= Csrf::field() ?>
                     <div>
@@ -156,19 +193,51 @@ layout_public_start([
                         </div>
                         <p id="otp-hint" class="at-field-error hidden" role="alert">Enter the 6-digit OTP.</p>
                     </div>
-                    <?php if ($savedName !== ''): ?>
-                        <div>
-                            <label class="at-label" for="name">Your name</label>
-                            <input id="name" type="text" class="at-input at-focusable" value="<?= Security::escape($savedName) ?>" readonly disabled aria-readonly="true">
-                            <p class="text-xs at-muted mt-1">You can change your name later from your profile.</p>
-                        </div>
-                    <?php else: ?>
-                        <div>
-                            <label class="at-label" for="name">Your name <span class="at-muted font-normal">(optional)</span></label>
-                            <input id="name" name="name" type="text" class="at-input at-focusable" autocomplete="name" maxlength="120">
-                        </div>
+                    <div>
+                        <label class="at-label" for="reg-name">Full name<?php if ($fieldsEditable): ?> <span class="at-muted font-normal">(required)</span><?php endif; ?></label>
+                        <?php if ($fieldsEditable): ?>
+                            <input id="reg-name" name="name" type="text" class="at-input at-focusable<?= isset($fieldErrors['name']) ? ' at-input--error' : '' ?>"
+                                autocomplete="name" maxlength="120" required
+                                value="<?= Security::escape($displayName) ?>"
+                                aria-invalid="<?= isset($fieldErrors['name']) ? 'true' : 'false' ?>"
+                                aria-describedby="<?= isset($fieldErrors['name']) ? 'reg-name-error' : '' ?>">
+                            <?php if (isset($fieldErrors['name'])): ?>
+                                <p id="reg-name-error" class="at-field-error" role="alert"><?= Security::escape($fieldErrors['name']) ?></p>
+                            <?php endif; ?>
+                        <?php else: ?>
+                            <input id="reg-name" type="text" class="at-input at-focusable" value="<?= Security::escape($displayName) ?>" readonly disabled aria-readonly="true">
+                            <p class="text-xs at-muted mt-1">You can update your profile from My account after signing in.</p>
+                        <?php endif; ?>
+                    </div>
+                    <div>
+                        <label class="at-label" for="reg-email">Email address<?php if ($fieldsEditable): ?> <span class="at-muted font-normal">(required)</span><?php endif; ?></label>
+                        <?php if ($fieldsEditable): ?>
+                            <input id="reg-email" name="email" type="email" inputmode="email" class="at-input at-focusable<?= isset($fieldErrors['email']) ? ' at-input--error' : '' ?>"
+                                autocomplete="email" maxlength="191" required
+                                value="<?= Security::escape($displayEmail) ?>"
+                                aria-invalid="<?= isset($fieldErrors['email']) ? 'true' : 'false' ?>"
+                                aria-describedby="<?= isset($fieldErrors['email']) ? 'reg-email-error' : '' ?>">
+                            <?php if (isset($fieldErrors['email'])): ?>
+                                <p id="reg-email-error" class="at-field-error" role="alert"><?= Security::escape($fieldErrors['email']) ?></p>
+                            <?php endif; ?>
+                        <?php else: ?>
+                            <input id="reg-email" type="email" class="at-input at-focusable" value="<?= Security::escape($displayEmail) ?>" readonly disabled aria-readonly="true">
+                        <?php endif; ?>
+                    </div>
+                    <?php if ($showConsent): ?>
+                        <label class="flex items-start gap-3 text-sm<?= isset($fieldErrors['consent']) ? ' text-[var(--at-error)]' : '' ?>">
+                            <input type="checkbox" name="consent" value="1" class="mt-0.5" id="reg-consent" data-reg-consent
+                                <?= !empty($_POST['consent']) ? 'checked' : '' ?>>
+                            <span>I agree to the
+                                <?php if ($termsUrl !== null): ?><a class="underline font-semibold" href="<?= Security::escape($termsUrl) ?>" target="_blank" rel="noopener">Terms &amp; Conditions</a><?php else: ?>Terms &amp; Conditions<?php endif; ?>
+                                and
+                                <?php if ($privacyUrl !== null): ?><a class="underline font-semibold" href="<?= Security::escape($privacyUrl) ?>" target="_blank" rel="noopener">Privacy Policy</a><?php else: ?>Privacy Policy<?php endif; ?>.</span>
+                        </label>
+                        <?php if (isset($fieldErrors['consent'])): ?>
+                            <p class="at-field-error" role="alert"><?= Security::escape($fieldErrors['consent']) ?></p>
+                        <?php endif; ?>
                     <?php endif; ?>
-                    <button type="submit" class="at-btn at-btn--primary at-btn--lg at-btn--block at-focusable">Verify &amp; continue</button>
+                    <button type="submit" class="at-btn at-btn--primary at-btn--lg at-btn--block at-focusable" id="otp-submit" data-otp-submit>Verify &amp; continue</button>
                     <p class="text-xs at-muted flex gap-2"><?= at_icon('lock', 'w-4 h-4 flex-shrink-0') ?>The code expires in 5 minutes.</p>
                     <?php if (Install::isSchemaReady()): ?>
                         <div
@@ -207,6 +276,29 @@ document.addEventListener('DOMContentLoaded', function () {
   if (window.AtOtpResend) {
     window.AtOtpResend.init(document.getElementById('otp-resend-wrap'));
   }
+  var form = document.getElementById('otp-form');
+  var submit = document.getElementById('otp-submit');
+  if (!form || !submit) {
+    return;
+  }
+  var mode = form.getAttribute('data-otp-reg-mode') || 'new';
+  var emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  function syncSubmit() {
+    if (mode === 'returning') {
+      submit.disabled = false;
+      return;
+    }
+    var name = form.querySelector('[name="name"]');
+    var email = form.querySelector('[name="email"]');
+    var consent = form.querySelector('[data-reg-consent]');
+    var nameOk = name && name.value.trim().length >= 2;
+    var emailOk = email && emailRe.test(email.value.trim());
+    var consentOk = !consent || consent.checked;
+    submit.disabled = !(nameOk && emailOk && consentOk);
+  }
+  form.addEventListener('input', syncSubmit);
+  form.addEventListener('change', syncSubmit);
+  syncSubmit();
 });
 </script>
 <?php endif; ?>

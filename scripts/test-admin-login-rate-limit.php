@@ -7,6 +7,8 @@ declare(strict_types=1);
  * CLI: php scripts/test-admin-login-rate-limit.php
  */
 require_once dirname(__DIR__) . '/includes/bootstrap.php';
+require_once dirname(__DIR__) . '/scripts/lib/test_script_safety.php';
+require_once dirname(__DIR__) . '/scripts/includes/disposable_test_admin.php';
 
 $pass = 0;
 $fail = 0;
@@ -53,10 +55,13 @@ okRl(mysqlRl($dbCfg, escapeshellarg($freshDb) . ' < ' . escapeshellarg($migratio
 $orig = App::config();
 App::setConfig(array_replace_recursive($orig, ['database' => array_merge($dbCfg, ['name' => $freshDb])]));
 Database::disconnect();
+putenv('APNI_TOKRI_DISPOSABLE_DB=1');
+TestScriptSafety::assertDisposableDatabaseOrAbort($freshDb);
 
 try {
     Install::ensureConnection();
     $email = Install::SEED_ADMIN_EMAIL;
+    $knownPassword = disposable_test_set_admin_password(1);
     $_SERVER['REMOTE_ADDR'] = '203.0.113.10';
 
     okRl(AdminLoginSecurity::blockReason($email) === null, 'First attempt: not throttled (fresh email+IP)');
@@ -72,7 +77,7 @@ try {
     okRl(AdminLoginSecurity::blockReason($email) === 'throttled', 'Email throttled at threshold');
 
     // Correct password must still succeed (after throttle delay) and clear failures.
-    okRl(AdminAuth::attempt($email, 'ChangeMe123!'), 'Correct password succeeds while email throttled');
+    okRl(AdminAuth::attempt($email, $knownPassword), 'Correct password succeeds while email throttled');
     okRl(AdminAuth::check(), 'Session established');
     okRl(AdminLoginSecurity::blockReason($email) === null, 'Failures cleared after success');
     AdminAuth::logout();

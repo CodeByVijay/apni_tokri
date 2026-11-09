@@ -69,7 +69,7 @@ Then open `health-check.php` and confirm **PHP 8.2+** is green.
 6. Open in browser:
    - [install.php](./install.php) — install checklist
    - [health-check.php](./health-check.php) — full verification
-   - [admin/login.php](./admin/login.php) — default `admin@apnitokri.local` / `ChangeMe123!`
+   - [admin/login.php](./admin/login.php) — sign in with the seeded admin email from `database/production/apni_tokri_production.sql` (or your import). The installer does not publish the factory password; obtain it from your secure onboarding channel. **You must set a new password** on first sign-in before other admin pages are available.
 
 6. Optional AJAX smoke test:
    ```bash
@@ -87,7 +87,7 @@ Then open `health-check.php` and confirm **PHP 8.2+** is green.
 
 ## Secrets
 
-- Do **not** commit `includes/config.local.php`, `.env`, or encryption key files.
+- Do **not** commit `includes/config.local.php`, `.env`, encryption key files, or SQL dumps under `storage/backups/` (use encrypted off-repo backup storage).
 - Payment/SMTP/SMS secrets are encrypted at rest (Stage 9 / settings modules); master key path is configured in `config.local.php`.
 
 ## Coding conventions

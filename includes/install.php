@@ -4,12 +4,17 @@ declare(strict_types=1);
 
 final class Install
 {
-    public const SCHEMA_VERSION = '1.30.0-customer-order-email-notifications';
+    public const SCHEMA_VERSION = '1.36.0-customer-registration-consent';
 
     /** Seeded bootstrap admin (fresh SQL import). Detection uses password hash only — never expose the plain password. */
     public const SEED_ADMIN_EMAIL = 'admin@apnitokri.local';
 
     public const SEED_ADMIN_PASSWORD_HASH = '$2y$12$ZWyGAkJzaocH1IQRf0yBjeURZhrA92ZSaJXLL8ds07DQL3tf22./2';
+
+    public static function seedAdminPasswordHashMatchesImport(string $storedHash): bool
+    {
+        return hash_equals(self::SEED_ADMIN_PASSWORD_HASH, $storedHash);
+    }
 
     /** @var list<string> */
     private static $markerTables = ['settings', 'admin_users', 'customers', 'products', 'orders'];

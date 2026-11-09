@@ -25,8 +25,8 @@ php scripts/test-stock-concurrency.php
 
 Default admin (change password after first login):
 
-- Email: `admin@apnitokri.local`
-- Password: `ChangeMe123!`
+- Email: `admin@apnitokri.local` (see SQL seed `admin_users` row)
+- Factory password: **not stored in this repository** — delivered via your secure install/onboarding process. After import, sign in once; admin routes enforce a mandatory password change while the account still uses the seeded bcrypt hash.
 
 ## Upgrade from 1.1.0 → 1.2.0 (Stage 7)
 

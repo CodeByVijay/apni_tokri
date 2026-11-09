@@ -201,7 +201,12 @@ AppSettings::set('sms.test.fixed_otp', '654321');
 AppSettings::resetCache();
 $pdo->prepare('DELETE FROM customer_otp_attempts WHERE mobile = ?')->execute([$mobile]);
 CustomerAuth::issueOtp($mobile);
-ok(CustomerAuth::verifyOtp($mobile, '654321', 'Test User'), 'OTP expiry and verification behavior preserved');
+$otpVerify = CustomerAuth::verifyOtpWithRegistration($mobile, '654321', [
+    'name' => 'Test User',
+    'email' => 'otp+' . $mobile . '@example.test',
+    'consent' => '1',
+]);
+ok(!empty($otpVerify['ok']), 'OTP expiry and verification behavior preserved');
 
 AppSettings::set('sms.operation_mode', OtpSmsService::MODE_LIVE);
 AppSettings::resetCache();
