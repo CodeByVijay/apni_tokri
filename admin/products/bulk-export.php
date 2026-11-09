@@ -99,7 +99,7 @@ $ajaxUrl = $base . '/admin/ajax/product-bulk-export.php';
 <div class="at-admin-card mb-4">
     <div class="at-admin-card__body space-y-4">
         <form id="at-bulk-export-form" method="post" class="space-y-4">
-            <input type="hidden" name="csrf" value="<?= Security::escape($csrf) ?>">
+            <?= Csrf::field() ?>
             <input type="hidden" name="action" value="export">
             <?php foreach ($prefillIds as $pid): ?>
                 <input type="hidden" name="product_ids[]" value="<?= (int) $pid ?>">
@@ -175,26 +175,43 @@ $ajaxUrl = $base . '/admin/ajax/product-bulk-export.php';
   const countEl = document.getElementById('at-bulk-export-count');
   const capEl = document.getElementById('at-bulk-export-cap');
   const submitBtn = document.getElementById('at-bulk-export-submit');
+  const csrfFieldName = <?= json_encode(Csrf::fieldName(), JSON_THROW_ON_ERROR) ?>;
+
+  function ajaxEnvelope(body) {
+    if (!body || body.success !== true) {
+      return { ok: false, message: (body && body.error && body.error.message) || (body && body.message) || '' };
+    }
+    return { ok: true, data: body.data || {}, message: body.message || '' };
+  }
+
+  function parseJsonResponse(r) {
+    return r.json().then(function (body) {
+      return { httpOk: r.ok, status: r.status, body: body };
+    }).catch(function () {
+      return { httpOk: false, status: r.status, body: null };
+    });
+  }
 
   function refreshCount() {
     const fd = new FormData(form);
     fd.set('action', 'count');
-    fd.set('csrf', csrf);
+    fd.set(csrfFieldName, csrf);
     if (fd.get('export_format') === 'package') {
       fd.set('include_images', '1');
     }
-    fetch(ajaxUrl, { method: 'POST', body: fd, credentials: 'same-origin' })
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        if (!data || !data.ok) {
-          countEl.textContent = '0';
+    fetch(ajaxUrl, { method: 'POST', body: fd, credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      .then(parseJsonResponse)
+      .then(function (res) {
+        const parsed = ajaxEnvelope(res.body);
+        if (!parsed.ok) {
+          countEl.textContent = res.status === 403 ? '—' : '0';
           submitBtn.disabled = true;
           return;
         }
-        const n = data.data && data.data.count != null ? data.data.count : 0;
+        const n = parsed.data.count != null ? parsed.data.count : 0;
         countEl.textContent = String(n);
         submitBtn.disabled = n <= 0;
-        if (data.data && data.data.capped) {
+        if (parsed.data.capped) {
           capEl.classList.remove('hidden');
         } else {
           capEl.classList.add('hidden');

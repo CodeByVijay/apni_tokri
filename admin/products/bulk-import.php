@@ -139,7 +139,7 @@ $csrf = Csrf::token();
             </dl>
         </details>
         <form id="at-bulk-import-form" class="space-y-3" enctype="multipart/form-data">
-            <input type="hidden" name="csrf" value="<?= Security::escape($csrf) ?>">
+            <?= Csrf::field() ?>
             <div>
                 <label class="at-label" for="workbook">Workbook (XLSX)</label>
                 <input type="file" id="workbook" name="workbook" class="at-input at-focusable" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required>
@@ -170,7 +170,27 @@ $csrf = Csrf::token();
   const resultEl = document.getElementById('at-bulk-import-result');
   const btnValidate = document.getElementById('at-bulk-import-validate');
   const btnImport = document.getElementById('at-bulk-import-run');
+  const csrfFieldName = <?= json_encode(Csrf::fieldName(), JSON_THROW_ON_ERROR) ?>;
   let jobId = '';
+
+  function ajaxEnvelope(body) {
+    if (!body || body.success !== true) {
+      return {
+        ok: false,
+        message: (body && body.error && body.error.message) || (body && body.message) || 'Request failed.',
+        code: body && body.error ? body.error.code : '',
+      };
+    }
+    return { ok: true, data: body.data || {}, message: body.message || '' };
+  }
+
+  function parseJsonResponse(r) {
+    return r.json().then(function (body) {
+      return { httpOk: r.ok, status: r.status, body: body };
+    }).catch(function () {
+      return { httpOk: false, status: r.status, body: null };
+    });
+  }
 
   function setStatus(msg, kind) {
     statusEl.textContent = msg;
@@ -238,7 +258,7 @@ $csrf = Csrf::token();
     }
     const fd = new FormData();
     fd.append('action', 'upload');
-    fd.append('csrf', csrf);
+    fd.append(csrfFieldName, csrf);
     fd.append('workbook', wb.files[0]);
     const zipInput = document.getElementById('images_zip');
     if (zipInput.files.length) {
@@ -246,17 +266,22 @@ $csrf = Csrf::token();
     }
     setStatus('Validating…');
     btnValidate.disabled = true;
-    fetch(ajaxUrl, { method: 'POST', body: fd, credentials: 'same-origin' })
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
+    fetch(ajaxUrl, { method: 'POST', body: fd, credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      .then(parseJsonResponse)
+      .then(function (res) {
         btnValidate.disabled = false;
-        if (!data || !data.ok) {
-          setStatus((data && data.message) || 'Validation failed.', 'error');
+        const parsed = ajaxEnvelope(res.body);
+        if (!parsed.ok) {
+          if (res.status === 403) {
+            setStatus(parsed.message || 'Session expired or invalid CSRF token. Refresh the page and sign in again.', 'error');
+          } else {
+            setStatus(parsed.message || 'Validation failed.', 'error');
+          }
           return;
         }
-        jobId = data.data && data.data.job_id ? data.data.job_id : '';
-        const v = data.data && data.data.validation ? data.data.validation : {};
-        setStatus(data.message || 'Validation complete.', v.ok ? 'success' : 'error');
+        jobId = parsed.data.job_id ? parsed.data.job_id : '';
+        const v = parsed.data.validation ? parsed.data.validation : {};
+        setStatus(parsed.message || 'Validation complete.', v.ok ? 'success' : 'error');
         renderErrors(v.errors || []);
         renderPreview(v.products || [], v.ready_count || 0);
         btnImport.disabled = !jobId || !(v.ready_count > 0);
@@ -272,24 +297,25 @@ $csrf = Csrf::token();
     if (!window.confirm('Import valid products? Existing products are never updated.')) return;
     const fd = new FormData();
     fd.append('action', 'import');
-    fd.append('csrf', csrf);
+    fd.append(csrfFieldName, csrf);
     fd.append('job_id', jobId);
     setStatus('Importing…');
     btnImport.disabled = true;
-    fetch(ajaxUrl, { method: 'POST', body: fd, credentials: 'same-origin' })
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        if (!data || !data.ok) {
-          setStatus((data && data.message) || 'Import failed.', 'error');
+    fetch(ajaxUrl, { method: 'POST', body: fd, credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      .then(parseJsonResponse)
+      .then(function (res) {
+        const parsed = ajaxEnvelope(res.body);
+        if (!parsed.ok) {
+          setStatus(parsed.message || 'Import failed.', 'error');
           btnImport.disabled = false;
           return;
         }
-        const res = data.data && data.data.result ? data.data.result : {};
-        setStatus(data.message || 'Import finished.', 'success');
+        const imp = parsed.data.result ? parsed.data.result : {};
+        setStatus(parsed.message || 'Import finished.', 'success');
         resultEl.classList.remove('hidden');
-        let html = '<p>Imported: ' + (res.imported || 0) + ', failed: ' + (res.failed || 0) + '.</p>';
-        if (data.data.report_url) {
-          html += '<p><a class="at-link" href="' + escapeHtml(data.data.report_url) + '">Download result report (CSV)</a></p>';
+        let html = '<p>Imported: ' + (imp.imported || 0) + ', failed: ' + (imp.failed || 0) + '.</p>';
+        if (parsed.data.report_url) {
+          html += '<p><a class="at-link" href="' + escapeHtml(parsed.data.report_url) + '">Download result report (CSV)</a></p>';
         }
         resultEl.innerHTML = html;
       })
