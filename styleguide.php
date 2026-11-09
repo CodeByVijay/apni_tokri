@@ -17,7 +17,7 @@ layout_public_start([
 <div class="max-w-8xl mx-auto px-4 py-8 space-y-10">
     <header>
         <h1 class="text-2xl font-bold text-brand-green">Veggie Tokri design system</h1>
-        <p class="mt-1 text-neutral-600">Stage 1 reference — buttons, forms, cards, badges, alerts, modal. Colors: green <code class="text-sm bg-white px-1 rounded">#245C3A</code>, yellow <code class="text-sm bg-white px-1 rounded">#F5A623</code>, cream <code class="text-sm bg-white px-1 rounded">#FFF8E9</code>.</p>
+        <p class="mt-1 text-neutral-600">Design system reference — buttons, forms, cards, badges, alerts, modal. Colors: green <code class="text-sm bg-white px-1 rounded">#245C3A</code>, yellow <code class="text-sm bg-white px-1 rounded">#F5A623</code>, cream <code class="text-sm bg-white px-1 rounded">#FFF8E9</code>.</p>
     </header>
 
     <section>

@@ -19,7 +19,7 @@ $cards = [
     ['Refund report', 'Requests, completed gateway refunds, legacy rows', $base . '/refunds.php'],
     ['Subscription report', 'Activations, collection, delivery fulfilment', $base . '/subscriptions.php'],
     ['Inventory report', 'Stock levels and movement history', $base . '/inventory.php'],
-    ['Coupons', 'Usage report (Stage 10)', $base . '/coupons.php'],
+    ['Coupons', 'Coupon usage report', $base . '/coupons.php'],
 ];
 ?>
 <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">

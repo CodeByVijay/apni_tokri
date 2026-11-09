@@ -101,7 +101,7 @@ if ($mode === 'razorpay'): ?>
             </dl>
 
             <?php if ($error === '' && $mode === 'simulate' && is_array($checkout)): ?>
-                <p class="text-sm at-muted">Simulated gateway (Stage 9). Subscription activates only after server verification.</p>
+                <p class="text-sm at-muted">Simulated gateway. Subscription activates only after server verification.</p>
                 <div class="flex flex-col sm:flex-row gap-3" id="at-pay-simulate"
                     data-subscription="<?= Security::escape($subNumber) ?>"
                     data-token="<?= Security::escape((string) ($checkout['token'] ?? '')) ?>"

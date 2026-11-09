@@ -67,7 +67,7 @@ layout_public_start(['pageTitle' => 'Health check — Veggie Tokri', 'showBottom
 ?>
 <div class="max-w-2xl mx-auto px-4 py-8">
     <h1 class="text-2xl font-bold text-brand-green">Installation health check</h1>
-    <p class="mt-2 text-sm text-neutral-600">Stage 5 foundation — see <a class="underline text-brand-green" href="<?= Security::escape(url_base()) ?>/install.php">install guide</a>.</p>
+    <p class="mt-2 text-sm text-neutral-600">Environment and schema checks — see <a class="underline text-brand-green" href="<?= Security::escape(url_base()) ?>/install.php">install guide</a>.</p>
     <ul class="mt-8 space-y-3">
         <?php foreach ($checks as $check): ?>
             <li class="flex items-start gap-3 rounded-lg border bg-white p-4 <?= $check['ok'] ? 'border-green-200' : 'border-amber-300' ?>">
@@ -79,6 +79,6 @@ layout_public_start(['pageTitle' => 'Health check — Veggie Tokri', 'showBottom
             </li>
         <?php endforeach; ?>
     </ul>
-    <p class="mt-8 text-sm">Overall: <strong class="<?= $allOk ? 'text-green-700' : 'text-amber-700' ?>"><?= $allOk ? 'Ready for Stage 6+' : 'Needs attention' ?></strong></p>
+    <p class="mt-8 text-sm">Overall: <strong class="<?= $allOk ? 'text-green-700' : 'text-amber-700' ?>"><?= $allOk ? 'Ready for storefront use' : 'Needs attention' ?></strong></p>
 </div>
 <?php layout_public_end(); ?>

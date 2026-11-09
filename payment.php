@@ -231,7 +231,7 @@ if ($showGatewayCheckout && $mode === 'razorpay'): ?>
                     Contact support
                 </a>
             <?php elseif ($mode === 'simulate' && is_array($checkout) && PaymentGatewayConfig::useSimulatedCheckout()): ?>
-                <p class="text-sm at-muted">Simulated gateway (Stage 9). Payment is confirmed only after server verification — not from the browser alone.</p>
+                <p class="text-sm at-muted">Simulated gateway. Payment is confirmed only after server verification — not from the browser alone.</p>
                 <div class="flex flex-col sm:flex-row gap-3" id="at-pay-simulate" data-order="<?= Security::escape($orderNumber) ?>" data-token="<?= Security::escape((string) ($checkout['token'] ?? '')) ?>" data-idempotency="<?= Security::escape((string) ($checkout['idempotency_key'] ?? '')) ?>">
                     <button type="button" class="at-btn at-btn--primary at-btn--lg at-focusable flex-1" data-outcome="success"><?= at_icon('lock', 'w-5 h-5') ?> Pay (simulated success)</button>
                     <button type="button" class="at-btn at-btn--secondary at-focusable" data-outcome="fail">Simulate failure</button>

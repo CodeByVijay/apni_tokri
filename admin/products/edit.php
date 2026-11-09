@@ -310,7 +310,7 @@ if ($errors !== []) {
     <div data-admin-panel="variants" class="hidden">
         <div class="at-admin-card">
             <div class="at-admin-card__body space-y-3">
-                <p class="text-sm at-muted">Stock changes from orders use locked decrements (Stage 7). Manual edits here set absolute stock levels.</p>
+                <p class="text-sm at-muted">Stock changes from orders use locked decrements. Manual edits here set absolute stock levels.</p>
                 <p class="text-xs at-muted">Max per order defaults to <?= (int) CartQuantityRules::DEFAULT_MAX_PER_ORDER ?>; enter <strong>0</strong> for unlimited (stock still applies).</p>
                 <?php if (!empty($errors['variants'])): ?>
                     <p class="text-sm text-red-600"><?= Security::escape((string) $errors['variants']) ?></p>

@@ -112,7 +112,7 @@ if ($useDb && $totalPages > 1):
 <?php endif;
 
 if (!$useDb): ?>
-<div class="at-alert at-alert--info mt-4">Connect the database and apply Stage 13 CMS migration to manage pages.</div>
+<div class="at-alert at-alert--info mt-4">Connect the database and apply migration <code>1.9.0_stage13_cms_foundation.sql</code> to manage pages.</div>
 <?php endif;
 
 admin_layout_end();

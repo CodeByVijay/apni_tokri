@@ -237,7 +237,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
 
         <section class="at-checkout-block">
             <div class="at-checkout-block__head"><span class="at-checkout-block__num">2</span><h2 class="at-h3">Delivery address</h2></div>
-            <p class="text-xs at-muted -mt-2 mb-3">Serviceability for Indore is checked before payment (Stage 8).<?php if ($loggedIn && $persistedCheckout): ?> <a href="<?= Security::escape(url_base()) ?>/my-addresses.php" class="underline">Manage saved addresses</a><?php endif; ?></p>
+            <p class="text-xs at-muted -mt-2 mb-3">Serviceability for Indore is checked before payment.<?php if ($loggedIn && $persistedCheckout): ?> <a href="<?= Security::escape(url_base()) ?>/my-addresses.php" class="underline">Manage saved addresses</a><?php endif; ?></p>
             <?php if ($persistedCheckout && !$loggedIn): ?>
                 <p class="text-sm at-muted">Log in with your mobile OTP to add and choose a delivery address.</p>
             <?php elseif ($loggedIn && $addresses === []): ?>
