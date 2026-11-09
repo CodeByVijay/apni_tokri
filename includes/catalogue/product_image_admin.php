@@ -67,9 +67,9 @@ final class ProductImageAdminService
             ];
         }
 
-        $subdir = 'products/' . $productId;
         $assignPrimary = !ProductRepository::hasPrimaryImage($productId);
         $results = [];
+        $adminId = AdminAuth::check() ? (int) AdminAuth::id() : null;
 
         foreach ($files as $file) {
             $label = self::safeFilename((string) ($file['name'] ?? 'image'));
@@ -77,22 +77,45 @@ final class ProductImageAdminService
                 $results[] = ['filename' => $label, 'ok' => false, 'message' => 'Image limit reached.'];
                 continue;
             }
-            $upload = Upload::storeProductImage($file, $subdir);
-            if (!$upload['ok'] || empty($upload['path'])) {
-                $results[] = ['filename' => $label, 'ok' => false, 'message' => (string) ($upload['message'] ?? 'Upload failed.')];
-                continue;
-            }
-            $path = (string) $upload['path'];
             try {
-                $imageId = ProductRepository::addImage($productId, $path, $assignPrimary);
+                $ingest = null;
+                if (MediaLibrary::isEnabled()) {
+                    $ingest = MediaLibrary::ingestUpload($file, $adminId);
+                    if (!$ingest['ok'] || empty($ingest['media_id'])) {
+                        $results[] = [
+                            'filename' => $label,
+                            'ok' => false,
+                            'message' => (string) ($ingest['message'] ?? 'Upload failed.'),
+                        ];
+                        continue;
+                    }
+                    $media = MediaLibrary::findActive((int) $ingest['media_id']);
+                    if ($media === null) {
+                        $results[] = ['filename' => $label, 'ok' => false, 'message' => 'Media record missing.'];
+                        continue;
+                    }
+                    $path = (string) $media['file_path'];
+                    $imageId = ProductRepository::addImage(
+                        $productId,
+                        $path,
+                        $assignPrimary,
+                        (int) $media['id'],
+                        (string) ($media['alt_text'] ?? '')
+                    );
+                } else {
+                    $upload = Upload::storeProductImage($file, 'products/' . $productId);
+                    if (!$upload['ok'] || empty($upload['path'])) {
+                        $results[] = ['filename' => $label, 'ok' => false, 'message' => (string) ($upload['message'] ?? 'Upload failed.')];
+                        continue;
+                    }
+                    $path = (string) $upload['path'];
+                    $imageId = ProductRepository::addImage($productId, $path, $assignPrimary);
+                }
                 $assignPrimary = false;
-                $results[] = ['filename' => $label, 'ok' => true, 'image_id' => $imageId];
+                $dupNote = isset($ingest) && !empty($ingest['duplicate']) ? 'Linked existing media (duplicate file).' : null;
+                $results[] = ['filename' => $label, 'ok' => true, 'image_id' => $imageId, 'message' => $dupNote];
             } catch (Throwable $e) {
                 error_log('ProductImageAdminService::uploadBatch: ' . $e->getMessage());
-                $full = APNI_TOKRI_ROOT . '/' . ltrim($path, '/');
-                if (is_file($full)) {
-                    @unlink($full);
-                }
                 $results[] = ['filename' => $label, 'ok' => false, 'message' => 'Could not save image record.'];
             }
         }

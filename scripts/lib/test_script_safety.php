@@ -12,6 +12,22 @@ final class TestScriptSafety
     {
         $name = $databaseName ?? (string) (App::config()['database']['name'] ?? '');
         if (getenv('APNI_TOKRI_DISPOSABLE_DB') === '1') {
+            require_once dirname(__DIR__) . '/includes/disposable_db_runner.php';
+            $expected = getenv('APNI_TOKRI_TEST_DB_NAME');
+            if (is_string($expected) && $expected !== '' && $name !== $expected) {
+                fwrite(STDERR, "ABORT: disposable DB name mismatch (config vs APNI_TOKRI_TEST_DB_NAME).\n");
+                exit(2);
+            }
+            if (!disposable_is_tmp_db_name($name)) {
+                fwrite(STDERR, "ABORT: APNI_TOKRI_DISPOSABLE_DB set but database name is not apni_tokri_tmp_*.\n");
+                exit(2);
+            }
+            $original = getenv('APNI_TOKRI_ORIGINAL_DB_NAME');
+            if (is_string($original) && $original !== '' && $name === $original) {
+                fwrite(STDERR, "ABORT: disposable guard would run against application database.\n");
+                exit(2);
+            }
+
             return;
         }
         if ($name !== '' && preg_match('/^apni_tokri_(tmp|phase4|phase41|rl|sec_p1)_/i', $name)) {

@@ -38,21 +38,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if ($action === 'upload_image' && $postId && isset($_FILES['image'])) {
-        if (ProductRepository::imageCount($postId) >= ProductRepository::MAX_IMAGES_PER_PRODUCT) {
-            admin_flash_set('This product already has the maximum of ' . ProductRepository::MAX_IMAGES_PER_PRODUCT . ' images.', 'error');
+        $batch = ProductImageAdminService::uploadBatch($postId, [$_FILES['image']]);
+        $first = $batch['results'][0] ?? null;
+        if ($first && !empty($first['ok'])) {
+            admin_flash_set('Image uploaded.');
         } else {
-            $upload = Upload::storeProductImage($_FILES['image'], 'products/' . $postId);
-            if ($upload['ok'] && isset($upload['path'])) {
-                ProductRepository::addImage(
-                    $postId,
-                    $upload['path'],
-                    !ProductRepository::hasPrimaryImage($postId)
-                );
-                CatalogueGateway::reset();
-                admin_flash_set('Image uploaded.');
-            } else {
-                admin_flash_set($upload['message'] ?? 'Upload failed.', 'error');
-            }
+            admin_flash_set((string) ($first['message'] ?? 'Upload failed.'), 'error');
         }
         header('Location: ' . url_base() . '/admin/products/edit.php?id=' . $postId . '#images', true, 302);
         exit;

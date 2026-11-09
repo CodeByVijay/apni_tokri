@@ -36,9 +36,12 @@ if (getenv('APNI_TOKRI_DISPOSABLE_DB') === '1') {
         }
     }
     $pass = getenv('APNI_TOKRI_TEST_DB_PASS');
-    if ($pass !== false && $pass !== '') {
-        $db['pass'] = $pass;
-        $db['password'] = $pass;
+    if ($pass === false) {
+        $pass = getenv('APNI_TOKRI_DISPOSABLE_MYSQL_PASS');
+    }
+    if ($pass !== false) {
+        $db['pass'] = is_string($pass) ? $pass : '';
+        $db['password'] = is_string($pass) ? $pass : '';
     }
 }
 

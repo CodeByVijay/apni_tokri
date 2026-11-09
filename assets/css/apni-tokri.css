@@ -4518,6 +4518,98 @@ body.at-gallery-lightbox-open {
     justify-content: center;
   }
 }
+.at-media-library__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+  gap: 1rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.at-media-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  padding: 0.5rem;
+  background: #fff;
+}
+.at-media-card__thumb-link {
+  display: block;
+}
+.at-media-card__thumb {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 0.35rem;
+  background: #f3f4f6;
+}
+.at-media-card__name {
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin: 0.35rem 0 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.at-media-card__meta {
+  margin: 0.15rem 0 0;
+}
+.at-media-library__upload.is-dragover {
+  border-color: var(--at-green, #245c3a);
+  background: #f0f6f2;
+}
+.at-media-picker {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+.at-media-picker.hidden {
+  display: none;
+}
+.at-media-picker__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+}
+.at-media-picker__panel {
+  position: relative;
+  z-index: 1;
+  width: min(42rem, 100%);
+  max-height: min(90vh, 40rem);
+  overflow: auto;
+}
+.at-media-picker__grid {
+  max-height: 20rem;
+  overflow-y: auto;
+}
+.at-media-card--selectable {
+  position: relative;
+  cursor: pointer;
+}
+.at-media-card--selectable.is-selected {
+  border-color: var(--at-green, #245c3a);
+  box-shadow: 0 0 0 2px rgba(36, 92, 58, 0.25);
+}
+.at-media-card__check {
+  display: none;
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  background: var(--at-green, #245c3a);
+  color: #fff;
+  border-radius: 999px;
+  width: 1.25rem;
+  height: 1.25rem;
+  font-size: 0.7rem;
+  line-height: 1.25rem;
+  text-align: center;
+}
+.at-media-card--selectable.is-selected .at-media-card__check {
+  display: block;
+}
 .at-dash-donut-wrap {
   display: flex;
   flex-wrap: wrap;

@@ -7,11 +7,24 @@ declare(strict_types=1);
 $productId = (int) ($productId ?? 0);
 $src = asset_url((string) $img['file_path']);
 $id = (int) $img['id'];
+$alt = (string) ($img['alt_text'] ?? '');
 ?>
 <li class="at-product-img-card" data-image-id="<?= $id ?>" draggable="true">
-    <img src="<?= Security::escape($src) ?>" alt="" class="at-product-img-card__thumb" width="112" height="112" loading="lazy">
+    <img src="<?= Security::escape($src) ?>" alt="<?= Security::escape($alt) ?>" class="at-product-img-card__thumb" width="112" height="112" loading="lazy">
     <?php if (!empty($img['is_primary'])): ?>
         <span class="at-product-img-card__badge">Primary</span>
+    <?php endif; ?>
+    <?php if (MediaLibrary::isEnabled()): ?>
+        <label class="sr-only" for="alt-<?= $id ?>">Alt text</label>
+        <input
+            id="alt-<?= $id ?>"
+            type="text"
+            class="at-input at-input--xs mt-1 w-full text-xs"
+            maxlength="255"
+            placeholder="Alt text (optional)"
+            value="<?= Security::escape($alt) ?>"
+            data-at-image-alt="<?= $id ?>"
+        >
     <?php endif; ?>
     <div class="at-product-img-card__actions">
         <?php if (empty($img['is_primary'])): ?>

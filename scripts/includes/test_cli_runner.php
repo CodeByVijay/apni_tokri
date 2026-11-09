@@ -36,13 +36,14 @@ function test_cli_disposable_env_prefix(): string
     foreach ([
         'APNI_TOKRI_DISPOSABLE_DB',
         'APNI_TOKRI_TEST_DB_NAME',
+        'APNI_TOKRI_ORIGINAL_DB_NAME',
         'APNI_TOKRI_TEST_DB_HOST',
         'APNI_TOKRI_TEST_DB_PORT',
         'APNI_TOKRI_TEST_DB_USER',
         'APNI_TOKRI_TEST_DB_PASS',
     ] as $key) {
         $v = getenv($key);
-        if ($v !== false && $v !== '') {
+        if ($v !== false) {
             $parts[] = $key . '=' . escapeshellarg((string) $v);
         }
     }

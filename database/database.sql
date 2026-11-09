@@ -232,16 +232,44 @@ CREATE TABLE IF NOT EXISTS `product_variants` (
   CONSTRAINT `fk_variants_product` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS `media_assets` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `original_filename` VARCHAR(255) NOT NULL,
+  `storage_filename` VARCHAR(128) NOT NULL,
+  `file_path` VARCHAR(255) NOT NULL,
+  `mime_type` VARCHAR(64) NOT NULL,
+  `file_size` INT UNSIGNED NOT NULL DEFAULT 0,
+  `width` INT UNSIGNED NULL DEFAULT NULL,
+  `height` INT UNSIGNED NULL DEFAULT NULL,
+  `file_sha256` CHAR(64) NULL DEFAULT NULL,
+  `alt_text` VARCHAR(255) NOT NULL DEFAULT '',
+  `uploaded_by` INT UNSIGNED NULL DEFAULT NULL,
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `deleted_at` TIMESTAMP NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_media_file_path` (`file_path`),
+  KEY `idx_media_created` (`created_at`),
+  KEY `idx_media_deleted` (`deleted_at`),
+  KEY `idx_media_sha256` (`file_sha256`),
+  UNIQUE KEY `uq_media_file_sha256` (`file_sha256`),
+  KEY `idx_media_uploaded_by` (`uploaded_by`),
+  CONSTRAINT `fk_media_uploaded_by` FOREIGN KEY (`uploaded_by`) REFERENCES `admin_users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS `product_images` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `product_id` BIGINT UNSIGNED NOT NULL,
+  `media_id` BIGINT UNSIGNED NULL DEFAULT NULL,
   `file_path` VARCHAR(255) NOT NULL,
+  `alt_text` VARCHAR(255) NULL DEFAULT NULL,
   `sort_order` INT NOT NULL DEFAULT 0,
   `is_primary` TINYINT(1) NOT NULL DEFAULT 0,
   `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `idx_product_images_product` (`product_id`),
-  CONSTRAINT `fk_images_product` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE CASCADE
+  KEY `idx_product_images_media` (`media_id`),
+  CONSTRAINT `fk_images_product` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_product_images_media` FOREIGN KEY (`media_id`) REFERENCES `media_assets` (`id`) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `inventory_movements` (
@@ -536,7 +564,7 @@ SET FOREIGN_KEY_CHECKS = 1;
 -- Default admin: admin@apnitokri.local — use seeded password_hash; change password on first login (mandatory).
 -- ---------------------------------------------------------------------------
 INSERT INTO `settings` (`setting_key`, `setting_value`, `is_encrypted`) VALUES
-  ('schema_version', '1.1.0', 0),
+  ('schema_version', '1.37.0-media-library', 0),
   ('app_installed_at', NOW(), 0)
 ON DUPLICATE KEY UPDATE `setting_value` = VALUES(`setting_value`);
 

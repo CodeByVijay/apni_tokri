@@ -9,6 +9,7 @@ $imageCount = count($images);
 $maxImages = ProductRepository::MAX_IMAGES_PER_PRODUCT;
 $uploadUrl = url_base() . '/admin/ajax/product-images.php';
 $csrf = Csrf::token();
+$mediaLibrary = MediaLibrary::isEnabled();
 ?>
 <div
     class="at-product-images"
@@ -18,10 +19,17 @@ $csrf = Csrf::token();
     data-csrf="<?= Security::escape($csrf) ?>"
     data-max-images="<?= $maxImages ?>"
     data-image-count="<?= $imageCount ?>"
+    data-media-library="<?= $mediaLibrary ? '1' : '0' ?>"
 >
     <p class="text-sm at-muted mb-3">
         <?= (int) $imageCount ?> / <?= $maxImages ?> images · JPEG, PNG or WebP · max 5 MB each
     </p>
+    <div class="flex flex-wrap gap-2 mb-3">
+        <?php if ($mediaLibrary): ?>
+            <a href="<?= Security::escape(url_base()) ?>/admin/media/index.php" class="at-btn at-btn--secondary at-btn--sm at-focusable">Media library</a>
+            <button type="button" class="at-btn at-btn--secondary at-btn--sm at-focusable" data-at-open-media-picker>Choose from library</button>
+        <?php endif; ?>
+    </div>
     <ul class="at-product-images__gallery js-image-sortable" data-at-product-images-gallery role="list">
         <?php foreach ($images as $img): ?>
             <?php require APNI_TOKRI_ROOT . '/includes/partials/admin/product-images-gallery-item.php'; ?>
@@ -54,4 +62,7 @@ $csrf = Csrf::token();
             </div>
         </form>
     </noscript>
+    <?php if ($mediaLibrary): ?>
+        <?php require APNI_TOKRI_ROOT . '/includes/partials/admin/media-library-picker-modal.php'; ?>
+    <?php endif; ?>
 </div>

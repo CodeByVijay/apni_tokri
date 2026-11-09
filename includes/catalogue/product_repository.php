@@ -613,8 +613,13 @@ final class ProductRepository
         }
     }
 
-    public static function addImage(int $productId, string $filePath, bool $isPrimary = false): int
-    {
+    public static function addImage(
+        int $productId,
+        string $filePath,
+        bool $isPrimary = false,
+        ?int $mediaId = null,
+        string $altText = ''
+    ): int {
         Install::ensureConnection();
         $pdo = Database::pdo();
         if ($isPrimary) {
@@ -623,9 +628,17 @@ final class ProductRepository
         $max = $pdo->prepare('SELECT COALESCE(MAX(sort_order), -1) FROM product_images WHERE product_id = ?');
         $max->execute([$productId]);
         $sort = (int) $max->fetchColumn() + 1;
-        $pdo->prepare(
-            'INSERT INTO product_images (product_id, file_path, sort_order, is_primary) VALUES (?, ?, ?, ?)'
-        )->execute([$productId, $filePath, $sort, $isPrimary ? 1 : 0]);
+        $alt = mb_substr(trim($altText), 0, 255);
+        if (MediaLibrary::isEnabled() && $mediaId !== null && $mediaId > 0) {
+            $pdo->prepare(
+                'INSERT INTO product_images (product_id, media_id, file_path, alt_text, sort_order, is_primary)
+                 VALUES (?, ?, ?, ?, ?, ?)'
+            )->execute([$productId, $mediaId, $filePath, $alt !== '' ? $alt : null, $sort, $isPrimary ? 1 : 0]);
+        } else {
+            $pdo->prepare(
+                'INSERT INTO product_images (product_id, file_path, sort_order, is_primary) VALUES (?, ?, ?, ?)'
+            )->execute([$productId, $filePath, $sort, $isPrimary ? 1 : 0]);
+        }
 
         return (int) $pdo->lastInsertId();
     }
@@ -634,21 +647,59 @@ final class ProductRepository
     {
         Install::ensureConnection();
         $stmt = Database::pdo()->prepare(
-            'SELECT file_path FROM product_images WHERE id = ? AND product_id = ? LIMIT 1'
+            'SELECT file_path, media_id FROM product_images WHERE id = ? AND product_id = ? LIMIT 1'
         );
         $stmt->execute([$imageId, $productId]);
-        $path = $stmt->fetchColumn();
-        if ($path === false) {
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($row === false) {
             return false;
         }
-        Database::pdo()->prepare('DELETE FROM product_images WHERE id = ? AND product_id = ?')
+        $path = (string) ($row['file_path'] ?? '');
+        $mediaId = isset($row['media_id']) ? (int) $row['media_id'] : 0;
+        $pdo = Database::pdo();
+        $pdo->prepare('DELETE FROM product_images WHERE id = ? AND product_id = ?')
             ->execute([$imageId, $productId]);
-        $full = APNI_TOKRI_ROOT . '/' . ltrim((string) $path, '/');
-        if (strpos((string) $path, 'uploads/') === 0 && is_file($full)) {
+        if ($mediaId > 0) {
+            return true;
+        }
+        if ($path === '' || strpos($path, 'uploads/') !== 0) {
+            return true;
+        }
+        if (MediaLibrary::isEnabled()) {
+            $mref = $pdo->prepare('SELECT COUNT(*) FROM media_assets WHERE file_path = ?');
+            $mref->execute([$path]);
+            if ((int) $mref->fetchColumn() > 0) {
+                return true;
+            }
+        }
+        $refs = $pdo->prepare(
+            'SELECT COUNT(*) FROM product_images WHERE file_path = ?'
+        );
+        $refs->execute([$path]);
+        if ((int) $refs->fetchColumn() > 0) {
+            return true;
+        }
+        $full = APNI_TOKRI_ROOT . '/' . ltrim($path, '/');
+        if (is_file($full)) {
             @unlink($full);
         }
 
         return true;
+    }
+
+    public static function updateImageAlt(int $productId, int $imageId, string $alt): bool
+    {
+        if (!MediaLibrary::isEnabled()) {
+            return false;
+        }
+        Install::ensureConnection();
+        $stmt = Database::pdo()->prepare(
+            'UPDATE product_images SET alt_text = ? WHERE id = ? AND product_id = ?'
+        );
+        $alt = mb_substr(trim($alt), 0, 255);
+        $stmt->execute([$alt !== '' ? $alt : null, $imageId, $productId]);
+
+        return $stmt->rowCount() > 0;
     }
 
     /** @param list<int> $orderedImageIds */

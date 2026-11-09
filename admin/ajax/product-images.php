@@ -56,6 +56,38 @@ if ($action === 'set_primary') {
     Ajax::success(['images' => imagesForClient(ProductRepository::images($productId))], 'Primary image updated.');
 }
 
+if ($action === 'attach_media') {
+    $raw = isset($_POST['media_ids']) ? (string) $_POST['media_ids'] : '';
+    $ids = [];
+    foreach (preg_split('/\s*,\s*/', $raw, -1, PREG_SPLIT_NO_EMPTY) as $p) {
+        if (ctype_digit($p)) {
+            $ids[] = (int) $p;
+        }
+    }
+    if (!MediaLibrary::isEnabled()) {
+        Ajax::error('Media library is not available.');
+    }
+    $attach = MediaLibrary::attachToProduct($productId, $ids, true);
+    if ($attach['attached'] === [] && $attach['errors'] !== []) {
+        Ajax::error(implode(' ', $attach['errors']));
+    }
+    Ajax::success([
+        'attached' => $attach['attached'],
+        'skipped' => $attach['skipped'],
+        'errors' => $attach['errors'],
+        'images' => imagesForClient(ProductRepository::images($productId)),
+    ], 'Media attached.');
+}
+
+if ($action === 'update_alt') {
+    $imageId = isset($_POST['image_id']) ? (int) $_POST['image_id'] : 0;
+    $alt = isset($_POST['alt_text']) ? (string) $_POST['alt_text'] : '';
+    if (!ProductRepository::updateImageAlt($productId, $imageId, $alt)) {
+        Ajax::error('Could not save alt text.');
+    }
+    Ajax::success(['images' => imagesForClient(ProductRepository::images($productId))], 'Alt text saved.');
+}
+
 if ($action === 'reorder') {
     $raw = isset($_POST['image_order']) ? (string) $_POST['image_order'] : '';
     $ids = [];
@@ -82,6 +114,8 @@ function imagesForClient(array $rows): array
             'url' => asset_url((string) $img['file_path']),
             'is_primary' => !empty($img['is_primary']),
             'sort_order' => (int) ($img['sort_order'] ?? 0),
+            'alt_text' => (string) ($img['alt_text'] ?? ''),
+            'media_id' => isset($img['media_id']) ? (int) $img['media_id'] : null,
         ];
     }
 

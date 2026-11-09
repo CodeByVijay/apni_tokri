@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 final class Install
 {
-    public const SCHEMA_VERSION = '1.36.0-customer-registration-consent';
+    public const SCHEMA_VERSION = '1.37.0-media-library';
 
     /** Seeded bootstrap admin (fresh SQL import). Detection uses password hash only — never expose the plain password. */
     public const SEED_ADMIN_EMAIL = 'admin@apnitokri.local';

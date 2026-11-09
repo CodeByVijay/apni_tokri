@@ -637,14 +637,26 @@
         : '<button type="button" class="at-btn at-btn--ghost at-btn--xs at-focusable" data-at-set-primary="' +
           img.id +
           '">Set primary</button>';
+      var altVal = img.alt_text ? $('<span/>').text(img.alt_text).html() : '';
+      var altBlock =
+        String($root.data('media-library')) === '1'
+          ? '<input type="text" class="at-input mt-1 w-full text-xs" maxlength="255" placeholder="Alt text (optional)" value="' +
+            altVal +
+            '" data-at-image-alt="' +
+            img.id +
+            '">'
+          : '';
       return (
         '<li class="at-product-img-card" data-image-id="' +
         img.id +
         '" draggable="true">' +
         '<img src="' +
         $('<span/>').text(img.url).html() +
-        '" alt="" class="at-product-img-card__thumb" width="112" height="112" loading="lazy">' +
+        '" alt="' +
+        altVal +
+        '" class="at-product-img-card__thumb" width="112" height="112" loading="lazy">' +
         primaryBadge +
+        altBlock +
         '<div class="at-product-img-card__actions">' +
         setPrimary +
         '<form method="post" class="inline" data-at-delete-image-form">' +
@@ -723,6 +735,22 @@
     }
 
     function bindGalleryActions() {
+      $root.find('[data-at-image-alt]').off('change').on('change', function () {
+        var imageId = $(this).attr('data-at-image-alt');
+        var alt = $(this).val();
+        $.ajax({
+          url: uploadUrl,
+          method: 'POST',
+          data: {
+            _csrf_token: csrf,
+            action: 'update_alt',
+            product_id: productId,
+            image_id: imageId,
+            alt_text: alt,
+          },
+          dataType: 'json',
+        });
+      });
       $root.find('[data-at-set-primary]').off('click').on('click', function () {
         var imageId = $(this).attr('data-at-set-primary');
         $.ajax({
@@ -837,6 +865,219 @@
 
     bindGalleryActions();
     bindGalleryDnD();
+    initProductMediaPicker($root, uploadUrl, csrf, productId, {
+      buildGalleryItem: buildGalleryItem,
+      refreshMeta: refreshMeta,
+      bindGalleryActions: bindGalleryActions,
+      bindGalleryDnD: bindGalleryDnD,
+    });
+  }
+
+  function initProductMediaPicker($root, uploadUrl, csrf, productId, helpers) {
+    var $picker = $root.find('[data-at-media-picker]');
+    if (!$picker.length) return;
+    var mediaAjax = $picker.data('media-ajax');
+    var selected = {};
+    var page = 1;
+    var totalPages = 1;
+
+    function renderPickerItems(items, append) {
+      var $grid = $picker.find('[data-at-media-picker-grid]');
+      if (!append) $grid.empty();
+      items.forEach(function (item) {
+        var mid = item.id;
+        var on = selected[mid] ? ' is-selected' : '';
+        var $li = $(
+          '<li class="at-media-card at-media-card--selectable' +
+            on +
+            '" data-pick-media="' +
+            mid +
+            '"><img src="' +
+            $('<span/>').text(item.url).html() +
+            '" alt="" class="at-media-card__thumb" loading="lazy"><span class="at-media-card__check" aria-hidden="true">✓</span></li>'
+        );
+        $grid.append($li);
+      });
+    }
+
+    function loadPicker(append) {
+      if (!append) page = 1;
+      var q = $picker.find('[data-at-media-picker-q]').val() || '';
+      var usage = $picker.find('[data-at-media-picker-usage]').val() || '';
+      $picker.find('[data-at-media-picker-status]').text('Loading…');
+      $.ajax({
+        url: mediaAjax,
+        method: 'GET',
+        data: {
+          action: 'list',
+          q: q,
+          usage: usage,
+          sort: 'newest',
+          page: page,
+          per_page: 24,
+        },
+        dataType: 'json',
+      })
+        .done(function (res) {
+          if (!res || !res.success || !res.data) return;
+          totalPages = res.data.total_pages || 1;
+          renderPickerItems(res.data.items || [], !!append);
+          $picker.find('[data-at-media-picker-status]').text(
+            (res.data.total || 0) + ' item(s) · page ' + (res.data.page || 1) + '/' + (totalPages || 1)
+          );
+          $picker.find('[data-at-media-picker-more]').toggleClass('hidden', page >= totalPages);
+        })
+        .fail(function () {
+          $picker.find('[data-at-media-picker-status]').text('Could not load media.');
+        });
+    }
+
+    $root.find('[data-at-open-media-picker]').on('click', function () {
+      selected = {};
+      $picker.removeClass('hidden');
+      $picker.find('[data-at-media-picker-confirm]').prop('disabled', true);
+      loadPicker(false);
+    });
+    $picker.find('[data-at-media-picker-close], .at-media-picker__backdrop').on('click', function () {
+      $picker.addClass('hidden');
+    });
+    $picker.find('[data-at-media-picker-search]').on('click', function () {
+      loadPicker(false);
+    });
+    $picker.find('[data-at-media-picker-more]').on('click', function () {
+      if (page < totalPages) {
+        page += 1;
+        loadPicker(true);
+      }
+    });
+    $picker.on('click', '[data-pick-media]', function () {
+      var id = parseInt($(this).attr('data-pick-media'), 10);
+      if (selected[id]) {
+        delete selected[id];
+        $(this).removeClass('is-selected');
+      } else {
+        selected[id] = true;
+        $(this).addClass('is-selected');
+      }
+      var n = Object.keys(selected).length;
+      $picker.find('[data-at-media-picker-confirm]').prop('disabled', n === 0);
+    });
+    $picker.find('[data-at-media-picker-confirm]').on('click', function () {
+      var ids = Object.keys(selected);
+      if (!ids.length) return;
+      $.ajax({
+        url: uploadUrl,
+        method: 'POST',
+        data: {
+          _csrf_token: csrf,
+          action: 'attach_media',
+          product_id: productId,
+          media_ids: ids.join(','),
+        },
+        dataType: 'json',
+      }).done(function (res) {
+        if (res && res.success && res.data && res.data.images) {
+          var html = '';
+          res.data.images.forEach(function (img) {
+            html += helpers.buildGalleryItem(img);
+          });
+          $root.find('[data-at-product-images-gallery]').html(html);
+          helpers.refreshMeta();
+          helpers.bindGalleryActions();
+          helpers.bindGalleryDnD();
+          $picker.addClass('hidden');
+        } else if (res && !res.success) {
+          alert((res.error && res.error.message) || 'Could not attach media.');
+        }
+      });
+    });
+  }
+
+  function initAdminMediaLibrary() {
+    var $root = $('[data-at-media-library]');
+    if (!$root.length) return;
+    var ajaxUrl = $root.data('ajax-url');
+    var csrf = $root.data('csrf');
+    var $drop = $root.find('[data-at-media-dropzone]');
+    var $input = $root.find('[data-at-media-file-input]');
+    var $status = $root.find('[data-at-media-upload-status]');
+
+    function uploadFiles(files) {
+      if (!files || !files.length) return;
+      $status.empty().append($('<p/>').text('Uploading…'));
+      var fd = new FormData();
+      fd.append('_csrf_token', csrf);
+      fd.append('action', 'upload');
+      for (var i = 0; i < files.length; i++) {
+        fd.append('images[]', files[i]);
+      }
+      $.ajax({
+        url: ajaxUrl,
+        method: 'POST',
+        data: fd,
+        processData: false,
+        contentType: false,
+        dataType: 'json',
+      })
+        .done(function (res) {
+          if (!res || !res.success) {
+            $status.append($('<p class="text-red-700"/>').text((res.error && res.error.message) || 'Upload failed.'));
+            return;
+          }
+          (res.data.results || []).forEach(function (r) {
+            var $p = $('<p/>').text((r.ok ? '✓ ' : '✗ ') + r.filename + (r.message ? ' — ' + r.message : ''));
+            if (!r.ok) $p.addClass('text-red-700');
+            else $p.addClass('text-green-800');
+            $status.append($p);
+          });
+          if ((res.data.results || []).some(function (r) {
+            return r.ok;
+          })) {
+            window.setTimeout(function () {
+              window.location.reload();
+            }, 600);
+          }
+        })
+        .fail(function () {
+          $status.append($('<p class="text-red-700"/>').text('Upload failed.'));
+        });
+    }
+
+    $root.find('[data-at-media-upload-trigger]').on('click', function () {
+      $input[0].click();
+    });
+    $drop.on('click', function (e) {
+      if (e.target === $input[0]) return;
+      $input[0].click();
+    });
+    $drop.on('dragover', function (e) {
+      e.preventDefault();
+      $drop.addClass('is-dragover');
+    });
+    $drop.on('dragleave drop', function (e) {
+      e.preventDefault();
+      $drop.removeClass('is-dragover');
+      if (e.type === 'drop' && e.originalEvent.dataTransfer && e.originalEvent.dataTransfer.files) {
+        uploadFiles(e.originalEvent.dataTransfer.files);
+      }
+    });
+    $input.on('change', function () {
+      if (this.files) uploadFiles(this.files);
+      this.value = '';
+    });
+    $root.on('click', '[data-at-media-soft-delete]', function () {
+      var mid = $(this).attr('data-at-media-soft-delete');
+      if (!window.confirm('Soft-delete this unused image?')) return;
+      $.ajax({
+        url: ajaxUrl,
+        method: 'POST',
+        data: { _csrf_token: csrf, action: 'soft_delete', media_id: mid },
+        dataType: 'json',
+      }).done(function (res) {
+        if (res && res.success) window.location.reload();
+        else alert((res.error && res.error.message) || 'Delete failed.');
+      });
+    });
   }
 
   function initSortableReorder($root, rowIdAttr) {
@@ -1017,6 +1258,7 @@
     initAdminTabbedFormValidation();
     initAdminProductDynamicRows();
     initAdminProductImages();
+    initAdminMediaLibrary();
     initSubmitOnce();
     initAdminFlashDismiss();
     initSettingsTabsNav();
