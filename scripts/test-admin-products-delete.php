@@ -111,6 +111,15 @@ okPd(strpos($indexPhp, 'Delete product?') !== false, 'modal title present');
 
 $js = file_get_contents(APNI_TOKRI_ROOT . '/assets/js/admin-products-list.js') ?: '';
 okPd(strpos($js, 'Deleting...') !== false && strpos($js, 'deleting = true') !== false, 'delete modal loading guard');
+okPd(
+    strpos($js, '$dialog.on(\'click\', \'[data-at-product-delete-close]\'') !== false,
+    'delete modal close bound on dialog (not blocked by stopPropagation)'
+);
+okPd(strpos($js, '$dialog.on(\'click\', function (e) {\n      e.stopPropagation();') === false, 'delete modal dialog does not stopPropagation all clicks');
+okPd(strpos($js, 'pendingForm.trigger(\'submit\')') !== false, 'delete confirm still submits form only from confirm button');
+
+$apni = file_get_contents(APNI_TOKRI_ROOT . '/assets/js/apni-tokri.js') ?: '';
+okPd(strpos($apni, "removeClass('at-modal-open')") !== false, 'global closeModal clears body scroll lock');
 
 echo "\nTotal failures: {$fail}\n";
 exit($fail > 0 ? 1 : 0);

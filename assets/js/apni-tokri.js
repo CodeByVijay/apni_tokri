@@ -58,6 +58,9 @@
   function closeModal($backdrop) {
     $backdrop.removeClass('is-open').attr('aria-hidden', 'true');
     $backdrop.find('.at-modal').off('keydown.atTrap');
+    if (!$('.at-modal-backdrop.is-open').length) {
+      $('body').removeClass('at-modal-open');
+    }
   }
 
   $(function () {

@@ -175,14 +175,14 @@
       openModal($(this).closest('[data-at-product-delete-form]'));
     });
 
-    $modal.on('click', '[data-at-product-delete-close]', closeModal);
+    $dialog.on('click', '[data-at-product-delete-close]', function (e) {
+      e.preventDefault();
+      closeModal();
+    });
     $modal.on('click', function (e) {
       if (e.target === $modal[0]) {
         closeModal();
       }
-    });
-    $dialog.on('click', function (e) {
-      e.stopPropagation();
     });
 
     $submit.on('click', function () {
