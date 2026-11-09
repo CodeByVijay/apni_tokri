@@ -514,9 +514,13 @@ final class ProductRepository
         }
         $kept = [];
         $seenSkus = [];
+        $sortPos = 1;
 
         foreach ($variants as $i => $v) {
             $vid = isset($v['id']) && $v['id'] !== '' ? (int) $v['id'] : null;
+            if ($vid !== null && $vid > 0 && !isset($existingIds[$vid])) {
+                return ['ok' => false, 'message' => 'One or more variant rows do not belong to this product. Refresh and try again.'];
+            }
             $vname = trim((string) ($v['name'] ?? ''));
             if ($vname === '') {
                 continue;
@@ -547,7 +551,7 @@ final class ProductRepository
             $maxPer = CartQuantityRules::adminMaxPerOrderOrDefault($v['max_qty_per_order'] ?? '');
             $minPer = CartQuantityRules::adminMinPerOrderOrDefault($v['min_qty_per_order'] ?? '');
             $active = !empty($v['is_active']) ? 1 : 0;
-            $sort = (int) ($v['sort_order'] ?? $i);
+            $sort = $sortPos++;
 
             if ($vid !== null && isset($existingIds[$vid])) {
                 try {
@@ -598,14 +602,14 @@ final class ProductRepository
         $stmt = $pdo->prepare(
             'INSERT INTO product_attributes (product_id, attr_key, attr_value, sort_order) VALUES (?, ?, ?, ?)'
         );
-        $i = 0;
+        $sortPos = 1;
         foreach ($attrs as $a) {
             $key = trim((string) ($a['label'] ?? $a['attr_key'] ?? ''));
             $val = trim((string) ($a['value'] ?? $a['attr_value'] ?? ''));
             if ($key === '' || $val === '') {
                 continue;
             }
-            $stmt->execute([$productId, $key, $val, $i++]);
+            $stmt->execute([$productId, $key, $val, $sortPos++]);
         }
     }
 

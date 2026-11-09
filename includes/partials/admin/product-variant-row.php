@@ -3,12 +3,19 @@
 declare(strict_types=1);
 
 /** @var array<string, mixed> $v Variant row for admin product form */
+/** @var int|null $variantIndex 0-based index for position display */
 $v = $v ?? [];
+$variantIndex = $variantIndex ?? 0;
+$vname = (string) ($v['name'] ?? '');
 ?>
-<tr data-at-variant-row>
+<tr data-at-variant-row data-at-product-reorder-row>
+    <td class="at-dslots-reorder-col-handle">
+        <button type="button" class="at-dslots-reorder-handle at-focusable" draggable="true" aria-label="Drag to reorder variant" data-at-product-reorder-drag-handle>⋮⋮</button>
+    </td>
+    <td class="is-num at-dslots-reorder-col-seq" data-at-product-reorder-seq><?= $variantIndex + 1 ?></td>
     <td>
         <input type="hidden" name="variant_id[]" value="<?= Security::escape((string) ($v['id'] ?? '')) ?>">
-        <input name="variant_name[]" class="at-input at-focusable w-full min-w-[5rem]" value="<?= Security::escape((string) ($v['name'] ?? '')) ?>" aria-label="Variant name" placeholder="e.g. 500 g">
+        <input name="variant_name[]" class="at-input at-focusable w-full min-w-[5rem]" value="<?= Security::escape($vname) ?>" aria-label="Variant name" placeholder="e.g. 500 g">
     </td>
     <td><input name="variant_sku[]" class="at-input at-focusable" value="<?= Security::escape((string) ($v['sku'] ?? '')) ?>" placeholder="Optional"></td>
     <td><input name="variant_price[]" type="number" step="0.01" min="0" class="at-input at-focusable" value="<?= Security::escape((string) ($v['price'] ?? '')) ?>" inputmode="decimal"></td>
@@ -28,6 +35,12 @@ $v = $v ?? [];
         }
         ?>
         <input name="variant_max[]" type="number" min="0" class="at-input at-focusable w-20" value="<?= Security::escape($maxVal) ?>" title="0 = unlimited per order" aria-label="Max per order">
+    </td>
+    <td class="at-dslots-reorder-col-move">
+        <span class="at-dslots-reorder-arrows">
+            <button type="button" class="at-btn at-btn--sm at-btn--ghost at-focusable" data-at-product-reorder-up aria-label="Move variant up">↑</button>
+            <button type="button" class="at-btn at-btn--sm at-btn--ghost at-focusable" data-at-product-reorder-down aria-label="Move variant down">↓</button>
+        </span>
     </td>
     <td class="text-right whitespace-nowrap">
         <button type="button" class="at-btn at-btn--ghost at-btn--xs at-focusable text-red-700" data-at-remove-variant aria-label="Remove variant">Remove</button>

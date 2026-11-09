@@ -315,15 +315,125 @@
     });
   }
 
+  function initProductInlineReorder($root) {
+    var $tbody = $root.find('[data-at-product-reorder-body]');
+    if (!$tbody.length) {
+      return null;
+    }
+    var rowSel = '[data-at-product-reorder-row]';
+    var dragKey = null;
+
+    function ensureRowKeys() {
+      $tbody.find(rowSel).each(function () {
+        var $row = $(this);
+        if (!$row.attr('data-at-product-reorder-key')) {
+          $row.attr('data-at-product-reorder-key', 'r' + Math.random().toString(36).slice(2, 11));
+        }
+      });
+    }
+
+    function syncUi() {
+      ensureRowKeys();
+      var $rows = $tbody.find(rowSel);
+      $rows.each(function (i) {
+        var $row = $(this);
+        $row.find('[data-at-product-reorder-seq]').text(i + 1);
+        var isFirst = i === 0;
+        var isLast = i === $rows.length - 1;
+        $row.find('[data-at-product-reorder-up]').prop('disabled', isFirst).attr('aria-disabled', isFirst ? 'true' : 'false');
+        $row.find('[data-at-product-reorder-down]').prop('disabled', isLast).attr('aria-disabled', isLast ? 'true' : 'false');
+      });
+    }
+
+    function moveRow($row, direction) {
+      if (direction < 0) {
+        var $prev = $row.prev(rowSel);
+        if ($prev.length) {
+          $prev.before($row);
+        }
+      } else {
+        var $next = $row.next(rowSel);
+        if ($next.length) {
+          $next.after($row);
+        }
+      }
+      syncUi();
+    }
+
+    $root.on('click', '[data-at-product-reorder-up]', function () {
+      moveRow($(this).closest(rowSel), -1);
+    });
+    $root.on('click', '[data-at-product-reorder-down]', function () {
+      moveRow($(this).closest(rowSel), 1);
+    });
+
+    $tbody.on('dragstart', '[data-at-product-reorder-drag-handle]', function (e) {
+      var $row = $(this).closest(rowSel);
+      ensureRowKeys();
+      dragKey = $row.attr('data-at-product-reorder-key');
+      if (e.originalEvent && e.originalEvent.dataTransfer) {
+        e.originalEvent.dataTransfer.effectAllowed = 'move';
+        e.originalEvent.dataTransfer.setData('text/plain', dragKey || '');
+      }
+      $row.addClass('is-dragging');
+      $tbody.addClass('is-reorder-dragging');
+    });
+    $tbody.on('dragend', '[data-at-product-reorder-drag-handle]', function () {
+      $(this).closest(rowSel).removeClass('is-dragging');
+      $tbody.removeClass('is-reorder-dragging');
+      dragKey = null;
+    });
+    $tbody.on('dragover', rowSel, function (e) {
+      e.preventDefault();
+      if (e.originalEvent && e.originalEvent.dataTransfer) {
+        e.originalEvent.dataTransfer.dropEffect = 'move';
+      }
+    });
+    $tbody.on('drop', rowSel, function (e) {
+      e.preventDefault();
+      var targetKey = $(this).attr('data-at-product-reorder-key');
+      if (!dragKey || !targetKey || dragKey === targetKey) {
+        return;
+      }
+      var $drag = $tbody.find('[data-at-product-reorder-key="' + dragKey + '"]');
+      var $target = $tbody.find('[data-at-product-reorder-key="' + targetKey + '"]');
+      if (!$drag.length || !$target.length) {
+        return;
+      }
+      if ($drag.index() < $target.index()) {
+        $target.after($drag);
+      } else {
+        $target.before($drag);
+      }
+      syncUi();
+    });
+
+    $root.on('keydown', '[data-at-product-reorder-up], [data-at-product-reorder-down]', function (e) {
+      if (e.key !== 'Enter' && e.key !== ' ') {
+        return;
+      }
+      e.preventDefault();
+      $(this).trigger('click');
+    });
+
+    syncUi();
+
+    return { syncUi: syncUi, clearRowKey: function ($row) { $row.removeAttr('data-at-product-reorder-key'); } };
+  }
+
   function initAdminProductDynamicRows() {
     var $form = $('form[data-at-product-form]');
     if (!$form.length) return;
+
+    var variantReorder = initProductInlineReorder($('[data-at-product-variant-reorder]'));
+    var attributeReorder = initProductInlineReorder($('[data-at-product-attribute-reorder]'));
 
     $form.on('click', '[data-at-add-variant]', function () {
       var $tbody = $('#at-variant-rows');
       var $proto = $tbody.find('[data-at-variant-row]').first();
       if (!$proto.length) return;
       var $row = $proto.clone();
+      $row.removeAttr('data-at-product-reorder-key').removeClass('is-dragging');
       $row.find('input').each(function () {
         var $el = $(this);
         if ($el.attr('name') === 'variant_id[]') {
@@ -336,6 +446,9 @@
         }
       });
       $tbody.append($row);
+      if (variantReorder) {
+        variantReorder.syncUi();
+      }
     });
 
     $form.on('click', '[data-at-remove-variant]', function () {
@@ -353,9 +466,15 @@
             $el.val('');
           }
         });
+        if (variantReorder) {
+          variantReorder.syncUi();
+        }
         return;
       }
       $(this).closest('[data-at-variant-row]').remove();
+      if (variantReorder) {
+        variantReorder.syncUi();
+      }
     });
 
     $form.on('click', '[data-at-add-attribute]', function () {
@@ -363,8 +482,12 @@
       var $proto = $wrap.find('[data-at-attribute-row]').first();
       if (!$proto.length) return;
       var $row = $proto.clone();
+      $row.removeAttr('data-at-product-reorder-key').removeClass('is-dragging');
       $row.find('input').val('');
       $wrap.append($row);
+      if (attributeReorder) {
+        attributeReorder.syncUi();
+      }
     });
 
     $form.on('click', '[data-at-remove-attribute]', function () {
@@ -372,9 +495,15 @@
       var $rows = $wrap.find('[data-at-attribute-row]');
       if ($rows.length <= 1) {
         $rows.first().find('input').val('');
+        if (attributeReorder) {
+          attributeReorder.syncUi();
+        }
         return;
       }
       $(this).closest('[data-at-attribute-row]').remove();
+      if (attributeReorder) {
+        attributeReorder.syncUi();
+      }
     });
   }
 

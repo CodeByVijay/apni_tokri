@@ -4925,7 +4925,13 @@ body.at-gallery-lightbox-open {
 .at-admin-table--dslots-reorder .at-dslots-reorder-col-move,
 .at-admin-table--categories-reorder .at-dslots-reorder-col-handle,
 .at-admin-table--categories-reorder .at-dslots-reorder-col-seq,
-.at-admin-table--categories-reorder .at-dslots-reorder-col-move {
+.at-admin-table--categories-reorder .at-dslots-reorder-col-move,
+.at-admin-table--product-variants-reorder .at-dslots-reorder-col-handle,
+.at-admin-table--product-variants-reorder .at-dslots-reorder-col-seq,
+.at-admin-table--product-variants-reorder .at-dslots-reorder-col-move,
+.at-admin-table--product-attributes-reorder .at-dslots-reorder-col-handle,
+.at-admin-table--product-attributes-reorder .at-dslots-reorder-col-seq,
+.at-admin-table--product-attributes-reorder .at-dslots-reorder-col-move {
   width: 1%;
   white-space: nowrap;
   vertical-align: middle;
@@ -4961,9 +4967,17 @@ body.at-gallery-lightbox-open {
 [data-at-category-reorder].is-dirty .at-dslots-reorder-status {
   color: var(--at-warning-fg, #b45309);
 }
-[data-at-dslots-row].is-dragging td {
+[data-at-dslots-row].is-dragging td,
+[data-at-product-reorder-row].is-dragging td {
   opacity: 0.65;
   background: var(--at-surface-muted, #f8fafc);
+}
+[data-at-product-reorder-body].is-reorder-dragging {
+  user-select: none;
+}
+.at-admin-table--product-attributes-reorder td .at-input {
+  min-width: 0;
+  width: 100%;
 }
 .at-admin-table--dense th,
 .at-admin-table--dense td {

@@ -315,15 +315,22 @@ if ($errors !== []) {
                 <?php if (!empty($errors['variants'])): ?>
                     <p class="text-sm text-red-600"><?= Security::escape((string) $errors['variants']) ?></p>
                 <?php endif; ?>
-                <div class="at-admin-table-wrap">
-                    <table class="at-admin-table at-admin-table--fixed">
-                        <thead><tr><th>Variant</th><th>SKU</th><th>Price (₹)</th><th>Sale</th><th>Stock</th><th>Low at</th><th>Min / order</th><th>Max / order</th><th class="text-right"> </th></tr></thead>
-                        <tbody id="at-variant-rows">
+                <p class="text-sm at-muted">Drag rows or use the arrow buttons to set display order on the product page and in checkout.</p>
+                <div class="at-admin-table-wrap" data-at-product-variant-reorder>
+                    <table class="at-admin-table at-admin-table--fixed at-admin-table--product-variants-reorder">
+                        <thead><tr>
+                            <th class="at-dslots-reorder-col-handle" scope="col"><span class="sr-only">Drag</span></th>
+                            <th class="is-num at-dslots-reorder-col-seq" scope="col">#</th>
+                            <th scope="col">Variant</th><th scope="col">SKU</th><th scope="col">Price (₹)</th><th scope="col">Sale</th><th scope="col">Stock</th><th scope="col">Low at</th><th scope="col">Min / order</th><th scope="col">Max / order</th>
+                            <th class="at-dslots-reorder-col-move" scope="col"><span class="sr-only">Move</span></th>
+                            <th class="text-right" scope="col"><span class="sr-only">Remove</span></th>
+                        </tr></thead>
+                        <tbody id="at-variant-rows" data-at-product-reorder-body>
                         <?php
                         if ($variants === []) {
                             $variants = [['id' => '', 'name' => '', 'sku' => '', 'price' => '', 'sale_price' => null, 'stock_qty' => 0, 'low_stock_threshold' => 5, 'min_qty_per_order' => CartQuantityRules::DEFAULT_MIN_PER_ORDER, 'max_qty_per_order' => CartQuantityRules::DEFAULT_MAX_PER_ORDER]];
                         }
-                        foreach ($variants as $v) {
+                        foreach ($variants as $variantIndex => $v) {
                             require APNI_TOKRI_ROOT . '/includes/partials/admin/product-variant-row.php';
                         }
                         ?>
@@ -342,15 +349,28 @@ if ($errors !== []) {
                 <?php if (!empty($errors['attributes'])): ?>
                     <p class="text-sm text-red-600"><?= Security::escape((string) $errors['attributes']) ?></p>
                 <?php endif; ?>
-                <div id="at-attribute-rows" class="space-y-2">
-                <?php
-                if ($attributes === []) {
-                    $attributes = [['attr_key' => '', 'attr_value' => '']];
-                }
-                foreach ($attributes as $a) {
-                    require APNI_TOKRI_ROOT . '/includes/partials/admin/product-attribute-row.php';
-                }
-                ?>
+                <p class="text-sm at-muted">Drag rows or use the arrow buttons. Order is saved when you save the product.</p>
+                <div class="at-admin-table-wrap" data-at-product-attribute-reorder>
+                    <table class="at-admin-table at-admin-table--product-attributes-reorder">
+                        <thead><tr>
+                            <th class="at-dslots-reorder-col-handle" scope="col"><span class="sr-only">Drag</span></th>
+                            <th class="is-num at-dslots-reorder-col-seq" scope="col">#</th>
+                            <th scope="col">Attribute name</th>
+                            <th scope="col">Attribute value</th>
+                            <th class="at-dslots-reorder-col-move" scope="col"><span class="sr-only">Move</span></th>
+                            <th class="text-right" scope="col"><span class="sr-only">Remove</span></th>
+                        </tr></thead>
+                        <tbody id="at-attribute-rows" data-at-product-reorder-body>
+                        <?php
+                        if ($attributes === []) {
+                            $attributes = [['attr_key' => '', 'attr_value' => '']];
+                        }
+                        foreach ($attributes as $attrIndex => $a) {
+                            require APNI_TOKRI_ROOT . '/includes/partials/admin/product-attribute-row.php';
+                        }
+                        ?>
+                        </tbody>
+                    </table>
                 </div>
                 <button type="button" class="at-btn at-btn--secondary at-btn--sm at-focusable" data-at-add-attribute>+ Add attribute</button>
             </div>
