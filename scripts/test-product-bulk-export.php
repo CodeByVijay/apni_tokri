@@ -10,6 +10,7 @@ require_once dirname(__DIR__) . '/includes/bootstrap.php';
 require_once dirname(__DIR__) . '/scripts/lib/test_script_safety.php';
 
 $fail = 0;
+$skipped = 0;
 function okEx(bool $c, string $m): void
 {
     global $fail;
@@ -17,6 +18,13 @@ function okEx(bool $c, string $m): void
     if (!$c) {
         $fail++;
     }
+}
+
+function skipEx(string $m): void
+{
+    global $skipped;
+    echo 'SKIP: ' . $m . "\n";
+    $skipped++;
 }
 
 TestScriptSafety::assertDisposableDatabaseOrAbort();
@@ -87,11 +95,49 @@ okEx(
     'invalid ids count zero'
 );
 
+okEx(SimpleXlsx::sanitizeCellString('=1+1')[0] === "'", 'spreadsheet sanitize leading equals');
+okEx(SimpleXlsx::sanitizeCellString('+cmd') === "'+cmd", 'spreadsheet sanitize leading plus');
+okEx(SimpleXlsx::sanitizeCellString('@evil') === "'@evil", 'spreadsheet sanitize leading at');
+okEx(SimpleXlsx::sanitizeCellString('hello') === 'hello', 'spreadsheet sanitize plain text');
+
+okEx(ProductBulkExport::normalizeExportScope('bogus') === ProductBulkExport::SCOPE_FILTERED, 'invalid export scope defaults filtered');
+okEx(ProductBulkExport::normalizeExportStatus('invalid') === '', 'invalid export status cleared');
+$bogusCount = ProductBulkExport::resolveExportCount(['scope' => 'injected', 'status' => 'draft']);
+$draftCount = ProductBulkExport::resolveExportCount(['scope' => ProductBulkExport::SCOPE_FILTERED, 'status' => 'draft']);
+okEx(($bogusCount['count'] ?? -1) === ($draftCount['count'] ?? -2), 'invalid scope applies same filters as filtered');
+
+$listTotal = ProductRepository::searchForAdmin('Export Product', 'ex-cat-' . $tok, '', 1, 50, 'updated_at', 'desc')['total'];
+$exportTotal = ProductRepository::countAdminExport('Export Product', 'ex-cat-' . $tok, '');
+okEx($listTotal === $exportTotal, 'admin list total matches export count (q+cat)');
+$listDraft = ProductRepository::searchForAdmin('', 'ex-cat-' . $tok, 'draft', 1, 50, 'updated_at', 'desc')['total'];
+$exportDraft = ProductRepository::countAdminExport('', 'ex-cat-' . $tok, 'draft');
+okEx($listDraft === $exportDraft, 'admin list total matches export count (status)');
+
 $resolved = ProductBulkExport::resolveExportProductIds([
     'scope' => ProductBulkExport::SCOPE_SELECTED,
     'product_ids' => [$ids[0], 0, -1, 99999999],
 ]);
 okEx(!empty($resolved['ok']) && count($resolved['product_ids']) === 1, 'invalid product ids filtered');
+
+$tooManyIds = range(1, ProductBulkExport::MAX_EXPORT + 1);
+$tooMany = ProductBulkExport::resolveExportProductIds(['scope' => ProductBulkExport::SCOPE_SELECTED, 'product_ids' => $tooManyIds]);
+okEx(empty($tooMany['ok']), 'selected scope rejects more than MAX_EXPORT unique ids');
+$capCount = ProductBulkExport::resolveExportCount(['scope' => ProductBulkExport::SCOPE_SELECTED, 'product_ids' => $tooManyIds]);
+okEx(!empty($capCount['capped']), 'selected count preview capped over MAX_EXPORT');
+
+$formulaSlug = 'ex-formula-' . $tok;
+$formulaSku = 'EX-FORM-' . $tok;
+$pdo->prepare(
+    'INSERT INTO products (name, slug, sku, category_id, product_type, status, short_description, description, meta_title, meta_description, robots_index)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+)->execute([
+    '=SUM(1+1)', $formulaSlug, $formulaSku, $catId, $ptype, 'draft',
+    '-1+2', '@note', '+meta', '=desc', 0,
+]);
+$formulaId = (int) $pdo->lastInsertId();
+$pdo->prepare(
+    'INSERT INTO product_attributes (product_id, attr_key, attr_value, sort_order) VALUES (?, ?, ?, 1)'
+)->execute([$formulaId, '=key', '+value']);
 
 $data = ProductBulkExport::buildExportData([$ids[0], $ids[1], $ids[2]], true);
 okEx(!empty($data['ok']), 'build export data');
@@ -115,6 +161,31 @@ okEx(!empty($dl['ok']) && is_file($dl['path'] ?? ''), 'xlsx download prepare');
 $read = SimpleXlsx::read((string) $dl['path']);
 okEx(isset($read[ProductBulkImport::SHEET_PRODUCTS]), 'xlsx readable');
 ProductBulkExport::unlinkDownloadTempFile($dl['path'] ?? null);
+
+$formulaDl = ProductBulkExport::prepareDownloadFile([
+    'scope' => ProductBulkExport::SCOPE_SELECTED,
+    'product_ids' => [$formulaId],
+    'include_images' => false,
+]);
+okEx(!empty($formulaDl['ok']), 'formula product xlsx prepare');
+$formulaRead = SimpleXlsx::read((string) ($formulaDl['path'] ?? ''));
+$prodRow = $formulaRead[ProductBulkImport::SHEET_PRODUCTS][1] ?? [];
+okEx(str_starts_with((string) ($prodRow[2] ?? ''), "'"), 'xlsx product_name formula injection sanitized');
+okEx(str_starts_with((string) ($prodRow[8] ?? ''), "'"), 'xlsx short_description formula injection sanitized');
+okEx(str_starts_with((string) ($prodRow[9] ?? ''), "'"), 'xlsx full_description formula injection sanitized');
+$attrRow = $formulaRead[ProductBulkImport::SHEET_ATTRIBUTES][1] ?? [];
+okEx(str_starts_with((string) ($attrRow[1] ?? ''), "'"), 'xlsx attribute key formula injection sanitized');
+okEx(str_starts_with((string) ($attrRow[2] ?? ''), "'"), 'xlsx attribute value formula injection sanitized');
+$seoRowF = $formulaRead[ProductBulkImport::SHEET_SEO][1] ?? [];
+okEx(str_starts_with((string) ($seoRowF[1] ?? ''), "'"), 'xlsx seo meta_title formula injection sanitized');
+okEx(str_starts_with((string) ($seoRowF[2] ?? ''), "'"), 'xlsx seo meta_description formula injection sanitized');
+ProductBulkExport::unlinkDownloadTempFile($formulaDl['path'] ?? null);
+
+$zipSafe = new ReflectionMethod(ProductBulkExport::class, 'safeZipEntryName');
+$zipSafe->setAccessible(true);
+okEx($zipSafe->invoke(null, '../../../etc/passwd') === 'passwd', 'safeZipEntryName collapses traversal to basename');
+okEx($zipSafe->invoke(null, 'valid-image.png') === 'valid-image.png', 'safeZipEntryName keeps safe basename');
+okEx($zipSafe->invoke(null, 'bad..segment') === '', 'safeZipEntryName rejects double-dot in entry name');
 
 $pkg = ProductBulkExport::prepareDownloadFile(['scope' => ProductBulkExport::SCOPE_SELECTED, 'product_ids' => [$ids[0]], 'include_images' => true]);
 okEx(!empty($pkg['ok']) && str_ends_with((string) ($pkg['filename'] ?? ''), '.zip'), 'package prepare');
@@ -143,5 +214,5 @@ okEx(str_contains($index, 'bulk-export.php'), 'index bulk export link');
 @unlink($pngPath);
 @rmdir($imgDir);
 
-echo "\nSUMMARY fail={$fail}\n";
+echo "\nSUMMARY fail={$fail} skipped={$skipped}\n";
 exit($fail > 0 ? 1 : 0);

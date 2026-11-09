@@ -131,7 +131,7 @@ final class SimpleXlsx
                 if (is_int($val) || is_float($val)) {
                     $body .= '<c r="' . $ref . '"><v>' . (string) $val . '</v></c>';
                 } else {
-                    $s = (string) $val;
+                    $s = self::sanitizeCellString((string) $val);
                     $si = self::sharedIdx($s, $shared, $sharedIndex);
                     $body .= '<c r="' . $ref . '" t="s"><v>' . $si . '</v></c>';
                 }
@@ -193,6 +193,22 @@ final class SimpleXlsx
         }
 
         return $s;
+    }
+
+    /**
+     * Mitigate spreadsheet formula injection when cells are opened in Excel.
+     * Prefixes dangerous leading characters so the value is treated as text.
+     */
+    public static function sanitizeCellString(string $value): string
+    {
+        if ($value === '') {
+            return '';
+        }
+        if (preg_match('/^[\s]*[=+\-@]/u', $value) === 1) {
+            return "'" . $value;
+        }
+
+        return $value;
     }
 
     private static function xmlEsc(string $s): string

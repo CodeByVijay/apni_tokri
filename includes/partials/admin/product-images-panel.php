@@ -24,7 +24,7 @@ $mediaLibrary = MediaLibrary::isEnabled();
     <p class="text-sm at-muted mb-3">
         <?= (int) $imageCount ?> / <?= $maxImages ?> images · JPEG, PNG or WebP · max 5 MB each
     </p>
-    <div class="flex flex-wrap gap-2 mb-3">
+    <div class="at-product-images__toolbar">
         <?php if ($mediaLibrary): ?>
             <a href="<?= Security::escape(url_base()) ?>/admin/media/index.php" class="at-btn at-btn--secondary at-btn--sm at-focusable">Media library</a>
             <button type="button" class="at-btn at-btn--secondary at-btn--sm at-focusable" data-at-open-media-picker>Choose from library</button>

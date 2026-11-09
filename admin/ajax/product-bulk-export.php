@@ -16,18 +16,14 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 Csrf::requireValid();
 
 $action = (string) ($_POST['action'] ?? '');
-$scope = (string) ($_POST['scope'] ?? ProductBulkExport::SCOPE_FILTERED);
-$rawIds = $_POST['product_ids'] ?? [];
-$productIds = is_array($rawIds) ? ProductRepository::normalizePositiveIntIds($rawIds) : [];
-
-$filters = [
-    'scope' => $scope,
-    'query' => trim((string) ($_POST['query'] ?? '')),
-    'category' => trim((string) ($_POST['category'] ?? '')),
-    'status' => trim((string) ($_POST['status'] ?? '')),
-    'product_ids' => $productIds,
+$filters = ProductBulkExport::normalizeExportFilters([
+    'scope' => (string) ($_POST['scope'] ?? ProductBulkExport::SCOPE_FILTERED),
+    'query' => (string) ($_POST['query'] ?? ''),
+    'category' => (string) ($_POST['category'] ?? ''),
+    'status' => (string) ($_POST['status'] ?? ''),
+    'product_ids' => is_array($_POST['product_ids'] ?? null) ? $_POST['product_ids'] : [],
     'include_images' => !empty($_POST['include_images']),
-];
+]);
 
 if ($action === 'count') {
     $count = ProductBulkExport::resolveExportCount($filters);

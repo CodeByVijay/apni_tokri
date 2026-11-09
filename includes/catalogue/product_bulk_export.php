@@ -21,6 +21,44 @@ final class ProductBulkExport
         return 'P-' . $productId;
     }
 
+    public static function normalizeExportScope(string $scope): string
+    {
+        $scope = strtolower(trim($scope));
+        if ($scope === self::SCOPE_ALL || $scope === self::SCOPE_FILTERED || $scope === self::SCOPE_SELECTED) {
+            return $scope;
+        }
+
+        return self::SCOPE_FILTERED;
+    }
+
+    public static function normalizeExportStatus(string $status): string
+    {
+        $status = strtolower(trim($status));
+        if ($status === 'published' || $status === 'draft' || $status === 'archived') {
+            return $status;
+        }
+
+        return '';
+    }
+
+    /**
+     * @param array{scope?: string, query?: string, category?: string, status?: string, product_ids?: mixed, include_images?: bool} $filters
+     * @return array{scope: string, query: string, category: string, status: string, product_ids: list<int>, include_images: bool}
+     */
+    public static function normalizeExportFilters(array $filters): array
+    {
+        $rawIds = $filters['product_ids'] ?? [];
+
+        return [
+            'scope' => self::normalizeExportScope((string) ($filters['scope'] ?? self::SCOPE_FILTERED)),
+            'query' => trim((string) ($filters['query'] ?? '')),
+            'category' => trim((string) ($filters['category'] ?? '')),
+            'status' => self::normalizeExportStatus((string) ($filters['status'] ?? '')),
+            'product_ids' => is_array($rawIds) ? ProductRepository::normalizePositiveIntIds($rawIds) : [],
+            'include_images' => !empty($filters['include_images']),
+        ];
+    }
+
     /** @return list<string> */
     public static function productsExportHeaders(): array
     {
@@ -39,9 +77,17 @@ final class ProductBulkExport
         if (!Install::isSchemaReady()) {
             return ['ok' => false, 'message' => 'Database not available.'];
         }
-        $scope = (string) ($filters['scope'] ?? self::SCOPE_FILTERED);
+        $filters = self::normalizeExportFilters($filters);
+        $scope = $filters['scope'];
         if ($scope === self::SCOPE_SELECTED) {
-            $ids = ProductRepository::filterExistingProductIds($filters['product_ids'] ?? []);
+            $candidate = ProductRepository::normalizePositiveIntIds($filters['product_ids']);
+            if ($candidate === []) {
+                return ['ok' => true, 'count' => 0, 'capped' => false];
+            }
+            if (count($candidate) > self::MAX_EXPORT) {
+                return ['ok' => true, 'count' => self::MAX_EXPORT, 'capped' => true];
+            }
+            $ids = ProductRepository::filterExistingProductIds($candidate);
             if ($ids === []) {
                 return ['ok' => true, 'count' => 0, 'capped' => false];
             }
@@ -57,10 +103,7 @@ final class ProductBulkExport
 
             return ['ok' => true, 'count' => min($total, self::MAX_EXPORT), 'capped' => $total > self::MAX_EXPORT];
         }
-        $q = trim((string) ($filters['query'] ?? ''));
-        $cat = trim((string) ($filters['category'] ?? ''));
-        $st = trim((string) ($filters['status'] ?? ''));
-        $total = ProductRepository::countAdminExport($q, $cat, $st);
+        $total = ProductRepository::countAdminExport($filters['query'], $filters['category'], $filters['status']);
 
         return ['ok' => true, 'count' => min($total, self::MAX_EXPORT), 'capped' => $total > self::MAX_EXPORT];
     }
@@ -74,9 +117,17 @@ final class ProductBulkExport
         if (!Install::isSchemaReady()) {
             return ['ok' => false, 'message' => 'Database not available.'];
         }
-        $scope = (string) ($filters['scope'] ?? self::SCOPE_FILTERED);
+        $filters = self::normalizeExportFilters($filters);
+        $scope = $filters['scope'];
         if ($scope === self::SCOPE_SELECTED) {
-            $ids = ProductRepository::filterExistingProductIds($filters['product_ids'] ?? []);
+            $candidate = ProductRepository::normalizePositiveIntIds($filters['product_ids']);
+            if ($candidate === []) {
+                return ['ok' => false, 'message' => 'No valid products selected.'];
+            }
+            if (count($candidate) > self::MAX_EXPORT) {
+                return ['ok' => false, 'message' => 'Too many products selected (max ' . self::MAX_EXPORT . ').'];
+            }
+            $ids = ProductRepository::filterExistingProductIds($candidate);
             if ($ids === []) {
                 return ['ok' => false, 'message' => 'No valid products selected.'];
             }
@@ -89,10 +140,12 @@ final class ProductBulkExport
         if ($scope === self::SCOPE_ALL) {
             $ids = ProductRepository::idsForAdminExport('', '', '', self::MAX_EXPORT);
         } else {
-            $q = trim((string) ($filters['query'] ?? ''));
-            $cat = trim((string) ($filters['category'] ?? ''));
-            $st = trim((string) ($filters['status'] ?? ''));
-            $ids = ProductRepository::idsForAdminExport($q, $cat, $st, self::MAX_EXPORT);
+            $ids = ProductRepository::idsForAdminExport(
+                $filters['query'],
+                $filters['category'],
+                $filters['status'],
+                self::MAX_EXPORT
+            );
         }
         if ($ids === []) {
             return ['ok' => false, 'message' => 'No products match this export.'];
@@ -233,11 +286,12 @@ final class ProductBulkExport
      */
     public static function prepareDownloadFile(array $filters): array
     {
+        $filters = self::normalizeExportFilters($filters);
         $resolved = self::resolveExportProductIds($filters);
         if (empty($resolved['ok'])) {
             return ['ok' => false, 'message' => $resolved['message'] ?? 'Export failed.'];
         }
-        $includeImages = !empty($filters['include_images']);
+        $includeImages = $filters['include_images'];
         $built = self::buildExportData($resolved['product_ids'], $includeImages);
         if (empty($built['ok']) || empty($built['sheets'])) {
             return ['ok' => false, 'message' => $built['message'] ?? 'Could not build export.'];
@@ -275,7 +329,6 @@ final class ProductBulkExport
         $zipResult = self::writeImagesZip($built['image_files'] ?? [], $imagesZip);
         if (empty($zipResult['ok'])) {
             self::removeDirRecursive($buildDir);
-            self::unlinkQuiet($xlsxPath);
 
             return ['ok' => false, 'message' => $zipResult['message'] ?? 'Could not build images ZIP.'];
         }
@@ -292,6 +345,7 @@ final class ProductBulkExport
         $outer = new ZipArchive();
         if ($outer->open($outerPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
             self::removeDirRecursive($buildDir);
+            self::unlinkQuiet($outerPath);
 
             return ['ok' => false, 'message' => 'Could not create export package.'];
         }

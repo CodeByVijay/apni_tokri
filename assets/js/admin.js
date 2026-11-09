@@ -631,16 +631,18 @@
     }
 
     function buildGalleryItem(img) {
-      var primaryBadge = img.is_primary ? '<span class="at-product-img-card__badge">Primary</span>' : '';
-      var setPrimary = img.is_primary
-        ? ''
-        : '<button type="button" class="at-btn at-btn--ghost at-btn--xs at-focusable" data-at-set-primary="' +
+      var primaryBadge = img.is_primary
+        ? '<span class="at-product-img-card__badge">Primary</span>'
+        : '';
+      var primaryAction = img.is_primary
+        ? '<span class="at-product-img-card__primary-pill" aria-hidden="true">Primary</span>'
+        : '<button type="button" class="at-btn at-btn--ghost at-focusable at-product-img-card__btn" data-at-set-primary="' +
           img.id +
           '">Set primary</button>';
       var altVal = img.alt_text ? $('<span/>').text(img.alt_text).html() : '';
       var altBlock =
         String($root.data('media-library')) === '1'
-          ? '<input type="text" class="at-input mt-1 w-full text-xs" maxlength="255" placeholder="Alt text (optional)" value="' +
+          ? '<input type="text" class="at-input at-product-img-card__alt" maxlength="255" placeholder="Alt text (optional)" value="' +
             altVal +
             '" data-at-image-alt="' +
             img.id +
@@ -650,16 +652,19 @@
         '<li class="at-product-img-card" data-image-id="' +
         img.id +
         '" draggable="true">' +
+        '<div class="at-product-img-card__media">' +
         '<img src="' +
         $('<span/>').text(img.url).html() +
         '" alt="' +
         altVal +
         '" class="at-product-img-card__thumb" width="112" height="112" loading="lazy">' +
         primaryBadge +
+        '</div>' +
+        '<div class="at-product-img-card__body">' +
         altBlock +
         '<div class="at-product-img-card__actions">' +
-        setPrimary +
-        '<form method="post" class="inline" data-at-delete-image-form">' +
+        primaryAction +
+        '<form method="post" data-at-delete-image-form">' +
         '<input type="hidden" name="_csrf_token" value="' +
         $('<span/>').text(csrf).html() +
         '">' +
@@ -670,8 +675,8 @@
         '<input type="hidden" name="image_id" value="' +
         img.id +
         '">' +
-        '<button type="submit" class="at-btn at-btn--ghost at-btn--xs text-red-700 at-focusable">Remove</button>' +
-        '</form></div></li>'
+        '<button type="submit" class="at-btn at-btn--danger at-focusable at-product-img-card__btn">Remove</button>' +
+        '</form></div></div></li>'
       );
     }
 

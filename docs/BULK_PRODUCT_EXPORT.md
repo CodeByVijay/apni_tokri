@@ -41,6 +41,8 @@ Only paths under `uploads/` are included. Internal server paths are never expose
 - CSRF on POST export and count preview (`admin/ajax/product-bulk-export.php`).
 - Selected IDs validated against the `products` table.
 - Downloads streamed via `AdminFileDownload` with `nosniff` (temp files under system temp, removed after send).
+- Text cells that could be interpreted as spreadsheet formulas (`=`, `+`, `-`, `@` at the start) are prefixed so Excel opens them as plain text.
+- Export `scope` and `status` filters are normalized server-side; unknown scope falls back to **filtered**; invalid status is ignored.
 
 ## Limits
 

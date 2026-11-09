@@ -12,23 +12,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     Csrf::requireValid();
     $action = (string) ($_POST['action'] ?? '');
     if ($action === 'export') {
-        $scope = (string) ($_POST['scope'] ?? ProductBulkExport::SCOPE_FILTERED);
-        $rawIds = $_POST['product_ids'] ?? [];
-        $productIds = is_array($rawIds) ? ProductRepository::normalizePositiveIntIds($rawIds) : [];
-        if ($scope === ProductBulkExport::SCOPE_SELECTED && $productIds === []) {
+        $filters = ProductBulkExport::normalizeExportFilters([
+            'scope' => (string) ($_POST['scope'] ?? ProductBulkExport::SCOPE_FILTERED),
+            'query' => (string) ($_POST['query'] ?? ''),
+            'category' => (string) ($_POST['category'] ?? ''),
+            'status' => (string) ($_POST['status'] ?? ''),
+            'product_ids' => is_array($_POST['product_ids'] ?? null) ? $_POST['product_ids'] : [],
+            'include_images' => (string) ($_POST['export_format'] ?? 'xlsx') === 'package',
+        ]);
+        if ($filters['scope'] === ProductBulkExport::SCOPE_SELECTED && $filters['product_ids'] === []) {
             http_response_code(400);
             header('Content-Type: text/plain; charset=UTF-8');
             echo 'Select at least one product.';
             exit;
         }
-        $filters = [
-            'scope' => $scope,
-            'query' => trim((string) ($_POST['query'] ?? '')),
-            'category' => trim((string) ($_POST['category'] ?? '')),
-            'status' => trim((string) ($_POST['status'] ?? '')),
-            'product_ids' => $productIds,
-            'include_images' => (string) ($_POST['export_format'] ?? 'xlsx') === 'package',
-        ];
         $built = ProductBulkExport::prepareDownloadFile($filters);
         if (empty($built['ok']) || empty($built['path'])) {
             http_response_code(500);
