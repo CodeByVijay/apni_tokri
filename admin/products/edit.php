@@ -119,7 +119,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 } else {
                     ProductRepository::saveAttributes($savedId, ProductAdminForm::attributesFromPost($_POST));
                     CatalogueGateway::reset();
-                    admin_flash_set('Product saved.');
+                    admin_flash_set('Product updated successfully.');
                     header('Location: ' . url_base() . '/admin/products/edit.php?id=' . $savedId, true, 302);
                     exit;
                 }

@@ -128,6 +128,10 @@ $columns = [
     ['label' => 'Name', 'label_html' => AdminServerList::sortHeaderLink('name', 'Name', $sort, $dir, $productsListUrl, $queryBase), 'key' => 'name'],
     ['label' => 'SKU', 'key' => 'sku'],
     ['label' => 'Category', 'key' => 'cat'],
+    ['label' => 'Images', 'key' => 'images', 'align' => 'num', 'raw' => true],
+    ['label' => 'Variants', 'key' => 'variants', 'align' => 'num', 'raw' => true],
+    ['label' => 'Attributes', 'key' => 'attributes', 'align' => 'num', 'raw' => true],
+    ['label' => 'SEO', 'key' => 'seo', 'raw' => true],
     ['label' => 'Status', 'key' => 'status'],
     ['label' => 'Actions', 'key' => 'actions', 'align' => 'actions', 'raw' => true],
 ];
@@ -163,6 +167,21 @@ if ($useDb) {
             <p class="text-sm at-muted mb-0" id="at-products-bulk-count" role="status" aria-live="polite">0 products selected</p>
         </div>
     </form>
+    <div id="at-product-delete-modal" class="at-modal-backdrop" aria-hidden="true" role="presentation" data-at-product-delete-modal>
+        <div class="at-modal" role="dialog" aria-modal="true" aria-labelledby="at-product-delete-modal-title">
+            <div class="at-modal__header">
+                <h2 id="at-product-delete-modal-title" class="at-modal__title">Delete product?</h2>
+                <button type="button" class="at-close at-focusable" data-at-product-delete-close aria-label="Close"><span aria-hidden="true">×</span></button>
+            </div>
+            <div class="at-modal__body">
+                <p id="at-product-delete-modal-message" class="text-sm m-0"></p>
+            </div>
+            <div class="at-modal__footer at-product-delete-modal__footer">
+                <button type="button" class="at-btn at-btn--secondary at-focusable" data-at-product-delete-close>Cancel</button>
+                <button type="button" class="at-btn at-btn--danger at-focusable" id="at-product-delete-modal-submit">Delete product</button>
+            </div>
+        </div>
+    </div>
     <div id="at-products-bulk-confirm" class="at-modal-backdrop" aria-hidden="true" role="presentation">
         <div class="at-modal" role="dialog" aria-modal="true" aria-labelledby="at-products-bulk-confirm-title">
             <div class="at-modal__header">
@@ -189,6 +208,10 @@ if ($useDb) {
         $pid = (int) $p['id'];
         $pname = (string) $p['name'];
         $pstatus = (string) $p['status'];
+        $imageCount = ProductRepository::adminCatalogueImageCountFromRow($p);
+        $variantCount = ProductRepository::adminCatalogueVariantCountFromRow($p);
+        $attrCount = ProductRepository::adminCatalogueAttributeCountFromRow($p);
+        $seoComplete = ProductRepository::adminCatalogueSeoCompleteFromRow($p);
         $rows[] = [
             'bulk_id' => $pid,
             'bulk_name' => $pname,
@@ -196,6 +219,10 @@ if ($useDb) {
             'name' => $pname,
             'sku' => (string) ($p['sku'] ?? '—'),
             'cat' => (string) ($p['category_name'] ?? $p['category_slug'] ?? '—'),
+            'images' => ProductRepository::adminCatalogueCountCell($imageCount, 'image', 'images'),
+            'variants' => ProductRepository::adminCatalogueCountCell($variantCount, 'variant', 'variants'),
+            'attributes' => ProductRepository::adminCatalogueCountCell($attrCount, 'attribute', 'attributes'),
+            'seo' => ProductRepository::adminCatalogueSeoBadgeHtml($seoComplete),
             'status' => $pstatus,
             'actions' => admin_table_actions(
                 url_base() . '/admin/products/edit.php?id=' . $pid,
@@ -216,12 +243,16 @@ if ($useDb) {
             'name' => (string) $p['name'],
             'sku' => (string) ($p['sku'] ?? ''),
             'cat' => (string) ($p['category_slug'] ?? ''),
+            'images' => ProductRepository::adminCatalogueCountCell(0, 'image', 'images'),
+            'variants' => ProductRepository::adminCatalogueCountCell(1, 'variant', 'variants'),
+            'attributes' => ProductRepository::adminCatalogueCountCell(0, 'attribute', 'attributes'),
+            'seo' => ProductRepository::adminCatalogueSeoBadgeHtml(false),
             'status' => 'Published (demo)',
             'actions' => '',
         ];
     }
 }
-$tableClass = 'at-admin-table';
+$tableClass = 'at-admin-table at-admin-table--products-catalogue';
 require APNI_TOKRI_ROOT . '/includes/partials/admin/data-table.php';
 
 if ($useDb) {

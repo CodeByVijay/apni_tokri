@@ -45,6 +45,7 @@ $needsMediaMigration = in_array(
         'test-media-library-trash.php',
         'test-media-library-bulk.php',
         'test-product-bulk-import.php',
+        'test-admin-products-list-catalogue.php',
         'test-media-library-zip-upload.php',
     ],
     true

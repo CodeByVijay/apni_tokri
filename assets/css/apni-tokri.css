@@ -1603,6 +1603,20 @@ input:disabled + .at-chip {
 .at-modal-backdrop.is-open {
   display: flex;
 }
+body.at-modal-open {
+  overflow: hidden;
+}
+.at-product-delete-modal__footer {
+  flex-direction: column-reverse;
+  align-items: stretch;
+}
+@media (min-width: 480px) {
+  .at-product-delete-modal__footer {
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+  }
+}
 @media (min-width: 640px) {
   .at-modal-backdrop {
     align-items: center;
@@ -5805,6 +5819,26 @@ body.at-gallery-lightbox-open {
 .at-admin-actions__btn.at-focusable:focus-visible {
   outline: 2px solid var(--at-green, #245c3a);
   outline-offset: 2px;
+}
+.at-admin-table--products-catalogue {
+  min-width: 56rem;
+}
+.at-admin-catalogue-count {
+  display: inline-block;
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--at-ink);
+}
+.at-admin-catalogue-seo {
+  font-size: 0.7rem;
+  text-transform: none;
+}
+.at-admin-table--products-catalogue td.is-num {
+  text-align: right;
+}
+.at-admin-table--products-catalogue td.is-num .at-admin-catalogue-count {
+  justify-content: flex-end;
 }
 .at-admin-actions__btn--delete.at-focusable:focus-visible {
   outline-color: #b42318;

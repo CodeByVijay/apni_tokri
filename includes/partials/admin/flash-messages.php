@@ -16,8 +16,8 @@ function admin_flash_render_html(array $flashes): string
         require_once APNI_TOKRI_ROOT . '/includes/layout/icons.php';
     }
     $iconMap = [
-        'success' => 'check',
-        'error' => 'circle-x',
+        'success' => 'check-circle',
+        'error' => 'alert-circle',
         'warning' => 'alert-triangle',
         'info' => 'info',
     ];
@@ -30,8 +30,9 @@ function admin_flash_render_html(array $flashes): string
         $type = admin_flash_normalize_type((string) ($flash['type'] ?? 'success'));
         $role = in_array($type, ['error', 'warning'], true) ? 'alert' : 'status';
         $icon = $iconMap[$type] ?? 'info';
+        $autoDismiss = $type === 'success' ? ' data-at-admin-flash-autodismiss="6000"' : '';
         $html .= '<div class="at-alert at-alert--' . Security::escape($type) . ' at-admin-flash" role="'
-            . Security::escape($role) . '" data-at-admin-flash>';
+            . Security::escape($role) . '" data-at-admin-flash"' . $autoDismiss . '>';
         $html .= '<span class="at-admin-flash__icon" aria-hidden="true">' . at_icon($icon, 'at-admin-flash__svg') . '</span>';
         $html .= '<p class="at-admin-flash__text">' . Security::escape($message) . '</p>';
         $html .= '<button type="button" class="at-admin-flash__close at-focusable" aria-label="Dismiss message" title="Dismiss">'

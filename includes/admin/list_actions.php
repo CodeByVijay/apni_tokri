@@ -117,7 +117,11 @@ function admin_process_list_delete(string $permissionModule, string $redirectUrl
     if (!empty($result['ok'])) {
         $_POST['admin_delete_ok'] = '1';
     }
-    $type = !empty($result['ok']) ? 'success' : 'error';
+    if (!empty($result['ok'])) {
+        $type = !empty($result['archived']) ? 'warning' : 'success';
+    } else {
+        $type = 'error';
+    }
     admin_flash_set((string) ($result['message'] ?? ($result['ok'] ? 'Deleted.' : 'Could not delete.')), $type);
     header('Location: ' . admin_delete_redirect_url($redirectUrl, $_POST), true, 302);
     exit;
@@ -151,8 +155,22 @@ function admin_delete_form(
     if ($recordId <= 0) {
         return '';
     }
-    $confirm = 'Delete “' . str_replace(['"', "\r", "\n"], '', $recordLabel) . '”? This cannot be undone.';
     $csrf = Csrf::field();
+    $deleteTitle = $entity === 'product' ? 'Delete product' : 'Delete';
+    if ($entity === 'product') {
+        return '<form method="post" class="at-admin-actions__form" data-at-product-delete-form data-product-name="'
+            . Security::escape($recordLabel) . '">'
+            . $csrf
+            . admin_list_delete_hiddens($listPage, $listPerPage, $listSearch)
+            . '<input type="hidden" name="admin_delete" value="1">'
+            . '<input type="hidden" name="entity" value="' . Security::escape($entity) . '">'
+            . '<input type="hidden" name="record_id" value="' . (int) $recordId . '">'
+            . '<button type="button" class="at-admin-actions__btn at-admin-actions__btn--delete at-focusable" data-at-product-delete-trigger'
+            . ' title="' . Security::escape($deleteTitle) . '" aria-label="' . Security::escape($deleteTitle) . '">'
+            . at_icon('trash-2', 'at-admin-actions__icon') . '</button>'
+            . '</form>';
+    }
+    $confirm = 'Delete “' . str_replace(['"', "\r", "\n"], '', $recordLabel) . '”? This cannot be undone.';
 
     return '<form method="post" class="at-admin-actions__form" onsubmit="return confirm(' . json_encode($confirm, JSON_UNESCAPED_UNICODE) . ');">'
         . $csrf
@@ -160,7 +178,7 @@ function admin_delete_form(
         . '<input type="hidden" name="admin_delete" value="1">'
         . '<input type="hidden" name="entity" value="' . Security::escape($entity) . '">'
         . '<input type="hidden" name="record_id" value="' . (int) $recordId . '">'
-        . '<button type="submit" class="at-admin-actions__btn at-admin-actions__btn--delete at-focusable" title="Delete" aria-label="Delete">'
+        . '<button type="submit" class="at-admin-actions__btn at-admin-actions__btn--delete at-focusable" title="' . Security::escape($deleteTitle) . '" aria-label="' . Security::escape($deleteTitle) . '">'
         . at_icon('trash-2', 'at-admin-actions__icon') . '</button>'
         . '</form>';
 }

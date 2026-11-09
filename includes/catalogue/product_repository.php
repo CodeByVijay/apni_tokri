@@ -14,6 +14,9 @@ final class ProductRepository
     /** @var array<int, true>|null */
     private static $visibleCategoryIds = null;
 
+    /** @var bool|null */
+    private static $adminListMediaAssetsReady = null;
+
     public static function resetPublicVisibilityCache(): void
     {
         self::$visibleCategoryIds = null;
@@ -153,7 +156,8 @@ final class ProductRepository
             $page = $totalPages;
         }
         $offset = ($page - 1) * $perPage;
-        $sql = 'SELECT p.*, c.slug AS category_slug, c.name AS category_name' . $from
+        $sql = 'SELECT p.*, c.slug AS category_slug, c.name AS category_name'
+            . self::adminCatalogueStatsSelectSql() . $from
             . ' ORDER BY ' . $orderSql . ', p.id DESC LIMIT ? OFFSET ?';
         $stmt = $pdo->prepare($sql);
         $i = 1;
@@ -171,6 +175,93 @@ final class ProductRepository
             'per_page' => $perPage,
             'total_pages' => $totalPages,
         ];
+    }
+
+    /**
+     * Aggregate catalogue stats for admin list (one row per product, no extra joins on p).
+     */
+    private static function adminListExcludesTrashedMedia(): bool
+    {
+        if (self::$adminListMediaAssetsReady !== null) {
+            return self::$adminListMediaAssetsReady;
+        }
+        if (!Install::isSchemaReady()) {
+            self::$adminListMediaAssetsReady = false;
+
+            return false;
+        }
+        try {
+            Install::ensureConnection();
+            $pdo = Database::pdo();
+            $hasMediaTable = (bool) $pdo->query("SHOW TABLES LIKE 'media_assets'")->fetchColumn();
+            $hasMediaId = false;
+            if ($hasMediaTable) {
+                $col = $pdo->query("SHOW COLUMNS FROM product_images LIKE 'media_id'")->fetch(PDO::FETCH_ASSOC);
+                $hasMediaId = is_array($col) && $col !== [];
+            }
+            self::$adminListMediaAssetsReady = $hasMediaTable && $hasMediaId;
+        } catch (Throwable $e) {
+            self::$adminListMediaAssetsReady = false;
+        }
+
+        return self::$adminListMediaAssetsReady;
+    }
+
+    private static function adminCatalogueStatsSelectSql(): string
+    {
+        $imageCountSql = self::adminListExcludesTrashedMedia()
+            ? '(SELECT COUNT(*)
+                FROM product_images pi
+                LEFT JOIN media_assets m ON m.id = pi.media_id
+                WHERE pi.product_id = p.id
+                    AND (pi.media_id IS NULL OR m.deleted_at IS NULL))'
+            : '(SELECT COUNT(*) FROM product_images pi WHERE pi.product_id = p.id)';
+
+        return ',
+            ' . $imageCountSql . ' AS catalogue_image_count,
+            (SELECT COUNT(*) FROM product_variants pv WHERE pv.product_id = p.id) AS catalogue_variant_count,
+            (SELECT COUNT(DISTINCT pa.attr_key) FROM product_attributes pa WHERE pa.product_id = p.id) AS catalogue_attribute_count,
+            (CASE
+                WHEN TRIM(COALESCE(p.meta_title, \'\')) <> \'\'
+                    AND TRIM(COALESCE(p.meta_description, \'\')) <> \'\'
+                THEN 1 ELSE 0
+            END) AS catalogue_seo_complete';
+    }
+
+    public static function adminCatalogueImageCountFromRow(array $row): int
+    {
+        return max(0, (int) ($row['catalogue_image_count'] ?? 0));
+    }
+
+    public static function adminCatalogueVariantCountFromRow(array $row): int
+    {
+        return max(0, (int) ($row['catalogue_variant_count'] ?? 0));
+    }
+
+    public static function adminCatalogueAttributeCountFromRow(array $row): int
+    {
+        return max(0, (int) ($row['catalogue_attribute_count'] ?? 0));
+    }
+
+    public static function adminCatalogueSeoCompleteFromRow(array $row): bool
+    {
+        return !empty($row['catalogue_seo_complete']);
+    }
+
+    public static function adminCatalogueCountCell(int $count, string $singular, string $plural): string
+    {
+        $label = $count === 1 ? $singular : $plural;
+
+        return '<span class="at-admin-catalogue-count">' . (int) $count . ' ' . Security::escape($label) . '</span>';
+    }
+
+    public static function adminCatalogueSeoBadgeHtml(bool $complete): string
+    {
+        if ($complete) {
+            return '<span class="at-badge at-badge--success at-admin-catalogue-seo">Complete</span>';
+        }
+
+        return '<span class="at-badge at-badge--neutral at-admin-catalogue-seo">Missing</span>';
     }
 
     /**
@@ -1126,18 +1217,22 @@ final class ProductRepository
             CatalogueGateway::reset();
             AuditLog::write('product.archive', 'product', (string) $id, ['reason' => 'order_history']);
 
-            return ['ok' => true, 'message' => 'Product appears on past orders and was archived instead of deleted.', 'archived' => true];
+            return [
+                'ok' => true,
+                'message' => 'This product has past orders and cannot be permanently deleted. It was archived instead.',
+                'archived' => true,
+            ];
         }
         try {
             $pdo->prepare('DELETE FROM products WHERE id = ?')->execute([$id]);
             CatalogueGateway::reset();
             AuditLog::write('product.delete', 'product', (string) $id, ['slug' => (string) $row['slug']]);
 
-            return ['ok' => true, 'message' => 'Product deleted.'];
+            return ['ok' => true, 'message' => 'Product deleted successfully.'];
         } catch (Throwable $e) {
             error_log('ProductRepository::deleteOrArchiveForAdmin: ' . $e->getMessage());
 
-            return ['ok' => false, 'message' => 'Could not delete product. Try archiving it from the editor instead.'];
+            return ['ok' => false, 'message' => 'Unable to delete product. Try archiving it from the editor instead.'];
         }
     }
 

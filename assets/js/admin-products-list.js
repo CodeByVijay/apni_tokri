@@ -125,5 +125,84 @@
     syncUi();
   }
 
-  $(initProductsBulkList);
+  function initProductDeleteModal() {
+    var $modal = $('#at-product-delete-modal');
+    if (!$modal.length) {
+      return;
+    }
+    var $message = $('#at-product-delete-modal-message');
+    var $submit = $('#at-product-delete-modal-submit');
+    var $dialog = $modal.find('.at-modal');
+    var pendingForm = null;
+    var deleting = false;
+    var lastFocus = null;
+
+    function openModal($form) {
+      if (!$form || !$form.length) {
+        return;
+      }
+      pendingForm = $form;
+      var name = String($form.attr('data-product-name') || '').trim() || 'this product';
+      $message.html(
+        'Are you sure you want to delete &ldquo;' + $('<div>').text(name).html()
+          + '&rdquo;? This action cannot be undone.'
+      );
+      $modal.addClass('is-open').attr('aria-hidden', 'false');
+      $('body').addClass('at-modal-open');
+      deleting = false;
+      $submit.prop('disabled', false).text('Delete product');
+      lastFocus = document.activeElement;
+      $submit.focus();
+    }
+
+    function closeModal() {
+      if (deleting) {
+        return;
+      }
+      $modal.removeClass('is-open').attr('aria-hidden', 'true');
+      $('body').removeClass('at-modal-open');
+      pendingForm = null;
+      if (lastFocus && typeof lastFocus.focus === 'function') {
+        lastFocus.focus();
+      }
+    }
+
+    $(document).on('click', '[data-at-product-delete-trigger]', function (e) {
+      e.preventDefault();
+      if (deleting) {
+        return;
+      }
+      openModal($(this).closest('[data-at-product-delete-form]'));
+    });
+
+    $modal.on('click', '[data-at-product-delete-close]', closeModal);
+    $modal.on('click', function (e) {
+      if (e.target === $modal[0]) {
+        closeModal();
+      }
+    });
+    $dialog.on('click', function (e) {
+      e.stopPropagation();
+    });
+
+    $submit.on('click', function () {
+      if (!pendingForm || !pendingForm.length || deleting) {
+        return;
+      }
+      deleting = true;
+      $submit.prop('disabled', true).text('Deleting...');
+      pendingForm.trigger('submit');
+    });
+
+    $(document).on('keydown', function (e) {
+      if (e.key === 'Escape' && $modal.hasClass('is-open') && !deleting) {
+        closeModal();
+      }
+    });
+  }
+
+  $(function () {
+    initProductsBulkList();
+    initProductDeleteModal();
+  });
 }(jQuery));
