@@ -802,76 +802,173 @@ input:disabled + .at-chip {
 .at-bulk-import-summary {
   display: grid;
   gap: 0.75rem;
-  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+@media (min-width: 640px) {
+  .at-bulk-import-summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1100px) {
+  .at-bulk-import-summary {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
 }
 .at-bulk-import-summary__card {
   border: 1px solid var(--at-line);
   border-radius: var(--at-radius-md);
-  padding: 0.75rem 1rem;
+  padding: 0.85rem 1rem;
   background: var(--at-surface);
+  min-height: 4.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.at-bulk-import-summary__card--ready {
+  border-color: #c5ddc9;
+  background: #f8fbf8;
+}
+.at-bulk-import-summary__card--error {
+  border-color: #e6c4c4;
+  background: #fff9f9;
 }
 .at-bulk-import-summary__label {
   font-size: 0.75rem;
   color: var(--at-muted);
-  margin: 0 0 0.25rem;
+  margin: 0 0 0.35rem;
+  font-weight: 600;
+  line-height: 1.3;
 }
 .at-bulk-import-summary__value {
-  font-size: 1.25rem;
+  font-size: 1.35rem;
   font-weight: 700;
   margin: 0;
-  line-height: 1.2;
+  line-height: 1.15;
+  color: var(--at-ink);
+}
+.at-bulk-import-summary__card--ready .at-bulk-import-summary__value {
+  color: var(--at-success);
+}
+.at-bulk-import-summary__card--error .at-bulk-import-summary__value {
+  color: var(--at-danger);
+}
+.at-bulk-import-summary-status {
+  font-size: 0.9375rem;
+  margin: 0.75rem 0 0;
+  color: var(--at-ink);
+  line-height: 1.45;
+}
+.at-bulk-import-results-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.75rem 0 0.5rem;
+}
+.at-bulk-import-action {
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--at-line);
+  border-radius: var(--at-radius-md);
+  background: #faf9f5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1.25rem;
+}
+.at-bulk-import-action__stats {
+  flex: 1 1 14rem;
+  font-size: 0.875rem;
+  line-height: 1.4;
+  margin: 0;
+}
+.at-bulk-import-action__stats strong {
+  display: block;
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 0.15rem;
 }
 .at-bulk-import-product {
   border-radius: var(--at-radius-md);
   border: 1px solid var(--at-line);
   overflow: hidden;
+  background: var(--at-surface);
 }
 .at-bulk-import-product--ready {
-  border-color: #b8dfc4;
-  background: #f6fbf7;
+  border-color: #c5ddc9;
+  background: #f8fbf8;
 }
 .at-bulk-import-product--error {
-  border-color: #e8b4b4;
-  background: #fff8f8;
+  border-color: #e6c4c4;
+  background: #fffdfd;
 }
 .at-bulk-import-product__summary {
   list-style: none;
   cursor: pointer;
-  padding: 0.75rem 1rem;
+  padding: 0.85rem 1rem;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem 1rem;
+  gap: 0.5rem 0.85rem;
 }
 .at-bulk-import-product__summary::-webkit-details-marker {
   display: none;
 }
+.at-bulk-import-product__head {
+  flex: 1 1 100%;
+  min-width: 0;
+}
+@media (min-width: 640px) {
+  .at-bulk-import-product__head {
+    flex: 1 1 12rem;
+  }
+  .at-bulk-import-product__summary {
+    flex-wrap: nowrap;
+  }
+  .at-bulk-import-product__chips {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 0.85rem;
+    margin-left: auto;
+  }
+}
 .at-bulk-import-product__title {
   font-weight: 600;
-  margin: 0;
-  flex: 1 1 12rem;
+  font-size: 0.9375rem;
+  margin: 0 0 0.2rem;
+  word-break: break-word;
 }
 .at-bulk-import-product__meta {
   font-size: 0.8125rem;
   color: var(--at-muted);
   margin: 0;
+  word-break: break-word;
 }
 .at-bulk-import-product__body {
   padding: 0 1rem 1rem;
   border-top: 1px solid var(--at-line);
 }
 .at-bulk-import-section {
-  margin-top: 0.75rem;
+  margin-top: 0.85rem;
+  padding-top: 0.65rem;
+  border-top: 1px dashed var(--at-line);
+}
+.at-bulk-import-section:first-child {
+  border-top: 0;
+  padding-top: 0;
 }
 .at-bulk-import-section__title {
   font-size: 0.8125rem;
-  font-weight: 600;
-  margin: 0 0 0.35rem;
+  font-weight: 700;
+  margin: 0 0 0.45rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--at-muted);
 }
 .at-bulk-import-dl {
   display: grid;
-  grid-template-columns: minmax(6rem, 9rem) 1fr;
-  gap: 0.15rem 0.75rem;
+  grid-template-columns: minmax(6rem, 8.5rem) 1fr;
+  gap: 0.2rem 0.75rem;
   font-size: 0.8125rem;
   margin: 0;
 }
@@ -882,10 +979,33 @@ input:disabled + .at-chip {
 .at-bulk-import-dl dd {
   margin: 0;
   word-break: break-word;
+  overflow-wrap: anywhere;
+}
+.at-bulk-import-mini-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+.at-bulk-import-mini-table th,
+.at-bulk-import-mini-table td {
+  text-align: left;
+  padding: 0.35rem 0.5rem;
+  border-bottom: 1px solid var(--at-line);
+  vertical-align: top;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+.at-bulk-import-mini-table th {
+  font-weight: 600;
+  color: var(--at-muted);
+  width: 28%;
+}
+.at-bulk-import-row--has-error {
+  background: #fff5f5;
 }
 .at-bulk-import-variant,
 .at-bulk-import-image-row {
-  padding: 0.35rem 0;
+  padding: 0.4rem 0;
   border-bottom: 1px solid var(--at-line);
   font-size: 0.8125rem;
 }
@@ -896,15 +1016,30 @@ input:disabled + .at-chip {
 .at-bulk-import-msg-error {
   color: var(--at-danger);
   font-size: 0.8125rem;
-  margin: 0.25rem 0 0;
+  margin: 0.35rem 0 0;
   display: flex;
   align-items: flex-start;
   gap: 0.35rem;
+  line-height: 1.35;
 }
-.at-bulk-import-skip-note {
-  font-size: 0.8125rem;
-  color: var(--at-muted);
+.at-bulk-import-import-result {
+  margin-top: 1rem;
+  padding: 1rem;
+  border-radius: var(--at-radius-md);
+  border: 1px solid var(--at-line);
+  font-size: 0.875rem;
+}
+.at-bulk-import-import-result--success {
+  border-color: #c5ddc9;
+  background: #f8fbf8;
+}
+.at-bulk-import-import-result--error {
+  border-color: #e6c4c4;
+  background: #fff9f9;
+}
+.at-bulk-import-import-result ul {
   margin: 0.5rem 0 0;
+  padding-left: 1.25rem;
 }
 
 .at-avatar {

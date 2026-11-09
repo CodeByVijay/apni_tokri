@@ -614,8 +614,15 @@ final class ProductBulkImport
      */
     public static function extractImageZip(string $zipPath): array
     {
-        $extractRoot = dirname($zipPath) . '/img-' . bin2hex(random_bytes(4));
+        self::ensureBulkImportStorageSecurity();
+        $stagingParent = self::jobDir('extract-' . bin2hex(random_bytes(4)));
+        if (!is_dir($stagingParent) && !@mkdir($stagingParent, 0755, true)) {
+            return ['ok' => false, 'message' => 'Could not prepare image extract directory.'];
+        }
+        $extractRoot = $stagingParent . '/img-' . bin2hex(random_bytes(4));
         if (!@mkdir($extractRoot, 0755, true)) {
+            self::rrmdir($stagingParent);
+
             return ['ok' => false, 'message' => 'Could not prepare image extract directory.'];
         }
         $zip = new ZipArchive();
@@ -1240,24 +1247,21 @@ final class ProductBulkImport
                 throw new RuntimeException('Missing image file: ' . $basename);
             }
             $full = $imageIndex[$basename];
+            $upload = self::trustedImageUploadFromJobExtract($full);
             $validImg = self::validateRasterImageFile($full);
             if (empty($validImg['ok'])) {
                 throw new RuntimeException((string) ($validImg['message'] ?? 'Image validation failed for ' . $basename));
             }
-            $upload = [
-                'name' => basename($full),
-                'type' => mime_content_type($full) ?: 'image/jpeg',
-                'tmp_name' => $full,
-                'error' => UPLOAD_ERR_OK,
-                'size' => (int) filesize($full),
-            ];
             $ing = MediaLibrary::isEnabled()
                 ? MediaLibrary::ingestUpload($upload, $adminUserId > 0 ? $adminUserId : null)
                 : ['ok' => false];
             if (empty($ing['ok']) || empty($ing['media_id'])) {
                 $legacy = Upload::storeProductImage($upload, 'products/' . $productId);
                 if (empty($legacy['ok'])) {
-                    throw new RuntimeException((string) ($legacy['message'] ?? 'Image ingest failed.'));
+                    $ingMsg = isset($ing['message']) ? (string) $ing['message'] : '';
+                    $legMsg = (string) ($legacy['message'] ?? 'Image ingest failed.');
+                    $detail = $legMsg !== '' ? $legMsg : ($ingMsg !== '' ? $ingMsg : 'Image ingest failed.');
+                    throw new RuntimeException($detail . ' (' . $basename . ')');
                 }
                 $isPrimary = self::parseBool(self::cell($r, 'is_primary')) || (!$hasPrimary && $i === 0);
                 ProductRepository::addImage($productId, (string) $legacy['path'], $isPrimary);
@@ -1311,6 +1315,46 @@ final class ProductBulkImport
         if (ProductRepository::imageCount($productId) > ProductRepository::MAX_IMAGES_PER_PRODUCT) {
             throw new RuntimeException('Image limit exceeded.');
         }
+    }
+
+    /**
+     * Build a trusted upload handle for raster files extracted under uploads/tmp/bulk-import (not $_FILES).
+     *
+     * @return array<string, mixed>
+     */
+    public static function trustedImageUploadFromJobExtract(string $fullPath): array
+    {
+        if (!self::isTrustedJobExtractImagePath($fullPath)) {
+            throw new RuntimeException('Image file is not from a valid bulk import job.');
+        }
+        if (!is_readable($fullPath)) {
+            throw new RuntimeException('Image file is not readable.');
+        }
+        $size = (int) filesize($fullPath);
+        if ($size <= 0) {
+            throw new RuntimeException('Image file is empty.');
+        }
+        $mime = mime_content_type($fullPath);
+
+        return [
+            'name' => basename($fullPath),
+            'type' => is_string($mime) && $mime !== '' ? $mime : 'image/jpeg',
+            'tmp_name' => $fullPath,
+            'error' => UPLOAD_ERR_OK,
+            'size' => $size,
+            'trusted_internal' => true,
+        ];
+    }
+
+    public static function isTrustedJobExtractImagePath(string $fullPath): bool
+    {
+        $real = realpath($fullPath);
+        $jobsRoot = realpath(APNI_TOKRI_ROOT . '/uploads/tmp/bulk-import');
+        if ($real === false || $jobsRoot === false || !str_starts_with($real, $jobsRoot)) {
+            return false;
+        }
+
+        return is_file($real);
     }
 
     /** @param list<array<string, string>> $variantImportRows */

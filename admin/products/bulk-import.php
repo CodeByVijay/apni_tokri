@@ -158,12 +158,18 @@ $missingImagesZipMessage = ProductBulkImport::MSG_MISSING_IMAGES_ZIP;
             </div>
             <div class="flex flex-wrap gap-2">
                 <button type="button" class="at-btn at-btn--secondary at-focusable" id="at-bulk-import-validate">Validate &amp; preview</button>
-                <button type="button" class="at-btn at-btn--primary at-focusable" id="at-bulk-import-run" disabled>Import valid products</button>
             </div>
         </form>
         <div id="at-bulk-import-status" class="text-sm" role="status" aria-live="polite"></div>
         <div id="at-bulk-import-results" class="hidden space-y-4" aria-live="polite"></div>
-        <div id="at-bulk-import-result" class="hidden"></div>
+        <div id="at-bulk-import-action" class="at-bulk-import-action hidden" aria-live="polite">
+            <p class="at-bulk-import-action__stats" id="at-bulk-import-action-copy">
+                <strong id="at-bulk-import-action-ready">0 products ready</strong>
+                <span id="at-bulk-import-action-skip" class="at-muted"></span>
+            </p>
+            <button type="button" class="at-btn at-btn--primary at-focusable" id="at-bulk-import-run" disabled>Import valid products</button>
+        </div>
+        <div id="at-bulk-import-result" class="hidden" role="status" aria-live="polite"></div>
     </div>
 </div>
 <script>
@@ -176,6 +182,9 @@ $missingImagesZipMessage = ProductBulkImport::MSG_MISSING_IMAGES_ZIP;
   const resultEl = document.getElementById('at-bulk-import-result');
   const btnValidate = document.getElementById('at-bulk-import-validate');
   const btnImport = document.getElementById('at-bulk-import-run');
+  const actionPanel = document.getElementById('at-bulk-import-action');
+  const actionReadyEl = document.getElementById('at-bulk-import-action-ready');
+  const actionSkipEl = document.getElementById('at-bulk-import-action-skip');
   const csrfFieldName = <?= json_encode(Csrf::fieldName(), JSON_THROW_ON_ERROR) ?>;
   const missingImagesZipMessage = <?= json_encode($missingImagesZipMessage, JSON_THROW_ON_ERROR) ?>;
   const SHEET = {
@@ -188,6 +197,7 @@ $missingImagesZipMessage = ProductBulkImport::MSG_MISSING_IMAGES_ZIP;
   let jobId = '';
   let lastReadyCount = 0;
   let lastTotalProducts = 0;
+  let importInFlight = false;
 
   function validationHasMissingImagesZip(errors) {
     return Array.isArray(errors) && errors.some(function (e) {
@@ -304,14 +314,58 @@ $missingImagesZipMessage = ProductBulkImport::MSG_MISSING_IMAGES_ZIP;
     });
   }
 
-  function updateImportButton() {
-    if (lastReadyCount > 0) {
+  function updateImportAction() {
+    const skipped = Math.max(0, lastTotalProducts - lastReadyCount);
+    if (lastReadyCount > 0 && jobId) {
+      actionPanel.classList.remove('hidden');
+      actionReadyEl.textContent = lastReadyCount + ' product' + (lastReadyCount === 1 ? '' : 's') + ' ready to import';
+      if (skipped > 0) {
+        actionSkipEl.textContent = skipped + ' product' + (skipped === 1 ? '' : 's') + ' will be skipped';
+      } else {
+        actionSkipEl.textContent = '';
+      }
       btnImport.textContent = 'Import ' + lastReadyCount + ' ready product' + (lastReadyCount === 1 ? '' : 's');
-      btnImport.disabled = !jobId;
+      btnImport.disabled = importInFlight;
     } else {
+      actionPanel.classList.add('hidden');
       btnImport.textContent = 'Import valid products';
       btnImport.disabled = true;
     }
+  }
+
+  function bindExpandCollapseControls() {
+    const expandBtn = document.getElementById('at-bulk-import-expand-all');
+    const collapseBtn = document.getElementById('at-bulk-import-collapse-all');
+    if (expandBtn) {
+      expandBtn.addEventListener('click', function () {
+        resultsEl.querySelectorAll('details.at-bulk-import-product').forEach(function (el) {
+          el.open = true;
+        });
+      });
+    }
+    if (collapseBtn) {
+      collapseBtn.addEventListener('click', function () {
+        resultsEl.querySelectorAll('details.at-bulk-import-product').forEach(function (el) {
+          el.open = el.classList.contains('at-bulk-import-product--error');
+        });
+      });
+    }
+  }
+
+  function renderSummaryStatus(summary) {
+    const ready = summary.ready_count || 0;
+    const errProducts = summary.products_with_errors || 0;
+  if (ready === 0 && errProducts === 0) {
+      return '';
+    }
+    let parts = [];
+    if (ready > 0) {
+      parts.push(ready + ' product' + (ready === 1 ? '' : 's') + ' ' + (ready === 1 ? 'is' : 'are') + ' ready to import.');
+    }
+    if (errProducts > 0) {
+      parts.push(errProducts + ' product' + (errProducts === 1 ? '' : 's') + ' will be skipped because of validation errors.');
+    }
+    return '<p class="at-bulk-import-summary-status">' + escapeHtml(parts.join(' ')) + '</p>';
   }
 
   function renderValidationResults(validation) {
@@ -329,21 +383,23 @@ $missingImagesZipMessage = ProductBulkImport::MSG_MISSING_IMAGES_ZIP;
     if (!products.length && !errors.length) {
       resultsEl.classList.add('hidden');
       resultsEl.innerHTML = '';
-      updateImportButton();
+      actionPanel.classList.add('hidden');
+      updateImportAction();
       return;
     }
     resultsEl.classList.remove('hidden');
     let html = '<div class="at-bulk-import-summary">';
-    html += summaryCard('Total products', summary.total_products);
-    html += summaryCard('Ready to import', summary.ready_count);
-    html += summaryCard('Products with errors', summary.products_with_errors);
-    html += summaryCard('Validation errors', summary.error_count);
-    html += summaryCard('Variants with errors', summary.variant_error_count);
+    html += summaryCard('Total products', summary.total_products, 'neutral');
+    html += summaryCard('Ready to import', summary.ready_count, 'ready');
+    html += summaryCard('Products with errors', summary.products_with_errors, 'error');
+    html += summaryCard('Validation errors', summary.error_count, 'error');
+    html += summaryCard('Variants with errors', summary.variant_error_count, 'neutral');
     html += '</div>';
-    const skipped = Math.max(0, lastTotalProducts - lastReadyCount);
-    if (skipped > 0 && lastReadyCount > 0) {
-      html += '<p class="at-bulk-import-skip-note">' + skipped + ' product' + (skipped === 1 ? '' : 's') + ' will be skipped due to validation errors.</p>';
-    }
+    html += renderSummaryStatus(summary);
+    html += '<div class="at-bulk-import-results-toolbar">'
+      + '<button type="button" class="at-btn at-btn--secondary at-btn--sm at-focusable" id="at-bulk-import-expand-all">Expand all</button>'
+      + '<button type="button" class="at-btn at-btn--secondary at-btn--sm at-focusable" id="at-bulk-import-collapse-all">Collapse all</button>'
+      + '</div>';
     const globals = globalErrors(errors, products);
     if (globals.length) {
       html += '<div class="at-admin-card at-bulk-import-product--error"><div class="at-admin-card__body text-sm">';
@@ -362,11 +418,18 @@ $missingImagesZipMessage = ProductBulkImport::MSG_MISSING_IMAGES_ZIP;
         ? '<span class="at-badge at-badge--success">Ready to import</span>'
         : '<span class="at-badge at-badge--danger">Has errors</span>';
       const cardClass = ready ? 'at-bulk-import-product--ready' : 'at-bulk-import-product--error';
+      const sku = (p.general && p.general.sku) ? p.general.sku : '';
       html += '<details class="at-bulk-import-product ' + cardClass + '"' + (ready ? '' : ' open') + '>';
       html += '<summary class="at-bulk-import-product__summary">';
+      html += '<div class="at-bulk-import-product__head">';
       html += '<p class="at-bulk-import-product__title">' + escapeHtml(name) + '</p>';
+      html += '<p class="at-bulk-import-product__meta">Code <code>' + escapeHtml(p.product_code) + '</code>'
+        + (sku ? ' · SKU <code>' + escapeHtml(sku) + '</code>' : '') + '</p>';
+      html += '</div>';
+      html += '<div class="at-bulk-import-product__chips">';
       html += badge;
-      html += '<p class="at-bulk-import-product__meta">Code: <code>' + escapeHtml(p.product_code) + '</code> · ' + variantCount + ' variant' + (variantCount === 1 ? '' : 's') + ' · ' + errCount + ' error' + (errCount === 1 ? '' : 's') + '</p>';
+      html += '<span class="at-bulk-import-product__meta">' + variantCount + ' variant' + (variantCount === 1 ? '' : 's') + ' · ' + errCount + ' error' + (errCount === 1 ? '' : 's') + '</span>';
+      html += '</div>';
       html += '</summary>';
       html += '<div class="at-bulk-import-product__body">';
       html += sectionGeneral(p, grouped);
@@ -378,33 +441,35 @@ $missingImagesZipMessage = ProductBulkImport::MSG_MISSING_IMAGES_ZIP;
     });
     html += '</div>';
     resultsEl.innerHTML = html;
-    updateImportButton();
+    bindExpandCollapseControls();
+    updateImportAction();
   }
 
-  function summaryCard(label, value) {
-    return '<div class="at-bulk-import-summary__card"><p class="at-bulk-import-summary__label">' + escapeHtml(label) + '</p>'
+  function summaryCard(label, value, tone) {
+    const mod = tone && tone !== 'neutral' ? ' at-bulk-import-summary__card--' + tone : '';
+    return '<div class="at-bulk-import-summary__card' + mod + '"><p class="at-bulk-import-summary__label">' + escapeHtml(label) + '</p>'
       + '<p class="at-bulk-import-summary__value">' + escapeHtml(String(value != null ? value : '—')) + '</p></div>';
   }
 
   function sectionGeneral(p, grouped) {
     const g = p.general || {};
     let html = '<div class="at-bulk-import-section"><p class="at-bulk-import-section__title">General</p>';
-    html += '<dl class="at-bulk-import-dl">';
-    html += dlRow('Name', g.name); html += dlRow('SKU', g.sku); html += dlRow('Slug', g.slug);
-    html += dlRow('Category', g.category); html += dlRow('Type', g.product_type);
-    html += dlRow('Short description', g.short_description);
-    html += dlRow('Full description', g.description);
-    html += '</dl>';
+    html += '<table class="at-bulk-import-mini-table"><tbody>';
+    html += miniRow('Name', g.name); html += miniRow('SKU', g.sku); html += miniRow('Slug', g.slug);
+    html += miniRow('Category', g.category); html += miniRow('Type', g.product_type);
+    html += miniRow('Short description', g.short_description);
+    html += miniRow('Full description', g.description);
+    html += '</tbody></table>';
     html += renderErrorMsgs(grouped.general);
     html += '</div>';
     return html;
   }
 
-  function dlRow(label, value) {
+  function miniRow(label, value) {
     if (value == null || value === '') {
       return '';
     }
-    return '<dt>' + escapeHtml(label) + '</dt><dd>' + escapeHtml(String(value)) + '</dd>';
+    return '<tr><th scope="row">' + escapeHtml(label) + '</th><td>' + escapeHtml(String(value)) + '</td></tr>';
   }
 
   function sectionVariants(p, grouped) {
@@ -413,18 +478,22 @@ $missingImagesZipMessage = ProductBulkImport::MSG_MISSING_IMAGES_ZIP;
     if (!variants.length) {
       html += '<p class="text-sm at-muted m-0">No variant rows.</p>';
     }
-    variants.forEach(function (v) {
-      const label = (v.name || 'Variant') + (v.sku ? ' — ' + v.sku : '');
-      const rowKey = v.sheet_row || '';
-      const errs = (rowKey && grouped.variants[rowKey]) ? grouped.variants[rowKey] : [];
-      html += '<div class="at-bulk-import-variant"><strong>' + escapeHtml(label) + '</strong>';
-      html += ' <span class="at-muted">(row ' + escapeHtml(rowKey || '—') + ')</span>';
-      if (v.price) {
-        html += '<span class="at-muted"> · ₹' + escapeHtml(v.price) + '</span>';
-      }
-      html += renderErrorMsgs(errs);
-      html += '</div>';
-    });
+    if (variants.length) {
+      html += '<table class="at-bulk-import-mini-table"><tbody>';
+      variants.forEach(function (v) {
+        const rowKey = v.sheet_row || '';
+        const errs = (rowKey && grouped.variants[rowKey]) ? grouped.variants[rowKey] : [];
+        const rowClass = errs.length ? ' class="at-bulk-import-row--has-error"' : '';
+        const label = (v.name || '—') + ' — ' + (v.sku || '—');
+        let detail = 'Row ' + (rowKey || '—');
+        if (v.price) {
+          detail += ' · ₹' + v.price;
+        }
+        html += '<tr' + rowClass + '><th scope="row">' + escapeHtml(label) + '</th><td>' + escapeHtml(detail);
+        html += renderErrorMsgs(errs) + '</td></tr>';
+      });
+      html += '</tbody></table>';
+    }
     html += renderErrorMsgs(grouped.productVariants);
     html += '</div>';
     return html;
@@ -476,11 +545,11 @@ $missingImagesZipMessage = ProductBulkImport::MSG_MISSING_IMAGES_ZIP;
   function sectionSeo(p, grouped) {
     const seo = p.seo || {};
     let html = '<div class="at-bulk-import-section"><p class="at-bulk-import-section__title">SEO</p>';
-    html += '<dl class="at-bulk-import-dl">';
-    html += dlRow('Meta title', seo.meta_title);
-    html += dlRow('Meta description', seo.meta_description);
-    html += dlRow('Allow indexing', seo.allow_indexing);
-    html += '</dl>';
+    html += '<table class="at-bulk-import-mini-table"><tbody>';
+    html += miniRow('Meta title', seo.meta_title);
+    html += miniRow('Meta description', seo.meta_description);
+    html += miniRow('Allow indexing', seo.allow_indexing);
+    html += '</tbody></table>';
     html += renderErrorMsgs(grouped.seo);
     html += '</div>';
     return html;
@@ -523,9 +592,7 @@ $missingImagesZipMessage = ProductBulkImport::MSG_MISSING_IMAGES_ZIP;
           setStatus(parsed.message || 'Validation complete.', v.ok ? 'success' : 'error');
         }
         renderValidationResults(v);
-        if (!jobId || !(v.ready_count > 0)) {
-          btnImport.disabled = true;
-        }
+        updateImportAction();
       })
       .catch(function () {
         btnValidate.disabled = false;
@@ -533,12 +600,43 @@ $missingImagesZipMessage = ProductBulkImport::MSG_MISSING_IMAGES_ZIP;
       });
   });
 
+  function renderImportOutcome(data, message) {
+    const imp = data.result || {};
+    const imported = imp.imported || 0;
+    const failed = imp.failed || 0;
+    const skipped = data.skipped_validation != null ? data.skipped_validation : Math.max(0, lastTotalProducts - lastReadyCount);
+    const allFailed = failed > 0 && imported === 0;
+    const partialFail = failed > 0 && imported > 0;
+    const kind = allFailed ? 'error' : (partialFail ? 'error' : 'success');
+    setStatus(message || (allFailed ? 'Import failed.' : 'Import finished.'), kind);
+    resultEl.classList.remove('hidden');
+    resultEl.className = 'at-bulk-import-import-result at-bulk-import-import-result--' + (allFailed ? 'error' : 'success');
+    let html = '<p class="m-0 font-medium">' + escapeHtml(message || '') + '</p>';
+    html += '<ul>';
+    html += '<li><strong>Imported successfully:</strong> ' + imported + '</li>';
+    html += '<li><strong>Failed during import:</strong> ' + failed + '</li>';
+    html += '<li><strong>Skipped (validation errors):</strong> ' + skipped + '</li>';
+    html += '</ul>';
+    const fails = (imp.results || []).filter(function (r) { return r && r.ok === false; });
+    if (fails.length) {
+      html += '<p class="font-medium m-0 mt-2">Import failure details</p><ul>';
+      fails.forEach(function (r) {
+        html += '<li><code>' + escapeHtml(r.product_code || '') + '</code>: ' + escapeHtml(r.message || 'Import failed.') + '</li>';
+      });
+      html += '</ul>';
+    }
+    if (data.report_url) {
+      html += '<p class="m-0 mt-2"><a class="at-link" href="' + escapeHtml(data.report_url) + '">Download result report (CSV)</a></p>';
+    }
+    resultEl.innerHTML = html;
+  }
+
   btnImport.addEventListener('click', function () {
-    if (!jobId) return;
+    if (!jobId || importInFlight || lastReadyCount < 1) return;
     const skipped = Math.max(0, lastTotalProducts - lastReadyCount);
     let confirmMsg = 'Import ' + lastReadyCount + ' ready product' + (lastReadyCount === 1 ? '' : 's') + '?';
     if (skipped > 0) {
-      confirmMsg += ' ' + skipped + ' product' + (skipped === 1 ? '' : 's') + ' with errors will be skipped.';
+      confirmMsg += ' ' + skipped + ' product' + (skipped === 1 ? '' : 's') + ' with validation errors will be skipped.';
     }
     confirmMsg += ' Existing products are never updated.';
     if (!window.confirm(confirmMsg)) return;
@@ -546,29 +644,29 @@ $missingImagesZipMessage = ProductBulkImport::MSG_MISSING_IMAGES_ZIP;
     fd.append('action', 'import');
     fd.append(csrfFieldName, csrf);
     fd.append('job_id', jobId);
+    importInFlight = true;
     setStatus('Importing…');
     btnImport.disabled = true;
+    btnImport.setAttribute('aria-busy', 'true');
+    resultEl.classList.add('hidden');
+    resultEl.innerHTML = '';
     fetch(ajaxUrl, { method: 'POST', body: fd, credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
       .then(parseJsonResponse)
       .then(function (res) {
         const parsed = ajaxEnvelope(res.body);
         if (!parsed.ok) {
           setStatus(parsed.message || 'Import failed.', 'error');
-          btnImport.disabled = false;
           return;
         }
-        const imp = parsed.data.result ? parsed.data.result : {};
-        setStatus(parsed.message || 'Import finished.', 'success');
-        resultEl.classList.remove('hidden');
-        let html = '<p>Imported: ' + (imp.imported || 0) + ', failed: ' + (imp.failed || 0) + '.</p>';
-        if (parsed.data.report_url) {
-          html += '<p><a class="at-link" href="' + escapeHtml(parsed.data.report_url) + '">Download result report (CSV)</a></p>';
-        }
-        resultEl.innerHTML = html;
+        renderImportOutcome(parsed.data, parsed.message);
       })
       .catch(function () {
         setStatus('Network error during import.', 'error');
-        btnImport.disabled = false;
+      })
+      .finally(function () {
+        importInFlight = false;
+        btnImport.removeAttribute('aria-busy');
+        updateImportAction();
       });
   });
 })();

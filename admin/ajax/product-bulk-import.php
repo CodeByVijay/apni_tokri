@@ -127,6 +127,8 @@ if ($action === 'import') {
   if ($importable === []) {
     Ajax::error('No valid products to import. Fix validation errors first.');
   }
+  $skippedValidation = max(0, count($bundles) - count($importable));
+  $attempted = count($importable);
   $adminId = AdminAuth::check() ? AdminAuth::id() : null;
   $result = ProductBulkImport::importProducts($importable, $imageIndex, $adminId > 0 ? $adminId : null);
   $reportPath = ProductBulkImport::jobDir($jobId) . '/import-report.csv';
@@ -135,13 +137,20 @@ if ($action === 'import') {
   $state['report_path'] = $reportPath;
   ProductBulkImport::saveJobState($jobId, $state);
   ProductBulkImport::cleanupJobAfterImport($jobId, $state);
-  $msg = 'Imported ' . $result['imported'] . ' product(s).';
-  if ($result['failed'] > 0) {
-    $msg .= ' ' . $result['failed'] . ' failed.';
+  $imported = (int) ($result['imported'] ?? 0);
+  $failed = (int) ($result['failed'] ?? 0);
+  if ($failed > 0 && $imported === 0) {
+    $msg = 'Import failed. No products were imported.';
+  } elseif ($failed > 0) {
+    $msg = 'Imported ' . $imported . ' product(s). ' . $failed . ' failed during import.';
+  } else {
+    $msg = 'Imported ' . $imported . ' product(s) successfully.';
   }
   Ajax::success([
     'job_id' => $jobId,
     'result' => $result,
+    'skipped_validation' => $skippedValidation,
+    'attempted_import' => $attempted,
     'report_url' => url_base() . '/admin/products/bulk-import.php?download_report=1&job_id=' . rawurlencode($jobId),
   ], $msg);
 }

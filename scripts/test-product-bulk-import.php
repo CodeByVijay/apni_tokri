@@ -350,6 +350,28 @@ $sampleImgEx = ProductBulkImport::extractImageZip($innerZipPath);
 $sampleVal = ProductBulkImport::validate($sampleParsed, $sampleImgEx['index'] ?? null);
 okB(!empty($sampleVal['ok']), 'sample package workbook validates with images zip');
 okB(($sampleVal['ready_count'] ?? 0) === 2, 'sample workbook validates 2 demo products');
+$sampleImgPath = '';
+foreach (is_array($sampleImgEx['index'] ?? null) ? $sampleImgEx['index'] : [] as $imgPath) {
+    if (is_string($imgPath) && $imgPath !== '') {
+        $sampleImgPath = $imgPath;
+        break;
+    }
+}
+if ($sampleImgPath !== '') {
+    okB(ProductBulkImport::isTrustedJobExtractImagePath($sampleImgPath), 'job extract image path is trusted for web import');
+    $trustedUp = ProductBulkImport::trustedImageUploadFromJobExtract($sampleImgPath);
+    okB(!empty($trustedUp['trusted_internal']), 'trusted_internal set on job extract upload');
+}
+$sampleBundles = ProductBulkImport::bundleMapFromParsed($sampleParsed, []);
+$sampleImportSet = ProductBulkImport::filterImportableBundles($sampleVal['errors'], $sampleBundles);
+$sampleImport = ProductBulkImport::importProducts($sampleImportSet, $sampleImgEx['index'] ?? null, 1);
+okB(($sampleImport['imported'] ?? 0) === 2 && ($sampleImport['failed'] ?? 0) === 0, 'sample package: two validation-ready products import successfully');
+$garlicImgs = array_filter($sampleParsed['images'], static fn ($r) => ($r['product_code'] ?? '') === ProductBulkImport::SAMPLE_CODE_GARLIC);
+$onionNames = array_map(static fn ($r) => strtolower((string) ($r['filename'] ?? '')), array_filter($sampleParsed['images'], static fn ($r) => ($r['product_code'] ?? '') === ProductBulkImport::SAMPLE_CODE_ONION));
+foreach ($garlicImgs as $gr) {
+    $fn = strtolower((string) ($gr['filename'] ?? ''));
+    okB(!in_array($fn, $onionNames, true), 'sample garlic images are not onion filenames: ' . $fn);
+}
 $sampleNoZip = ProductBulkImport::validate($sampleParsed, null);
 okB(empty($sampleNoZip['ok']), 'sample package without images zip fails validation');
 $sampleNoZipHelpful = false;
@@ -371,6 +393,8 @@ okB(str_contains($page, 'missingImagesZipMessage'), 'static: JS promotes missing
 okB(str_contains($page, 'at-bulk-import-summary'), 'static: validation summary UI');
 okB(str_contains($page, 'renderValidationResults'), 'static: product-wise validation renderer');
 okB(str_contains($page, 'import_ready'), 'static: uses import_ready from validation payload');
+okB(str_contains($page, 'at-bulk-import-action'), 'static: dedicated import action panel');
+okB(str_contains($page, 'renderImportOutcome'), 'static: import outcome panel with failure details');
 okB(str_contains($page, 'download_template=1'), 'static: blank template download on admin page');
 okB(str_contains($page, 'denyIfCannot(\'products\')'), 'static: products permission on bulk-import page');
 okB(str_contains($page, 'Csrf::field()'), 'static: bulk-import form uses Csrf::field');
@@ -383,6 +407,50 @@ $ajax = (string) file_get_contents(APNI_TOKRI_ROOT . '/admin/ajax/product-bulk-i
 okB(str_contains($ajax, 'Csrf::requireValid'), 'static: CSRF on bulk import AJAX');
 okB(str_contains($ajax, "denyIfCannot('products')"), 'static: products permission');
 okB(str_contains($ajax, 'parseWorkbook($workbookPath)'), 'static: import revalidates workbook server-side');
+okB(str_contains($ajax, 'skipped_validation'), 'static: import response includes skipped_validation count');
+
+if (MediaLibrary::isEnabled()) {
+    $dedupXlsx = $workDir . '/dedup-' . $tok . '.xlsx';
+    $c1 = 'DEDUP-A-' . $tok;
+    $c2 = 'DEDUP-B-' . $tok;
+    $dedupProd = [
+        ProductBulkImport::productsHeaders(),
+        [$c1, 'Dedup A', 'dedup-a-' . $tok, 'DEDUP-A-SKU-' . $tok, $catName, $ptype, 's', 'd'],
+        [$c2, 'Dedup B', 'dedup-b-' . $tok, 'DEDUP-B-SKU-' . $tok, $catName, $ptype, 's', 'd'],
+    ];
+    $dedupVar = [
+        ProductBulkImport::variantsHeaders(),
+        [$c1, 'Only', 'DEDUP-A-V-' . $tok, '10', '', '5', '5', '1', '0', '1'],
+        [$c2, 'Only', 'DEDUP-B-V-' . $tok, '10', '', '5', '5', '1', '0', '1'],
+    ];
+    $dedupImg = [
+        ProductBulkImport::imagesHeaders(),
+        [$c1, 'shared-dedup.png', 'yes', '1', ''],
+        [$c2, 'shared-dedup.png', 'yes', '1', ''],
+    ];
+    SimpleXlsx::write([
+        ProductBulkImport::SHEET_PRODUCTS => $dedupProd,
+        ProductBulkImport::SHEET_VARIANTS => $dedupVar,
+        ProductBulkImport::SHEET_ATTRIBUTES => [ProductBulkImport::attributesHeaders()],
+        ProductBulkImport::SHEET_IMAGES => $dedupImg,
+        ProductBulkImport::SHEET_SEO => [ProductBulkImport::seoHeaders()],
+    ], $dedupXlsx);
+    $dedupPng = $imgDir . '/shared-dedup.png';
+    file_put_contents($dedupPng, $png . 'dedup');
+    $dedupZip = $workDir . '/dedup.zip';
+    $dz = new ZipArchive();
+    $dz->open($dedupZip, ZipArchive::CREATE | ZipArchive::OVERWRITE);
+    $dz->addFile($dedupPng, 'shared-dedup.png');
+    $dz->close();
+    $dedupEx = ProductBulkImport::extractImageZip($dedupZip);
+    $dedupParsed = ProductBulkImport::parseWorkbook($dedupXlsx);
+    $dedupBundles = ProductBulkImport::bundleMapFromParsed($dedupParsed, []);
+    $mediaBeforeDedup = (int) $pdo->query('SELECT COUNT(*) FROM media_assets WHERE deleted_at IS NULL')->fetchColumn();
+    $dedupImport = ProductBulkImport::importProducts($dedupBundles, $dedupEx['index'] ?? null, 1);
+    okB(($dedupImport['imported'] ?? 0) === 2 && ($dedupImport['failed'] ?? 0) === 0, 'shared image dedup: two products import');
+    $mediaAfterDedup = (int) $pdo->query('SELECT COUNT(*) FROM media_assets WHERE deleted_at IS NULL')->fetchColumn();
+    okB($mediaAfterDedup - $mediaBeforeDedup <= 1, 'shared image dedup: at most one new media asset for identical file');
+}
 
 // --- Product-wise validation summary / mixed partial import ---
 $existSku = 'BI-SKU-' . $tok . '-001';
