@@ -727,4 +727,242 @@ final class MediaLibrary
 
         return mb_substr($base !== '' ? $base : 'image', 0, 255);
     }
+
+    public const BULK_ACTION_MAX_IDS = 50;
+
+    /**
+     * @param mixed $raw
+     * @return list<int>
+     */
+    public static function parseBulkMediaIds($raw): array
+    {
+        if (!is_array($raw)) {
+            if (is_string($raw) && trim($raw) !== '') {
+                $raw = preg_split('/\s*,\s*/', trim($raw)) ?: [];
+            } else {
+                return [];
+            }
+        }
+        $ids = [];
+        foreach ($raw as $v) {
+            $id = (int) $v;
+            if ($id > 0) {
+                $ids[$id] = true;
+            }
+        }
+
+        return array_keys($ids);
+    }
+
+  /** @return array{filename: string} */
+    private static function filenameHintForMediaId(int $mediaId): array
+    {
+        $row = self::findActive($mediaId);
+        if ($row === null) {
+            $row = self::findDeleted($mediaId);
+        }
+        if ($row === null) {
+            Install::ensureConnection();
+            $stmt = Database::pdo()->prepare('SELECT original_filename FROM media_assets WHERE id = ? LIMIT 1');
+            $stmt->execute([$mediaId]);
+            $name = $stmt->fetchColumn();
+
+            return ['filename' => is_string($name) ? $name : ''];
+        }
+
+        return ['filename' => (string) ($row['original_filename'] ?? '')];
+    }
+
+    /**
+     * @param list<int>|mixed $mediaIds
+     * @return array{
+     *   ok: bool,
+     *   message?: string,
+     *   total_selected: int,
+     *   succeeded: int,
+     *   failed: int,
+     *   blocked: int,
+     *   results: list<array{media_id: int, filename: string, success: bool, action: string, reason?: string, warning?: string}>
+     * }
+     */
+    public static function bulkSoftDelete($mediaIds): array
+    {
+        $ids = self::parseBulkMediaIds($mediaIds);
+        if ($ids === []) {
+            return ['ok' => false, 'message' => 'No media selected.', 'total_selected' => 0, 'succeeded' => 0, 'failed' => 0, 'blocked' => 0, 'results' => []];
+        }
+        if (count($ids) > self::BULK_ACTION_MAX_IDS) {
+            return ['ok' => false, 'message' => 'Select at most ' . self::BULK_ACTION_MAX_IDS . ' items at once.', 'total_selected' => count($ids), 'succeeded' => 0, 'failed' => 0, 'blocked' => 0, 'results' => []];
+        }
+        $results = [];
+        $succeeded = 0;
+        $failed = 0;
+        $blocked = 0;
+        foreach ($ids as $id) {
+            $hint = self::filenameHintForMediaId($id);
+            $res = self::softDelete($id);
+            if (!empty($res['ok'])) {
+                $succeeded++;
+                $results[] = [
+                    'media_id' => $id,
+                    'filename' => $hint['filename'],
+                    'success' => true,
+                    'action' => 'soft_delete',
+                ];
+                continue;
+            }
+            $reason = (string) ($res['message'] ?? 'Could not move to trash.');
+            if (!empty($res['products']) || str_contains($reason, 'used by')) {
+                $blocked++;
+            } else {
+                $failed++;
+            }
+            $results[] = [
+                'media_id' => $id,
+                'filename' => $hint['filename'],
+                'success' => false,
+                'action' => 'soft_delete',
+                'reason' => $reason,
+            ];
+        }
+
+        return [
+            'ok' => true,
+            'total_selected' => count($ids),
+            'succeeded' => $succeeded,
+            'failed' => $failed,
+            'blocked' => $blocked,
+            'results' => $results,
+        ];
+    }
+
+    /**
+     * @param list<int>|mixed $mediaIds
+     * @return array{
+     *   ok: bool,
+     *   message?: string,
+     *   total_selected: int,
+     *   succeeded: int,
+     *   failed: int,
+     *   blocked: int,
+     *   results: list<array{media_id: int, filename: string, success: bool, action: string, reason?: string, warning?: string}>
+     * }
+     */
+    public static function bulkRestore($mediaIds): array
+    {
+        $ids = self::parseBulkMediaIds($mediaIds);
+        if ($ids === []) {
+            return ['ok' => false, 'message' => 'No media selected.', 'total_selected' => 0, 'succeeded' => 0, 'failed' => 0, 'blocked' => 0, 'results' => []];
+        }
+        if (count($ids) > self::BULK_ACTION_MAX_IDS) {
+            return ['ok' => false, 'message' => 'Select at most ' . self::BULK_ACTION_MAX_IDS . ' items at once.', 'total_selected' => count($ids), 'succeeded' => 0, 'failed' => 0, 'blocked' => 0, 'results' => []];
+        }
+        $results = [];
+        $succeeded = 0;
+        $failed = 0;
+        $blocked = 0;
+        foreach ($ids as $id) {
+            $hint = self::filenameHintForMediaId($id);
+            $res = self::restore($id);
+            if (!empty($res['ok'])) {
+                $succeeded++;
+                $results[] = [
+                    'media_id' => $id,
+                    'filename' => $hint['filename'],
+                    'success' => true,
+                    'action' => 'restore',
+                ];
+                continue;
+            }
+            $reason = (string) ($res['message'] ?? 'Could not restore.');
+            if (str_contains($reason, 'SHA-256')) {
+                $blocked++;
+            } else {
+                $failed++;
+            }
+            $results[] = [
+                'media_id' => $id,
+                'filename' => $hint['filename'],
+                'success' => false,
+                'action' => 'restore',
+                'reason' => $reason,
+            ];
+        }
+
+        return [
+            'ok' => true,
+            'total_selected' => count($ids),
+            'succeeded' => $succeeded,
+            'failed' => $failed,
+            'blocked' => $blocked,
+            'results' => $results,
+        ];
+    }
+
+    /**
+     * @param list<int>|mixed $mediaIds
+     * @return array{
+     *   ok: bool,
+     *   message?: string,
+     *   total_selected: int,
+     *   succeeded: int,
+     *   failed: int,
+     *   blocked: int,
+     *   results: list<array{media_id: int, filename: string, success: bool, action: string, reason?: string, warning?: string}>
+     * }
+     */
+    public static function bulkPurgeDeleted($mediaIds): array
+    {
+        $ids = self::parseBulkMediaIds($mediaIds);
+        if ($ids === []) {
+            return ['ok' => false, 'message' => 'No media selected.', 'total_selected' => 0, 'succeeded' => 0, 'failed' => 0, 'blocked' => 0, 'results' => []];
+        }
+        if (count($ids) > self::BULK_ACTION_MAX_IDS) {
+            return ['ok' => false, 'message' => 'Select at most ' . self::BULK_ACTION_MAX_IDS . ' items at once.', 'total_selected' => count($ids), 'succeeded' => 0, 'failed' => 0, 'blocked' => 0, 'results' => []];
+        }
+        $results = [];
+        $succeeded = 0;
+        $failed = 0;
+        $blocked = 0;
+        foreach ($ids as $id) {
+            $hint = self::filenameHintForMediaId($id);
+            $res = self::purgeDeleted($id);
+            if (!empty($res['ok'])) {
+                $succeeded++;
+                $entry = [
+                    'media_id' => $id,
+                    'filename' => $hint['filename'],
+                    'success' => true,
+                    'action' => 'purge',
+                ];
+                if (!empty($res['file_delete_warning'])) {
+                    $entry['warning'] = (string) $res['file_delete_warning'];
+                }
+                $results[] = $entry;
+                continue;
+            }
+            $reason = (string) ($res['message'] ?? 'Could not purge.');
+            if (str_contains($reason, 'Cannot purge') || str_contains($reason, 'linked') || str_contains($reason, 'references') || str_contains($reason, 'another media')) {
+                $blocked++;
+            } else {
+                $failed++;
+            }
+            $results[] = [
+                'media_id' => $id,
+                'filename' => $hint['filename'],
+                'success' => false,
+                'action' => 'purge',
+                'reason' => $reason,
+            ];
+        }
+
+        return [
+            'ok' => true,
+            'total_selected' => count($ids),
+            'succeeded' => $succeeded,
+            'failed' => $failed,
+            'blocked' => $blocked,
+            'results' => $results,
+        ];
+    }
 }

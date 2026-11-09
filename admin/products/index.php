@@ -85,6 +85,7 @@ admin_layout_start(['pageTitle' => 'Products', 'activeAdminNav' => 'products']);
 $pageHeading = 'Products';
 $pageDescription = 'Manage catalogue, variants, images and visibility.';
 $pageActionsHtml = '<a href="' . Security::escape(url_base()) . '/admin/products/product-types.php" class="at-btn at-btn--secondary at-btn--sm at-focusable">Product types</a>'
+    . ' <a href="' . Security::escape(url_base()) . '/admin/products/bulk-import.php" class="at-btn at-btn--secondary at-btn--sm at-focusable">Bulk import</a>'
     . ' <a href="' . Security::escape(url_base()) . '/admin/products/edit.php" class="at-btn at-btn--primary at-btn--sm at-focusable">Add product</a>';
 require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
 

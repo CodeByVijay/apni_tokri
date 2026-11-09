@@ -998,9 +998,14 @@
     if (!$root.length) return;
     var ajaxUrl = $root.data('ajax-url');
     var csrf = $root.data('csrf');
+    var mediaTab = String($root.data('media-tab') || 'all');
     var $drop = $root.find('[data-at-media-dropzone]');
     var $input = $root.find('[data-at-media-file-input]');
     var $status = $root.find('[data-at-media-upload-status]');
+    var $bulkToolbar = $root.find('[data-at-media-bulk-toolbar]');
+    var $bulkCount = $root.find('[data-at-media-selected-count]');
+    var $bulkResults = $root.find('[data-at-media-bulk-results]');
+    var $selectAll = $root.find('[data-at-media-select-all-page]');
 
     function uploadFiles(files) {
       if (!files || !files.length) return;
@@ -1065,6 +1070,127 @@
       if (this.files) uploadFiles(this.files);
       this.value = '';
     });
+
+    function selectableCheckboxes() {
+      return $root.find('[data-at-media-select]:not(:disabled)');
+    }
+
+    function selectedIds() {
+      var ids = [];
+      selectableCheckboxes().filter(':checked').each(function () {
+        ids.push(String($(this).val()));
+      });
+      return ids;
+    }
+
+    function syncBulkToolbar() {
+      var ids = selectedIds();
+      var n = ids.length;
+      $bulkCount.text(n + ' selected');
+      $root.find('[data-at-media-bulk-trash],[data-at-media-bulk-restore],[data-at-media-bulk-purge],[data-at-media-clear-selection]')
+        .prop('disabled', n === 0);
+      var $enabled = selectableCheckboxes();
+      var checked = $enabled.filter(':checked').length;
+      $selectAll.prop('indeterminate', checked > 0 && checked < $enabled.length);
+      $selectAll.prop('checked', $enabled.length > 0 && checked === $enabled.length);
+    }
+
+    function renderBulkResults(payload) {
+      if (!payload || !payload.results) {
+        $bulkResults.addClass('hidden').empty();
+        return;
+      }
+      var html = '<p><strong>' + (payload.succeeded || 0) + '</strong> succeeded, '
+        + '<strong>' + (payload.failed || 0) + '</strong> failed, '
+        + '<strong>' + (payload.blocked || 0) + '</strong> blocked.</p>';
+      if (payload.results.length) {
+        html += '<ul>';
+        payload.results.forEach(function (r) {
+          var line = (r.success ? '✓' : '✗') + ' #' + r.media_id;
+          if (r.filename) line += ' ' + r.filename;
+          if (r.reason) line += ' — ' + r.reason;
+          if (r.warning) line += ' — ' + r.warning;
+          html += '<li>' + line + '</li>';
+        });
+        html += '</ul>';
+      }
+      $bulkResults.removeClass('hidden').html(html);
+    }
+
+    function applyBulkSelectionAfterRun(payload) {
+      (payload.results || []).forEach(function (r) {
+        var $cb = $root.find('[data-at-media-select][value="' + r.media_id + '"]');
+        if (r.success) {
+          $cb.prop('checked', false);
+          var $card = $root.find('[data-media-id="' + r.media_id + '"]');
+          if (r.action === 'soft_delete' || r.action === 'purge') {
+            $card.fadeOut(200, function () {
+              $(this).remove();
+              syncBulkToolbar();
+            });
+          } else if (r.action === 'restore' && mediaTab === 'trash') {
+            $card.fadeOut(200, function () {
+              $(this).remove();
+              syncBulkToolbar();
+            });
+          }
+        }
+      });
+      syncBulkToolbar();
+    }
+
+    function runBulkAction(action) {
+      var ids = selectedIds();
+      if (!ids.length) return;
+      var fd = new FormData();
+      fd.append('_csrf_token', csrf);
+      fd.append('action', action);
+      ids.forEach(function (id) {
+        fd.append('media_ids[]', id);
+      });
+      $.ajax({
+        url: ajaxUrl,
+        method: 'POST',
+        data: fd,
+        processData: false,
+        contentType: false,
+        dataType: 'json',
+      }).done(function (res) {
+        if (!res || !res.success) {
+          alert((res && res.error && res.error.message) || 'Bulk action failed.');
+          return;
+        }
+        renderBulkResults(res.data);
+        applyBulkSelectionAfterRun(res.data);
+        if ((res.data.succeeded || 0) > 0 && (res.data.failed || 0) === 0 && (res.data.blocked || 0) === 0) {
+          window.setTimeout(function () {
+            window.location.reload();
+          }, 800);
+        }
+      }).fail(function () {
+        alert('Bulk action failed.');
+      });
+    }
+
+    $root.on('change', '[data-at-media-select]', syncBulkToolbar);
+    $selectAll.on('change', function () {
+      var on = $selectAll.prop('checked');
+      selectableCheckboxes().prop('checked', on);
+      syncBulkToolbar();
+    });
+    $root.on('click', '[data-at-media-clear-selection]', function () {
+      selectableCheckboxes().prop('checked', false);
+      $selectAll.prop('checked', false).prop('indeterminate', false);
+      syncBulkToolbar();
+    });
+    $root.on('click', '[data-at-media-bulk-trash]', function () {
+      if (!window.confirm('Move ' + selectedIds().length + ' unused image(s) to trash?')) return;
+      runBulkAction('bulk_soft_delete');
+    });
+    $root.on('click', '[data-at-media-bulk-restore]', function () {
+      runBulkAction('bulk_restore');
+    });
+
     $root.on('click', '[data-at-media-soft-delete]', function () {
       var mid = $(this).attr('data-at-media-soft-delete');
       if (!window.confirm('Move this unused image to trash?')) return;
@@ -1099,19 +1225,30 @@
     var $purgeConfirm = $root.find('[data-at-media-purge-confirm]');
     var $purgeSubmit = $root.find('[data-at-media-purge-submit]');
     var $purgeHint = $root.find('[data-at-media-purge-confirm-hint]');
+    var $purgeSingle = $root.find('[data-at-media-purge-single]');
+    var $purgeBulkSummary = $root.find('[data-at-media-purge-bulk-summary]');
+    var $purgeTitle = $root.find('[data-at-media-purge-title]');
     var purgeMediaId = null;
+    var purgeBulkIds = null;
 
     function closePurgeModal() {
       purgeMediaId = null;
+      purgeBulkIds = null;
       $purgeModal.addClass('hidden');
       $purgeConfirm.prop('checked', false);
       $purgeSubmit.prop('disabled', true);
       $purgeHint.addClass('hidden');
+      $purgeSingle.removeClass('hidden');
+      $purgeBulkSummary.addClass('hidden').text('');
+      $purgeTitle.text('Permanently delete image?');
     }
 
-    $root.on('click', '[data-at-media-purge]', function () {
-      var $btn = $(this);
+    function openPurgeModalSingle($btn) {
+      purgeBulkIds = null;
       purgeMediaId = $btn.attr('data-at-media-purge');
+      $purgeSingle.removeClass('hidden');
+      $purgeBulkSummary.addClass('hidden').text('');
+      $purgeTitle.text('Permanently delete image?');
       $purgePreview.attr('src', $btn.attr('data-media-url') || '');
       $purgeFilename.text($btn.attr('data-media-filename') || '');
       var bytes = parseInt($btn.attr('data-media-size') || '0', 10);
@@ -1120,6 +1257,29 @@
       $purgeSubmit.prop('disabled', true);
       $purgeHint.addClass('hidden');
       $purgeModal.removeClass('hidden');
+    }
+
+    function openPurgeModalBulk(ids) {
+      purgeMediaId = null;
+      purgeBulkIds = ids.slice();
+      $purgeSingle.addClass('hidden');
+      $purgeBulkSummary.removeClass('hidden').text(
+        'You selected ' + ids.length + ' trashed image(s). This action is irreversible.'
+      );
+      $purgeTitle.text('Permanently delete selected images?');
+      $purgeConfirm.prop('checked', false);
+      $purgeSubmit.prop('disabled', true);
+      $purgeHint.addClass('hidden');
+      $purgeModal.removeClass('hidden');
+    }
+
+    $root.on('click', '[data-at-media-purge]', function () {
+      openPurgeModalSingle($(this));
+    });
+    $root.on('click', '[data-at-media-bulk-purge]', function () {
+      var ids = selectedIds();
+      if (!ids.length) return;
+      openPurgeModalBulk(ids);
     });
     $root.on('click', '[data-at-media-purge-close]', closePurgeModal);
     $purgeConfirm.on('change', function () {
@@ -1128,28 +1288,52 @@
       $purgeHint.toggleClass('hidden', on);
     });
     $purgeSubmit.on('click', function () {
-      if (!purgeMediaId || !$purgeConfirm.prop('checked')) {
+      if (!$purgeConfirm.prop('checked')) {
+        $purgeHint.removeClass('hidden');
+        return;
+      }
+      if (!purgeMediaId && (!purgeBulkIds || !purgeBulkIds.length)) {
         $purgeHint.removeClass('hidden');
         return;
       }
       $purgeSubmit.prop('disabled', true);
+      var fd = new FormData();
+      fd.append('_csrf_token', csrf);
+      fd.append('confirm_purge', '1');
+      if (purgeBulkIds && purgeBulkIds.length) {
+        fd.append('action', 'bulk_purge');
+        purgeBulkIds.forEach(function (id) {
+          fd.append('media_ids[]', id);
+        });
+      } else {
+        fd.append('action', 'purge');
+        fd.append('media_id', purgeMediaId);
+      }
       $.ajax({
         url: ajaxUrl,
         method: 'POST',
-        data: {
-          _csrf_token: csrf,
-          action: 'purge',
-          media_id: purgeMediaId,
-          confirm_purge: '1',
-        },
+        data: fd,
+        processData: false,
+        contentType: false,
         dataType: 'json',
       })
         .done(function (res) {
           if (res && res.success) {
-            if (res.message && res.message.indexOf('could not be deleted') !== -1) {
-              alert(res.message);
+            closePurgeModal();
+            if (purgeBulkIds && purgeBulkIds.length) {
+              renderBulkResults(res.data);
+              applyBulkSelectionAfterRun(res.data);
+              if ((res.data.failed || 0) === 0 && (res.data.blocked || 0) === 0) {
+                window.setTimeout(function () {
+                  window.location.reload();
+                }, 800);
+              }
+            } else {
+              if (res.message && res.message.indexOf('could not be deleted') !== -1) {
+                alert(res.message);
+              }
+              window.location.reload();
             }
-            window.location.reload();
           } else {
             alert((res.error && res.error.message) || 'Permanent delete failed.');
             $purgeSubmit.prop('disabled', !$purgeConfirm.prop('checked'));
@@ -1160,6 +1344,7 @@
           $purgeSubmit.prop('disabled', !$purgeConfirm.prop('checked'));
         });
     });
+    syncBulkToolbar();
   }
 
   function initSortableReorder($root, rowIdAttr) {

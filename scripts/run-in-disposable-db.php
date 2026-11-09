@@ -39,7 +39,13 @@ if ($targetPath === false || !str_starts_with($targetNorm, $scriptsPrefix)) {
 
 $needsMediaMigration = in_array(
     basename($targetPath),
-    ['test-media-library.php', 'test-media-library-concurrent.php', 'test-media-library-trash.php'],
+    [
+        'test-media-library.php',
+        'test-media-library-concurrent.php',
+        'test-media-library-trash.php',
+        'test-media-library-bulk.php',
+        'test-product-bulk-import.php',
+    ],
     true
 );
 if ($needsMediaMigration && !$migrateMediaLibrary) {

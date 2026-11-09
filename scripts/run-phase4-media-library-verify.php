@@ -42,6 +42,16 @@ phase4_run('Trash: test-media-library-trash.php', [
     '--migrate-media-library',
     $root . '/scripts/test-media-library-trash.php',
 ], $fail);
+phase4_run('Bulk: test-media-library-bulk.php', [
+    $runner,
+    '--migrate-media-library',
+    $root . '/scripts/test-media-library-bulk.php',
+], $fail);
+phase4_run('Bulk import: test-product-bulk-import.php', [
+    $runner,
+    '--migrate-media-library',
+    $root . '/scripts/test-product-bulk-import.php',
+], $fail);
 phase4_run('Production readiness', [
     $root . DIRECTORY_SEPARATOR . 'scripts' . DIRECTORY_SEPARATOR . 'test-production-readiness.php',
 ], $fail);

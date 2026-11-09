@@ -154,4 +154,53 @@ if ($action === 'usage' && $_SERVER['REQUEST_METHOD'] === 'GET') {
     ]);
 }
 
+if ($action === 'bulk_soft_delete' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    $raw = $_POST['media_ids'] ?? [];
+    $res = MediaLibrary::bulkSoftDelete($raw);
+    if (empty($res['ok'])) {
+        Ajax::error((string) ($res['message'] ?? 'Bulk trash failed.'));
+    }
+    Ajax::success([
+        'total_selected' => $res['total_selected'],
+        'succeeded' => $res['succeeded'],
+        'failed' => $res['failed'],
+        'blocked' => $res['blocked'],
+        'results' => $res['results'],
+    ], 'Bulk move to trash finished.');
+}
+
+if ($action === 'bulk_restore' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    $raw = $_POST['media_ids'] ?? [];
+    $res = MediaLibrary::bulkRestore($raw);
+    if (empty($res['ok'])) {
+        Ajax::error((string) ($res['message'] ?? 'Bulk restore failed.'));
+    }
+    Ajax::success([
+        'total_selected' => $res['total_selected'],
+        'succeeded' => $res['succeeded'],
+        'failed' => $res['failed'],
+        'blocked' => $res['blocked'],
+        'results' => $res['results'],
+    ], 'Bulk restore finished.');
+}
+
+if ($action === 'bulk_purge' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    $confirm = isset($_POST['confirm_purge']) && (string) $_POST['confirm_purge'] === '1';
+    if (!$confirm) {
+        Ajax::error('Confirmation required for permanent delete.');
+    }
+    $raw = $_POST['media_ids'] ?? [];
+    $res = MediaLibrary::bulkPurgeDeleted($raw);
+    if (empty($res['ok'])) {
+        Ajax::error((string) ($res['message'] ?? 'Bulk purge failed.'));
+    }
+    Ajax::success([
+        'total_selected' => $res['total_selected'],
+        'succeeded' => $res['succeeded'],
+        'failed' => $res['failed'],
+        'blocked' => $res['blocked'],
+        'results' => $res['results'],
+    ], 'Bulk permanent delete finished.');
+}
+
 Ajax::error('Invalid action.');
