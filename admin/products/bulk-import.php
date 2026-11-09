@@ -9,57 +9,60 @@ AdminDemoPerms::denyIfCannot('products');
 $base = url_base();
 
 if (isset($_GET['download_template']) && (string) $_GET['download_template'] === '1') {
-    $dir = ProductBulkImport::jobDir('template');
-    if (!is_dir($dir)) {
-        @mkdir($dir, 0755, true);
-    }
-    $tmp = $dir . '/apni-tokri-product-import-template.xlsx';
-    $gen = ProductBulkImport::writeTemplate($tmp);
-    if (empty($gen['ok']) || !is_file($tmp)) {
+    $built = ProductBulkImport::prepareTemplateDownloadFile();
+    if (empty($built['ok']) || empty($built['path'])) {
         http_response_code(500);
+        header('Content-Type: text/plain; charset=UTF-8');
         echo 'Could not build template.';
         exit;
     }
-    header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    header('Content-Disposition: attachment; filename="apni-tokri-product-import-template.xlsx"');
-    header('Content-Length: ' . (string) filesize($tmp));
-    readfile($tmp);
-    exit;
+    $tmpPath = (string) $built['path'];
+    register_shutdown_function(static function () use ($tmpPath): void {
+        ProductBulkImport::unlinkDownloadTempFile($tmpPath);
+    });
+    AdminFileDownload::streamAttachment(
+        $tmpPath,
+        AdminFileDownload::MIME_XLSX,
+        ProductBulkImport::DOWNLOAD_TEMPLATE_NAME
+    );
 }
 
 if (isset($_GET['download_sample_package']) && (string) $_GET['download_sample_package'] === '1') {
-    $dir = ProductBulkImport::jobDir('template');
-    if (!is_dir($dir)) {
-        @mkdir($dir, 0755, true);
-    }
-    $pkg = $dir . '/apni-tokri-product-import-sample-package.zip';
-    $gen = ProductBulkImport::writeSamplePackage($pkg);
-    if (empty($gen['ok']) || !is_file($pkg)) {
+    $built = ProductBulkImport::prepareSamplePackageDownloadFile();
+    if (empty($built['ok']) || empty($built['path'])) {
         http_response_code(500);
+        header('Content-Type: text/plain; charset=UTF-8');
         echo 'Could not build sample package.';
         exit;
     }
-    header('Content-Type: application/zip');
-    header('Content-Disposition: attachment; filename="apni-tokri-product-import-sample-package.zip"');
-    header('Content-Length: ' . (string) filesize($pkg));
-    readfile($pkg);
-    exit;
+    $tmpPath = (string) $built['path'];
+    register_shutdown_function(static function () use ($tmpPath): void {
+        ProductBulkImport::unlinkDownloadTempFile($tmpPath);
+    });
+    AdminFileDownload::streamAttachment(
+        $tmpPath,
+        AdminFileDownload::MIME_ZIP,
+        ProductBulkImport::DOWNLOAD_SAMPLE_PACKAGE_NAME
+    );
 }
 
 $jobDownload = isset($_GET['download_report']) && (string) $_GET['download_report'] === '1'
     ? trim((string) ($_GET['job_id'] ?? ''))
     : '';
 if ($jobDownload !== '') {
-    $report = ProductBulkImport::jobDir($jobDownload) . '/import-report.csv';
-    if (!is_file($report)) {
-        http_response_code(404);
-        echo 'Report not found.';
+    $safeJob = preg_replace('/[^a-z0-9_-]/i', '', $jobDownload) ?? '';
+    if ($safeJob === '' || $safeJob !== $jobDownload) {
+        http_response_code(400);
+        header('Content-Type: text/plain; charset=UTF-8');
+        echo 'Invalid job.';
         exit;
     }
-    header('Content-Type: text/csv; charset=UTF-8');
-    header('Content-Disposition: attachment; filename="product-import-report-' . preg_replace('/[^a-z0-9_-]/i', '', $jobDownload) . '.csv"');
-    readfile($report);
-    exit;
+    $report = ProductBulkImport::jobDir($safeJob) . '/import-report.csv';
+    AdminFileDownload::streamAttachment(
+        $report,
+        AdminFileDownload::MIME_CSV,
+        'product-import-report-' . $safeJob . '.csv'
+    );
 }
 
 admin_layout_start(['pageTitle' => 'Bulk product import', 'activeAdminNav' => 'products']);

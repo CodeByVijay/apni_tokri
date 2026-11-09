@@ -26,6 +26,101 @@ final class ProductBulkImport
 
     public const SAMPLE_CODE_GARLIC = 'DEMO-GARLIC';
     public const SAMPLE_CODE_ONION = 'DEMO-ONION';
+    public const DOWNLOAD_TEMPLATE_NAME = 'apni-tokri-product-import-template.xlsx';
+    public const DOWNLOAD_SAMPLE_PACKAGE_NAME = 'apni-tokri-product-import-sample-package.zip';
+
+    /**
+     * @return array{ok: bool, path?: string, message?: string}
+     */
+    public static function prepareTemplateDownloadFile(): array
+    {
+        $path = self::tempDownloadPath('tpl', 'xlsx');
+        $gen = self::writeTemplate($path);
+        if (empty($gen['ok']) || !is_file($path)) {
+            self::unlinkQuiet($path);
+
+            return ['ok' => false, 'message' => $gen['message'] ?? 'Could not build template.'];
+        }
+
+        return ['ok' => true, 'path' => $path];
+    }
+
+    /**
+     * @return array{ok: bool, path?: string, message?: string}
+     */
+    public static function prepareSamplePackageDownloadFile(): array
+    {
+        $path = self::tempDownloadPath('sample', 'zip');
+        $gen = self::writeSamplePackage($path);
+        if (empty($gen['ok']) || !is_file($path)) {
+            self::unlinkQuiet($path);
+
+            return ['ok' => false, 'message' => $gen['message'] ?? 'Could not build sample package.'];
+        }
+
+        return ['ok' => true, 'path' => $path];
+    }
+
+    public static function unlinkDownloadTempFile(?string $path): void
+    {
+        if ($path === null || $path === '') {
+            return;
+        }
+        $real = realpath($path);
+        if ($real === false) {
+            self::unlinkQuiet($path);
+
+            return;
+        }
+        $tmpRoot = realpath(sys_get_temp_dir());
+        if ($tmpRoot !== false && str_starts_with($real, $tmpRoot)) {
+            self::unlinkQuiet($real);
+        }
+    }
+
+    private static function tempDownloadPath(string $prefix, string $ext): string
+    {
+        $ext = preg_replace('/[^a-z0-9]+/i', '', $ext) ?? 'bin';
+        $safePrefix = preg_replace('/[^a-z0-9_-]+/i', '', $prefix) ?? 'dl';
+
+        return rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR . '/\\')
+            . DIRECTORY_SEPARATOR
+            . 'at-bi-' . $safePrefix . '-' . bin2hex(random_bytes(8)) . '.' . $ext;
+    }
+
+    private static function unlinkQuiet(string $path): void
+    {
+        if ($path !== '' && is_file($path)) {
+            @unlink($path);
+        }
+    }
+
+    /** Apache deny-all for job data under uploads/tmp (Nginx: see docs/BULK_PRODUCT_IMPORT.md). */
+    public static function ensureBulkImportStorageSecurity(): void
+    {
+        $tmpRoot = APNI_TOKRI_ROOT . '/uploads/tmp';
+        if (!is_dir($tmpRoot)) {
+            @mkdir($tmpRoot, 0755, true);
+        }
+        self::writeDenyAllHtaccess($tmpRoot);
+        $jobsRoot = $tmpRoot . '/bulk-import';
+        if (!is_dir($jobsRoot)) {
+            @mkdir($jobsRoot, 0755, true);
+        }
+        self::writeDenyAllHtaccess($jobsRoot);
+    }
+
+    private static function writeDenyAllHtaccess(string $dir): void
+    {
+        if (!is_dir($dir)) {
+            return;
+        }
+        $htaccess = $dir . '/.htaccess';
+        $body = "Require all denied\n<IfModule !mod_authz_core.c>\n  Deny from all\n</IfModule>\n";
+        if (!is_file($htaccess)) {
+            @file_put_contents($htaccess, $body);
+        }
+    }
 
     /** @return list<string> */
     public static function samplePackageImageBasenames(): array
@@ -1317,6 +1412,7 @@ final class ProductBulkImport
     public static function jobDir(string $jobId): string
     {
         $safe = preg_replace('/[^a-z0-9_-]/i', '', $jobId) ?? '';
+        self::ensureBulkImportStorageSecurity();
 
         return APNI_TOKRI_ROOT . '/uploads/tmp/bulk-import/' . $safe;
     }

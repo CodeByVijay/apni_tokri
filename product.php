@@ -76,7 +76,10 @@ $pdpCartUrl = url_base() . '/cart.php';
     <div class="at-buybox">
         <div>
             <?php if ($cat): ?><p class="at-eyebrow"><?= Security::escape($cat['name']) ?></p><?php endif; ?>
-            <h1 class="at-h1 mt-1"><?= Security::escape((string) $product['name']) ?></h1>
+            <div class="at-pdp-title-row mt-1">
+                <h1 class="at-h1 at-pdp-title-row__title"><?= Security::escape((string) $product['name']) ?></h1>
+                <?php require APNI_TOKRI_ROOT . '/includes/partials/product-share.php'; ?>
+            </div>
             <p class="mt-2 at-muted"><?= Security::escape((string) ($product['short_description'] ?? '')) ?></p>
             <?php
             if (CommerceGateway::useDatabase() && Install::isSchemaReady()) {
@@ -103,7 +106,6 @@ $pdpCartUrl = url_base() . '/cart.php';
                     <span class="at-muted">No reviews yet — verified customers can review after delivery</span>
                 <?php endif; ?>
                 <span class="at-muted">SKU <?= Security::escape((string) ($product['sku'] ?? '')) ?></span>
-                <?php require APNI_TOKRI_ROOT . '/includes/partials/product-share.php'; ?>
             </div>
         </div>
 

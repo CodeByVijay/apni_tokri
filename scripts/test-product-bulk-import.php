@@ -340,6 +340,8 @@ $page = (string) file_get_contents(APNI_TOKRI_ROOT . '/admin/products/bulk-impor
 okB(str_contains($page, 'download_sample_package=1'), 'static: sample package download on admin page');
 okB(str_contains($page, 'download_template=1'), 'static: blank template download on admin page');
 okB(str_contains($page, 'denyIfCannot(\'products\')'), 'static: products permission on bulk-import page');
+okB(str_contains($page, 'prepareTemplateDownloadFile'), 'static: template download uses temp file helper');
+okB(str_contains($page, 'AdminFileDownload::streamAttachment'), 'static: secure download streaming');
 
 $ajax = (string) file_get_contents(APNI_TOKRI_ROOT . '/admin/ajax/product-bulk-import.php');
 okB(str_contains($ajax, 'Csrf::requireValid'), 'static: CSRF on bulk import AJAX');

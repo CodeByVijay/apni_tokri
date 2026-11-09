@@ -13,10 +13,11 @@ declare(strict_types=1);
     <button type="button"
         class="at-btn at-btn--ghost at-btn--sm at-focusable at-pdp-share__trigger"
         data-at-product-share-trigger
+        aria-label="Share product"
         aria-haspopup="true"
         aria-expanded="false"
         aria-controls="at-product-share-menu">
-        <?= at_icon('share', 'w-4 h-4') ?> <span>Share</span>
+        <?= at_icon('share', 'w-4 h-4') ?> <span class="at-pdp-share__label">Share</span>
     </button>
     <div id="at-product-share-menu"
         class="at-share-menu hidden"

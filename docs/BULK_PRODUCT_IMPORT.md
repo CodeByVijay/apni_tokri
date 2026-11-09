@@ -90,7 +90,9 @@ No `meta_keywords` — the product form does not use them.
 | **Blank template** | `admin/products/bulk-import.php?download_template=1` | `apni-tokri-product-import-template.xlsx` — Instructions, Reference, one example row (`P-EXAMPLE`). |
 | **Sample package** | `admin/products/bulk-import.php?download_sample_package=1` | ZIP: `sample_products.xlsx`, `images.zip`, `README.txt` — Peeled Garlic + Chopped Onion demo data (neutral demo images). |
 
-Generated files are also written under `uploads/tmp/bulk-import/template/` when downloaded.
+Template and sample package downloads are built in the **PHP system temp directory** per request and streamed through `admin/products/bulk-import.php` (not left in a public URL).
+
+Import **job** files still live under `uploads/tmp/bulk-import/{job_id}/` but must not be web-accessible (see Security below).
 
 The **Instructions** sheet in both downloads documents every worksheet, required columns, example rows, ZIP rules, Reference usage, validation rules, and draft/promo defaults.
 
@@ -136,6 +138,41 @@ Download: `admin/products/bulk-import.php?download_report=1&job_id=…` after im
 - Job workspace: `uploads/tmp/bulk-import/{job_id}/` (workbook, ZIP, `state.json`, report).
 - Extracted image directory is removed after import via `ProductBulkImport::cleanupJobAfterImport()`.
 - Failed ZIP extraction cleans partial extract dirs.
+
+## Download security
+
+- **Authentication:** `admin/_init.php` → `AdminGuard::requireAuthentication()`; `AdminDemoPerms::denyIfCannot('products')` runs before any GET download handler.
+- **CSRF:** Not required for read-only GET template/sample downloads; POST import actions remain CSRF-protected.
+- **Response headers:** `Content-Disposition: attachment`, correct MIME type, `X-Content-Type-Options: nosniff`, `Cache-Control: no-store` via `AdminFileDownload::streamAttachment()`.
+- **Direct HTTP access to job data:** Block `uploads/tmp/` at the web server.
+
+### Apache (XAMPP / cPanel)
+
+Shipped `.htaccess` files:
+
+- `uploads/tmp/.htaccess` — `Require all denied`
+- `uploads/tmp/bulk-import/.htaccess` — `Require all denied`
+
+Parent `uploads/.htaccess` only blocks PHP execution; it does **not** block `.xlsx` / `.zip` elsewhere under `uploads/`.
+
+### Nginx (required operator config)
+
+Nginx ignores `.htaccess`. Add something equivalent (adjust path prefix for your install):
+
+```nginx
+location ^~ /Apni_Tokri/uploads/tmp/ {
+    deny all;
+    return 404;
+}
+```
+
+Do **not** deny `uploads/products/` or `uploads/media/` — those serve legitimate catalogue images.
+
+Verify with an unauthenticated browser request to a job workbook path under `uploads/tmp/bulk-import/`.
+
+```powershell
+php scripts/test-bulk-import-download-security.php
+```
 
 ## Deployment requirements
 
