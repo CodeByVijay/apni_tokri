@@ -3,13 +3,13 @@
 declare(strict_types=1);
 
 /**
- * Shared Google Places (server-side) search block for address forms.
+ * Shared server-side address search block (Google Places or Photon via /ajax/address/).
  * Expects: $uid, $acCfg (AddressAutocompleteSettings::publicClientConfig()), $err('location')
  */
 $acCfg = $acCfg ?? AddressAutocompleteSettings::publicClientConfig();
-$acOn = !empty($acCfg['searchEnabled'])
-    && ($acCfg['provider'] ?? '') === AddressAutocompleteSettings::PROVIDER_GOOGLE;
-$providerLabel = 'Google';
+$acOn = !empty($acCfg['searchEnabled']);
+$provider = (string) ($acCfg['provider'] ?? '');
+$providerLabel = $provider === AddressAutocompleteSettings::PROVIDER_GOOGLE ? 'Google' : 'OpenStreetMap';
 ?>
     <section class="at-addr-step" data-addr-step="location" aria-labelledby="<?= Security::escape($uid) ?>-h-loc">
         <h3 class="at-addr-step__title" id="<?= Security::escape($uid) ?>-h-loc"><span class="at-addr-step__num">2</span>Search your address</h3>
