@@ -132,9 +132,16 @@ return; ?>
                         <button type="button" class="at-btn at-btn--secondary at-focusable" data-at-media-zip-trigger>Choose ZIP</button>
                         <button type="button" class="at-btn at-btn--primary at-focusable hidden" data-at-media-zip-submit disabled>Import ZIP</button>
                     </div>
-                    <div class="mt-3 text-sm space-y-1" data-at-media-zip-results role="status" aria-live="polite"></div>
-                    <div class="mt-2 hidden" data-at-media-zip-error-download>
-                        <button type="button" class="at-btn at-btn--ghost at-btn--sm at-focusable" data-at-media-zip-download-errors>Download error report (CSV)</button>
+                    <div class="at-media-library__zip-result hidden mt-3" data-at-media-zip-result-panel aria-live="polite">
+                        <p class="text-sm font-semibold mb-2" data-at-media-zip-result-heading></p>
+                        <div role="status" class="text-sm space-y-1" data-at-media-zip-results></div>
+                        <div class="mt-2 hidden" data-at-media-zip-error-download>
+                            <button type="button" class="at-btn at-btn--ghost at-btn--sm at-focusable" data-at-media-zip-download-errors>Download error report (CSV)</button>
+                        </div>
+                        <div class="mt-3 flex flex-wrap gap-2">
+                            <button type="button" class="at-btn at-btn--ghost at-btn--sm at-focusable" data-at-media-zip-dismiss>Dismiss results</button>
+                            <button type="button" class="at-btn at-btn--secondary at-btn--sm at-focusable hidden" data-at-media-zip-refresh-library>Refresh library list</button>
+                        </div>
                     </div>
                 </div>
             </div>

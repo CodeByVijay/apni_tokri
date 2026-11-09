@@ -139,9 +139,33 @@ okZ($usage === 0, 'ZIP import does not attach images to products');
 
 $page = (string) file_get_contents(APNI_TOKRI_ROOT . '/admin/media/index.php');
 okZ(str_contains($page, 'data-at-media-zip-input'), 'static: media page ZIP upload UI');
+okZ(str_contains($page, 'data-at-media-zip-result-panel'), 'static: ZIP result panel markup');
+okZ(str_contains($page, 'data-at-media-zip-dismiss'), 'static: ZIP dismiss button');
+okZ(str_contains($page, 'data-at-media-zip-download-errors'), 'static: ZIP CSV download button');
 $ajax = (string) file_get_contents(APNI_TOKRI_ROOT . '/admin/ajax/media-library.php');
 okZ(str_contains($ajax, 'upload_zip'), 'static: upload_zip AJAX action');
 okZ(str_contains($ajax, 'denyIfCannot') && str_contains($ajax, 'Csrf::requireValid'), 'static: auth + CSRF');
+
+$adminJs = (string) file_get_contents(APNI_TOKRI_ROOT . '/assets/js/admin.js');
+$zipPos = strpos($adminJs, '[data-at-media-zip-panel]');
+okZ($zipPos !== false, 'static: ZIP UI block in admin.js');
+$zipBlock = $zipPos !== false ? substr($adminJs, $zipPos, 14000) : '';
+okZ(
+    $zipBlock !== '' && !preg_match('/summary\.(uploaded|duplicates)[\s\S]{0,200}?setTimeout[\s\S]{0,150}?location\.reload/s', $zipBlock),
+    'ZIP success path does not auto-reload after 1s'
+);
+okZ(str_contains($zipBlock, '$zipRefresh.on'), 'manual Refresh library list is optional');
+okZ(str_contains($zipBlock, 'clearZipResultPanel'), 'ZIP manual dismiss clears panel');
+okZ(str_contains($zipBlock, 'ZIP_RESULT_MIN_VISIBLE_MS'), 'ZIP visibility policy constant (20s minimum, no auto-hide)');
+okZ(str_contains($zipBlock, 'uploadZip(selectedZip)'), 'new ZIP import replaces prior result on confirm');
+okZ(str_contains($zipBlock, 'data-at-media-zip-download-errors'), 'CSV download wired in ZIP block');
+okZ(!preg_match('/setTimeout\s*\([^)]*location\.reload/s', $zipBlock), 'no timed page reload in ZIP block');
+okZ(
+    !preg_match('/setTimeout[\s\S]{0,600}(\$zipResults\.empty|clearZipResultPanel)/s', $zipBlock),
+    'ZIP results remain visible after 1s/10s/20s (no auto-clear timer)'
+);
+$individualUpload = strpos($adminJs, 'function uploadFiles');
+okZ($individualUpload !== false && $individualUpload < ($zipPos ?: PHP_INT_MAX), 'individual media upload block unchanged before ZIP');
 
 foreach (glob($work . '/*') ?: [] as $f) {
     @unlink($f);

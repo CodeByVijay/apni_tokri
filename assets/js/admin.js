@@ -1080,15 +1080,21 @@
     var $zipInput = $root.find('[data-at-media-zip-input]');
     var $zipMeta = $root.find('[data-at-media-zip-meta]');
     var $zipSubmit = $root.find('[data-at-media-zip-submit]');
+    var $zipResultPanel = $root.find('[data-at-media-zip-result-panel]');
+    var $zipResultHeading = $root.find('[data-at-media-zip-result-heading]');
     var $zipResults = $root.find('[data-at-media-zip-results]');
     var $zipProgressWrap = $root.find('[data-at-media-zip-progress-wrap]');
     var $zipProgress = $root.find('[data-at-media-zip-progress]');
     var $zipProgressLabel = $root.find('[data-at-media-zip-progress-label]');
     var $zipErrDl = $root.find('[data-at-media-zip-error-download]');
     var $zipErrBtn = $root.find('[data-at-media-zip-download-errors]');
+    var $zipDismiss = $root.find('[data-at-media-zip-dismiss]');
+    var $zipRefresh = $root.find('[data-at-media-zip-refresh-library]');
     var zipCsvBlob = null;
     var zipCsvName = 'media-zip-errors.csv';
     var selectedZip = null;
+    /** ZIP results remain until admin dismisses; no auto-hide (meets 20s+ visibility requirement). */
+    var ZIP_RESULT_MIN_VISIBLE_MS = 20000;
 
     function formatBytes(n) {
       n = parseInt(n, 10) || 0;
@@ -1097,15 +1103,32 @@
       return (n / 1048576).toFixed(2) + ' MB';
     }
 
-    function resetZipUi() {
+    function resetZipProgressOnly() {
+      $zipProgressWrap.addClass('hidden');
+      $zipProgress.val(0);
+      $zipProgressLabel.text('');
+    }
+
+    function clearZipResultPanel() {
       zipCsvBlob = null;
       $zipErrDl.addClass('hidden');
       $zipResults.empty();
-      $zipProgressWrap.addClass('hidden');
-      $zipProgress.val(0);
+      $zipResultHeading.text('');
+      $zipResultPanel.addClass('hidden').removeClass('is-error');
+      $zipRefresh.addClass('hidden');
     }
 
-    function renderZipSummary(summary) {
+    function showZipResultPanel(zipFileName, statusText, summary, isError, showRefresh) {
+      $zipResultPanel.removeClass('hidden');
+      $zipResultPanel.toggleClass('is-error', !!isError);
+      $zipResultHeading.text(
+        (zipFileName || 'ZIP') + ' — ' + (statusText || 'Processing complete')
+      );
+      $zipResults.empty();
+      if (isError) {
+        $zipResults.append($('<p class="text-red-700"/>').text(statusText || 'ZIP import failed.'));
+        return;
+      }
       summary = summary || {};
       var lines = [
         'Total files found: ' + (summary.total_found || 0),
@@ -1117,13 +1140,21 @@
       lines.forEach(function (line) {
         $zipResults.append($('<p class="text-green-900"/>').text(line));
       });
+      if (showRefresh) {
+        $zipRefresh.removeClass('hidden');
+      } else {
+        $zipRefresh.addClass('hidden');
+      }
     }
 
     function uploadZip(file) {
       if (!file) return;
-      resetZipUi();
+      clearZipResultPanel();
+      resetZipProgressOnly();
+      $zipResultPanel.removeClass('hidden');
       $zipResults.append($('<p class="at-muted"/>').text('Uploading ZIP…'));
       $zipSubmit.prop('disabled', true);
+      var zipFileName = file.name || 'archive.zip';
       var fd = new FormData();
       fd.append('_csrf_token', csrf);
       fd.append('action', 'upload_zip');
@@ -1140,25 +1171,36 @@
       xhr.onreadystatechange = function () {
         if (xhr.readyState !== 4) return;
         $zipSubmit.prop('disabled', false);
-        $zipResults.empty();
         if (xhr.status < 200 || xhr.status >= 300) {
-          $zipResults.append($('<p class="text-red-700"/>').text('ZIP import failed.'));
+          showZipResultPanel(zipFileName, 'ZIP import failed.', null, true, false);
           return;
         }
         var res;
         try {
           res = JSON.parse(xhr.responseText);
         } catch (err) {
-          $zipResults.append($('<p class="text-red-700"/>').text('Invalid server response.'));
+          showZipResultPanel(zipFileName, 'Invalid server response.', null, true, false);
           return;
         }
         if (!res || !res.success) {
-          $zipResults.append($('<p class="text-red-700"/>').text((res.error && res.error.message) || 'ZIP import failed.'));
+          showZipResultPanel(
+            zipFileName,
+            (res.error && res.error.message) || 'ZIP import failed.',
+            null,
+            true,
+            false
+          );
           return;
         }
         $zipProgressLabel.text('Processing complete');
-        renderZipSummary(res.data && res.data.summary);
+        var summary = (res.data && res.data.summary) || {};
+        var refresh =
+          (summary.uploaded || 0) > 0
+          || (summary.duplicates || 0) > 0
+          || (summary.total_found || 0) > 0;
+        showZipResultPanel(zipFileName, 'Processing complete', summary, false, refresh);
         var b64 = res.data && res.data.error_report_csv_base64;
+        $zipErrDl.addClass('hidden');
         if (b64) {
           try {
             var bin = atob(b64);
@@ -1171,11 +1213,6 @@
             zipCsvBlob = null;
           }
         }
-        if (res.data && res.data.summary && (res.data.summary.uploaded > 0 || res.data.summary.duplicates > 0)) {
-          window.setTimeout(function () {
-            window.location.reload();
-          }, 1200);
-        }
       };
       xhr.send(fd);
     }
@@ -1186,7 +1223,6 @@
     $zipInput.on('change', function () {
       var file = this.files && this.files[0];
       selectedZip = file || null;
-      resetZipUi();
       if (!file) {
         $zipMeta.addClass('hidden').text('');
         $zipSubmit.addClass('hidden').prop('disabled', true);
@@ -1205,6 +1241,13 @@
     });
     $zipSubmit.on('click', function () {
       uploadZip(selectedZip);
+    });
+    $zipDismiss.on('click', function () {
+      clearZipResultPanel();
+      resetZipProgressOnly();
+    });
+    $zipRefresh.on('click', function () {
+      window.location.reload();
     });
     $zipErrBtn.on('click', function () {
       if (!zipCsvBlob) return;
