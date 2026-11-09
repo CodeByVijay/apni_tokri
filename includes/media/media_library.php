@@ -195,7 +195,7 @@ final class MediaLibrary
             return '';
         }
         $tmp = $file['tmp_name'];
-        if (!is_uploaded_file($tmp) && !(PHP_SAPI === 'cli' && is_file($tmp))) {
+        if (!is_uploaded_file($tmp) && !(PHP_SAPI === 'cli' && is_file($tmp)) && empty($file['trusted_internal'])) {
             return '';
         }
         $hash = @hash_file('sha256', $tmp);

@@ -109,14 +109,34 @@ return; ?>
             </form>
 
             <?php if ($tab === 'all'): ?>
-            <div class="at-media-library__upload border border-dashed border-neutral-300 rounded-lg p-4" data-at-media-dropzone tabindex="0" role="button" aria-label="Upload images">
-                <p class="font-semibold">Upload images</p>
-                <p class="text-sm at-muted">JPEG, PNG or WebP · max 5 MB each · multiple files supported</p>
-                <input type="file" class="sr-only" data-at-media-file-input multiple accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp">
-                <div class="mt-2 flex flex-wrap gap-2">
-                    <button type="button" class="at-btn at-btn--primary at-focusable" data-at-media-upload-trigger>Browse files</button>
+            <div class="at-media-library__uploads-grid">
+                <div class="at-media-library__upload border border-dashed border-neutral-300 rounded-lg p-4" data-at-media-dropzone tabindex="0" role="button" aria-label="Upload images">
+                    <p class="font-semibold">Upload images</p>
+                    <p class="text-sm at-muted">JPEG, PNG or WebP · max 5 MB each · multiple files supported</p>
+                    <input type="file" class="sr-only" data-at-media-file-input multiple accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp">
+                    <div class="mt-2 flex flex-wrap gap-2">
+                        <button type="button" class="at-btn at-btn--primary at-focusable" data-at-media-upload-trigger>Browse files</button>
+                    </div>
+                    <div class="mt-2 text-sm space-y-1" data-at-media-upload-status role="status" aria-live="polite"></div>
                 </div>
-                <div class="mt-2 text-sm space-y-1" data-at-media-upload-status role="status" aria-live="polite"></div>
+                <div class="at-media-library__upload at-media-library__upload--zip border border-dashed border-neutral-300 rounded-lg p-4" data-at-media-zip-panel>
+                    <p class="font-semibold">Upload ZIP</p>
+                    <p class="text-sm at-muted">Up to <?= (int) MediaLibraryZipImport::MAX_IMAGE_ENTRIES ?> images · ZIP max <?= (int) (MediaLibraryZipImport::maxZipUploadBytes() / 1048576) ?> MB · JPEG, PNG or WebP only</p>
+                    <input type="file" class="sr-only" data-at-media-zip-input accept=".zip,application/zip">
+                    <p class="at-media-library__zip-meta text-sm at-muted mt-2 hidden" data-at-media-zip-meta></p>
+                    <div class="mt-2 w-full max-w-md hidden" data-at-media-zip-progress-wrap>
+                        <meter class="at-media-library__zip-progress" data-at-media-zip-progress min="0" max="100" value="0" aria-label="ZIP upload progress"></meter>
+                        <p class="text-xs at-muted mt-1" data-at-media-zip-progress-label></p>
+                    </div>
+                    <div class="mt-2 flex flex-wrap gap-2">
+                        <button type="button" class="at-btn at-btn--secondary at-focusable" data-at-media-zip-trigger>Choose ZIP</button>
+                        <button type="button" class="at-btn at-btn--primary at-focusable hidden" data-at-media-zip-submit disabled>Import ZIP</button>
+                    </div>
+                    <div class="mt-3 text-sm space-y-1" data-at-media-zip-results role="status" aria-live="polite"></div>
+                    <div class="mt-2 hidden" data-at-media-zip-error-download>
+                        <button type="button" class="at-btn at-btn--ghost at-btn--sm at-focusable" data-at-media-zip-download-errors>Download error report (CSV)</button>
+                    </div>
+                </div>
             </div>
             <?php else: ?>
             <p class="text-sm at-muted">Trashed images stay on disk until permanently deleted. Referenced files cannot be removed.</p>

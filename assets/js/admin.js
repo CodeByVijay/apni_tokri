@@ -1076,6 +1076,148 @@
       this.value = '';
     });
 
+    var $zipPanel = $root.find('[data-at-media-zip-panel]');
+    var $zipInput = $root.find('[data-at-media-zip-input]');
+    var $zipMeta = $root.find('[data-at-media-zip-meta]');
+    var $zipSubmit = $root.find('[data-at-media-zip-submit]');
+    var $zipResults = $root.find('[data-at-media-zip-results]');
+    var $zipProgressWrap = $root.find('[data-at-media-zip-progress-wrap]');
+    var $zipProgress = $root.find('[data-at-media-zip-progress]');
+    var $zipProgressLabel = $root.find('[data-at-media-zip-progress-label]');
+    var $zipErrDl = $root.find('[data-at-media-zip-error-download]');
+    var $zipErrBtn = $root.find('[data-at-media-zip-download-errors]');
+    var zipCsvBlob = null;
+    var zipCsvName = 'media-zip-errors.csv';
+    var selectedZip = null;
+
+    function formatBytes(n) {
+      n = parseInt(n, 10) || 0;
+      if (n < 1024) return n + ' B';
+      if (n < 1048576) return (n / 1024).toFixed(1) + ' KB';
+      return (n / 1048576).toFixed(2) + ' MB';
+    }
+
+    function resetZipUi() {
+      zipCsvBlob = null;
+      $zipErrDl.addClass('hidden');
+      $zipResults.empty();
+      $zipProgressWrap.addClass('hidden');
+      $zipProgress.val(0);
+    }
+
+    function renderZipSummary(summary) {
+      summary = summary || {};
+      var lines = [
+        'Total files found: ' + (summary.total_found || 0),
+        'Successfully uploaded: ' + (summary.uploaded || 0),
+        'Duplicates skipped: ' + (summary.duplicates || 0),
+        'Invalid rejected: ' + (summary.invalid || 0),
+        'Failed: ' + (summary.failed || 0),
+      ];
+      lines.forEach(function (line) {
+        $zipResults.append($('<p class="text-green-900"/>').text(line));
+      });
+    }
+
+    function uploadZip(file) {
+      if (!file) return;
+      resetZipUi();
+      $zipResults.append($('<p class="at-muted"/>').text('Uploading ZIP…'));
+      $zipSubmit.prop('disabled', true);
+      var fd = new FormData();
+      fd.append('_csrf_token', csrf);
+      fd.append('action', 'upload_zip');
+      fd.append('archive', file);
+      var xhr = new XMLHttpRequest();
+      xhr.open('POST', ajaxUrl, true);
+      xhr.upload.addEventListener('progress', function (ev) {
+        if (!ev.lengthComputable) return;
+        $zipProgressWrap.removeClass('hidden');
+        var pct = Math.round((ev.loaded / ev.total) * 100);
+        $zipProgress.val(pct);
+        $zipProgressLabel.text('Upload ' + pct + '%');
+      });
+      xhr.onreadystatechange = function () {
+        if (xhr.readyState !== 4) return;
+        $zipSubmit.prop('disabled', false);
+        $zipResults.empty();
+        if (xhr.status < 200 || xhr.status >= 300) {
+          $zipResults.append($('<p class="text-red-700"/>').text('ZIP import failed.'));
+          return;
+        }
+        var res;
+        try {
+          res = JSON.parse(xhr.responseText);
+        } catch (err) {
+          $zipResults.append($('<p class="text-red-700"/>').text('Invalid server response.'));
+          return;
+        }
+        if (!res || !res.success) {
+          $zipResults.append($('<p class="text-red-700"/>').text((res.error && res.error.message) || 'ZIP import failed.'));
+          return;
+        }
+        $zipProgressLabel.text('Processing complete');
+        renderZipSummary(res.data && res.data.summary);
+        var b64 = res.data && res.data.error_report_csv_base64;
+        if (b64) {
+          try {
+            var bin = atob(b64);
+            var bytes = new Uint8Array(bin.length);
+            for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+            zipCsvBlob = new Blob([bytes], { type: 'text/csv;charset=utf-8' });
+            zipCsvName = (res.data.error_report_filename) || zipCsvName;
+            $zipErrDl.removeClass('hidden');
+          } catch (e2) {
+            zipCsvBlob = null;
+          }
+        }
+        if (res.data && res.data.summary && (res.data.summary.uploaded > 0 || res.data.summary.duplicates > 0)) {
+          window.setTimeout(function () {
+            window.location.reload();
+          }, 1200);
+        }
+      };
+      xhr.send(fd);
+    }
+
+    $root.find('[data-at-media-zip-trigger]').on('click', function () {
+      $zipInput[0].click();
+    });
+    $zipInput.on('change', function () {
+      var file = this.files && this.files[0];
+      selectedZip = file || null;
+      resetZipUi();
+      if (!file) {
+        $zipMeta.addClass('hidden').text('');
+        $zipSubmit.addClass('hidden').prop('disabled', true);
+        return;
+      }
+      var name = file.name || 'archive.zip';
+      if (!/\.zip$/i.test(name)) {
+        $zipMeta.removeClass('hidden').text('Please choose a .zip file.');
+        $zipSubmit.addClass('hidden').prop('disabled', true);
+        this.value = '';
+        selectedZip = null;
+        return;
+      }
+      $zipMeta.removeClass('hidden').text(name + ' · ' + formatBytes(file.size));
+      $zipSubmit.removeClass('hidden').prop('disabled', false);
+    });
+    $zipSubmit.on('click', function () {
+      uploadZip(selectedZip);
+    });
+    $zipErrBtn.on('click', function () {
+      if (!zipCsvBlob) return;
+      var url = URL.createObjectURL(zipCsvBlob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = zipCsvName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
+
     function selectableCheckboxes() {
       return $root.find('[data-at-media-select]:not(:disabled)');
     }

@@ -97,6 +97,24 @@ if ($action === 'upload' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     Ajax::success(['results' => $results, 'items' => $created], 'Upload finished.');
 }
 
+if ($action === 'upload_zip' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    $archive = $_FILES['archive'] ?? null;
+    if (!is_array($archive)) {
+        Ajax::error('No ZIP file selected.');
+    }
+    $adminId = AdminAuth::check() ? (int) AdminAuth::id() : null;
+    $result = MediaLibraryZipImport::processZipUpload($archive, $adminId);
+    if (empty($result['ok'])) {
+        Ajax::error((string) ($result['message'] ?? 'ZIP import failed.'));
+    }
+    Ajax::success([
+        'summary' => $result['summary'] ?? [],
+        'errors' => $result['errors'] ?? [],
+        'error_report_csv_base64' => $result['error_report_csv_base64'] ?? null,
+        'error_report_filename' => $result['error_report_filename'] ?? null,
+    ], 'ZIP import finished.');
+}
+
 if ($action === 'soft_delete' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $mediaId = isset($_POST['media_id']) ? (int) $_POST['media_id'] : 0;
     $res = MediaLibrary::softDelete($mediaId);

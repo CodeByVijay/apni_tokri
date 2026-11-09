@@ -132,7 +132,8 @@ final class Upload
         }
         $tmp = $file['tmp_name'];
         $cliFixture = PHP_SAPI === 'cli' && is_file($tmp);
-        if (!is_uploaded_file($tmp) && !$cliFixture) {
+        $trustedInternal = !empty($file['trusted_internal']) && is_file($tmp);
+        if (!is_uploaded_file($tmp) && !$cliFixture && !$trustedInternal) {
             return ['ok' => false, 'message' => 'Invalid upload.'];
         }
         $size = (int) ($file['size'] ?? 0);
@@ -230,6 +231,40 @@ final class Upload
         }
 
         return ['ok' => true, 'path' => 'uploads/support/' . $name, 'mime' => $mime];
+    }
+
+    /**
+     * @return array{ok: bool, message?: string, mime?: string}
+     */
+    public static function validateProductRasterPath(string $absolutePath): array
+    {
+        if (!is_file($absolutePath) || !is_readable($absolutePath)) {
+            return ['ok' => false, 'message' => 'Unreadable file.'];
+        }
+        $size = (int) filesize($absolutePath);
+        if ($size <= 0 || $size > 5 * 1024 * 1024) {
+            return ['ok' => false, 'message' => 'File must be under 5 MB.'];
+        }
+        $allowed = self::productRasterAllowed();
+        $finfo = new finfo(FILEINFO_MIME_TYPE);
+        $mime = $finfo->file($absolutePath);
+        if (!is_string($mime) || !isset($allowed[$mime])) {
+            return ['ok' => false, 'message' => 'Only JPEG, PNG and WebP images are allowed.'];
+        }
+        $dims = @getimagesize($absolutePath);
+        if (!is_array($dims) || (int) ($dims[0] ?? 0) < 1 || (int) ($dims[1] ?? 0) < 1) {
+            return ['ok' => false, 'message' => 'File is not a valid image.'];
+        }
+        $maxW = (int) (App::config()['upload']['max_image_width'] ?? 8000);
+        $maxH = (int) (App::config()['upload']['max_image_height'] ?? 8000);
+        if ((int) $dims[0] > $maxW || (int) $dims[1] > $maxH) {
+            return ['ok' => false, 'message' => 'Image exceeds maximum dimensions.'];
+        }
+        if (!self::verifyRasterDecoded($absolutePath, $mime)) {
+            return ['ok' => false, 'message' => 'File is not a valid image.'];
+        }
+
+        return ['ok' => true, 'mime' => $mime];
     }
 
     private static function verifyRasterDecoded(string $path, string $mime): bool
