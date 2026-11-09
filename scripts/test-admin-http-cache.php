@@ -39,20 +39,9 @@ okHc(
 );
 
 $helpers = file_get_contents(APNI_TOKRI_ROOT . '/includes/helpers.php') ?: '';
-okHc(strpos($helpers, 'uploads/') !== false, 'asset_url versions uploads');
+okHc(strpos($helpers, 'upload_asset_url') !== false, 'upload_asset_url helper exists');
 
-$testUpload = 'uploads/products/_cache_test_' . bin2hex(random_bytes(2)) . '.png';
-$abs = APNI_TOKRI_ROOT . '/' . $testUpload;
-@mkdir(dirname($abs), 0755, true);
-file_put_contents($abs, 'x');
-touch($abs, 1_700_000_000);
-clearstatcache(true, $abs);
-$u1 = asset_url($testUpload);
-touch($abs, 1_700_000_100);
-clearstatcache(true, $abs);
-$u2 = asset_url($testUpload);
-okHc($u1 !== $u2 && str_contains($u1, '?v=1700000000'), 'upload asset_url changes when file mtime changes');
-@unlink($abs);
+okHc(is_readable(APNI_TOKRI_ROOT . '/scripts/test-upload-asset-version.php'), 'upload version test present');
 
 $css = asset_url('assets/css/apni-tokri.css');
 okHc(str_contains($css, '?v=') || str_contains($css, '&v='), 'CSS asset_url has version param');

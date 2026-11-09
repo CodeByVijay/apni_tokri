@@ -185,8 +185,14 @@ final class Upload
         }
         $htaccess = $uploadsRoot . '/.htaccess';
         $body = "<IfModule mod_authz_core.c>\n  <FilesMatch \"\\.(?i:php|phtml|php[0-9]*)$\">\n    Require all denied\n  </FilesMatch>\n</IfModule>\n";
+        $cacheBlock = "<IfModule mod_headers.c>\n  Header always set Cache-Control \"public, max-age=300, must-revalidate\"\n</IfModule>\n";
         if (!is_file($htaccess)) {
-            @file_put_contents($htaccess, $body);
+            @file_put_contents($htaccess, $body . "\n" . $cacheBlock);
+        } else {
+            $existing = (string) file_get_contents($htaccess);
+            if (strpos($existing, 'must-revalidate') === false) {
+                @file_put_contents($htaccess, rtrim($existing) . "\n\n" . $cacheBlock);
+            }
         }
         $index = $uploadsRoot . '/index.html';
         if (!is_file($index)) {

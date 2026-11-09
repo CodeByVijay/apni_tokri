@@ -37,9 +37,9 @@
 # Disable directory listing
 Options -Indexes
 
-# Long cache for static assets (CSS/JS and uploads use ?v=filemtime from asset_url()).
+# Long-lived cache for built CSS/JS only (URLs carry ?v=). Upload/catalogue images live under /uploads/ with separate rules.
 <IfModule mod_headers.c>
-    <FilesMatch "\.(css|js|jpg|jpeg|png|gif|webp|svg|ico|woff2?)$">
+    <FilesMatch "\.(css|js|woff2?)$">
         Header set Cache-Control "public, max-age=31536000, immutable"
     </FilesMatch>
 </IfModule>

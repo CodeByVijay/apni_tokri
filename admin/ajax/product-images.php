@@ -111,7 +111,7 @@ function imagesForClient(array $rows): array
     foreach ($rows as $img) {
         $out[] = [
             'id' => (int) $img['id'],
-            'url' => asset_url((string) $img['file_path']),
+            'url' => product_image_asset_url($img),
             'is_primary' => !empty($img['is_primary']),
             'sort_order' => (int) ($img['sort_order'] ?? 0),
             'alt_text' => (string) ($img['alt_text'] ?? ''),

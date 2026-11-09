@@ -5,7 +5,7 @@ declare(strict_types=1);
 /** @var array<string, mixed> $img */
 /** @var int $productId */
 $productId = (int) ($productId ?? 0);
-$src = asset_url((string) $img['file_path']);
+$src = product_image_asset_url($img);
 $id = (int) $img['id'];
 $alt = (string) ($img['alt_text'] ?? '');
 $isPrimary = !empty($img['is_primary']);

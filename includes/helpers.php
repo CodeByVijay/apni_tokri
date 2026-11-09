@@ -126,20 +126,113 @@ function url_app_relative(string $requestUri): string
     return $path;
 }
 
+function asset_path_normalize(string $relativePath): string
+{
+    $path = str_replace('\\', '/', trim($relativePath));
+    if (str_starts_with($path, '/')) {
+        $path = ltrim($path, '/');
+    }
+    if (preg_match('#^https?://#i', $path)) {
+        return $path;
+    }
+
+    return $path;
+}
+
+/**
+ * Stable cache-bust token for mutable files under uploads/ (not random per request).
+ */
+function upload_asset_version(string $relativePath, ?string $contentHash = null, ?int $mediaId = null): string
+{
+    $rel = asset_path_normalize($relativePath);
+    if (!str_starts_with($rel, 'uploads/')) {
+        return '0';
+    }
+    $parts = [];
+    if ($mediaId !== null && $mediaId > 0) {
+        $parts[] = 'm' . $mediaId;
+    }
+    $hash = $contentHash !== null ? strtolower(trim($contentHash)) : '';
+    if ($hash !== '') {
+        $parts[] = substr($hash, 0, 16);
+    }
+    $full = APNI_TOKRI_ROOT . '/' . $rel;
+    if (is_file($full)) {
+        $mtime = filemtime($full);
+        $size = filesize($full);
+        if ($mtime !== false) {
+            $parts[] = (string) $mtime;
+        }
+        if ($size !== false) {
+            $parts[] = (string) $size;
+        }
+    }
+
+    return $parts !== [] ? implode('.', $parts) : '0';
+}
+
+/**
+ * Versioned public URL for a catalogue/upload file (admin, media library, storefront).
+ */
+function upload_asset_url(string $relativePath, ?string $contentHash = null, ?int $mediaId = null): string
+{
+    $rel = asset_path_normalize($relativePath);
+    if ($rel === '' || preg_match('#^https?://#i', $rel)) {
+        return $rel;
+    }
+    if (!str_starts_with($rel, 'uploads/')) {
+        return asset_url($rel);
+    }
+    $base = url_base();
+    $url = ($base === '' ? '' : $base) . '/' . $rel;
+    $version = upload_asset_version($rel, $contentHash, $mediaId);
+    if ($version !== '0') {
+        $url .= '?v=' . rawurlencode($version);
+    }
+
+    return $url;
+}
+
+/**
+ * @param array<string, mixed> $imageRow product_images row (+ optional media_file_sha256 from join)
+ */
+function product_image_asset_url(array $imageRow): string
+{
+    $path = (string) ($imageRow['file_path'] ?? '');
+    if ($path === '') {
+        return '';
+    }
+    if (preg_match('#^https?://#i', $path)) {
+        return $path;
+    }
+    $sha = '';
+    if (isset($imageRow['media_file_sha256']) && (string) $imageRow['media_file_sha256'] !== '') {
+        $sha = (string) $imageRow['media_file_sha256'];
+    } elseif (isset($imageRow['file_sha256']) && (string) $imageRow['file_sha256'] !== '') {
+        $sha = (string) $imageRow['file_sha256'];
+    }
+    $mediaId = isset($imageRow['media_id']) ? (int) $imageRow['media_id'] : 0;
+
+    return upload_asset_url($path, $sha !== '' ? $sha : null, $mediaId > 0 ? $mediaId : null);
+}
+
 function asset_url(string $relativePath): string
 {
+    $rel = asset_path_normalize($relativePath);
+    if ($rel === '' || preg_match('#^https?://#i', $rel)) {
+        return $rel;
+    }
+    if (str_starts_with($rel, 'uploads/')) {
+        return upload_asset_url($rel);
+    }
     $base = url_base();
-    $relativePath = ltrim($relativePath, '/');
-
-    $url = ($base === '' ? '' : $base) . '/' . $relativePath;
-    $needsVersion = preg_match('#^assets/(css|js)/.+\.(css|js)$#', $relativePath) === 1
-        || preg_match('#^uploads/.+\.(jpe?g|png|gif|webp|svg|ico)$#i', $relativePath) === 1;
-    if ($needsVersion) {
-        $file = APNI_TOKRI_ROOT . '/' . $relativePath;
+    $url = ($base === '' ? '' : $base) . '/' . $rel;
+    if (preg_match('#^assets/(css|js)/.+\.(css|js)$#', $rel) === 1) {
+        $file = APNI_TOKRI_ROOT . '/' . $rel;
         if (is_file($file)) {
             $mtime = filemtime($file);
             if ($mtime !== false) {
-                $url .= (str_contains($url, '?') ? '&' : '?') . 'v=' . $mtime;
+                $url .= '?v=' . $mtime;
             }
         }
     }

@@ -698,7 +698,11 @@ final class MediaLibrary
 
         return [
             'id' => $id,
-            'url' => asset_url((string) ($row['file_path'] ?? '')),
+            'url' => upload_asset_url(
+                (string) ($row['file_path'] ?? ''),
+                isset($row['file_sha256']) ? (string) $row['file_sha256'] : null,
+                $id > 0 ? $id : null
+            ),
             'original_filename' => (string) ($row['original_filename'] ?? ''),
             'mime_type' => (string) ($row['mime_type'] ?? ''),
             'file_size' => (int) ($row['file_size'] ?? 0),

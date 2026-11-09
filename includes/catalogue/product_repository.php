@@ -553,9 +553,17 @@ final class ProductRepository
     public static function images(int $productId): array
     {
         Install::ensureConnection();
-        $stmt = Database::pdo()->prepare(
-            'SELECT * FROM product_images WHERE product_id = ? ORDER BY sort_order, id'
-        );
+        $sql = MediaLibrary::isEnabled()
+            ? 'SELECT pi.*, m.file_sha256 AS media_file_sha256
+               FROM product_images pi
+               LEFT JOIN media_assets m ON m.id = pi.media_id AND m.deleted_at IS NULL
+               WHERE pi.product_id = ?
+               ORDER BY pi.sort_order, pi.id'
+            : 'SELECT pi.*, NULL AS media_file_sha256
+               FROM product_images pi
+               WHERE pi.product_id = ?
+               ORDER BY pi.sort_order, pi.id';
+        $stmt = Database::pdo()->prepare($sql);
         $stmt->execute([$productId]);
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
@@ -569,9 +577,17 @@ final class ProductRepository
     public static function storefrontImages(int $productId): array
     {
         Install::ensureConnection();
-        $stmt = Database::pdo()->prepare(
-            'SELECT * FROM product_images WHERE product_id = ? ORDER BY is_primary DESC, sort_order ASC, id ASC'
-        );
+        $sql = MediaLibrary::isEnabled()
+            ? 'SELECT pi.*, m.file_sha256 AS media_file_sha256
+               FROM product_images pi
+               LEFT JOIN media_assets m ON m.id = pi.media_id AND m.deleted_at IS NULL
+               WHERE pi.product_id = ?
+               ORDER BY pi.is_primary DESC, pi.sort_order ASC, pi.id ASC'
+            : 'SELECT pi.*, NULL AS media_file_sha256
+               FROM product_images pi
+               WHERE pi.product_id = ?
+               ORDER BY pi.is_primary DESC, pi.sort_order ASC, pi.id ASC';
+        $stmt = Database::pdo()->prepare($sql);
         $stmt->execute([$productId]);
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
@@ -1067,9 +1083,9 @@ final class ProductRepository
 
         $images = [];
         foreach (self::storefrontImages($productId) as $img) {
-            $path = (string) $img['file_path'];
-            $images[] = strpos($path, 'http') === 0 ? $path : asset_url($path);
+            $images[] = product_image_asset_url($img);
         }
+        $images = array_values(array_filter($images, static fn (string $u): bool => $u !== ''));
 
         $attributes = [];
         foreach (self::attributes($productId) as $a) {
