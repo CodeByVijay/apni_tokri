@@ -94,6 +94,12 @@ $ex = ProductBulkImport::extractImageZip($zipPath);
 $validation = ProductBulkImport::validate($parsed, $ex['index'] ?? null);
 okB($validation['ready_count'] === 50, '50 products ready');
 okB($validation['ok'], 'validation clean for good workbook');
+$summary = is_array($validation['summary'] ?? null) ? $validation['summary'] : [];
+okB(($summary['total_products'] ?? 0) === 50, 'summary total products');
+okB(($summary['ready_count'] ?? 0) === 50, 'summary ready count');
+okB(($summary['products_with_errors'] ?? -1) === 0, 'summary products with errors zero when clean');
+okB(isset($validation['products'][0]['import_ready']) && $validation['products'][0]['import_ready'] === true, 'product import_ready flag when valid');
+okB(isset($validation['products'][0]['variants'][0]['sheet_row']), 'variant sheet_row in preview');
 
 $bundles = ProductBulkImport::bundleMapFromParsed($parsed, []);
 $import1 = ProductBulkImport::importProducts($bundles, $ex['index'] ?? null, 1);
@@ -362,6 +368,9 @@ okB(str_contains($page, 'images.zip'), 'static: sample package explains images.z
 okB(str_contains($page, 'README.txt'), 'static: sample package lists README.txt');
 okB(str_contains($page, 'images.zip</code> included inside the downloaded sample package'), 'static: images zip field sample hint');
 okB(str_contains($page, 'missingImagesZipMessage'), 'static: JS promotes missing images zip message');
+okB(str_contains($page, 'at-bulk-import-summary'), 'static: validation summary UI');
+okB(str_contains($page, 'renderValidationResults'), 'static: product-wise validation renderer');
+okB(str_contains($page, 'import_ready'), 'static: uses import_ready from validation payload');
 okB(str_contains($page, 'download_template=1'), 'static: blank template download on admin page');
 okB(str_contains($page, 'denyIfCannot(\'products\')'), 'static: products permission on bulk-import page');
 okB(str_contains($page, 'Csrf::field()'), 'static: bulk-import form uses Csrf::field');
@@ -373,6 +382,116 @@ okB(str_contains($page, 'AdminFileDownload::streamAttachment'), 'static: secure 
 $ajax = (string) file_get_contents(APNI_TOKRI_ROOT . '/admin/ajax/product-bulk-import.php');
 okB(str_contains($ajax, 'Csrf::requireValid'), 'static: CSRF on bulk import AJAX');
 okB(str_contains($ajax, "denyIfCannot('products')"), 'static: products permission');
+okB(str_contains($ajax, 'parseWorkbook($workbookPath)'), 'static: import revalidates workbook server-side');
+
+// --- Product-wise validation summary / mixed partial import ---
+$existSku = 'BI-SKU-' . $tok . '-001';
+$dupProdVal = ProductBulkImport::validate($parsed, $ex['index'] ?? null);
+$hasProdSkuErr = false;
+foreach (is_array($dupProdVal['errors'] ?? null) ? $dupProdVal['errors'] : [] as $err) {
+    if (is_array($err) && ($err['reason'] ?? '') === 'Product SKU already exists in catalogue.'
+        && ($err['product_code'] ?? '') === 'BI-' . $tok . '-1') {
+        $hasProdSkuErr = true;
+        break;
+    }
+}
+okB($hasProdSkuErr, 'product-level duplicate SKU error after catalogue import');
+
+$slugTok = 'mix-' . $tok;
+$pdo->prepare('INSERT INTO products (category_id, name, slug, sku, status) VALUES (?, ?, ?, ?, ?)')
+    ->execute([$catId, 'Existing Slug Holder', 'slug-taken-' . $slugTok, 'SLUG-HOLD-' . $tok, 'draft']);
+$mixRows = [ProductBulkImport::productsHeaders()];
+$mixRows[] = ['GOOD-' . $tok, 'Good Product', 'good-' . $slugTok, 'GOOD-SKU-' . $tok, $catName, $ptype, 's', 'd'];
+$mixRows[] = ['BAD-SLUG-' . $tok, 'Bad Slug', 'slug-taken-' . $slugTok, 'BAD-SLUG-SKU-' . $tok, $catName, $ptype, 's', 'd'];
+$mixRows[] = ['BAD-VAR-' . $tok, 'Bad Variant', 'bad-var-' . $slugTok, 'BAD-VAR-P-SKU-' . $tok, $catName, $ptype, 's', 'd'];
+$mixVariants = [ProductBulkImport::variantsHeaders()];
+$mixVariants[] = ['GOOD-' . $tok, '500 g', 'GOOD-SKU-' . $tok . '-V1', '40', '', '10', '5', '1', '0', '1'];
+$mixVariants[] = ['BAD-VAR-' . $tok, '200 g', $existSku, '40', '', '10', '5', '1', '0', '1'];
+$mixAttrs = [ProductBulkImport::attributesHeaders()];
+$mixImages = [ProductBulkImport::imagesHeaders()];
+$mixSeo = [ProductBulkImport::seoHeaders()];
+$mixXlsx = $workDir . '/mix-' . $tok . '.xlsx';
+okB(SimpleXlsx::write([
+    ProductBulkImport::SHEET_PRODUCTS => $mixRows,
+    ProductBulkImport::SHEET_VARIANTS => $mixVariants,
+    ProductBulkImport::SHEET_ATTRIBUTES => $mixAttrs,
+    ProductBulkImport::SHEET_IMAGES => $mixImages,
+    ProductBulkImport::SHEET_SEO => $mixSeo,
+], $mixXlsx), 'build mixed validation workbook');
+$mixParsed = ProductBulkImport::parseWorkbook($mixXlsx);
+$mixVal = ProductBulkImport::validate($mixParsed, null);
+$mixSum = is_array($mixVal['summary'] ?? null) ? $mixVal['summary'] : [];
+okB(($mixSum['total_products'] ?? 0) === 3, 'mixed workbook: total products 3');
+okB(($mixSum['ready_count'] ?? 0) === 1, 'mixed workbook: one ready product');
+okB(($mixSum['products_with_errors'] ?? 0) === 2, 'mixed workbook: two products with errors');
+okB(($mixSum['variant_error_count'] ?? 0) >= 1, 'mixed workbook: variant error count');
+
+$hasSlugErr = false;
+$hasVarSkuErr = false;
+foreach (is_array($mixVal['errors'] ?? null) ? $mixVal['errors'] : [] as $err) {
+    if (!is_array($err)) {
+        continue;
+    }
+    if (($err['reason'] ?? '') === 'Slug already used by an existing product.') {
+        $hasSlugErr = true;
+    }
+    if (($err['reason'] ?? '') === 'Variant SKU already exists in catalogue.' && ($err['product_code'] ?? '') === 'BAD-VAR-' . $tok) {
+        $hasVarSkuErr = true;
+    }
+}
+okB($hasSlugErr, 'duplicate slug error detected');
+okB($hasVarSkuErr, 'variant-level duplicate SKU error detected');
+
+$mixBundles = ProductBulkImport::bundleMapFromParsed($mixParsed, []);
+$mixImportable = ProductBulkImport::filterImportableBundles($mixVal['errors'], $mixBundles);
+okB(count($mixImportable) === 1 && isset($mixImportable['GOOD-' . $tok]), 'partial import set has only valid product');
+$mixImport = ProductBulkImport::importProducts($mixImportable, null, 1);
+okB(($mixImport['imported'] ?? 0) === 1, 'partial import imports only valid products');
+
+$imgBadRows = [ProductBulkImport::imagesHeaders()];
+$imgBadRows[] = ['IMG-' . $tok, 'missing-in-zip.png', 'yes', '1', 'Alt'];
+$imgProd = [ProductBulkImport::productsHeaders()];
+$imgProd[] = ['IMG-' . $tok, 'Image Test', 'img-test-' . $tok, 'IMG-SKU-' . $tok, $catName, $ptype, 's', 'd'];
+$imgVar = [ProductBulkImport::variantsHeaders()];
+$imgVar[] = ['IMG-' . $tok, 'Default', 'IMG-SKU-' . $tok . '-V1', '10', '', '5', '5', '1', '0', '1'];
+$imgXlsx = $workDir . '/img-' . $tok . '.xlsx';
+okB(SimpleXlsx::write([
+    ProductBulkImport::SHEET_PRODUCTS => $imgProd,
+    ProductBulkImport::SHEET_VARIANTS => $imgVar,
+    ProductBulkImport::SHEET_ATTRIBUTES => $mixAttrs,
+    ProductBulkImport::SHEET_IMAGES => $imgBadRows,
+    ProductBulkImport::SHEET_SEO => $mixSeo,
+], $imgXlsx), 'build image filename error workbook');
+$imgParsed = ProductBulkImport::parseWorkbook($imgXlsx);
+$imgVal = ProductBulkImport::validate($imgParsed, $ex['index'] ?? null);
+$imgFileErr = false;
+foreach (is_array($imgVal['errors'] ?? null) ? $imgVal['errors'] : [] as $err) {
+    if (is_array($err) && str_contains((string) ($err['reason'] ?? ''), 'Image file not found in uploaded ZIP')) {
+        $imgFileErr = true;
+        break;
+    }
+}
+okB($imgFileErr, 'image filename not in zip error');
+
+$multiErrXlsx = $workDir . '/multi-' . $tok . '.xlsx';
+$multiProd = [ProductBulkImport::productsHeaders()];
+$multiProd[] = ['MULTI-' . $tok, '', 'multi-' . $tok, 'MULTI-SKU-' . $tok, $catName, $ptype, 's', 'd'];
+$multiVar = [ProductBulkImport::variantsHeaders()];
+$multiVar[] = ['MULTI-' . $tok, '', 'MULTI-V-SKU-' . $tok, '10', '', '5', '5', '1', '0', '1'];
+okB(SimpleXlsx::write([
+    ProductBulkImport::SHEET_PRODUCTS => $multiProd,
+    ProductBulkImport::SHEET_VARIANTS => $multiVar,
+    ProductBulkImport::SHEET_ATTRIBUTES => $mixAttrs,
+    ProductBulkImport::SHEET_IMAGES => $mixImages,
+    ProductBulkImport::SHEET_SEO => $mixSeo,
+], $multiErrXlsx), 'build multi-error single product workbook');
+$multiVal = ProductBulkImport::validate(ProductBulkImport::parseWorkbook($multiErrXlsx), null);
+okB(count($multiVal['errors'] ?? []) >= 2, 'multiple errors on one product');
+$multiPreview = $multiVal['products'][0] ?? [];
+okB(($multiPreview['error_count'] ?? 0) >= 2, 'product error_count reflects multiple issues');
+
+$reval = ProductBulkImport::validate($parsed, $ex['index'] ?? null);
+okB(($reval['ready_count'] ?? 50) === 0, 'revalidation prevents import after SKUs exist in catalogue');
 
 $roundTrip = $workDir . '/roundtrip-' . $tok . '.xlsx';
 $roundSheets = [

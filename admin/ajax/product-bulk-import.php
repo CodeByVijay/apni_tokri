@@ -105,17 +105,28 @@ if ($action === 'import') {
   if ($state === null) {
     Ajax::error('Import job expired or not found. Upload again.');
   }
-  $validation = is_array($state['validation'] ?? null) ? $state['validation'] : [];
+  $workbookPath = (string) ($state['workbook'] ?? '');
+  if ($workbookPath === '' || !is_file($workbookPath)) {
+    Ajax::error('Workbook missing. Upload and validate again.');
+  }
+  try {
+    $parsed = ProductBulkImport::parseWorkbook($workbookPath);
+  } catch (Throwable $e) {
+    Ajax::error('Could not re-read workbook for import.');
+  }
+  $imageIndex = is_array($state['image_index'] ?? null) ? $state['image_index'] : null;
+  $validation = ProductBulkImport::validate($parsed, $imageIndex);
   $errors = is_array($validation['errors'] ?? null) ? $validation['errors'] : [];
-  $bundles = is_array($state['bundles'] ?? null) ? $state['bundles'] : [];
+  $bundles = ProductBulkImport::bundleMapFromParsed($parsed, []);
   if ($bundles === []) {
     Ajax::error('No products to import.');
   }
   $importable = ProductBulkImport::filterImportableBundles($errors, $bundles);
+  $state['validation'] = $validation;
+  $state['bundles'] = $bundles;
   if ($importable === []) {
     Ajax::error('No valid products to import. Fix validation errors first.');
   }
-  $imageIndex = is_array($state['image_index'] ?? null) ? $state['image_index'] : null;
   $adminId = AdminAuth::check() ? AdminAuth::id() : null;
   $result = ProductBulkImport::importProducts($importable, $imageIndex, $adminId > 0 ? $adminId : null);
   $reportPath = ProductBulkImport::jobDir($jobId) . '/import-report.csv';

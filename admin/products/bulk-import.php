@@ -162,8 +162,7 @@ $missingImagesZipMessage = ProductBulkImport::MSG_MISSING_IMAGES_ZIP;
             </div>
         </form>
         <div id="at-bulk-import-status" class="text-sm" role="status" aria-live="polite"></div>
-        <div id="at-bulk-import-errors" class="hidden"></div>
-        <div id="at-bulk-import-preview" class="hidden space-y-2"></div>
+        <div id="at-bulk-import-results" class="hidden space-y-4" aria-live="polite"></div>
         <div id="at-bulk-import-result" class="hidden"></div>
     </div>
 </div>
@@ -173,14 +172,22 @@ $missingImagesZipMessage = ProductBulkImport::MSG_MISSING_IMAGES_ZIP;
   const csrf = <?= json_encode($csrf, JSON_THROW_ON_ERROR) ?>;
   const form = document.getElementById('at-bulk-import-form');
   const statusEl = document.getElementById('at-bulk-import-status');
-  const errEl = document.getElementById('at-bulk-import-errors');
-  const previewEl = document.getElementById('at-bulk-import-preview');
+  const resultsEl = document.getElementById('at-bulk-import-results');
   const resultEl = document.getElementById('at-bulk-import-result');
   const btnValidate = document.getElementById('at-bulk-import-validate');
   const btnImport = document.getElementById('at-bulk-import-run');
   const csrfFieldName = <?= json_encode(Csrf::fieldName(), JSON_THROW_ON_ERROR) ?>;
   const missingImagesZipMessage = <?= json_encode($missingImagesZipMessage, JSON_THROW_ON_ERROR) ?>;
+  const SHEET = {
+    products: <?= json_encode(ProductBulkImport::SHEET_PRODUCTS, JSON_THROW_ON_ERROR) ?>,
+    variants: <?= json_encode(ProductBulkImport::SHEET_VARIANTS, JSON_THROW_ON_ERROR) ?>,
+    attributes: <?= json_encode(ProductBulkImport::SHEET_ATTRIBUTES, JSON_THROW_ON_ERROR) ?>,
+    images: <?= json_encode(ProductBulkImport::SHEET_IMAGES, JSON_THROW_ON_ERROR) ?>,
+    seo: <?= json_encode(ProductBulkImport::SHEET_SEO, JSON_THROW_ON_ERROR) ?>,
+  };
   let jobId = '';
+  let lastReadyCount = 0;
+  let lastTotalProducts = 0;
 
   function validationHasMissingImagesZip(errors) {
     return Array.isArray(errors) && errors.some(function (e) {
@@ -212,57 +219,271 @@ $missingImagesZipMessage = ProductBulkImport::MSG_MISSING_IMAGES_ZIP;
     statusEl.className = 'text-sm' + (kind === 'error' ? ' text-red-700' : kind === 'success' ? ' text-green-800' : '');
   }
 
-  function renderErrors(errors) {
-    if (!errors || !errors.length) {
-      errEl.classList.add('hidden');
-      errEl.innerHTML = '';
-      return;
-    }
-    errEl.classList.remove('hidden');
-    const tbl = document.createElement('table');
-    tbl.className = 'at-table text-sm w-full';
-    tbl.innerHTML = '<thead><tr><th>Sheet</th><th>Row</th><th>Product code</th><th>Reason</th></tr></thead>';
-    const tb = document.createElement('tbody');
-    errors.forEach(function (e) {
-      const tr = document.createElement('tr');
-      tr.innerHTML = '<td>' + escapeHtml(e.sheet || '') + '</td><td>' + escapeHtml(e.row || '') + '</td><td>' + escapeHtml(e.product_code || '') + '</td><td>' + escapeHtml(e.reason || '') + '</td>';
-      tb.appendChild(tr);
-    });
-    tbl.appendChild(tb);
-    errEl.innerHTML = '';
-    errEl.appendChild(tbl);
-  }
-
   function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, function (c) {
       return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];
     });
   }
 
-  function renderPreview(products, ready) {
-    if (!products || !products.length) {
-      previewEl.classList.add('hidden');
+  function renderErrorMsgs(messages) {
+    if (!messages || !messages.length) {
+      return '';
+    }
+    return messages.map(function (m) {
+      return '<p class="at-bulk-import-msg-error" role="alert"><span aria-hidden="true">⚠</span><span>' + escapeHtml(m) + '</span></p>';
+    }).join('');
+  }
+
+  function errorsForProduct(code, allErrors, product) {
+    const out = { general: [], variants: {}, attributes: {}, images: {}, seo: [], productVariants: [] };
+    (allErrors || []).forEach(function (e) {
+      if (!e) {
+        return;
+      }
+      const errCode = e.product_code || '';
+      const sheet = e.sheet || '';
+      const row = e.row || '';
+      const reason = e.reason || '';
+      if (errCode === code) {
+        if (sheet === SHEET.products) {
+          out.general.push(reason);
+        } else if (sheet === SHEET.variants) {
+          if (row === '') {
+            out.productVariants.push(reason);
+          } else {
+            if (!out.variants[row]) {
+              out.variants[row] = [];
+            }
+            out.variants[row].push(reason);
+          }
+        } else if (sheet === SHEET.attributes) {
+          if (!out.attributes[row]) {
+            out.attributes[row] = [];
+          }
+          out.attributes[row].push(reason);
+        } else if (sheet === SHEET.images) {
+          if (row === '') {
+            if (!out.images._product) {
+              out.images._product = [];
+            }
+            out.images._product.push(reason);
+          } else {
+            if (!out.images[row]) {
+              out.images[row] = [];
+            }
+            out.images[row].push(reason);
+          }
+        } else if (sheet === SHEET.seo) {
+          out.seo.push(reason);
+        }
+      } else if (errCode === '' && sheet === SHEET.images && reason === missingImagesZipMessage && product && product.images && product.images.length) {
+        if (!out.images._product) {
+          out.images._product = [];
+        }
+        if (out.images._product.indexOf(reason) === -1) {
+          out.images._product.push(reason);
+        }
+      }
+    });
+    return out;
+  }
+
+  function globalErrors(allErrors, products) {
+    const codes = {};
+    (products || []).forEach(function (p) {
+      codes[p.product_code] = true;
+    });
+    return (allErrors || []).filter(function (e) {
+      if (!e || (e.product_code || '') !== '') {
+        return false;
+      }
+      if ((e.sheet || '') === SHEET.images && e.reason === missingImagesZipMessage) {
+        return false;
+      }
+      return true;
+    });
+  }
+
+  function updateImportButton() {
+    if (lastReadyCount > 0) {
+      btnImport.textContent = 'Import ' + lastReadyCount + ' ready product' + (lastReadyCount === 1 ? '' : 's');
+      btnImport.disabled = !jobId;
+    } else {
+      btnImport.textContent = 'Import valid products';
+      btnImport.disabled = true;
+    }
+  }
+
+  function renderValidationResults(validation) {
+    const products = validation.products || [];
+    const errors = validation.errors || [];
+    const summary = validation.summary || {
+      total_products: products.length,
+      ready_count: validation.ready_count || 0,
+      products_with_errors: Math.max(0, products.length - (validation.ready_count || 0)),
+      error_count: errors.length,
+      variant_error_count: 0,
+    };
+    lastReadyCount = summary.ready_count != null ? summary.ready_count : (validation.ready_count || 0);
+    lastTotalProducts = summary.total_products != null ? summary.total_products : products.length;
+    if (!products.length && !errors.length) {
+      resultsEl.classList.add('hidden');
+      resultsEl.innerHTML = '';
+      updateImportButton();
       return;
     }
-    previewEl.classList.remove('hidden');
-    previewEl.innerHTML = '<p class="text-sm font-medium">' + ready + ' product(s) ready to import.</p>';
+    resultsEl.classList.remove('hidden');
+    let html = '<div class="at-bulk-import-summary">';
+    html += summaryCard('Total products', summary.total_products);
+    html += summaryCard('Ready to import', summary.ready_count);
+    html += summaryCard('Products with errors', summary.products_with_errors);
+    html += summaryCard('Validation errors', summary.error_count);
+    html += summaryCard('Variants with errors', summary.variant_error_count);
+    html += '</div>';
+    const skipped = Math.max(0, lastTotalProducts - lastReadyCount);
+    if (skipped > 0 && lastReadyCount > 0) {
+      html += '<p class="at-bulk-import-skip-note">' + skipped + ' product' + (skipped === 1 ? '' : 's') + ' will be skipped due to validation errors.</p>';
+    }
+    const globals = globalErrors(errors, products);
+    if (globals.length) {
+      html += '<div class="at-admin-card at-bulk-import-product--error"><div class="at-admin-card__body text-sm">';
+      html += '<p class="font-medium m-0 mb-1">Workbook-wide issues</p>';
+      html += renderErrorMsgs(globals.map(function (g) { return g.reason || ''; }));
+      html += '</div></div>';
+    }
+    html += '<div class="space-y-3">';
     products.forEach(function (p) {
-      const details = document.createElement('details');
-      details.className = 'at-admin-card';
-      const sum = document.createElement('summary');
-      sum.className = 'at-admin-card__body cursor-pointer font-medium';
-      sum.textContent = p.product_code + ' — ' + (p.general && p.general.name ? p.general.name : '');
-      details.appendChild(sum);
-      const body = document.createElement('div');
-      body.className = 'at-admin-card__body text-sm border-t space-y-2';
-      body.innerHTML = '<p><strong>General</strong>: ' + escapeHtml(JSON.stringify(p.general)) + '</p>'
-        + '<p><strong>Variants</strong>: ' + escapeHtml(JSON.stringify(p.variants)) + '</p>'
-        + '<p><strong>Attributes</strong>: ' + escapeHtml(JSON.stringify(p.attributes)) + '</p>'
-        + '<p><strong>Images</strong>: ' + escapeHtml(JSON.stringify(p.images)) + '</p>'
-        + '<p><strong>SEO</strong>: ' + escapeHtml(JSON.stringify(p.seo)) + '</p>';
-      details.appendChild(body);
-      previewEl.appendChild(details);
+      const ready = p.import_ready === true;
+      const name = (p.general && p.general.name) ? p.general.name : '(Unnamed)';
+      const variantCount = (p.variants && p.variants.length) || 0;
+      const errCount = p.error_count != null ? p.error_count : 0;
+      const grouped = errorsForProduct(p.product_code, errors, p);
+      const badge = ready
+        ? '<span class="at-badge at-badge--success">Ready to import</span>'
+        : '<span class="at-badge at-badge--danger">Has errors</span>';
+      const cardClass = ready ? 'at-bulk-import-product--ready' : 'at-bulk-import-product--error';
+      html += '<details class="at-bulk-import-product ' + cardClass + '"' + (ready ? '' : ' open') + '>';
+      html += '<summary class="at-bulk-import-product__summary">';
+      html += '<p class="at-bulk-import-product__title">' + escapeHtml(name) + '</p>';
+      html += badge;
+      html += '<p class="at-bulk-import-product__meta">Code: <code>' + escapeHtml(p.product_code) + '</code> · ' + variantCount + ' variant' + (variantCount === 1 ? '' : 's') + ' · ' + errCount + ' error' + (errCount === 1 ? '' : 's') + '</p>';
+      html += '</summary>';
+      html += '<div class="at-bulk-import-product__body">';
+      html += sectionGeneral(p, grouped);
+      html += sectionVariants(p, grouped);
+      html += sectionAttributes(p, grouped);
+      html += sectionImages(p, grouped);
+      html += sectionSeo(p, grouped);
+      html += '</div></details>';
     });
+    html += '</div>';
+    resultsEl.innerHTML = html;
+    updateImportButton();
+  }
+
+  function summaryCard(label, value) {
+    return '<div class="at-bulk-import-summary__card"><p class="at-bulk-import-summary__label">' + escapeHtml(label) + '</p>'
+      + '<p class="at-bulk-import-summary__value">' + escapeHtml(String(value != null ? value : '—')) + '</p></div>';
+  }
+
+  function sectionGeneral(p, grouped) {
+    const g = p.general || {};
+    let html = '<div class="at-bulk-import-section"><p class="at-bulk-import-section__title">General</p>';
+    html += '<dl class="at-bulk-import-dl">';
+    html += dlRow('Name', g.name); html += dlRow('SKU', g.sku); html += dlRow('Slug', g.slug);
+    html += dlRow('Category', g.category); html += dlRow('Type', g.product_type);
+    html += dlRow('Short description', g.short_description);
+    html += dlRow('Full description', g.description);
+    html += '</dl>';
+    html += renderErrorMsgs(grouped.general);
+    html += '</div>';
+    return html;
+  }
+
+  function dlRow(label, value) {
+    if (value == null || value === '') {
+      return '';
+    }
+    return '<dt>' + escapeHtml(label) + '</dt><dd>' + escapeHtml(String(value)) + '</dd>';
+  }
+
+  function sectionVariants(p, grouped) {
+    const variants = p.variants || [];
+    let html = '<div class="at-bulk-import-section"><p class="at-bulk-import-section__title">Variants</p>';
+    if (!variants.length) {
+      html += '<p class="text-sm at-muted m-0">No variant rows.</p>';
+    }
+    variants.forEach(function (v) {
+      const label = (v.name || 'Variant') + (v.sku ? ' — ' + v.sku : '');
+      const rowKey = v.sheet_row || '';
+      const errs = (rowKey && grouped.variants[rowKey]) ? grouped.variants[rowKey] : [];
+      html += '<div class="at-bulk-import-variant"><strong>' + escapeHtml(label) + '</strong>';
+      html += ' <span class="at-muted">(row ' + escapeHtml(rowKey || '—') + ')</span>';
+      if (v.price) {
+        html += '<span class="at-muted"> · ₹' + escapeHtml(v.price) + '</span>';
+      }
+      html += renderErrorMsgs(errs);
+      html += '</div>';
+    });
+    html += renderErrorMsgs(grouped.productVariants);
+    html += '</div>';
+    return html;
+  }
+
+  function sectionAttributes(p, grouped) {
+    const attrs = p.attributes || [];
+    let html = '<div class="at-bulk-import-section"><p class="at-bulk-import-section__title">Attributes</p>';
+    if (!attrs.length) {
+      html += '<p class="text-sm at-muted m-0">No attribute rows.</p>';
+    }
+    attrs.forEach(function (a) {
+      const rowKey = a.sheet_row || '';
+      const errs = (rowKey && grouped.attributes[rowKey]) ? grouped.attributes[rowKey] : [];
+      html += '<div class="at-bulk-import-variant"><span>' + escapeHtml((a.label || '') + ': ' + (a.value || '')) + '</span>';
+      html += renderErrorMsgs(errs);
+      html += '</div>';
+    });
+    html += '</div>';
+    return html;
+  }
+
+  function sectionImages(p, grouped) {
+    const images = p.images || [];
+    let html = '<div class="at-bulk-import-section"><p class="at-bulk-import-section__title">Images</p>';
+    if (!images.length) {
+      html += '<p class="text-sm at-muted m-0">No image rows.</p>';
+    }
+    images.forEach(function (img) {
+      const rowKey = img.sheet_row || '';
+      const errs = [];
+      if (rowKey && grouped.images[rowKey]) {
+        errs.push.apply(errs, grouped.images[rowKey]);
+      }
+      html += '<div class="at-bulk-import-image-row"><code>' + escapeHtml(img.filename || '') + '</code>';
+      if (img.is_primary) {
+        html += ' <span class="at-muted">· primary=' + escapeHtml(img.is_primary) + '</span>';
+      }
+      html += renderErrorMsgs(errs);
+      html += '</div>';
+    });
+    if (grouped.images._product) {
+      html += renderErrorMsgs(grouped.images._product);
+    }
+    html += '</div>';
+    return html;
+  }
+
+  function sectionSeo(p, grouped) {
+    const seo = p.seo || {};
+    let html = '<div class="at-bulk-import-section"><p class="at-bulk-import-section__title">SEO</p>';
+    html += '<dl class="at-bulk-import-dl">';
+    html += dlRow('Meta title', seo.meta_title);
+    html += dlRow('Meta description', seo.meta_description);
+    html += dlRow('Allow indexing', seo.allow_indexing);
+    html += '</dl>';
+    html += renderErrorMsgs(grouped.seo);
+    html += '</div>';
+    return html;
   }
 
   btnValidate.addEventListener('click', function () {
@@ -301,9 +522,10 @@ $missingImagesZipMessage = ProductBulkImport::MSG_MISSING_IMAGES_ZIP;
         } else {
           setStatus(parsed.message || 'Validation complete.', v.ok ? 'success' : 'error');
         }
-        renderErrors(v.errors || []);
-        renderPreview(v.products || [], v.ready_count || 0);
-        btnImport.disabled = !jobId || !(v.ready_count > 0);
+        renderValidationResults(v);
+        if (!jobId || !(v.ready_count > 0)) {
+          btnImport.disabled = true;
+        }
       })
       .catch(function () {
         btnValidate.disabled = false;
@@ -313,7 +535,13 @@ $missingImagesZipMessage = ProductBulkImport::MSG_MISSING_IMAGES_ZIP;
 
   btnImport.addEventListener('click', function () {
     if (!jobId) return;
-    if (!window.confirm('Import valid products? Existing products are never updated.')) return;
+    const skipped = Math.max(0, lastTotalProducts - lastReadyCount);
+    let confirmMsg = 'Import ' + lastReadyCount + ' ready product' + (lastReadyCount === 1 ? '' : 's') + '?';
+    if (skipped > 0) {
+      confirmMsg += ' ' + skipped + ' product' + (skipped === 1 ? '' : 's') + ' with errors will be skipped.';
+    }
+    confirmMsg += ' Existing products are never updated.';
+    if (!window.confirm(confirmMsg)) return;
     const fd = new FormData();
     fd.append('action', 'import');
     fd.append(csrfFieldName, csrf);

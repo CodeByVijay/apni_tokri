@@ -765,7 +765,14 @@ final class ProductBulkImport
      *   ok: bool,
      *   errors: list<array{sheet: string, row: string, product_code: string, reason: string}>,
      *   products: list<array<string, mixed>>,
-     *   ready_count: int
+     *   ready_count: int,
+     *   summary: array{
+     *     total_products: int,
+     *     ready_count: int,
+     *     products_with_errors: int,
+     *     error_count: int,
+     *     variant_error_count: int
+     *   }
      * }
      */
     public static function validate(array $parsed, ?array $imageIndex): array
@@ -1002,12 +1009,60 @@ final class ProductBulkImport
             $preview[] = self::previewProduct($code, $bundle);
         }
         $importable = self::filterImportableBundles($errors, $bundled);
+        $readyCount = count($importable);
+        $importableCodes = array_fill_keys(array_keys($importable), true);
+        $errorCountByCode = [];
+        foreach ($errors as $e) {
+            $errCode = (string) ($e['product_code'] ?? '');
+            if ($errCode !== '') {
+                $errorCountByCode[$errCode] = ($errorCountByCode[$errCode] ?? 0) + 1;
+            }
+        }
+        $missingZipGlobally = $imagesReferenced && ($imageIndex === null || $imageIndex === []);
+        foreach ($preview as $i => $p) {
+            $code = (string) ($p['product_code'] ?? '');
+            $preview[$i]['import_ready'] = isset($importableCodes[$code]);
+            $displayErrors = (int) ($errorCountByCode[$code] ?? 0);
+            if ($missingZipGlobally && is_array($p['images'] ?? null) && $p['images'] !== []) {
+                $displayErrors++;
+            }
+            $preview[$i]['error_count'] = $displayErrors;
+        }
 
         return [
             'ok' => $errors === [],
             'errors' => $errors,
             'products' => $preview,
-            'ready_count' => count($importable),
+            'ready_count' => $readyCount,
+            'summary' => self::buildValidationSummary($errors, count($preview), $readyCount),
+        ];
+    }
+
+    /**
+     * @param list<array{sheet: string, row: string, product_code: string, reason: string}> $errors
+     * @return array{
+     *   total_products: int,
+     *   ready_count: int,
+     *   products_with_errors: int,
+     *   error_count: int,
+     *   variant_error_count: int
+     * }
+     */
+    public static function buildValidationSummary(array $errors, int $totalProducts, int $readyCount): array
+    {
+        $variantErrorCount = 0;
+        foreach ($errors as $e) {
+            if (($e['sheet'] ?? '') === self::SHEET_VARIANTS) {
+                $variantErrorCount++;
+            }
+        }
+
+        return [
+            'total_products' => $totalProducts,
+            'ready_count' => $readyCount,
+            'products_with_errors' => max(0, $totalProducts - $readyCount),
+            'error_count' => count($errors),
+            'variant_error_count' => $variantErrorCount,
         ];
     }
 
@@ -1294,6 +1349,7 @@ final class ProductBulkImport
         return [
             'product_code' => $code,
             'general' => [
+                'sheet_row' => self::rowNum($g),
                 'name' => self::cell($g, 'product_name'),
                 'slug' => self::cell($g, 'slug'),
                 'sku' => self::cell($g, 'sku'),
@@ -1306,6 +1362,7 @@ final class ProductBulkImport
             ],
             'variants' => array_map(static function (array $r): array {
                 return [
+                    'sheet_row' => self::rowNum($r),
                     'name' => self::cell($r, 'variant_name'),
                     'sku' => self::cell($r, 'sku'),
                     'price' => self::cell($r, 'price'),
@@ -1315,18 +1372,21 @@ final class ProductBulkImport
             }, is_array($bundle['variants'] ?? null) ? $bundle['variants'] : []),
             'attributes' => array_map(static function (array $r): array {
                 return [
+                    'sheet_row' => self::rowNum($r),
                     'label' => self::cell($r, 'attribute_label'),
                     'value' => self::cell($r, 'attribute_value'),
                 ];
             }, is_array($bundle['attributes'] ?? null) ? $bundle['attributes'] : []),
             'images' => array_map(static function (array $r): array {
                 return [
+                    'sheet_row' => self::rowNum($r),
                     'filename' => self::cell($r, 'filename'),
                     'is_primary' => self::cell($r, 'is_primary'),
                     'sort_order' => self::cell($r, 'sort_order'),
                 ];
             }, is_array($bundle['images'] ?? null) ? $bundle['images'] : []),
             'seo' => [
+                'sheet_row' => self::rowNum($seo),
                 'meta_title' => self::cell($seo, 'meta_title'),
                 'meta_description' => self::cell($seo, 'meta_description'),
                 'allow_indexing' => self::cell($seo, 'allow_indexing'),
