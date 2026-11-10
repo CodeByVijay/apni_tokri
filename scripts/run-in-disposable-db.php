@@ -16,10 +16,15 @@ require_once dirname(__DIR__) . '/includes/bootstrap.php';
 require_once __DIR__ . '/includes/disposable_db_runner.php';
 
 $migrateMediaLibrary = false;
+$migrateRememberLogin = false;
 $targetArg = '';
 foreach (array_slice($argv, 1) as $arg) {
     if ($arg === '--migrate-media-library') {
         $migrateMediaLibrary = true;
+        continue;
+    }
+    if ($arg === '--migrate-remember') {
+        $migrateRememberLogin = true;
         continue;
     }
     if ($targetArg === '' && $arg !== '' && $arg[0] !== '-') {
@@ -121,6 +126,17 @@ if ($activeDb !== $fresh) {
 if ($migrateMediaLibrary) {
     $migration = $root . '/database/migrations/1.37.0_media_library.sql';
     fwrite(STDERR, "[disposable DB {$fresh}] applying migration 1.37.0_media_library.sql\n");
+    $mig = disposable_apply_migration_file($pdo, $fresh, $migration);
+    if (empty($mig['ok'])) {
+        fwrite(STDERR, 'Migration failed: ' . ($mig['message'] ?? 'unknown') . "\n");
+        exit(2);
+    }
+}
+
+$rememberTest = basename($targetPath) === 'test-customer-remember-login.php';
+if ($migrateRememberLogin || $rememberTest) {
+    $migration = $root . '/database/migrations/1.38.0_customer_remember_tokens.sql';
+    fwrite(STDERR, "[disposable DB {$fresh}] applying migration 1.38.0_customer_remember_tokens.sql\n");
     $mig = disposable_apply_migration_file($pdo, $fresh, $migration);
     if (empty($mig['ok'])) {
         fwrite(STDERR, 'Migration failed: ' . ($mig['message'] ?? 'unknown') . "\n");

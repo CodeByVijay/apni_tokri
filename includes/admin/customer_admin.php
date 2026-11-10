@@ -327,8 +327,11 @@ final class AdminCustomerService
         Database::pdo()->prepare('UPDATE customers SET is_active = ?, updated_at = NOW() WHERE id = ?')
             ->execute([$active ? 1 : 0, $customerId]);
 
-        if (!$active && CustomerAuth::id() === $customerId) {
-            CustomerAuth::logout();
+        if (!$active) {
+            CustomerRememberAuth::revokeAllForCustomer($customerId);
+            if (CustomerAuth::id() === $customerId) {
+                CustomerAuth::logout();
+            }
         }
 
         AuditLog::write(

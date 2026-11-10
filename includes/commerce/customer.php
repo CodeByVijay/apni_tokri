@@ -170,6 +170,7 @@ final class CustomerService
     public static function logout(): void
     {
         if (AppEnvironment::usePersistedStorefront()) {
+            CustomerRememberAuth::revokeCurrentFromRequest();
             CustomerAuth::logout();
         }
         SessionCustomerBackend::logout();

@@ -96,6 +96,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!empty($result['ok'])) {
                 unset($_SESSION['otp_pending_mobile']);
                 OtpResendCooldown::clear();
+                if (!empty($_POST['remember_login']) && isset($result['customer_id'])) {
+                    CustomerRememberAuth::issueForCustomer((int) $result['customer_id']);
+                }
                 $return = $_SESSION['checkout_return'] ?? url_base() . '/my-account.php';
                 unset($_SESSION['checkout_return']);
                 header('Location: ' . $return, true, 302);
@@ -236,6 +239,12 @@ layout_public_start([
                         <?php if (isset($fieldErrors['consent'])): ?>
                             <p class="at-field-error" role="alert"><?= Security::escape($fieldErrors['consent']) ?></p>
                         <?php endif; ?>
+                    <?php endif; ?>
+                    <?php if (Install::isSchemaReady() && AppEnvironment::usePersistedStorefront() && CustomerRememberAuth::tablesReady()): ?>
+                        <label class="flex items-start gap-3 text-sm">
+                            <input type="checkbox" name="remember_login" value="1" class="mt-0.5">
+                            <span>Stay signed in on this device for 30 days</span>
+                        </label>
                     <?php endif; ?>
                     <button type="submit" class="at-btn at-btn--primary at-btn--lg at-btn--block at-focusable" id="otp-submit" data-otp-submit>Verify &amp; continue</button>
                     <p class="text-xs at-muted flex gap-2"><?= at_icon('lock', 'w-4 h-4 flex-shrink-0') ?>The code expires in 5 minutes.</p>

@@ -55,6 +55,7 @@ require_once APNI_TOKRI_ROOT . '/includes/admin/login_security.php';
 require_once APNI_TOKRI_ROOT . '/includes/admin/password_recovery.php';
 require_once APNI_TOKRI_ROOT . '/includes/commerce/customer_otp_registration.php';
 require_once APNI_TOKRI_ROOT . '/includes/auth.php';
+require_once APNI_TOKRI_ROOT . '/includes/auth/customer_remember_auth.php';
 require_once APNI_TOKRI_ROOT . '/includes/admin/persistence.php';
 require_once APNI_TOKRI_ROOT . '/includes/permissions.php';
 require_once APNI_TOKRI_ROOT . '/includes/audit.php';
@@ -271,6 +272,7 @@ if (PHP_SAPI === 'cli') {
     }
 } else {
     AppSession::start($config['session'] ?? []);
+    CustomerRememberAuth::maybeRestoreFromCookie();
     Lang::bootstrapFromRequest();
     require_once APNI_TOKRI_ROOT . '/includes/seo/redirect_request.php';
 }
