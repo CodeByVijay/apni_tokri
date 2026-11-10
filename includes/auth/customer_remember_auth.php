@@ -21,6 +21,51 @@ final class CustomerRememberAuth
 
     private const LOCK_WAIT_SECONDS = 5;
 
+    /** Disposable integration tests only — force sendCookie() to return false. */
+    private static ?bool $integrationForceCookieSendFailure = null;
+
+    /** Disposable integration tests only — throw before rotation UPDATE executes. */
+    private static bool $integrationForceRotateDbError = false;
+
+    /** Matches scripts/includes/disposable_db_runner.php DISPOSABLE_TMP_DB_REGEX. */
+    private const DISPOSABLE_TMP_DB_REGEX = '/^apni_tokri_tmp_[0-9]{14}_[0-9a-f]{4}$/';
+
+    /**
+     * Allow maybeRestoreFromCookie() under CLI only for disposable-db integration tests (never production web).
+     */
+    private static function integrationRestorePermittedInCli(): bool
+    {
+        if (getenv('APNI_TOKRI_DISPOSABLE_DB') !== '1'
+            || getenv('APNI_TOKRI_REMEMBER_INTEGRATION_RESTORE') !== '1') {
+            return false;
+        }
+        $name = (string) (App::config()['database']['name'] ?? '');
+
+        return $name !== '' && preg_match(self::DISPOSABLE_TMP_DB_REGEX, $name) === 1;
+    }
+
+    /**
+     * @internal Disposable integration tests only.
+     */
+    public static function integrationTestForceCookieSendFailure(?bool $force): void
+    {
+        if (!self::integrationRestorePermittedInCli()) {
+            return;
+        }
+        self::$integrationForceCookieSendFailure = $force;
+    }
+
+    /**
+     * @internal Disposable integration tests only.
+     */
+    public static function integrationTestForceRotateDbError(bool $force): void
+    {
+        if (!self::integrationRestorePermittedInCli()) {
+            return;
+        }
+        self::$integrationForceRotateDbError = $force;
+    }
+
     public static function tablesReady(): bool
     {
         if (!Install::isSchemaReady()) {
@@ -103,7 +148,10 @@ final class CustomerRememberAuth
      */
     public static function maybeRestoreFromCookie(): void
     {
-        if (PHP_SAPI === 'cli' || !self::enabled()) {
+        if (PHP_SAPI === 'cli' && !self::integrationRestorePermittedInCli()) {
+            return;
+        }
+        if (!self::enabled()) {
             return;
         }
         if (CustomerAuth::check()) {
@@ -313,6 +361,9 @@ final class CustomerRememberAuth
     private static function rotateTokenAfterSuccessfulRestore(PDO $pdo, int $rowId, string $expectedHash, string $selector): void
     {
         try {
+            if (self::$integrationForceRotateDbError && self::integrationRestorePermittedInCli()) {
+                throw new PDOException('CustomerRememberAuth integration test: forced rotation DB error.');
+            }
             $newValidator = bin2hex(random_bytes(self::VALIDATOR_BYTES));
             $newHash = self::hashValidator($newValidator);
             $expires = time() + self::MAX_AGE_SECONDS;
@@ -361,7 +412,15 @@ final class CustomerRememberAuth
         if (headers_sent()) {
             return false;
         }
+        if (self::$integrationForceCookieSendFailure === true && self::integrationRestorePermittedInCli()) {
+            return false;
+        }
         $value = $selector . '.' . $validator;
+        if (self::integrationRestorePermittedInCli() && PHP_SAPI === 'cli') {
+            $_COOKIE[self::COOKIE_NAME] = $value;
+
+            return true;
+        }
         $ok = setcookie(self::COOKIE_NAME, $value, [
             'expires' => $expiresUnix,
             'path' => self::cookiePath(),
@@ -377,6 +436,9 @@ final class CustomerRememberAuth
     {
         if (headers_sent()) {
             return;
+        }
+        if (self::integrationRestorePermittedInCli() && PHP_SAPI === 'cli') {
+            unset($_COOKIE[self::COOKIE_NAME]);
         }
         setcookie(self::COOKIE_NAME, '', [
             'expires' => time() - 3600,

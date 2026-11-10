@@ -133,7 +133,7 @@ if ($migrateMediaLibrary) {
     }
 }
 
-$rememberTest = basename($targetPath) === 'test-customer-remember-login.php';
+$rememberTest = str_starts_with(basename($targetPath), 'test-customer-remember');
 if ($migrateRememberLogin || $rememberTest) {
     $migration = $root . '/database/migrations/1.38.0_customer_remember_tokens.sql';
     fwrite(STDERR, "[disposable DB {$fresh}] applying migration 1.38.0_customer_remember_tokens.sql\n");

@@ -8,7 +8,10 @@ declare(strict_types=1);
  * Static (no DB): php scripts/test-customer-remember-login.php
  * Integration:   php scripts/run-in-disposable-db.php scripts/test-customer-remember-login.php --migrate-remember
  *
- * The runner must pass --migrate-remember (see disposable hook below) or set env APPLY_REMEMBER_MIGRATION=1.
+ * Integration requires APNI_TOKRI_DISPOSABLE_DB=1 (set by the disposable runner).
+ * Exercises restore under CLI via APNI_TOKRI_REMEMBER_INTEGRATION_RESTORE on apni_tokri_tmp_* DBs only.
+ * HTTP subprocess: test-customer-remember-http-restore-child.php (session start + maybeRestoreFromCookie).
+ * Concurrent subprocess: test-customer-remember-restore-concurrent-child.php when proc_open is available.
  */
 require_once dirname(__DIR__) . '/includes/bootstrap.php';
 
@@ -81,6 +84,8 @@ okRemember(
     'lock timeout does not clear remember cookie'
 );
 okRemember(str_contains($rememberSrc, 'DELETE FROM customer_remember_tokens WHERE id = ?'), 'orphan token cleanup on failed issue');
+okRemember(str_contains($rememberSrc, 'integrationRestorePermittedInCli'), 'CLI restore gated to disposable integration env');
+okRemember(str_contains($rememberSrc, 'last_used_at = NOW()'), 'rotation updates last_used_at in SQL');
 
 $savedUri = $_SERVER['REQUEST_URI'] ?? '';
 with_test_config(['app' => ['url_path' => '']], static function (): void {
@@ -107,7 +112,14 @@ if (!$integration) {
     echo "SKIP: customer_remember_tokens table not present — integration tests omitted.\n";
     echo "      Run: php scripts/run-in-disposable-db.php scripts/test-customer-remember-login.php\n";
     echo "      (apply migration 1.38.0 in disposable DB — see test runner env APPLY_REMEMBER_MIGRATION).\n";
+} elseif (getenv('APNI_TOKRI_DISPOSABLE_DB') !== '1') {
+    echo "SKIP: integration tests require scripts/run-in-disposable-db.php (disposable DB only).\n";
 } else {
+    require_once __DIR__ . '/lib/test_script_safety.php';
+    require_once __DIR__ . '/includes/customer_remember_test_helpers.php';
+    TestScriptSafety::assertDisposableDatabaseOrAbort();
+    remember_integration_enable();
+
     Install::ensureConnection();
     $pdo = Database::pdo();
     $pdo->exec('DELETE FROM customer_remember_tokens');
@@ -133,7 +145,9 @@ if (!$integration) {
 
     unset($_SESSION['customer_id']);
     CustomerAuth::logout();
-    $_COOKIE[CustomerRememberAuth::COOKIE_NAME] = remember_cookie_fixture($cust1);
+    $restoreCookie = remember_cookie_fixture($cust1);
+    $preRotationCookie = $restoreCookie;
+    $_COOKIE[CustomerRememberAuth::COOKIE_NAME] = $restoreCookie;
     $_SERVER['REQUEST_URI'] = (url_base() !== '' ? url_base() : '') . '/cart.php';
     CustomerRememberAuth::maybeRestoreFromCookie();
     okRemember(CustomerAuth::id() === $cust1, 'valid remember token restores customer_id');
@@ -141,13 +155,162 @@ if (!$integration) {
     $parsed = CustomerRememberAuth::parseCookieValue($_COOKIE[CustomerRememberAuth::COOKIE_NAME] ?? '');
     okRemember($parsed !== null, 'remember restore rotated cookie still parseable');
     if ($parsed !== null) {
-        $stmt = $pdo->prepare('SELECT token_hash FROM customer_remember_tokens WHERE selector = ?');
-        $stmt->execute([$parsed['selector']]);
-        $hash = (string) $stmt->fetchColumn();
-        okRemember(Security::hashEquals($hash, CustomerRememberAuth::hashValidator($parsed['validator'])), 'token rotated after successful restore');
-        $expStmt = $pdo->prepare('SELECT expires_at > DATE_ADD(NOW(), INTERVAL 29 DAY) FROM customer_remember_tokens WHERE selector = ?');
-        $expStmt->execute([$parsed['selector']]);
-        okRemember((int) $expStmt->fetchColumn() === 1, 'sliding expiry refreshed on restore (~30 days)');
+        $row = remember_token_row_by_selector($pdo, $parsed['selector']);
+        okRemember(
+            Security::hashEquals($row['token_hash'], CustomerRememberAuth::hashValidator($parsed['validator'])),
+            'token rotated after successful restore'
+        );
+        okRemember($row['last_used_at'] !== null, 'last_used_at set after successful restore and rotation');
+        okRemember($row['expires_ok'], 'sliding expiry refreshed on restore (~30 days)');
+
+        unset($_SESSION['customer_id']);
+        CustomerAuth::logout();
+        $_COOKIE[CustomerRememberAuth::COOKIE_NAME] = $preRotationCookie;
+        CustomerRememberAuth::maybeRestoreFromCookie();
+        okRemember(CustomerAuth::id() === null, 'pre-rotation validator no longer authenticates after rotation');
+
+        $_COOKIE[CustomerRememberAuth::COOKIE_NAME] = $parsed['selector'] . '.' . str_repeat('b', 64);
+        CustomerRememberAuth::maybeRestoreFromCookie();
+        okRemember(CustomerAuth::id() === null, 'stale validator after rotation does not restore');
+    }
+
+    unset($_SESSION['customer_id']);
+    CustomerAuth::logout();
+    $headersCookie = remember_cookie_fixture($cust1);
+    $headersSel = explode('.', $headersCookie, 2)[0];
+    $beforeHeaders = remember_token_row_by_selector($pdo, $headersSel);
+    unset($_SESSION['customer_id']);
+    CustomerAuth::logout();
+    $_COOKIE[CustomerRememberAuth::COOKIE_NAME] = $headersCookie;
+    echo 'x';
+    CustomerRememberAuth::maybeRestoreFromCookie();
+    okRemember(CustomerAuth::id() === $cust1, 'headers_sent: customer session still restored');
+    $afterHeaders = remember_token_row_by_selector($pdo, $headersSel);
+    okRemember($afterHeaders['last_used_at'] === null, 'headers_sent: last_used_at not updated when rotation skipped');
+    okRemember(
+        Security::hashEquals($beforeHeaders['token_hash'], $afterHeaders['token_hash']),
+        'headers_sent: token_hash unchanged when rotation skipped'
+    );
+
+    unset($_SESSION['customer_id']);
+    CustomerAuth::logout();
+    CustomerRememberAuth::integrationTestForceCookieSendFailure(true);
+    $rollbackCookie = remember_cookie_fixture($cust1);
+    $rollbackSel = explode('.', $rollbackCookie, 2)[0];
+    $hashBeforeRotate = remember_token_row_by_selector($pdo, $rollbackSel)['token_hash'];
+    $_COOKIE[CustomerRememberAuth::COOKIE_NAME] = $rollbackCookie;
+    CustomerRememberAuth::maybeRestoreFromCookie();
+    okRemember(CustomerAuth::id() === $cust1, 'cookie send failure: session restored');
+    $hashAfterFailedCookie = remember_token_row_by_selector($pdo, $rollbackSel)['token_hash'];
+    okRemember(
+        Security::hashEquals($hashBeforeRotate, $hashAfterFailedCookie),
+        'cookie send failure: DB token_hash rolled back after failed setcookie'
+    );
+    CustomerRememberAuth::integrationTestForceCookieSendFailure(null);
+
+    unset($_SESSION['customer_id']);
+    CustomerAuth::logout();
+    CustomerRememberAuth::integrationTestForceRotateDbError(true);
+    $dbErrCookie = remember_cookie_fixture($cust1);
+    $dbErrSel = explode('.', $dbErrCookie, 2)[0];
+    $hashBeforeDbErr = remember_token_row_by_selector($pdo, $dbErrSel)['token_hash'];
+    $_COOKIE[CustomerRememberAuth::COOKIE_NAME] = $dbErrCookie;
+    CustomerRememberAuth::maybeRestoreFromCookie();
+    okRemember(CustomerAuth::id() === $cust1, 'forced DB rotation error: session still restored');
+    okRemember(
+        remember_token_row_by_selector($pdo, $dbErrSel)['last_used_at'] === null,
+        'forced DB rotation error: last_used_at not updated'
+    );
+    okRemember(
+        Security::hashEquals($hashBeforeDbErr, remember_token_row_by_selector($pdo, $dbErrSel)['token_hash']),
+        'forced DB rotation error: token_hash unchanged'
+    );
+    CustomerRememberAuth::integrationTestForceRotateDbError(false);
+
+    $beforeIssueCount = (int) $pdo->query('SELECT COUNT(*) FROM customer_remember_tokens WHERE customer_id = ' . (int) $cust2)->fetchColumn();
+    CustomerRememberAuth::integrationTestForceCookieSendFailure(true);
+    $issued = CustomerRememberAuth::issueForCustomer($cust2);
+    okRemember(!$issued, 'issueForCustomer fails when cookie cannot be sent');
+    $afterIssueCount = (int) $pdo->query('SELECT COUNT(*) FROM customer_remember_tokens WHERE customer_id = ' . (int) $cust2)->fetchColumn();
+    okRemember($afterIssueCount === $beforeIssueCount, 'issueForCustomer removes orphan row when cookie send fails');
+    CustomerRememberAuth::integrationTestForceCookieSendFailure(null);
+
+    $httpChild = __DIR__ . '/test-customer-remember-http-restore-child.php';
+    if (!function_exists('proc_open')) {
+        echo "SKIP: proc_open unavailable — HTTP remember restore subprocess not executed\n";
+    } else {
+        unset($_SESSION['customer_id']);
+        CustomerAuth::logout();
+        $httpCookie = remember_cookie_fixture($cust1);
+        $httpResult = remember_http_restore_subprocess($httpChild, remember_integration_base_env(), $httpCookie);
+        okRemember($httpResult['ok'], 'HTTP subprocess restore completed successfully');
+        okRemember($httpResult['restored'], 'HTTP subprocess restored customer');
+        okRemember($httpResult['last_used_at_set'], 'HTTP subprocess set last_used_at');
+        okRemember($httpResult['hash_rotated'], 'HTTP subprocess rotated token hash');
+    }
+
+    $concurrentChild = __DIR__ . '/test-customer-remember-restore-concurrent-child.php';
+    if (!function_exists('proc_open')) {
+        echo "SKIP: proc_open unavailable — concurrent remember restore not executed\n";
+    } else {
+        unset($_SESSION['customer_id']);
+        CustomerAuth::logout();
+        $parCookie = remember_cookie_fixture($cust1);
+        $parSel = explode('.', $parCookie, 2)[0];
+        $cookieFile = remember_store_cookie_fixture_file($parCookie);
+        $barrier = tempnam(sys_get_temp_dir(), 'atrembar');
+        if ($barrier !== false) {
+            touch($barrier);
+        }
+        $outA = tempnam(sys_get_temp_dir(), 'atremca');
+        $outB = tempnam(sys_get_temp_dir(), 'atremcb');
+        $baseEnv = remember_integration_base_env();
+        $baseEnv['APNI_TOKRI_REMEMBER_INTEGRATION_RESTORE'] = '1';
+        $childEnv = [
+            'AT_REMEMBER_CONCURRENT_CHILD' => '1',
+            'AT_REMEMBER_COOKIE_FILE' => $cookieFile,
+            'AT_REMEMBER_BARRIER' => $barrier !== false ? $barrier : '',
+        ];
+        $envA = array_merge($baseEnv, $childEnv, ['AT_REMEMBER_CONCURRENT_OUT' => $outA !== false ? $outA : '']);
+        $envB = array_merge($baseEnv, $childEnv, ['AT_REMEMBER_CONCURRENT_OUT' => $outB !== false ? $outB : '']);
+        $descriptors = [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']];
+        $procA = proc_open([PHP_BINARY, $concurrentChild], $descriptors, $pipesA, null, $envA);
+        $procB = proc_open([PHP_BINARY, $concurrentChild], $descriptors, $pipesB, null, $envB);
+        usleep(200_000);
+        if ($barrier !== false) {
+            @unlink($barrier);
+        }
+        if (is_resource($procA)) {
+            fclose($pipesA[0]);
+            stream_get_contents($pipesA[1]);
+            fclose($pipesA[1]);
+            stream_get_contents($pipesA[2]);
+            fclose($pipesA[2]);
+            proc_close($procA);
+        }
+        if (is_resource($procB)) {
+            fclose($pipesB[0]);
+            stream_get_contents($pipesB[1]);
+            fclose($pipesB[1]);
+            stream_get_contents($pipesB[2]);
+            fclose($pipesB[2]);
+            proc_close($procB);
+        }
+        $payA = is_string($outA) ? json_decode((string) file_get_contents($outA), true) : null;
+        $payB = is_string($outB) ? json_decode((string) file_get_contents($outB), true) : null;
+        @unlink($cookieFile);
+        @unlink($outA);
+        @unlink($outB);
+        $restoredCount = (is_array($payA) && !empty($payA['restored']) ? 1 : 0)
+            + (is_array($payB) && !empty($payB['restored']) ? 1 : 0);
+        okRemember($restoredCount >= 1, 'concurrent restore: at least one request authenticated');
+        okRemember(
+            is_array($payA) && is_array($payB) && !empty($payA['cookie_parseable']) && !empty($payB['cookie_parseable']),
+            'concurrent restore: both subprocesses left parseable cookie state'
+        );
+        $parRow = remember_token_row_by_selector($pdo, $parSel);
+        okRemember($parRow['last_used_at'] !== null, 'concurrent restore: last_used_at set after winning rotation');
+        okRemember($parRow['revoked_at'] === null, 'concurrent restore: token row still active');
     }
 
     unset($_SESSION['customer_id']);
