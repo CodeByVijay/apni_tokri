@@ -54,6 +54,8 @@ function admin_delete_entity(string $entity, int $id): array
             return SubscriptionPlanRepository::deleteForAdmin($id);
         case 'subscription_menu_template':
             return SubscriptionMenuRepository::deleteForAdmin($id);
+        case 'admin_user':
+            return AdminRbacService::deleteUser($id);
         default:
             return ['ok' => false, 'message' => 'Unknown delete target.'];
     }
@@ -181,6 +183,32 @@ function admin_delete_form(
         . '<button type="submit" class="at-admin-actions__btn at-admin-actions__btn--delete at-focusable" title="' . Security::escape($deleteTitle) . '" aria-label="' . Security::escape($deleteTitle) . '">'
         . at_icon('trash-2', 'at-admin-actions__icon') . '</button>'
         . '</form>';
+}
+
+/** Delete control for admin staff users (confirmation includes name and email). */
+function admin_user_delete_form(
+    int $userId,
+    string $name,
+    string $email,
+    int $listPage = 1,
+    int $listPerPage = 20,
+    string $listSearch = ''
+): string {
+    if ($userId <= 0) {
+        return '';
+    }
+    $confirm = "Are you sure you want to delete this admin user?\n\n"
+        . str_replace(["\r", "\n"], ' ', $name) . ' (' . $email . ")\n\n"
+        . 'They will no longer be able to log in to the admin panel.';
+
+    return '<form method="post" class="at-admin-actions__form" onsubmit="return confirm(' . json_encode($confirm, JSON_UNESCAPED_UNICODE) . ');">'
+        . Csrf::field()
+        . admin_list_delete_hiddens($listPage, $listPerPage, $listSearch)
+        . '<input type="hidden" name="admin_delete" value="1">'
+        . '<input type="hidden" name="entity" value="admin_user">'
+        . '<input type="hidden" name="record_id" value="' . (int) $userId . '">'
+        . '<button type="submit" class="at-admin-actions__btn at-admin-actions__btn--delete at-focusable" title="Delete user" aria-label="Delete user">'
+        . at_icon('trash-2', 'at-admin-actions__icon') . '</button></form>';
 }
 
 /** Icon delete button markup for custom POST forms (same styling, caller supplies CSRF + fields). */

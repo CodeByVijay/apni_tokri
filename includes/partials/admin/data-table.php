@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 /** @var list<array<string, string>> $columns label => key; optional 'align' => 'num'|'actions', 'class' => extra cell classes */
 /** @var list<array<string, string>> $rows */
+/** @var list<array<string, string>>|null $tableRows */
 /** @var string|null $tableClass */
 /** @var string|null $emptyMessage */
 /** @var bool $enableBulkSelect */
 /** @var string|null $bulkFormId */
+$rows = $rows ?? $tableRows ?? [];
 $tableClass = ($tableClass ?? 'at-admin-table') . ' at-admin-table--cards';
 $emptyMessage = $emptyMessage ?? 'No records found.';
 $enableBulkSelect = !empty($enableBulkSelect);

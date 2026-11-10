@@ -120,6 +120,8 @@ require_once APNI_TOKRI_ROOT . '/includes/push/push_token_service.php';
 require_once APNI_TOKRI_ROOT . '/includes/push/firebase_project_form.php';
 require_once APNI_TOKRI_ROOT . '/includes/push/firebase_setup_progress.php';
 require_once APNI_TOKRI_ROOT . '/includes/push/push_template_repository.php';
+require_once APNI_TOKRI_ROOT . '/includes/push/push_template_catalog.php';
+require_once APNI_TOKRI_ROOT . '/includes/push/push_template_admin.php';
 require_once APNI_TOKRI_ROOT . '/includes/push/push_notification_service.php';
 require_once APNI_TOKRI_ROOT . '/includes/push/push_coupon_notification.php';
 require_once APNI_TOKRI_ROOT . '/includes/push/push_event_bridge.php';

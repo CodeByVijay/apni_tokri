@@ -570,6 +570,65 @@ final class AdminRbacService
         }
     }
 
+    /**
+     * Permanently remove a non–super-admin staff user. Related FKs use CASCADE or SET NULL.
+     *
+     * @return array{ok: bool, message: string}
+     */
+    public static function deleteUser(int $userId): array
+    {
+        if (!Permission::can('users.manage')) {
+            self::logEscalationDenied('users.delete', ['user_id' => $userId]);
+
+            return ['ok' => false, 'message' => 'Forbidden.'];
+        }
+        if ($userId <= 0) {
+            return ['ok' => false, 'message' => 'User not found.'];
+        }
+        if (!Install::isSchemaReady()) {
+            return ['ok' => false, 'message' => 'Database not ready.'];
+        }
+        $actorId = AdminAuth::id();
+        if ($actorId !== null && $actorId === $userId) {
+            return ['ok' => false, 'message' => 'You cannot delete your own account.'];
+        }
+        if (self::userHasSuperAdminRole($userId)) {
+            return ['ok' => false, 'message' => 'Super Admin accounts cannot be deleted.'];
+        }
+        $user = self::findUserById($userId);
+        if ($user === null) {
+            return ['ok' => false, 'message' => 'User not found.'];
+        }
+        try {
+            return Database::transaction(static function () use ($userId, $user): array {
+                $pdo = Database::pdo();
+                $st = $pdo->prepare('SELECT id FROM admin_users WHERE id = ? LIMIT 1 FOR UPDATE');
+                $st->execute([$userId]);
+                if (!$st->fetchColumn()) {
+                    return ['ok' => false, 'message' => 'User not found.'];
+                }
+                if (self::userHasSuperAdminRole($userId)) {
+                    return ['ok' => false, 'message' => 'Super Admin accounts cannot be deleted.'];
+                }
+                AuditLog::write('admin_user.delete', 'admin_user', (string) $userId, [
+                    'email' => (string) ($user['email'] ?? ''),
+                    'name' => (string) ($user['name'] ?? ''),
+                ]);
+                $del = $pdo->prepare('DELETE FROM admin_users WHERE id = ? LIMIT 1');
+                $del->execute([$userId]);
+                if ($del->rowCount() < 1) {
+                    return ['ok' => false, 'message' => 'Could not delete user.'];
+                }
+
+                return ['ok' => true, 'message' => 'Admin user deleted.'];
+            });
+        } catch (Throwable $e) {
+            error_log('AdminRbacService::deleteUser: ' . $e->getMessage());
+
+            return ['ok' => false, 'message' => 'Could not delete user. Related records may prevent removal.'];
+        }
+    }
+
     /** @return array{ok: bool, message?: string} */
     public static function deleteRole(int $roleId): array
     {

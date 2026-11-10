@@ -154,7 +154,7 @@ final class PushAdminList
     /**
      * @return array{rows: list<array<string, mixed>>, total: int, page: int, per_page: int, total_pages: int}
      */
-    public static function templates(string $q, int $page, int $perPage): array
+    public static function templates(string $q, string $activeFilter, int $page, int $perPage): array
     {
         if (!PushSchema::tableReady('push_notification_templates')) {
             return self::emptyPage($page, $perPage);
@@ -163,10 +163,15 @@ final class PushAdminList
         $pdo = Database::pdo();
         $where = '1=1';
         $params = [];
+        if ($activeFilter === 'active') {
+            $where .= ' AND is_active = 1';
+        } elseif ($activeFilter === 'inactive') {
+            $where .= ' AND is_active = 0';
+        }
         if ($q !== '') {
             $like = '%' . AdminServerList::escapeLike($q) . '%';
             $where .= ' AND (template_key LIKE ? OR event_type LIKE ? OR title_template LIKE ?)';
-            $params = [$like, $like, $like];
+            array_push($params, $like, $like, $like);
         }
         $countStmt = $pdo->prepare("SELECT COUNT(*) FROM push_notification_templates WHERE {$where}");
         $countStmt->execute($params);
@@ -225,7 +230,7 @@ final class PushAdminList
     /** Build redirect query preserving list filters (exclude page for post-action clamp). */
     public static function listRedirectQuery(array $get, ?int $pageOverride = null): string
     {
-        $keep = ['q', 'platform', 'status', 'per_page', 'page', 'edit'];
+        $keep = ['q', 'platform', 'status', 'active', 'per_page', 'page', 'edit', 'create'];
         $out = [];
         foreach ($keep as $k) {
             if (!isset($get[$k]) || (string) $get[$k] === '') {
