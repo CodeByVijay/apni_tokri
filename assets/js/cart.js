@@ -35,6 +35,45 @@
     }
   }
 
+  /** Cart page heading shows line count (distinct from header badge qty sum). */
+  function updateCartHeadingLineCount() {
+    var n = $('.at-line-item[data-line-key]').length;
+    var $h1 = $('.at-pagehead .at-h1').first();
+    if (!$h1.length) return;
+    var $countSpan = $h1.find('[data-cart-page-line-count]');
+    if (n === 0) {
+      $countSpan.remove();
+      return;
+    }
+    var label = '(' + n + ' item' + (n === 1 ? '' : 's') + ')';
+    if ($countSpan.length) {
+      $countSpan.text(label);
+    } else {
+      $h1.append(
+        ' <span class="at-muted text-lg font-sans font-semibold" data-cart-page-line-count>' +
+          label +
+          '</span>'
+      );
+    }
+  }
+
+  function showEmptyCartUi() {
+    var $container = $('.at-container.at-cart-page--sticky').first();
+    if (!$container.length) {
+      $container = $('.at-container').has('.at-line-item').first();
+    }
+    if (!$container.length) return;
+    $container.removeClass('at-cart-page--sticky');
+    $('.at-steps-bar').addClass('hidden');
+    $('[data-at-cart-sticky]').addClass('hidden');
+    var $grid = $container.children('.grid').first();
+    var tpl = document.getElementById('at-cart-empty-template');
+    if ($grid.length && tpl && tpl.content) {
+      $grid.replaceWith($(tpl.content.cloneNode(true)));
+    }
+    updateCartHeadingLineCount();
+  }
+
   window.ApniTokriCart = {
     add: function (productSlug, variantId, qty, done) {
       $.ajax({
@@ -398,9 +437,17 @@
       dataType: 'json',
       data: $.extend({ _csrf_token: csrfToken(), line_key: lineKey }, extra || {})
     }).done(function (res) {
+      if (seq !== cartMutationSeq) {
+        return;
+      }
       if (res.success) {
-        if (action === 'remove' && (!res.data || res.data.count === 0)) {
-          location.reload();
+        if (action === 'remove') {
+          applyCartMutationResponse($row, res, seq);
+          $row.remove();
+          updateCartHeadingLineCount();
+          if ($('.at-line-item[data-line-key]').length === 0) {
+            showEmptyCartUi();
+          }
           return;
         }
         applyCartMutationResponse($row, res, seq);

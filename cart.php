@@ -21,7 +21,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
     <div class="at-container pb-5">
         <nav class="at-breadcrumb" aria-label="Breadcrumb"><a href="<?= Security::escape(url_base()) ?>/index.php">Home</a><span class="sep">/</span><span aria-current="page"><?= Security::escape(__('nav_cart')) ?></span></nav>
         <div class="flex flex-wrap items-end justify-between gap-3">
-            <h1 class="at-h1"><?= Security::escape(__('nav_cart')) ?><?php if ($items !== []): ?> <span class="at-muted text-lg font-sans font-semibold">(<?= count($items) ?> item<?= count($items) === 1 ? '' : 's' ?>)</span><?php endif; ?></h1>
+            <h1 class="at-h1"><?= Security::escape(__('nav_cart')) ?><?php if ($items !== []): ?> <span class="at-muted text-lg font-sans font-semibold" data-cart-page-line-count>(<?= count($items) ?> item<?= count($items) === 1 ? '' : 's' ?>)</span><?php endif; ?></h1>
             <?php if ($items !== []): ?>
                 <div class="at-steps-bar" aria-label="Checkout progress"><span class="is-current"><b>1</b>Cart</span><i class="line"></i><span><b>2</b>Details</span><i class="line"></i><span><b>3</b>Payment</span></div>
             <?php endif; ?>
@@ -182,6 +182,16 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
         </div>
         <a href="<?= $cartCheckoutBlocked ? '#' : Security::escape(url_base()) . '/checkout.php' ?>" class="at-btn at-btn--primary at-focusable at-cart-sticky__cta <?= $cartCheckoutBlocked ? 'pointer-events-none opacity-50' : '' ?>" data-cart-checkout-cta <?= $cartCheckoutBlocked ? 'aria-disabled="true"' : '' ?>>Checkout <?= at_icon('arrow-right', 'w-5 h-5') ?></a>
     </div>
+    <template id="at-cart-empty-template">
+        <?php
+        $emptyTitle = 'Your cart is empty';
+        $emptyMessage = 'Add a few fresh items and they will wait here. Your cart stays saved even if a payment fails.';
+        $emptyIcon = 'cart';
+        $emptyActionHref = url_base() . '/index.php';
+        $emptyActionLabel = 'Continue shopping';
+        require APNI_TOKRI_ROOT . '/includes/partials/empty-state.php';
+        ?>
+    </template>
 <?php endif; ?>
 </div>
 <?php layout_public_end(); ?>
