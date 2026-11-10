@@ -168,12 +168,12 @@ function firebase_progress_status_badge(array $item): string
     $map = [
         'done' => ['mod' => 'ok', 'label' => 'Complete'],
         'pending' => ['mod' => 'warn', 'label' => 'Not yet'],
-        'manual' => ['mod' => 'neutral', 'label' => 'Manual check'],
+        'manual' => ['mod' => 'info', 'label' => 'Manual check'],
         'na' => ['mod' => 'neutral', 'label' => 'N/A'],
     ];
     $cfg = $map[$status] ?? $map['pending'];
 
-    return '<span class="at-status at-status--' . $cfg['mod'] . ' at-firebase-progress__badge">'
+    return '<span class="at-status at-status--' . $cfg['mod'] . ' at-firebase-setup-guide__badge">'
         . Security::escape($cfg['label']) . '</span>';
 }
 
@@ -185,24 +185,27 @@ function firebase_render_progress_list(string $heading, array $items): void
     if ($items === []) {
         return;
     }
-    echo '<section class="at-firebase-progress__group" aria-labelledby="' . Security::escape('fbprog-' . md5($heading)) . '">';
-    echo '<h3 class="at-firebase-progress__heading" id="' . Security::escape('fbprog-' . md5($heading)) . '">'
+    $slug = 'fbprog-' . md5($heading);
+    echo '<article class="at-firebase-setup-guide__progress-card" aria-labelledby="' . Security::escape($slug) . '">';
+    echo '<h3 class="at-firebase-setup-guide__progress-card-title" id="' . Security::escape($slug) . '">'
         . Security::escape($heading) . '</h3>';
-    echo '<ul class="at-firebase-progress__list">';
+    echo '<ul class="at-firebase-setup-guide__progress-list">';
     foreach ($items as $item) {
         if (!is_array($item)) {
             continue;
         }
-        echo '<li class="at-firebase-progress__row">';
-        echo '<span class="at-firebase-progress__label">' . Security::escape((string) ($item['label'] ?? '')) . '</span>';
+        echo '<li class="at-firebase-setup-guide__progress-item">';
+        echo '<div class="at-firebase-setup-guide__progress-item-head">';
+        echo '<span class="at-firebase-setup-guide__progress-label">' . Security::escape((string) ($item['label'] ?? '')) . '</span>';
         echo firebase_progress_status_badge($item);
+        echo '</div>';
         $detail = trim((string) ($item['detail'] ?? ''));
         if ($detail !== '') {
-            echo '<p class="at-firebase-progress__detail">' . Security::escape($detail) . '</p>';
+            echo '<p class="at-firebase-setup-guide__progress-detail">' . Security::escape($detail) . '</p>';
         }
         echo '</li>';
     }
-    echo '</ul></section>';
+    echo '</ul></article>';
 }
 
 function firebase_field_help(string $text): void

@@ -62,7 +62,7 @@ $hasStoredServiceAccount = $id > 0 && trim((string) ($form['service_account_clie
 
 admin_layout_start(['pageTitle' => $id > 0 ? 'Edit Firebase project' : 'Add Firebase project', 'activeAdminNav' => 'firebase']);
 $pageHeading = $id > 0 ? 'Edit Firebase project' : 'Add Firebase project';
-$pageDescription = 'Step-by-step setup guide, platform-specific configuration, and encrypted server credentials.';
+$pageDescription = 'Configure platform-specific Firebase settings. Encrypted server credentials; setup guide below the form.';
 require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
 firebase_admin_subnav('projects');
 
@@ -70,12 +70,11 @@ $progress = FirebaseSetupProgress::build(is_array($row) ? $row : null, $platform
 ?>
 
 <?php foreach ($errors as $err): ?>
-<div class="at-alert at-alert--error mb-3"><?= Security::escape($err) ?></div>
+<div class="at-alert at-alert--error mb-3 max-w-[56rem] mx-auto w-full"><?= Security::escape($err) ?></div>
 <?php endforeach; ?>
 
-<?php firebase_render_setup_guide($id, $platforms, $progress, $base); ?>
-
-<form method="post" enctype="multipart/form-data" class="at-admin-card at-firebase-form-wrap">
+<div class="at-firebase-project-page">
+<form method="post" enctype="multipart/form-data" class="at-admin-card at-firebase-project-form">
     <div class="at-admin-card__body">
         <?= Csrf::field() ?>
         <input type="hidden" name="id" value="<?= (int) $id ?>">
@@ -256,6 +255,9 @@ $progress = FirebaseSetupProgress::build(is_array($row) ? $row : null, $platform
     </div>
 </form>
 
+<?php firebase_render_setup_guide($id, $platforms, $progress, $base); ?>
+</div>
+
 <script>
 (function () {
     var toggles = document.querySelectorAll('.js-platform-toggle');
@@ -300,6 +302,18 @@ $progress = FirebaseSetupProgress::build(is_array($row) ? $row : null, $platform
 
     toggles.forEach(function (el) { el.addEventListener('change', apply); });
     apply();
+
+    var guidePanel = document.getElementById('firebase-setup-guide-panel');
+    var guideLabel = document.querySelector('.js-guide-toggle-label');
+    if (guidePanel && guideLabel) {
+        function syncGuideToggle() {
+            guideLabel.textContent = guidePanel.open ? 'Hide Setup Guide' : 'View Setup Guide';
+            guidePanel.setAttribute('aria-expanded', guidePanel.open ? 'true' : 'false');
+        }
+        guidePanel.addEventListener('toggle', syncGuideToggle);
+        guidePanel.setAttribute('aria-expanded', guidePanel.open ? 'true' : 'false');
+        syncGuideToggle();
+    }
 })();
 </script>
 

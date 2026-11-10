@@ -8979,136 +8979,253 @@ body.at-map-viewer-open { overflow: hidden; }
   flex-wrap: wrap;
   gap: 0.5rem;
 }
-.at-firebase-form-wrap,
-.at-firebase-guide-wrap {
-  max-width: 52rem;
-  margin: 0 auto;
-}
-.at-firebase-guide {
-  border: 0;
-}
-.at-firebase-guide__summary {
-  list-style: none;
-  cursor: pointer;
-  padding: 0.25rem 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-}
-.at-firebase-guide__summary::-webkit-details-marker {
-  display: none;
-}
-.at-firebase-guide__summary::before {
-  content: "▸";
-  font-size: 0.75rem;
-  margin-right: 0.35rem;
-  color: var(--at-muted);
-  display: inline-block;
-  transition: transform 0.15s ease;
-}
-.at-firebase-guide[open] > .at-firebase-guide__summary::before {
-  transform: rotate(90deg);
-}
-.at-firebase-guide__summary-title {
-  font-size: 1.125rem;
-  font-weight: 700;
-}
-.at-firebase-guide__summary-sub {
-  font-size: 0.875rem;
-  color: var(--at-muted);
-}
-.at-firebase-guide__body {
-  padding-top: 1rem;
-  border-top: 1px solid var(--at-border);
-  margin-top: 0.75rem;
-}
-.at-firebase-guide__section-title {
-  font-size: 1rem;
-  font-weight: 700;
-  margin: 0 0 0.5rem;
-}
-.at-firebase-guide__sub {
-  margin-top: 1rem;
-  border: 1px solid var(--at-border);
-  border-radius: var(--at-radius, 8px);
-  padding: 0.75rem 1rem;
-  background: var(--at-surface-2, #f8faf9);
-}
-.at-firebase-guide__sub-summary {
-  font-weight: 700;
-  cursor: pointer;
-  list-style: none;
-}
-.at-firebase-guide__sub-summary::-webkit-details-marker {
-  display: none;
-}
-.at-firebase-guide__ol {
-  margin: 0.5rem 0 0;
-  padding-left: 1.25rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  font-size: 0.875rem;
-}
-.at-firebase-guide__ascii {
-  background: #0f172a0a;
-  border-radius: 6px;
-  padding: 0.75rem 1rem;
-  overflow-x: auto;
-  line-height: 1.45;
-}
-.at-firebase-key-table {
+.at-firebase-project-page {
   width: 100%;
-  border-collapse: collapse;
-}
-.at-firebase-key-table th,
-.at-firebase-key-table td {
-  border: 1px solid var(--at-border);
-  padding: 0.4rem 0.6rem;
-  text-align: left;
-  vertical-align: top;
-}
-.at-firebase-progress__grid {
-  display: grid;
+  max-width: 56rem;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
   gap: 1.25rem;
 }
+.at-firebase-project-form .at-admin-card__body {
+  padding: 1.25rem 1.5rem;
+}
 @media (min-width: 768px) {
-  .at-firebase-progress__grid {
+  .at-firebase-project-form .at-admin-card__body {
+    padding: 1.5rem 1.75rem;
+  }
+}
+.at-firebase-form-wrap {
+  max-width: 56rem;
+  margin: 0 auto;
+}
+/* —— Firebase setup guide (below project form) —— */
+.at-firebase-setup-guide {
+  overflow: hidden;
+}
+.at-firebase-setup-guide__panel {
+  border: 0;
+}
+.at-firebase-setup-guide__header {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  margin: 0;
+  user-select: none;
+}
+.at-firebase-setup-guide__header::-webkit-details-marker {
+  display: none;
+}
+.at-firebase-setup-guide__header:focus-visible {
+  outline: 2px solid var(--at-green-dark, #2d7048);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+.at-firebase-setup-guide__header-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+.at-firebase-setup-guide__title {
+  font-size: 1.0625rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+.at-firebase-setup-guide__subtitle {
+  font-size: 0.875rem;
+  color: var(--at-muted);
+  line-height: 1.45;
+}
+.at-firebase-setup-guide__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--at-green-dark, #2d7048);
+}
+.at-firebase-setup-guide__chevron {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform 0.2s ease;
+  margin-top: -0.15rem;
+}
+.at-firebase-setup-guide__panel[open] .at-firebase-setup-guide__chevron {
+  transform: rotate(-135deg);
+  margin-top: 0.1rem;
+}
+.at-firebase-setup-guide__content {
+  padding: 0 1.25rem 1.25rem;
+  border-top: 1px solid var(--at-border);
+  animation: at-firebase-guide-fade 0.2s ease;
+}
+@keyframes at-firebase-guide-fade {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.at-firebase-setup-guide__section-title {
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 1rem 0 0.35rem;
+}
+.at-firebase-setup-guide__lede {
+  font-size: 0.8125rem;
+  color: var(--at-muted);
+  margin: 0 0 0.75rem;
+  line-height: 1.5;
+}
+.at-firebase-setup-guide__progress-grid {
+  display: grid;
+  gap: 0.75rem;
+}
+@media (min-width: 640px) {
+  .at-firebase-setup-guide__progress-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
-.at-firebase-progress__heading {
-  font-size: 0.875rem;
+.at-firebase-setup-guide__progress-card {
+  border: 1px solid var(--at-border);
+  border-radius: 8px;
+  padding: 0.75rem 0.85rem;
+  background: var(--at-surface-2, #f8faf9);
+}
+.at-firebase-setup-guide__progress-card-title {
+  font-size: 0.8125rem;
   font-weight: 700;
   margin: 0 0 0.5rem;
+  text-transform: none;
+  letter-spacing: 0;
 }
-.at-firebase-progress__list {
+.at-firebase-setup-guide__progress-list {
   list-style: none;
   margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.65rem;
+  gap: 0.5rem;
 }
-.at-firebase-progress__row {
+.at-firebase-setup-guide__progress-item {
+  background: #fff;
   border: 1px solid var(--at-border);
   border-radius: 6px;
-  padding: 0.5rem 0.65rem;
+  padding: 0.45rem 0.55rem;
+}
+.at-firebase-setup-guide__progress-item-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.at-firebase-setup-guide__progress-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.35;
+  flex: 1;
+  min-width: 0;
+}
+.at-firebase-setup-guide__progress-detail {
+  font-size: 0.6875rem;
+  color: var(--at-muted);
+  margin: 0.3rem 0 0;
+  line-height: 1.45;
+}
+.at-firebase-setup-guide__badge {
+  font-size: 0.625rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.at-firebase-setup-guide__doc {
+  margin-top: 0.65rem;
+  border: 1px solid var(--at-border);
+  border-radius: 8px;
   background: #fff;
 }
-.at-firebase-progress__label {
-  font-size: 0.8125rem;
+.at-firebase-setup-guide__doc-summary {
+  font-size: 0.875rem;
   font-weight: 600;
-  display: block;
-  margin-bottom: 0.25rem;
+  padding: 0.65rem 0.85rem;
+  cursor: pointer;
+  list-style: none;
 }
-.at-firebase-progress__detail {
-  font-size: 0.75rem;
+.at-firebase-setup-guide__doc-summary::-webkit-details-marker {
+  display: none;
+}
+.at-firebase-setup-guide__doc-summary::before {
+  content: "▸";
+  display: inline-block;
+  margin-right: 0.35rem;
   color: var(--at-muted);
-  margin: 0.35rem 0 0;
+  transition: transform 0.15s ease;
 }
-.at-firebase-progress__badge {
-  font-size: 0.6875rem;
+.at-firebase-setup-guide__doc[open] > .at-firebase-setup-guide__doc-summary::before {
+  transform: rotate(90deg);
+}
+.at-firebase-setup-guide__doc-body {
+  padding: 0 0.85rem 0.85rem;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  border-top: 1px solid var(--at-border);
+  max-width: 52rem;
+}
+.at-firebase-setup-guide__step-title {
+  font-size: 0.875rem;
+  font-weight: 700;
+  margin: 0.75rem 0 0.35rem;
+}
+.at-firebase-setup-guide__ol,
+.at-firebase-setup-guide__ul {
+  margin: 0.35rem 0 0;
+  padding-left: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.at-firebase-setup-guide__pre {
+  background: #0f172a0a;
+  border-radius: 6px;
+  padding: 0.65rem 0.85rem;
+  overflow-x: auto;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+.at-firebase-setup-guide__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+.at-firebase-setup-guide__table th,
+.at-firebase-setup-guide__table td {
+  border: 1px solid var(--at-border);
+  padding: 0.4rem 0.55rem;
+  text-align: left;
+  vertical-align: top;
+}
+.at-firebase-setup-guide__note {
+  font-size: 0.8125rem;
+  color: var(--at-muted);
+  margin: 0.5rem 0 0;
+}
+.at-firebase-setup-guide__warn {
+  margin-top: 0.5rem;
+  font-size: 0.8125rem;
+}
+.at-firebase-setup-guide__doc-body code {
+  font-size: 0.8125em;
 }
 .at-firebase-form__section {
   padding: 1.25rem 0;
