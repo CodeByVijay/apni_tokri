@@ -629,29 +629,82 @@ final class AdminRbacService
         }
     }
 
-    /** @return array{ok: bool, message?: string} */
+    /**
+     * System roles are flagged in the database (`admin_roles.is_system = 1`).
+     * Super Admin is additionally protected by slug.
+     *
+     * @param array<string, mixed> $role
+     */
+    public static function isSystemRoleRow(array $role): bool
+    {
+        if ((int) ($role['is_system'] ?? 0) === 1) {
+            return true;
+        }
+
+        return (string) ($role['slug'] ?? '') === self::SUPER_ADMIN_SLUG;
+    }
+
+    /**
+     * @return array{ok: bool, message: string}
+     */
     public static function deleteRole(int $roleId): array
     {
         if (!Permission::can('roles.manage')) {
+            self::logEscalationDenied('roles.delete', ['role_id' => $roleId]);
+
             return ['ok' => false, 'message' => 'Forbidden.'];
         }
-        $role = self::findRoleById($roleId);
-        if ($role === null) {
+        if ($roleId <= 0) {
             return ['ok' => false, 'message' => 'Role not found.'];
         }
-        if ((int) ($role['is_system'] ?? 0) === 1) {
-            return ['ok' => false, 'message' => 'System roles cannot be deleted.'];
+        if (!Install::isSchemaReady()) {
+            return ['ok' => false, 'message' => 'Database not ready.'];
         }
-        Install::ensureConnection();
-        $stmt = Database::pdo()->prepare('SELECT COUNT(*) FROM admin_user_roles WHERE role_id = ?');
-        $stmt->execute([$roleId]);
-        if ((int) $stmt->fetchColumn() > 0) {
-            return ['ok' => false, 'message' => 'Remove this role from all users before deleting.'];
-        }
-        Database::pdo()->prepare('DELETE FROM admin_roles WHERE id = ? AND is_system = 0')->execute([$roleId]);
-        AuditLog::write('admin_role.delete', 'admin_role', (string) $roleId, ['slug' => $role['slug'] ?? '']);
+        try {
+            return Database::transaction(static function () use ($roleId): array {
+                $pdo = Database::pdo();
+                $st = $pdo->prepare(
+                    'SELECT id, slug, name, description, is_system FROM admin_roles WHERE id = ? LIMIT 1 FOR UPDATE'
+                );
+                $st->execute([$roleId]);
+                $role = $st->fetch(PDO::FETCH_ASSOC);
+                if (!is_array($role)) {
+                    return ['ok' => false, 'message' => 'Role not found.'];
+                }
+                if (self::isSystemRoleRow($role)) {
+                    return ['ok' => false, 'message' => 'System roles cannot be deleted.'];
+                }
+                $assignSt = $pdo->prepare('SELECT COUNT(*) FROM admin_user_roles WHERE role_id = ?');
+                $assignSt->execute([$roleId]);
+                $assigned = (int) $assignSt->fetchColumn();
+                if ($assigned > 0) {
+                    $userLabel = $assigned === 1 ? '1 admin user' : $assigned . ' admin users';
 
-        return ['ok' => true];
+                    return [
+                        'ok' => false,
+                        'message' => 'This role is assigned to ' . $userLabel
+                            . '. Reassign those users to another role before deleting.',
+                    ];
+                }
+                $slug = (string) ($role['slug'] ?? '');
+                AuditLog::write('admin_role.delete', 'admin_role', (string) $roleId, [
+                    'slug' => $slug,
+                    'name' => (string) ($role['name'] ?? ''),
+                ]);
+                $del = $pdo->prepare('DELETE FROM admin_roles WHERE id = ? AND is_system = 0 LIMIT 1');
+                $del->execute([$roleId]);
+                if ($del->rowCount() < 1) {
+                    return ['ok' => false, 'message' => 'Could not delete role.'];
+                }
+                Permission::clearCache();
+
+                return ['ok' => true, 'message' => 'Role deleted.'];
+            });
+        } catch (Throwable $e) {
+            error_log('AdminRbacService::deleteRole: ' . $e->getMessage());
+
+            return ['ok' => false, 'message' => 'Could not delete role.'];
+        }
     }
 
     /** Verify seeded system roles include expected permission slugs (for tests). */

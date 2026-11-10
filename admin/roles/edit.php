@@ -17,7 +17,7 @@ if ($id && $role === null && $useDb) {
     exit;
 }
 
-$isSystem = $role !== null && (int) ($role['is_system'] ?? 0) === 1;
+$isSystem = $role !== null && AdminRbacService::isSystemRoleRow($role);
 $isSuperAdmin = $role !== null && (string) ($role['slug'] ?? '') === AdminRbacService::SUPER_ADMIN_SLUG;
 $allPerms = $useDb ? AdminRbacService::listPermissions() : [];
 $selectedPermIds = [];
@@ -46,7 +46,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $postId = isset($_POST['id']) && $_POST['id'] !== '' ? (int) $_POST['id'] : null;
     if ($action === 'delete' && $postId) {
         $del = AdminRbacService::deleteRole($postId);
-        admin_flash_set($del['ok'] ? 'Role deleted.' : ($del['message'] ?? 'Could not delete.'), $del['ok'] ? 'success' : 'error');
+        $msg = (string) ($del['message'] ?? ($del['ok'] ? 'Role deleted.' : 'Could not delete.'));
+        admin_flash_set($msg, !empty($del['ok']) ? 'success' : 'error');
         header('Location: ' . url_base() . '/admin/roles/index.php', true, 302);
         exit;
     }

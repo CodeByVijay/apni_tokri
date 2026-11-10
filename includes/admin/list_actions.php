@@ -56,6 +56,8 @@ function admin_delete_entity(string $entity, int $id): array
             return SubscriptionMenuRepository::deleteForAdmin($id);
         case 'admin_user':
             return AdminRbacService::deleteUser($id);
+        case 'admin_role':
+            return AdminRbacService::deleteRole($id);
         default:
             return ['ok' => false, 'message' => 'Unknown delete target.'];
     }
@@ -183,6 +185,22 @@ function admin_delete_form(
         . '<button type="submit" class="at-admin-actions__btn at-admin-actions__btn--delete at-focusable" title="' . Security::escape($deleteTitle) . '" aria-label="' . Security::escape($deleteTitle) . '">'
         . at_icon('trash-2', 'at-admin-actions__icon') . '</button>'
         . '</form>';
+}
+
+/** Icon button opening the roles list delete modal (custom roles only). */
+function admin_role_delete_button(int $roleId, string $roleName, string $roleSlug): string
+{
+    if ($roleId <= 0) {
+        return '';
+    }
+
+    return '<button type="button" class="at-admin-actions__btn at-admin-actions__btn--delete at-focusable"'
+        . ' data-at-admin-role-delete-trigger'
+        . ' data-role-id="' . (int) $roleId . '"'
+        . ' data-role-name="' . Security::escape($roleName) . '"'
+        . ' data-role-slug="' . Security::escape($roleSlug) . '"'
+        . ' title="Delete role" aria-label="Delete role">'
+        . at_icon('trash-2', 'at-admin-actions__icon') . '</button>';
 }
 
 /** Delete control for admin staff users (confirmation includes name and email). */
