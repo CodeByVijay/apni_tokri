@@ -13,29 +13,23 @@ final class FirebaseAdminService
         if (!PushSchema::tableReady('firebase_projects')) {
             return ['ok' => false, 'errors' => ['Database migration 1.39.0 is not applied.']];
         }
-        $name = trim((string) ($input['name'] ?? ''));
-        $projectId = trim((string) ($input['firebase_project_id'] ?? ''));
-        $errors = [];
-        if ($name === '') {
-            $errors[] = 'Project name is required.';
-        }
-        if ($projectId === '' || !preg_match('/^[a-z0-9-]{4,128}$/i', $projectId)) {
-            $errors[] = 'Valid Firebase Project ID is required.';
-        }
-        if ($errors !== []) {
-            return ['ok' => false, 'errors' => $errors];
-        }
-
-        $encrypted = null;
-        $clientEmail = null;
-        $fingerprint = null;
+        $existing = null;
         $previousEncrypted = null;
         if ($id !== null && $id > 0) {
             $existing = FirebaseProjectManager::findById($id, true);
             $previousEncrypted = $existing['service_account_encrypted'] ?? null;
-            $clientEmail = $existing['service_account_client_email'] ?? null;
-            $fingerprint = $existing['credential_fingerprint'] ?? null;
         }
+
+        $built = FirebaseProjectForm::validateAndBuildFields($input, $serviceAccountJson, $existing);
+        if (empty($built['ok'])) {
+            return ['ok' => false, 'errors' => $built['errors'] ?? ['Validation failed.']];
+        }
+        /** @var array<string, mixed> $fields */
+        $fields = $built['fields'];
+
+        $encrypted = null;
+        $clientEmail = $existing['service_account_client_email'] ?? null;
+        $fingerprint = $existing['credential_fingerprint'] ?? null;
 
         if ($serviceAccountJson !== null && trim($serviceAccountJson) !== '') {
             $parsed = FirebaseCredentialManager::parseServiceAccountUpload($serviceAccountJson);
@@ -43,33 +37,17 @@ final class FirebaseAdminService
                 return ['ok' => false, 'errors' => $parsed['errors'] ?? ['Invalid service account.']];
             }
             $test = FirebaseCredentialManager::testCredentials($parsed['json'], $id ?? 0);
-            if (empty($test['ok']) && AppEnvironment::isProduction()) {
-                return [
-                    'ok' => false,
-                    'errors' => ['Credential validation failed: ' . (string) ($test['message'] ?? '')],
-                ];
+            if (empty($test['ok'])) {
+                $msg = 'Credential validation failed: ' . (string) ($test['message'] ?? '');
+                if (AppEnvironment::isProduction()) {
+                    return ['ok' => false, 'errors' => [$msg]];
+                }
+                // Non-production: allow save but surface test failure in logs for admins.
             }
             $encrypted = FirebaseCredentialManager::encryptForStorage($parsed['json']);
             $clientEmail = $parsed['client_email'] ?? null;
             $fingerprint = $parsed['fingerprint'] ?? null;
-        } elseif ($id === null) {
-            return ['ok' => false, 'errors' => ['Service account JSON is required for new projects.']];
         }
-
-        $fields = [
-            'name' => $name,
-            'firebase_project_id' => $projectId,
-            'firebase_project_number' => self::nullableTrim($input['firebase_project_number'] ?? null),
-            'web_api_key' => self::nullableTrim($input['web_api_key'] ?? null),
-            'web_app_id' => self::nullableTrim($input['web_app_id'] ?? null),
-            'web_auth_domain' => self::nullableTrim($input['web_auth_domain'] ?? null),
-            'web_storage_bucket' => self::nullableTrim($input['web_storage_bucket'] ?? null),
-            'web_measurement_id' => self::nullableTrim($input['web_measurement_id'] ?? null),
-            'vapid_public_key' => self::nullableTrim($input['vapid_public_key'] ?? null),
-            'android_app_id' => self::nullableTrim($input['android_app_id'] ?? null),
-            'android_package_name' => self::nullableTrim($input['android_package_name'] ?? null),
-            'platform_notes' => self::nullableTrim($input['platform_notes'] ?? null),
-        ];
 
         try {
             Install::ensureConnection();
@@ -86,6 +64,15 @@ final class FirebaseAdminService
                     $fields['web_measurement_id'], $fields['vapid_public_key'], $fields['android_app_id'],
                     $fields['android_package_name'], $fields['platform_notes'],
                 ];
+                if (FirebaseProjectForm::platformColumnsReady()) {
+                    $sql = 'UPDATE firebase_projects SET
+                    name = ?, firebase_project_id = ?, firebase_project_number = ?,
+                    web_api_key = ?, web_app_id = ?, web_auth_domain = ?, web_storage_bucket = ?,
+                    web_measurement_id = ?, vapid_public_key = ?, android_app_id = ?, android_package_name = ?,
+                    platform_notes = ?, platform_web = ?, platform_android = ?, updated_at = NOW()';
+                    $params[] = (int) ($fields['platform_web'] ?? 1);
+                    $params[] = (int) ($fields['platform_android'] ?? 1);
+                }
                 if ($encrypted !== null) {
                     $sql .= ', service_account_encrypted = ?, service_account_client_email = ?, credential_fingerprint = ?';
                     $params[] = $encrypted;
@@ -96,38 +83,69 @@ final class FirebaseAdminService
                 $params[] = $id;
                 $pdo->prepare($sql)->execute($params);
                 FirebaseProjectManager::resetCache();
-                AuditLog::write('firebase.project.update', 'firebase_projects', (string) $id, ['name' => $name]);
+                AuditLog::write('firebase.project.update', 'firebase_projects', (string) $id, ['name' => (string) $fields['name']]);
 
                 return ['ok' => true, 'id' => $id, 'message' => 'Firebase project updated.'];
             }
 
-            $pdo->prepare(
-                'INSERT INTO firebase_projects
-                 (name, firebase_project_id, firebase_project_number, status,
-                  web_api_key, web_app_id, web_auth_domain, web_storage_bucket, web_measurement_id,
-                  vapid_public_key, android_app_id, android_package_name,
-                  service_account_encrypted, service_account_client_email, credential_fingerprint, platform_notes)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-            )->execute([
-                $fields['name'],
-                $fields['firebase_project_id'],
-                $fields['firebase_project_number'],
-                'draft',
-                $fields['web_api_key'],
-                $fields['web_app_id'],
-                $fields['web_auth_domain'],
-                $fields['web_storage_bucket'],
-                $fields['web_measurement_id'],
-                $fields['vapid_public_key'],
-                $fields['android_app_id'],
-                $fields['android_package_name'],
-                $encrypted,
-                $clientEmail,
-                $fingerprint,
-                $fields['platform_notes'],
-            ]);
+            if (FirebaseProjectForm::platformColumnsReady()) {
+                $pdo->prepare(
+                    'INSERT INTO firebase_projects
+                     (name, firebase_project_id, firebase_project_number, status,
+                      web_api_key, web_app_id, web_auth_domain, web_storage_bucket, web_measurement_id,
+                      vapid_public_key, android_app_id, android_package_name,
+                      service_account_encrypted, service_account_client_email, credential_fingerprint,
+                      platform_notes, platform_web, platform_android)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                )->execute([
+                    $fields['name'],
+                    $fields['firebase_project_id'],
+                    $fields['firebase_project_number'],
+                    'draft',
+                    $fields['web_api_key'],
+                    $fields['web_app_id'],
+                    $fields['web_auth_domain'],
+                    $fields['web_storage_bucket'],
+                    $fields['web_measurement_id'],
+                    $fields['vapid_public_key'],
+                    $fields['android_app_id'],
+                    $fields['android_package_name'],
+                    $encrypted,
+                    $clientEmail,
+                    $fingerprint,
+                    $fields['platform_notes'],
+                    (int) ($fields['platform_web'] ?? 1),
+                    (int) ($fields['platform_android'] ?? 1),
+                ]);
+            } else {
+                $pdo->prepare(
+                    'INSERT INTO firebase_projects
+                     (name, firebase_project_id, firebase_project_number, status,
+                      web_api_key, web_app_id, web_auth_domain, web_storage_bucket, web_measurement_id,
+                      vapid_public_key, android_app_id, android_package_name,
+                      service_account_encrypted, service_account_client_email, credential_fingerprint, platform_notes)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                )->execute([
+                    $fields['name'],
+                    $fields['firebase_project_id'],
+                    $fields['firebase_project_number'],
+                    'draft',
+                    $fields['web_api_key'],
+                    $fields['web_app_id'],
+                    $fields['web_auth_domain'],
+                    $fields['web_storage_bucket'],
+                    $fields['web_measurement_id'],
+                    $fields['vapid_public_key'],
+                    $fields['android_app_id'],
+                    $fields['android_package_name'],
+                    $encrypted,
+                    $clientEmail,
+                    $fingerprint,
+                    $fields['platform_notes'],
+                ]);
+            }
             $newId = (int) $pdo->lastInsertId();
-            AuditLog::write('firebase.project.create', 'firebase_projects', (string) $newId, ['name' => $name]);
+            AuditLog::write('firebase.project.create', 'firebase_projects', (string) $newId, ['name' => (string) $fields['name']]);
 
             return ['ok' => true, 'id' => $newId, 'message' => 'Firebase project created.'];
         } catch (Throwable $e) {
@@ -164,6 +182,15 @@ final class FirebaseAdminService
         $test = FirebaseCredentialManager::testCredentials($sa, $id);
         if (empty($test['ok'])) {
             return ['ok' => false, 'message' => 'Credential test failed: ' . (string) ($test['message'] ?? '')];
+        }
+        $platformCheck = FirebaseProjectForm::validateRowForActivation($row);
+        if (empty($platformCheck['ok'])) {
+            return ['ok' => false, 'message' => (string) ($platformCheck['message'] ?? 'Platform configuration incomplete.')];
+        }
+        $saProject = trim((string) ($sa['project_id'] ?? ''));
+        $configuredId = trim((string) ($row['firebase_project_id'] ?? ''));
+        if ($saProject !== '' && $configuredId !== '' && strcasecmp($saProject, $configuredId) !== 0) {
+            return ['ok' => false, 'message' => 'Service account project_id does not match Firebase Project ID.'];
         }
 
         $previousActive = FirebaseProjectManager::activeProject(false);

@@ -82,8 +82,13 @@ firebase_admin_list_toolbar($base . '/index.php', $listQ, $queryBase, $listPerPa
 $tableRows = [];
 foreach ($list['rows'] as $p) {
     $pid = (int) $p['id'];
-    $webOk = trim((string) ($p['web_app_id'] ?? '')) !== '';
-    $andOk = trim((string) ($p['android_app_id'] ?? '')) !== '';
+    $plat = FirebaseProjectForm::platformsFromRow($p);
+    $webOk = trim((string) ($p['web_app_id'] ?? '')) !== ''
+        && trim((string) ($p['vapid_public_key'] ?? '')) !== '';
+    $andOk = trim((string) ($p['android_app_id'] ?? '')) !== ''
+        && trim((string) ($p['android_package_name'] ?? '')) !== '';
+    $webCell = !$plat['web'] ? '—' : ($webOk ? admin_status_badge('active', 'Ready') : admin_status_badge('pending', 'Incomplete'));
+    $andCell = !$plat['android'] ? '—' : ($andOk ? admin_status_badge('active', 'Ready') : admin_status_badge('pending', 'Incomplete'));
     $testStatus = (string) ($p['last_test_status'] ?? 'unknown');
     $actions = '<div class="at-admin-actions at-admin-actions--firebase">';
     $actions .= '<a class="at-btn at-btn--sm at-btn--ghost at-focusable" href="' . Security::escape($base . '/edit.php?id=' . $pid) . '">Edit</a>';
@@ -111,8 +116,8 @@ foreach ($list['rows'] as $p) {
         'name' => $nameCell,
         'project_id' => '<code>' . Security::escape((string) $p['firebase_project_id']) . '</code>',
         'status' => (string) $p['status'],
-        'web' => $webOk ? admin_status_badge('active', 'Configured') : '—',
-        'android' => $andOk ? admin_status_badge('active', 'Configured') : '—',
+        'web' => $webCell,
+        'android' => $andCell,
         'last_test' => admin_status_badge($testStatus, ucfirst($testStatus)),
         'actions' => $actions,
     ];

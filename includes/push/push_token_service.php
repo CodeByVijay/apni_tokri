@@ -47,6 +47,9 @@ final class PushTokenService
         if ($active === null) {
             return ['ok' => false, 'message' => 'No active Firebase project.'];
         }
+        if ($platform === 'web' && !FirebaseProjectForm::platformsFromRow($active)['web']) {
+            return ['ok' => false, 'message' => 'Website push is not enabled for the active Firebase project.'];
+        }
         $projectId = (int) $active['id'];
         $deviceKey = self::deviceKeyFromRequest();
         $perm = in_array($permissionStatus, ['granted', 'denied', 'default'], true) ? $permissionStatus : 'unknown';

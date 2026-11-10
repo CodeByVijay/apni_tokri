@@ -25,13 +25,15 @@ final class FirebaseProjectManager
         }
         try {
             Install::ensureConnection();
+            $platformCols = FirebaseProjectForm::platformColumnsReady() ? ', platform_web, platform_android' : '';
             $cols = $includeEncrypted
                 ? '*'
                 : 'id, name, firebase_project_id, firebase_project_number, status, is_active_global,
                    web_api_key, web_app_id, web_auth_domain, web_storage_bucket, web_measurement_id,
                    vapid_public_key, android_app_id, android_package_name,
                    service_account_client_email, credential_fingerprint,
-                   last_test_status, last_test_at, last_test_message, platform_notes, created_at, updated_at';
+                   last_test_status, last_test_at, last_test_message, platform_notes, created_at, updated_at'
+                    . $platformCols;
             $stmt = Database::pdo()->query(
                 "SELECT {$cols} FROM firebase_projects
                  WHERE is_active_global = 1 AND status = 'active' ORDER BY id DESC LIMIT 1"
@@ -94,6 +96,9 @@ final class FirebaseProjectManager
     {
         $active = self::activeProject(false);
         if ($active === null) {
+            return null;
+        }
+        if (!FirebaseProjectForm::platformsFromRow($active)['web']) {
             return null;
         }
         if (trim((string) ($active['web_app_id'] ?? '')) === ''

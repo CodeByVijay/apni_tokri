@@ -8979,9 +8979,136 @@ body.at-map-viewer-open { overflow: hidden; }
   flex-wrap: wrap;
   gap: 0.5rem;
 }
-.at-firebase-form-wrap {
-  max-width: 48rem;
+.at-firebase-form-wrap,
+.at-firebase-guide-wrap {
+  max-width: 52rem;
   margin: 0 auto;
+}
+.at-firebase-guide {
+  border: 0;
+}
+.at-firebase-guide__summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 0.25rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.at-firebase-guide__summary::-webkit-details-marker {
+  display: none;
+}
+.at-firebase-guide__summary::before {
+  content: "▸";
+  font-size: 0.75rem;
+  margin-right: 0.35rem;
+  color: var(--at-muted);
+  display: inline-block;
+  transition: transform 0.15s ease;
+}
+.at-firebase-guide[open] > .at-firebase-guide__summary::before {
+  transform: rotate(90deg);
+}
+.at-firebase-guide__summary-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+.at-firebase-guide__summary-sub {
+  font-size: 0.875rem;
+  color: var(--at-muted);
+}
+.at-firebase-guide__body {
+  padding-top: 1rem;
+  border-top: 1px solid var(--at-border);
+  margin-top: 0.75rem;
+}
+.at-firebase-guide__section-title {
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 0 0 0.5rem;
+}
+.at-firebase-guide__sub {
+  margin-top: 1rem;
+  border: 1px solid var(--at-border);
+  border-radius: var(--at-radius, 8px);
+  padding: 0.75rem 1rem;
+  background: var(--at-surface-2, #f8faf9);
+}
+.at-firebase-guide__sub-summary {
+  font-weight: 700;
+  cursor: pointer;
+  list-style: none;
+}
+.at-firebase-guide__sub-summary::-webkit-details-marker {
+  display: none;
+}
+.at-firebase-guide__ol {
+  margin: 0.5rem 0 0;
+  padding-left: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.875rem;
+}
+.at-firebase-guide__ascii {
+  background: #0f172a0a;
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  overflow-x: auto;
+  line-height: 1.45;
+}
+.at-firebase-key-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.at-firebase-key-table th,
+.at-firebase-key-table td {
+  border: 1px solid var(--at-border);
+  padding: 0.4rem 0.6rem;
+  text-align: left;
+  vertical-align: top;
+}
+.at-firebase-progress__grid {
+  display: grid;
+  gap: 1.25rem;
+}
+@media (min-width: 768px) {
+  .at-firebase-progress__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.at-firebase-progress__heading {
+  font-size: 0.875rem;
+  font-weight: 700;
+  margin: 0 0 0.5rem;
+}
+.at-firebase-progress__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+.at-firebase-progress__row {
+  border: 1px solid var(--at-border);
+  border-radius: 6px;
+  padding: 0.5rem 0.65rem;
+  background: #fff;
+}
+.at-firebase-progress__label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  display: block;
+  margin-bottom: 0.25rem;
+}
+.at-firebase-progress__detail {
+  font-size: 0.75rem;
+  color: var(--at-muted);
+  margin: 0.35rem 0 0;
+}
+.at-firebase-progress__badge {
+  font-size: 0.6875rem;
 }
 .at-firebase-form__section {
   padding: 1.25rem 0;
@@ -9017,6 +9144,26 @@ body.at-map-viewer-open { overflow: hidden; }
 }
 .at-firebase-form__grid .span-full {
   grid-column: 1 / -1;
+}
+.at-firebase-platform-pick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.at-firebase-platform-pick__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.at-firebase-platform-pick__item input {
+  width: 1.125rem;
+  height: 1.125rem;
 }
 .at-label__required {
   color: var(--at-danger);

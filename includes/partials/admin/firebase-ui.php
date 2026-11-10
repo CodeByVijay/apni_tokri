@@ -158,3 +158,63 @@ function firebase_label_optional(string $text): string
 {
     return Security::escape($text) . ' <span class="at-label__optional">(optional)</span>';
 }
+
+/**
+ * @param array{id: string, label: string, status: string, detail: string} $item
+ */
+function firebase_progress_status_badge(array $item): string
+{
+    $status = (string) ($item['status'] ?? 'pending');
+    $map = [
+        'done' => ['mod' => 'ok', 'label' => 'Complete'],
+        'pending' => ['mod' => 'warn', 'label' => 'Not yet'],
+        'manual' => ['mod' => 'neutral', 'label' => 'Manual check'],
+        'na' => ['mod' => 'neutral', 'label' => 'N/A'],
+    ];
+    $cfg = $map[$status] ?? $map['pending'];
+
+    return '<span class="at-status at-status--' . $cfg['mod'] . ' at-firebase-progress__badge">'
+        . Security::escape($cfg['label']) . '</span>';
+}
+
+/**
+ * @param list<array{id: string, label: string, status: string, detail: string}> $items
+ */
+function firebase_render_progress_list(string $heading, array $items): void
+{
+    if ($items === []) {
+        return;
+    }
+    echo '<section class="at-firebase-progress__group" aria-labelledby="' . Security::escape('fbprog-' . md5($heading)) . '">';
+    echo '<h3 class="at-firebase-progress__heading" id="' . Security::escape('fbprog-' . md5($heading)) . '">'
+        . Security::escape($heading) . '</h3>';
+    echo '<ul class="at-firebase-progress__list">';
+    foreach ($items as $item) {
+        if (!is_array($item)) {
+            continue;
+        }
+        echo '<li class="at-firebase-progress__row">';
+        echo '<span class="at-firebase-progress__label">' . Security::escape((string) ($item['label'] ?? '')) . '</span>';
+        echo firebase_progress_status_badge($item);
+        $detail = trim((string) ($item['detail'] ?? ''));
+        if ($detail !== '') {
+            echo '<p class="at-firebase-progress__detail">' . Security::escape($detail) . '</p>';
+        }
+        echo '</li>';
+    }
+    echo '</ul></section>';
+}
+
+function firebase_field_help(string $text): void
+{
+    echo '<p class="text-xs at-muted mt-1 at-firebase-field-help">' . Security::escape($text) . '</p>';
+}
+
+/**
+ * @param array{web: bool, android: bool} $platforms
+ * @param array<string, list<array{id: string, label: string, status: string, detail: string}>> $progress
+ */
+function firebase_render_setup_guide(int $projectId, array $platforms, array $progress, string $adminBase): void
+{
+    require __DIR__ . '/firebase-setup-guide.php';
+}

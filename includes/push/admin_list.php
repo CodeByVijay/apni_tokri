@@ -29,13 +29,28 @@ final class PushAdminList
         $total = (int) $countStmt->fetchColumn();
         $page = self::clampPage($page, $total, $perPage);
         $offset = ($page - 1) * $perPage;
+        $platformCols = FirebaseProjectForm::platformColumnsReady()
+            ? ', platform_web, platform_android'
+            : '';
         $sql = "SELECT id, name, firebase_project_id, status, is_active_global,
-                       web_app_id, android_app_id, last_test_status, last_test_at, updated_at
+                       web_app_id, web_api_key, vapid_public_key, android_app_id, android_package_name
+                       {$platformCols},
+                       last_test_status, last_test_at, updated_at
                 FROM firebase_projects WHERE {$where}
                 ORDER BY is_active_global DESC, name ASC
                 LIMIT " . (int) $perPage . ' OFFSET ' . (int) $offset;
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute($params);
+        try {
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute($params);
+        } catch (Throwable $e) {
+            $sql = "SELECT id, name, firebase_project_id, status, is_active_global,
+                           web_app_id, android_app_id, last_test_status, last_test_at, updated_at
+                    FROM firebase_projects WHERE {$where}
+                    ORDER BY is_active_global DESC, name ASC
+                    LIMIT " . (int) $perPage . ' OFFSET ' . (int) $offset;
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute($params);
+        }
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
         return self::pack($rows, $total, $page, $perPage);

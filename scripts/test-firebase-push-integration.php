@@ -47,7 +47,8 @@ assertPush($stmt->fetchColumn() !== false, 'column device_push_registrations.tar
 
 $schemaVer = (string) $pdo->query("SELECT setting_value FROM settings WHERE setting_key = 'schema_version' LIMIT 1")->fetchColumn();
 assertPush(
-    str_contains($schemaVer, '1.39.3')
+    str_contains($schemaVer, '1.39.4')
+    || str_contains($schemaVer, '1.39.3')
     || str_contains($schemaVer, '1.39.2')
     || str_contains($schemaVer, '1.39.1')
     || str_contains($schemaVer, '1.39.0'),
@@ -76,9 +77,15 @@ $save = FirebaseAdminService::saveProject([
     'name' => 'Disposable Test',
     'firebase_project_id' => 'disposable-fcm-test',
     'firebase_project_number' => '123456',
+    'platform_web' => '1',
+    'platform_android' => '1',
     'web_api_key' => 'AIza_test',
-    'web_app_id' => '1:123:web:abc',
+    'web_app_id' => '1:123456:web:abc',
+    'web_auth_domain' => 'disposable-fcm-test.firebaseapp.com',
+    'web_storage_bucket' => 'disposable-fcm-test.appspot.com',
+    'web_measurement_id' => 'G-TEST',
     'vapid_public_key' => 'BTestVapid',
+    'android_app_id' => '1:123456:android:abc',
     'android_package_name' => 'com.test.app',
 ], json_encode($sa, JSON_THROW_ON_ERROR));
 assertPush(!empty($save['ok']), 'create firebase project');
@@ -104,13 +111,15 @@ FirebaseOAuth::$testHttpHandler = static fn () => [
 $act = FirebaseAdminService::activate($projectId);
 assertPush(!empty($act['ok']), 'activate project');
 
+$saB = $sa;
+$saB['project_id'] = 'disposable-fcm-b';
 $saveB = FirebaseAdminService::saveProject([
     'name' => 'Disposable B',
     'firebase_project_id' => 'disposable-fcm-b',
-    'web_api_key' => 'key',
-    'web_app_id' => 'app',
-    'vapid_public_key' => 'vapid',
-], json_encode($sa, JSON_THROW_ON_ERROR));
+    'platform_android' => '1',
+    'android_app_id' => '1:123456:android:def',
+    'android_package_name' => 'com.test.b',
+], json_encode($saB, JSON_THROW_ON_ERROR));
 $idB = (int) ($saveB['id'] ?? 0);
 FirebaseOAuth::$testHttpHandler = static fn () => ['ok' => false, 'status' => 401, 'body' => '', 'json' => null];
 $badAct = FirebaseAdminService::activate($idB);

@@ -70,10 +70,28 @@ $perm = (int) $pdo->query("SELECT COUNT(*) FROM admin_permissions WHERE slug = '
 echo 'permission_firebase_manage: ' . ($perm === 1 ? 'present' : 'MISSING') . "\n";
 
 // Infer migration apply state from schema_version + objects (no migration runner table).
+$platCols = 0;
+if (PushSchema::tableReady('firebase_projects')) {
+    $platCols = (int) $pdo->query(
+        "SELECT COUNT(*) FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'firebase_projects'
+           AND COLUMN_NAME IN ('platform_web','platform_android')"
+    )->fetchColumn();
+}
+echo 'firebase_projects.platform_flags: ' . ($platCols === 2 ? 'present' : 'MISSING') . "\n";
+if ($platCols === 2) {
+  $cnt = (int) $pdo->query('SELECT COUNT(*) FROM firebase_projects')->fetchColumn();
+  $bothOff = (int) $pdo->query('SELECT COUNT(*) FROM firebase_projects WHERE platform_web = 0 AND platform_android = 0')->fetchColumn();
+  echo "firebase_projects.row_count: {$cnt}\n";
+  echo 'firebase_projects.both_platforms_zero: ' . $bothOff . "\n";
+}
+
 $m39 = [
     '1.39.0' => str_contains($schemaVer, '1.39.0') || PushSchema::tableReady('firebase_projects'),
     '1.39.1' => str_contains($schemaVer, '1.39.1') || ($col !== false),
     '1.39.2' => str_contains($schemaVer, '1.39.2'),
+    '1.39.3' => str_contains($schemaVer, '1.39.3'),
+    '1.39.4' => str_contains($schemaVer, '1.39.4') || $platCols === 2,
 ];
 foreach ($m39 as $ver => $likely) {
     echo "migration_{$ver}_applied: " . ($likely ? 'yes' : 'unknown_or_no') . "\n";

@@ -117,6 +117,8 @@ require_once APNI_TOKRI_ROOT . '/includes/push/firebase_fcm_client.php';
 require_once APNI_TOKRI_ROOT . '/includes/push/firebase_credential_manager.php';
 require_once APNI_TOKRI_ROOT . '/includes/push/firebase_project_manager.php';
 require_once APNI_TOKRI_ROOT . '/includes/push/push_token_service.php';
+require_once APNI_TOKRI_ROOT . '/includes/push/firebase_project_form.php';
+require_once APNI_TOKRI_ROOT . '/includes/push/firebase_setup_progress.php';
 require_once APNI_TOKRI_ROOT . '/includes/push/push_template_repository.php';
 require_once APNI_TOKRI_ROOT . '/includes/push/push_notification_service.php';
 require_once APNI_TOKRI_ROOT . '/includes/push/push_coupon_notification.php';
