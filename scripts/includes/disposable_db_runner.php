@@ -132,6 +132,7 @@ function disposable_connect_pdo(array $db, ?string $databaseName = null): PDO
 
     return new PDO($dsn, $user, $pass, [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+        PDO::MYSQL_ATTR_USE_BUFFERED_QUERY => true,
     ]);
 }
 
@@ -179,10 +180,26 @@ function disposable_apply_migration_file(PDO $pdo, string $tmpDbName, string $mi
     if (empty($result['ok'])) {
         return ['ok' => false, 'message' => (string) ($result['message'] ?? 'Migration failed.')];
     }
-    require_once APNI_TOKRI_ROOT . '/includes/media/media_library.php';
-    if (!MediaLibrary::isEnabled()) {
-        return ['ok' => false, 'message' => 'Migration finished but media_assets is still missing.'];
+    if (str_contains($migrationPath, 'media_library')) {
+        require_once APNI_TOKRI_ROOT . '/includes/media/media_library.php';
+        if (!MediaLibrary::isEnabled()) {
+            return ['ok' => false, 'message' => 'Migration finished but media_assets is still missing.'];
+        }
     }
 
     return ['ok' => true];
+}
+
+/**
+ * @return list<string>
+ */
+function disposable_firebase_push_migration_paths(): array
+{
+    $root = APNI_TOKRI_ROOT . '/database/migrations/';
+
+    return [
+        $root . '1.39.0_firebase_push_notifications.sql',
+        $root . '1.39.1_push_registration_target_type.sql',
+        $root . '1.39.2_push_subscription_templates.sql',
+    ];
 }

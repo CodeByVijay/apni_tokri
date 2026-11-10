@@ -17,6 +17,7 @@ require_once __DIR__ . '/includes/disposable_db_runner.php';
 
 $migrateMediaLibrary = false;
 $migrateRememberLogin = false;
+$migrateFirebasePush = false;
 $targetArg = '';
 foreach (array_slice($argv, 1) as $arg) {
     if ($arg === '--migrate-media-library') {
@@ -25,6 +26,10 @@ foreach (array_slice($argv, 1) as $arg) {
     }
     if ($arg === '--migrate-remember') {
         $migrateRememberLogin = true;
+        continue;
+    }
+    if ($arg === '--migrate-firebase-push') {
+        $migrateFirebasePush = true;
         continue;
     }
     if ($targetArg === '' && $arg !== '' && $arg[0] !== '-') {
@@ -133,6 +138,26 @@ if ($migrateMediaLibrary) {
     }
 }
 
+$firebasePushTest = in_array(
+    basename($targetPath),
+    [
+        'test-firebase-push-integration.php',
+        'test-firebase-push-schema.php',
+        'test-firebase-push-migration-idempotent.php',
+    ],
+    true
+);
+if ($migrateFirebasePush || $firebasePushTest) {
+    foreach (disposable_firebase_push_migration_paths() as $migration) {
+        fwrite(STDERR, "[disposable DB {$fresh}] applying migration " . basename($migration) . "\n");
+        $mig = disposable_apply_migration_file($pdo, $fresh, $migration);
+        if (empty($mig['ok'])) {
+            fwrite(STDERR, 'Migration failed: ' . ($mig['message'] ?? 'unknown') . "\n");
+            exit(2);
+        }
+    }
+}
+
 $rememberTest = str_starts_with(basename($targetPath), 'test-customer-remember');
 if ($migrateRememberLogin || $rememberTest) {
     $migration = $root . '/database/migrations/1.38.0_customer_remember_tokens.sql';
@@ -158,10 +183,12 @@ $seedPdo->prepare('INSERT INTO customers (mobile, name) VALUES (?, ?)')->execute
 $seedCust = (int) $seedPdo->lastInsertId();
 $seedPdo->prepare('INSERT INTO customer_addresses (customer_id, label, line1, city, state, pincode, is_default) VALUES (?, ?, ?, ?, ?, ?, 1)')
     ->execute([$seedCust, 'Home', 'Test line', 'Indore', 'MP', '452001']);
-$seedPdo->exec(
-    "UPDATE settings SET setting_value = " . $seedPdo->quote(Install::SCHEMA_VERSION)
-    . " WHERE setting_key = 'schema_version'"
-);
+if (!$migrateFirebasePush) {
+    $seedPdo->exec(
+        "UPDATE settings SET setting_value = " . $seedPdo->quote(Install::SCHEMA_VERSION)
+        . " WHERE setting_key = 'schema_version'"
+    );
+}
 
 fwrite(STDERR, "[disposable DB {$fresh}] running " . basename($targetPath) . "\n");
 $argv = [$targetPath];

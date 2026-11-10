@@ -165,6 +165,9 @@ final class SubscriptionLifecycleService
         }
 
         $subId = (int) $sub['id'];
+        $tz = new DateTimeZone(SubscriptionScheduleGenerator::TZ);
+        $today = (new DateTimeImmutable('now', $tz))->format('Y-m-d');
+        $immediatePause = $pauseStartYmd <= $today;
         try {
             Database::transaction(static function () use ($subId, $customerId, $note, $pauseStartYmd, $resumeOnYmd): void {
                 $pdo = Database::pdo();
@@ -211,6 +214,14 @@ final class SubscriptionLifecycleService
                     'phase' => $phase,
                 ]);
             });
+
+            if ($immediatePause) {
+                try {
+                    PushEventBridge::subscriptionPaused($subId);
+                } catch (Throwable $pushEx) {
+                    error_log('SubscriptionLifecycle::pause push');
+                }
+            }
 
             return ['ok' => true];
         } catch (Throwable $e) {
@@ -383,6 +394,12 @@ final class SubscriptionLifecycleService
                 }
                 self::finishPauseResume($subId, $pause, $pdo, $customerId, $actorType, $automatic);
             });
+
+            try {
+                PushEventBridge::subscriptionResumed($subId);
+            } catch (Throwable $pushEx) {
+                error_log('SubscriptionLifecycle::resume push');
+            }
 
             return ['ok' => true];
         } catch (Throwable $e) {

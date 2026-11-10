@@ -20,6 +20,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $result = FirebaseAdminService::delete($id);
     } elseif ($action === 'test' && $id > 0) {
         $result = FirebaseAdminService::testExisting($id);
+    } elseif ($action === 'rollback_previous') {
+        $result = FirebaseAdminService::rollbackToPrevious();
     }
     admin_flash_set(
         (string) ($result['message'] ?? 'Done.'),
@@ -38,13 +40,33 @@ $pageDescription = 'Manage multiple Firebase projects; one active project global
 require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
 ?>
 
+<div class="at-alert at-alert--info mb-4 max-w-3xl text-sm">
+    <p class="mb-2"><strong>Activate</strong> runs a credential test, then switches the global project (Web + Android). Customers may need to allow notifications again or re-register devices.</p>
+    <p class="mb-2"><strong>Test</strong> checks OAuth using the stored service account without changing which project is active.</p>
+    <p class="mb-0"><strong>Rollback</strong> (when shown) re-activates the project that was active immediately before the last successful switch.</p>
+</div>
+
 <div class="at-admin-actions mb-4">
     <a class="at-btn at-btn--primary at-focusable" href="<?= Security::escape($base) ?>/edit.php">Add Firebase project</a>
     <a class="at-btn at-btn--secondary at-focusable" href="<?= Security::escape(url_base()) ?>/admin/push/templates.php">Push templates</a>
     <a class="at-btn at-btn--secondary at-focusable" href="<?= Security::escape(url_base()) ?>/admin/push/logs.php">Push logs</a>
     <a class="at-btn at-btn--secondary at-focusable" href="<?= Security::escape(url_base()) ?>/admin/push/devices.php">Device registrations</a>
     <a class="at-btn at-btn--secondary at-focusable" href="<?= Security::escape(url_base()) ?>/admin/push/send.php">Send notification</a>
+    <a class="at-btn at-btn--secondary at-focusable" href="<?= Security::escape(url_base()) ?>/admin/push/settings.php">Push settings</a>
 </div>
+
+<?php
+$rollbackId = (int) (AppSettings::get(PushSettings::KEY_ROLLBACK_PROJECT_ID, '0') ?? '0');
+if ($rollbackId > 0):
+    $rb = FirebaseProjectManager::findById($rollbackId);
+?>
+<form method="post" class="mb-4" onsubmit="return confirm('Rollback to the previously active Firebase project?');">
+    <?= Csrf::field() ?>
+    <button type="submit" name="action" value="rollback_previous" class="at-btn at-btn--secondary at-focusable">
+        Rollback to <?= $rb ? Security::escape((string) $rb['name']) : 'previous project' ?>
+    </button>
+</form>
+<?php endif; ?>
 
 <?php if (!PushSchema::ready()): ?>
 <div class="at-alert at-alert--warning mb-4">Migration <code>1.39.0_firebase_push_notifications.sql</code> is not applied.</div>

@@ -18,6 +18,7 @@ if (PushSchema::tableReady('push_notification_logs')) {
 
 admin_layout_start(['pageTitle' => 'Push logs', 'activeAdminNav' => 'firebase']);
 $pageHeading = 'Push notification logs';
+$pageDescription = 'Delivery outcomes only — titles are redacted; secrets and full device tokens are never logged.';
 require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
 ?>
 

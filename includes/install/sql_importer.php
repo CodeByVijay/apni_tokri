@@ -28,12 +28,23 @@ final class InstallSqlImporter
                 if ($trim === '') {
                     continue;
                 }
-                $pdo->exec($trim);
+                $stmt = $pdo->query($trim);
+                if ($stmt instanceof PDOStatement) {
+                    while ($stmt->nextRowset()) {
+                        // drain multi-statement / EXECUTE SELECT side effects
+                    }
+                    $stmt->fetchAll(PDO::FETCH_ASSOC);
+                    $stmt->closeCursor();
+                }
                 $ran++;
             }
             $pdo->exec('SET FOREIGN_KEY_CHECKS=1');
         } catch (Throwable $e) {
-            error_log('InstallSqlImporter: statement failed');
+            error_log('InstallSqlImporter: statement failed: ' . $e->getMessage());
+            $detail = trim($e->getMessage());
+            if (getenv('APNI_TOKRI_DISPOSABLE_DB') === '1' && $detail !== '') {
+                return ['ok' => false, 'message' => 'Database import failed: ' . $detail];
+            }
 
             return ['ok' => false, 'message' => 'Database import failed. Ensure the database is empty and try again.'];
         }

@@ -41,6 +41,9 @@ final class PushNotificationService
         if ($customerId <= 0 || $idempotencyKey === '') {
             return ['ok' => false];
         }
+        if ($notificationType === 'admin.manual' && !PushSettings::recordManualSendAttempt()) {
+            return ['ok' => false];
+        }
         if (!self::sendsAllowed()) {
             return ['ok' => true, 'skipped' => true];
         }
@@ -194,6 +197,12 @@ final class PushNotificationService
     {
         if (!Permission::can('firebase.manage')) {
             return ['ok' => false, 'message' => 'Forbidden'];
+        }
+        if (!PushSettings::recordManualSendAttempt()) {
+            return [
+                'ok' => false,
+                'message' => 'Daily manual send limit reached (' . PushSettings::MANUAL_SEND_DAILY_MAX . ').',
+            ];
         }
         $fcmToken = trim($fcmToken);
         if ($fcmToken === '') {

@@ -183,6 +183,24 @@ final class PushTokenService
         }
     }
 
+    public static function adminRevokeById(int $registrationId): array
+    {
+        if ($registrationId <= 0 || !PushSchema::tableReady('device_push_registrations')) {
+            return ['ok' => false, 'message' => 'Invalid registration.'];
+        }
+        try {
+            Install::ensureConnection();
+            Database::pdo()->prepare(
+                'UPDATE device_push_registrations SET status = ?, updated_at = NOW() WHERE id = ?'
+            )->execute(['revoked', $registrationId]);
+            AuditLog::write('push.device.revoke', 'device_push_registrations', (string) $registrationId);
+
+            return ['ok' => true, 'message' => 'Registration revoked.'];
+        } catch (Throwable $e) {
+            return ['ok' => false, 'message' => 'Could not revoke registration.'];
+        }
+    }
+
     public static function markInvalid(int $registrationId): void
     {
         if ($registrationId <= 0) {

@@ -166,6 +166,9 @@ final class FirebaseAdminService
             return ['ok' => false, 'message' => 'Credential test failed: ' . (string) ($test['message'] ?? '')];
         }
 
+        $previousActive = FirebaseProjectManager::activeProject(false);
+        $previousActiveId = $previousActive !== null ? (int) $previousActive['id'] : 0;
+
         try {
             Install::ensureConnection();
             $pdo = Database::pdo();
@@ -178,10 +181,15 @@ final class FirebaseAdminService
                  WHERE id = ?'
             )->execute(['active', 'passed', (string) ($test['message'] ?? 'OK'), $id]);
             $pdo->commit();
+            if ($previousActiveId > 0 && $previousActiveId !== $id) {
+                AppSettings::set(PushSettings::KEY_ROLLBACK_PROJECT_ID, (string) $previousActiveId);
+            }
             FirebaseOAuth::invalidateCache($id);
             FirebaseProjectManager::resetCache();
             AppSettings::resetCache();
-            AuditLog::write('firebase.project.activate', 'firebase_projects', (string) $id);
+            AuditLog::write('firebase.project.activate', 'firebase_projects', (string) $id, [
+                'previous_active_id' => $previousActiveId > 0 ? $previousActiveId : null,
+            ]);
 
             return ['ok' => true, 'message' => 'Active Firebase project switched. Devices may need to re-register.'];
         } catch (Throwable $e) {
@@ -191,6 +199,25 @@ final class FirebaseAdminService
 
             return ['ok' => false, 'message' => 'Could not activate project.'];
         }
+    }
+
+    /**
+     * Re-activate the previously active project (stored on last successful switch).
+     *
+     * @return array{ok: bool, message: string}
+     */
+    public static function rollbackToPrevious(): array
+    {
+        $prevId = (int) (AppSettings::get(PushSettings::KEY_ROLLBACK_PROJECT_ID, '0') ?? '0');
+        if ($prevId <= 0) {
+            return ['ok' => false, 'message' => 'No previous active project recorded.'];
+        }
+        $row = FirebaseProjectManager::findById($prevId);
+        if ($row === null) {
+            return ['ok' => false, 'message' => 'Previous project no longer exists.'];
+        }
+
+        return self::activate($prevId);
     }
 
     /**

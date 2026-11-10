@@ -41,10 +41,17 @@ $pdo->exec("INSERT INTO firebase_projects
 $id = (int) $pdo->lastInsertId();
 $pdo->prepare('UPDATE firebase_projects SET is_active_global = 1 WHERE id = ?')->execute([$id]);
 
-AppSettings::set('push.dry_run', '1');
-AppSettings::set('push.enabled', '1');
+$custId = (int) $pdo->query('SELECT id FROM customers ORDER BY id ASC LIMIT 1')->fetchColumn();
+if ($custId <= 0) {
+    fwrite(STDERR, "FAIL no seeded customer in disposable DB\n");
+    exit(1);
+}
+PushTokenService::register('web', 'c8mSchemaTestFid0123456789ab', 'granted', $custId, null, 'fid');
+
+AppSettings::set(PushSettings::KEY_DRY_RUN, '1');
+AppSettings::set(PushSettings::KEY_ENABLED, '1');
 $result = PushNotificationService::sendToCustomer(
-    1,
+    $custId,
     'order.confirmed.push',
     ['customer_name' => 'Test', 'order_number' => 'T1', 'order_total' => '10', 'order_id' => '1'],
     'push:test:schema:1',
@@ -52,7 +59,7 @@ $result = PushNotificationService::sendToCustomer(
 );
 okPush(!empty($result['dry_run']), 'dry-run send path');
 $result2 = PushNotificationService::sendToCustomer(
-    1,
+    $custId,
     'order.confirmed.push',
     ['customer_name' => 'Test', 'order_number' => 'T1', 'order_total' => '10', 'order_id' => '1'],
     'push:test:schema:1',

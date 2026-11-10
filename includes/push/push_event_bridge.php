@@ -114,6 +114,51 @@ final class PushEventBridge
         }
     }
 
+    public static function subscriptionPaused(int $subscriptionId): void
+    {
+        self::subscriptionLifecycleNotify($subscriptionId, 'subscription.paused.push', 'subscription.paused', 'push:subscription.paused:');
+    }
+
+    public static function subscriptionResumed(int $subscriptionId): void
+    {
+        self::subscriptionLifecycleNotify($subscriptionId, 'subscription.resumed.push', 'subscription.resumed', 'push:subscription.resumed:');
+    }
+
+    private static function subscriptionLifecycleNotify(
+        int $subscriptionId,
+        string $templateKey,
+        string $eventType,
+        string $idempotencyPrefix
+    ): void {
+        if ($subscriptionId <= 0) {
+            return;
+        }
+        try {
+            Install::ensureConnection();
+            $stmt = Database::pdo()->prepare(
+                'SELECT cs.id, cs.customer_id, c.name FROM customer_subscriptions cs
+                 INNER JOIN customers c ON c.id = cs.customer_id WHERE cs.id = ? LIMIT 1'
+            );
+            $stmt->execute([$subscriptionId]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$row) {
+                return;
+            }
+            PushNotificationService::sendToCustomer(
+                (int) $row['customer_id'],
+                $templateKey,
+                [
+                    'customer_name' => trim((string) ($row['name'] ?? '')) !== '' ? (string) $row['name'] : 'Customer',
+                ],
+                $idempotencyPrefix . $subscriptionId,
+                $eventType,
+                ['subscription_id' => (string) $subscriptionId]
+            );
+        } catch (Throwable $e) {
+            error_log('PushEventBridge::subscriptionLifecycleNotify');
+        }
+    }
+
     public static function refundStatusUpdated(int $requestId, string $newStatus): void
     {
         if ($requestId <= 0 || !PushSchema::ready()) {
