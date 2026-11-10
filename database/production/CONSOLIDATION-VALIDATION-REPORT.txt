@@ -1,0 +1,39 @@
+Apni Tokri — production SQL consolidation validation
+Generated: 2026-11-10 (local build)
+
+Latest migration version: 1.39.4-firebase-platform-flags (file: 1.39.4_firebase_project_platform_flags.sql)
+Install::SCHEMA_VERSION: 1.39.4-firebase-platform-flags
+Forward migration steps in build sequence: 63 (database/database.sql + 62 migration files)
+Rollback migrations: 23 files under database/migrations/rollback/ — excluded from fresh install path
+
+Output: database/production/apni_tokri_production.sql (151,038 bytes)
+Regenerate: php scripts/build-apni-tokri-production-sql.php
+Validate: php scripts/validate-apni-tokri-production-sql.php
+
+Fresh database import:
+  Database: apni_tokri_fresh_setup_test
+  Result: SUCCESS (exit 0)
+  Tables: 106
+  settings.schema_version: 1.39.4-firebase-platform-flags
+  push_notification_templates: 13
+  firebase_projects rows: 0 (schema only)
+  device_push_registrations / push_notification_logs: 0
+
+Consolidated vs incremental schema compare (validate script):
+  table_count, columns_hash, index_entries, fk_entries: MATCH
+  schema_version: OK
+  Required module tables: OK
+  Transactional seed tables empty: OK
+  Note: StartMessaging SmsSettingsService::validateSaveFields(empty sender) FAIL — application validator, not SQL schema
+
+Integration test on disposable DB importing this SQL:
+  scripts/test-firebase-push-integration.php — 31 passed, 0 failed
+
+Firebase schema verified in dump:
+  firebase_projects (service_account_encrypted column; platform_web; platform_android)
+  device_push_registrations (target_type enum fid, fcm_token)
+  push_notification_templates (13 seeded keys including pause/resume/coupon)
+  push_notification_logs
+
+Skipped migrations:
+  All database/migrations/rollback/*.sql — downgrade scripts, not used for greenfield install

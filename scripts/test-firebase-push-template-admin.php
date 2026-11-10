@@ -119,5 +119,32 @@ tplOk(PushTemplateRepository::findActive('order.confirmed.push') !== null, 'acti
 
 tplOk($list['total'] === 0 ? false : true, 'non-empty list when DB has templates');
 
+// Delete custom template — existing log rows must remain (notification_type is string, no FK).
+$logBefore = (int) $pdo->query('SELECT COUNT(*) FROM push_notification_logs')->fetchColumn();
+$createForLog = PushTemplateAdmin::create([
+    'template_key' => 'custom.log.keep.push',
+    'event_type' => 'announcement',
+    'title_template' => '{title}',
+    'body_template' => '{body}',
+    'is_active' => 1,
+]);
+if (!empty($createForLog['ok'])) {
+    $pdo->prepare(
+        "INSERT INTO push_notification_logs (event_id, notification_type, status, idempotency_key, title_redacted)
+         VALUES (UUID(), 'custom.log.keep.push', 'dry_run', ?, 'QA title')"
+    )->execute(['qa:template-delete:' . uniqid('', true)]);
+}
+$logMid = (int) $pdo->query('SELECT COUNT(*) FROM push_notification_logs')->fetchColumn();
+tplOk($logMid >= $logBefore + 1, 'log row inserted referencing custom template key');
+if (!empty($createForLog['id'])) {
+    PushTemplateAdmin::delete((int) $createForLog['id']);
+}
+$logAfter = (int) $pdo->query('SELECT COUNT(*) FROM push_notification_logs')->fetchColumn();
+tplOk($logAfter === $logMid, 'log rows unchanged after template delete');
+$stillThere = (int) $pdo->query(
+    "SELECT COUNT(*) FROM push_notification_logs WHERE notification_type = 'custom.log.keep.push'"
+)->fetchColumn();
+tplOk($stillThere >= 1, 'historical log still references deleted template key');
+
 fwrite(STDOUT, "\nResult: {$ok} passed, {$fail} failed\n");
 exit($fail > 0 ? 1 : 0);

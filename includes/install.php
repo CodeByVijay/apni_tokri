@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 final class Install
 {
-    public const SCHEMA_VERSION = '1.37.0-media-library';
+    public const SCHEMA_VERSION = '1.39.4-firebase-platform-flags';
 
     /** Seeded bootstrap admin (fresh SQL import). Detection uses password hash only — never expose the plain password. */
     public const SEED_ADMIN_EMAIL = 'admin@apnitokri.local';

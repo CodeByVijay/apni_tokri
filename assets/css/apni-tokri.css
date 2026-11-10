@@ -8979,6 +8979,66 @@ body.at-map-viewer-open { overflow: hidden; }
   flex-wrap: wrap;
   gap: 0.5rem;
 }
+/* Admin → Users list search toolbar */
+.at-admin-users-search__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+}
+.at-admin-users-search__field {
+  position: relative;
+  flex: 1 1 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+@media (min-width: 640px) {
+  .at-admin-users-search__field {
+    flex: 0 1 28rem;
+    max-width: 28rem;
+  }
+}
+.at-admin-users-search__label {
+  margin-bottom: 0.35rem;
+}
+.at-admin-users-search__input-wrap {
+  position: relative;
+}
+.at-admin-users-search__icon {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1.125rem;
+  height: 1.125rem;
+  color: var(--at-muted);
+  pointer-events: none;
+}
+.at-admin-users-search__input {
+  width: 100%;
+  padding-left: 2.35rem;
+  min-height: 2.75rem;
+}
+.at-admin-users-search__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.at-admin-users-search__clear--disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+@media (max-width: 639px) {
+  .at-admin-users-search__actions {
+    width: 100%;
+  }
+  .at-admin-users-search__actions .at-btn {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+}
 .at-firebase-project-page {
   width: 100%;
   max-width: 56rem;

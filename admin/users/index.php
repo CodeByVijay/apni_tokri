@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/_init.php';
+require_once APNI_TOKRI_ROOT . '/includes/layout/icons.php';
 
 AdminDemoPerms::denyIfCannot('users');
 
@@ -21,10 +22,28 @@ $pageActionsHtml = '<a href="' . Security::escape(url_base()) . '/admin/users/ed
 require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
 
 $base = $listSelf;
+$hasSearch = $q !== '';
 ?>
-<form method="get" class="at-search max-w-md mb-4">
-    <input type="search" name="q" value="<?= Security::escape($q) ?>" placeholder="Search name or email…" class="at-input at-focusable">
-    <button type="submit" class="at-btn at-btn--secondary at-btn--sm at-focusable">Search</button>
+<form method="get" class="at-admin-card mb-4 at-admin-users-search" role="search">
+    <div class="at-admin-card__body at-admin-users-search__row">
+        <div class="at-admin-users-search__field">
+            <label class="at-label at-admin-users-search__label" for="admin-users-q">Search admin users</label>
+            <div class="at-admin-users-search__input-wrap">
+                <?= at_icon('search', 'at-admin-users-search__icon') ?>
+                <input id="admin-users-q" type="search" name="q" value="<?= Security::escape($q) ?>"
+                       placeholder="Search name or email…" class="at-input at-focusable at-admin-users-search__input"
+                       autocomplete="off">
+            </div>
+        </div>
+        <div class="at-admin-users-search__actions">
+            <button type="submit" class="at-btn at-btn--secondary at-focusable">Search</button>
+            <?php if ($hasSearch): ?>
+                <a class="at-btn at-btn--ghost at-focusable" href="<?= Security::escape($listSelf) ?>">Clear</a>
+            <?php else: ?>
+                <span class="at-btn at-btn--ghost at-admin-users-search__clear--disabled" aria-disabled="true">Clear</span>
+            <?php endif; ?>
+        </div>
+    </div>
 </form>
 <?php
 if (!$useDb) {
