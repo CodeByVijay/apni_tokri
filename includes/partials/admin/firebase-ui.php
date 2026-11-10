@@ -17,14 +17,21 @@ function firebase_admin_subnav(string $activeSlug): void
         ['slug' => 'send', 'href' => $base . '/admin/push/send.php', 'label' => 'Send'],
         ['slug' => 'settings', 'href' => $base . '/admin/push/settings.php', 'label' => 'Settings'],
     ];
-    echo '<nav class="at-firebase-subnav mb-4" aria-label="Firebase push sections"><ul class="at-firebase-subnav__list">';
+    echo '<nav class="at-firebase-tabs" aria-label="Firebase push sections">';
+    echo '<div class="at-firebase-tabs__scroll"><ul class="at-firebase-tabs__list">';
     foreach ($items as $item) {
         $isActive = $item['slug'] === $activeSlug;
-        echo '<li><a class="at-firebase-subnav__link' . ($isActive ? ' is-active' : '') . '" href="'
-            . Security::escape($item['href']) . '"' . ($isActive ? ' aria-current="page"' : '') . '>'
-            . Security::escape($item['label']) . '</a></li>';
+        echo '<li class="at-firebase-tabs__item"><a class="at-firebase-tabs__tab';
+        if ($isActive) {
+            echo ' is-active';
+        }
+        echo '" href="' . Security::escape($item['href']) . '"';
+        if ($isActive) {
+            echo ' aria-current="page"';
+        }
+        echo '>' . Security::escape($item['label']) . '</a></li>';
     }
-    echo '</ul></nav>';
+    echo '</ul></div></nav>';
 }
 
 function firebase_platform_badge(string $platform): string

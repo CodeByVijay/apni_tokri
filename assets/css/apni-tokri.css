@@ -8887,30 +8887,81 @@ body.at-map-viewer-open { overflow: hidden; }
   }
 }
 
-/* Firebase push admin */
-.at-firebase-subnav__list {
+/* Firebase push admin — section tabs (scoped; do not use generic .is-active elsewhere) */
+.at-firebase-tabs {
+  margin-bottom: 1rem;
+  max-width: 100%;
+  min-width: 0;
+}
+.at-firebase-tabs__scroll {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  padding: 0.15rem 0;
+}
+.at-firebase-tabs__list {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: 0.5rem;
   list-style: none;
   margin: 0;
-  padding: 0;
+  padding: 0.35rem;
+  width: max-content;
+  min-width: min(100%, max-content);
+  background: #f4f6f4;
+  border: 1px solid #e3e8e2;
+  border-radius: var(--at-radius);
 }
-.at-firebase-subnav__link {
+@media (min-width: 960px) {
+  .at-firebase-tabs__list {
+    flex-wrap: wrap;
+    width: 100%;
+  }
+}
+.at-firebase-tabs__item {
+  flex: 0 0 auto;
+}
+.at-admin-main .at-firebase-tabs__tab {
   display: inline-flex;
   align-items: center;
-  padding: 0.35rem 0.75rem;
-  border: 1px solid var(--at-border);
+  justify-content: center;
+  min-height: 2.5rem;
+  padding: 0.5rem 1rem;
   border-radius: var(--at-radius-sm);
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--at-ink);
+  border: 1px solid #d8ded8;
   background: #fff;
+  color: var(--at-ink);
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.25;
+  text-decoration: none;
+  white-space: nowrap;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
 }
-.at-firebase-subnav__link.is-active {
-  background: var(--at-green-50);
-  border-color: var(--at-green-200);
+.at-admin-main .at-firebase-tabs__tab:hover {
+  border-color: var(--at-green-100);
+  background: #fff;
   color: var(--at-green-dark);
+}
+.at-admin-main .at-firebase-tabs__tab:focus-visible {
+  outline: 2px solid var(--at-green);
+  outline-offset: 2px;
+}
+.at-admin-main .at-firebase-tabs__tab.is-active,
+.at-admin-main .at-firebase-tabs__tab[aria-current="page"] {
+  background: var(--at-green-dark);
+  border-color: var(--at-green-dark);
+  color: #fff;
+  box-shadow: none;
+}
+.at-admin-main .at-firebase-tabs__tab.is-active:hover,
+.at-admin-main .at-firebase-tabs__tab[aria-current="page"]:hover {
+  background: var(--at-green);
+  border-color: var(--at-green);
+  color: #fff;
 }
 .at-firebase-toolbar__grid {
   display: grid;
