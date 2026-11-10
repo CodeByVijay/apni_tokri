@@ -35,6 +35,7 @@ final class Permission
             'reports' => 'reports.view',
             'settings' => 'settings.manage',
             'notifications' => 'notifications.manage',
+            'firebase' => 'firebase.manage',
             'users' => 'users.manage',
             'roles' => 'roles.manage',
         ];

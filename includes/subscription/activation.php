@@ -303,11 +303,20 @@ final class SubscriptionActivationService
                 return ['ok' => true, 'subscription_id' => $subId];
             });
 
-            return [
+            $response = [
                 'ok' => true,
                 'idempotent' => !empty($out['idempotent']),
                 'subscription_number' => $subscriptionNumber,
             ];
+            if (!empty($out['ok']) && empty($out['idempotent']) && !empty($out['subscription_id'])) {
+                try {
+                    PushEventBridge::subscriptionActivated((int) $out['subscription_id']);
+                } catch (Throwable $pushEx) {
+                    error_log('SubscriptionActivationService push');
+                }
+            }
+
+            return $response;
         } catch (Throwable $e) {
             error_log('Subscription activation failed: ' . $e->getMessage());
 

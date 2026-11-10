@@ -39,9 +39,12 @@ $profileMobile = trim((string) ($p['mobile'] ?? ''));
 $profileEmail = trim((string) ($p['email'] ?? ''));
 $profileInitial = $profileName !== '' ? mb_strtoupper(mb_substr($profileName, 0, 1)) : '?';
 
+$loadPushJs = PushSchema::ready() && FirebaseProjectManager::publicWebConfig() !== null;
+
 layout_public_start([
     'pageTitle' => 'My account — Veggie Tokri',
     'activeNav' => 'account',
+    'loadPushJs' => $loadPushJs,
 ]);
 $accountActive = 'overview';
 $accountTitle = 'Hello, ' . ($p['name'] ?? 'there');
@@ -134,6 +137,19 @@ require APNI_TOKRI_ROOT . '/includes/partials/account-hub.php';
         <p class="text-xs at-muted mt-3">Add, edit or remove addresses from <a href="<?= Security::escape($base) ?>/my-addresses.php" class="underline">My addresses</a>, or add one at checkout.</p>
     </div>
 </section>
+
+<?php if ($loadPushJs): ?>
+<section class="at-card">
+    <div class="at-card__body space-y-3">
+        <h2 class="at-h3">Order notifications</h2>
+        <p class="text-sm at-muted">Get order updates in this browser. You can turn this off anytime.</p>
+        <div class="flex flex-wrap gap-2">
+            <button type="button" id="at-push-enable" class="at-btn at-btn--primary at-btn--sm at-focusable">Enable notifications</button>
+            <button type="button" id="at-push-disable" class="at-btn at-btn--secondary at-btn--sm at-focusable">Disable notifications</button>
+        </div>
+    </div>
+</section>
+<?php endif; ?>
 <?php
 require APNI_TOKRI_ROOT . '/includes/partials/account-shell-end.php';
 layout_public_end();

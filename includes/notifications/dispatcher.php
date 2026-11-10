@@ -57,6 +57,11 @@ final class NotificationDispatcher
         if (!OrderEmailContext::isOrderPaidAndCaptured($orderId)) {
             return;
         }
+        try {
+            PushEventBridge::orderPaymentSuccess($orderId);
+        } catch (Throwable $e) {
+            error_log('NotificationDispatcher::orderPaymentSuccess push');
+        }
         NotificationQueueService::cancelPendingByIdempotencyKey(
             'order.placed:order:' . $orderId . ':email',
             'payment_captured'
@@ -182,6 +187,11 @@ final class NotificationDispatcher
         $toStatus = OrderEmailContext::normalizeOrderStatus($toStatus);
         if (!OrderEmailContext::shouldNotifyStatusTransition($fromStatus, $toStatus)) {
             return;
+        }
+        try {
+            PushEventBridge::orderStatusChanged($orderId, $fromStatus, $toStatus);
+        } catch (Throwable $e) {
+            error_log('NotificationDispatcher::orderStatusChanged push');
         }
         $templateKey = 'order.status.email';
         if (!NotificationTemplateRepository::ensureActiveEmailTemplate($templateKey)) {
@@ -431,7 +441,15 @@ final class NotificationDispatcher
 
     public static function refundStatusUpdated(int $requestId, string $newStatus): void
     {
-        if (!NotificationQueueService::tableReady() || $requestId <= 0) {
+        if ($requestId <= 0) {
+            return;
+        }
+        try {
+            PushEventBridge::refundStatusUpdated($requestId, $newStatus);
+        } catch (Throwable $e) {
+            error_log('NotificationDispatcher::refundStatusUpdated push');
+        }
+        if (!NotificationQueueService::tableReady()) {
             return;
         }
         try {

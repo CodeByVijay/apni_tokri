@@ -14,3 +14,5 @@
 !/uploads/cms/.gitkeep
 .env
 *.log
+/storage/firebase/*
+!/storage/firebase/.gitkeep

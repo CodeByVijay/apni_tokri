@@ -180,5 +180,11 @@ $loadCatalogueJs = !empty($loadCatalogueJs);
 <?php if ($loadCatalogueJs): ?>
 <script defer src="<?= Security::escape(asset_url('assets/js/catalogue.js')) ?>"></script>
 <?php endif; ?>
+<?php
+$loadPushJs = !empty($loadPushJs) && FirebaseProjectManager::publicWebConfig() !== null;
+if ($loadPushJs):
+    ?><script>window.AT_BASE = <?= json_encode(url_base(), JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
+<script type="module" src="<?= Security::escape(asset_url('assets/js/push-notifications.mjs')) ?>"></script>
+<?php endif; ?>
 </body>
 </html>
