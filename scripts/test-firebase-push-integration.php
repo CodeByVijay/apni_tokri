@@ -46,7 +46,13 @@ $stmt = $pdo->query(
 assertPush($stmt->fetchColumn() !== false, 'column device_push_registrations.target_type');
 
 $schemaVer = (string) $pdo->query("SELECT setting_value FROM settings WHERE setting_key = 'schema_version' LIMIT 1")->fetchColumn();
-assertPush(str_contains($schemaVer, '1.39.2') || str_contains($schemaVer, '1.39.1') || str_contains($schemaVer, '1.39.0'), 'schema_version reflects firebase migrations');
+assertPush(
+    str_contains($schemaVer, '1.39.3')
+    || str_contains($schemaVer, '1.39.2')
+    || str_contains($schemaVer, '1.39.1')
+    || str_contains($schemaVer, '1.39.0'),
+    'schema_version reflects firebase migrations'
+);
 
 $perm = $pdo->query("SELECT COUNT(*) FROM admin_permissions WHERE slug = 'firebase.manage'")->fetchColumn();
 assertPush((int) $perm === 1, 'permission firebase.manage');

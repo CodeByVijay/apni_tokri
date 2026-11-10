@@ -119,6 +119,7 @@ require_once APNI_TOKRI_ROOT . '/includes/push/firebase_project_manager.php';
 require_once APNI_TOKRI_ROOT . '/includes/push/push_token_service.php';
 require_once APNI_TOKRI_ROOT . '/includes/push/push_template_repository.php';
 require_once APNI_TOKRI_ROOT . '/includes/push/push_notification_service.php';
+require_once APNI_TOKRI_ROOT . '/includes/push/push_coupon_notification.php';
 require_once APNI_TOKRI_ROOT . '/includes/push/push_event_bridge.php';
 require_once APNI_TOKRI_ROOT . '/includes/push/firebase_admin_service.php';
 require_once APNI_TOKRI_ROOT . '/includes/push/push_settings.php';

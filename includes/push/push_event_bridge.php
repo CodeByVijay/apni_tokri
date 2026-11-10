@@ -196,6 +196,21 @@ final class PushEventBridge
     }
 
     /**
+     * Optional workflow hook: validated promotional coupon push (call from future assignment flows).
+     */
+    public static function promotionalCoupon(int $customerId, int $couponId, ?string $clickUrl = null): void
+    {
+        if ($customerId <= 0 || $couponId <= 0) {
+            return;
+        }
+        try {
+            PushCouponNotificationService::sendPromotionalCouponToCustomer($customerId, $couponId, $clickUrl);
+        } catch (Throwable $e) {
+            error_log('PushEventBridge::promotionalCoupon');
+        }
+    }
+
+    /**
      * @return array{customer_id: int, customer_name: string, order_number: string, order_total: string}|null
      */
     private static function orderContext(int $orderId): ?array

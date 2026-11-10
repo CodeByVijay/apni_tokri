@@ -63,6 +63,8 @@ firebase_admin_subnav('templates');
         <li>Refunds: <code>{customer_name}</code>, <code>{request_number}</code>, <code>{status_label}</code></li>
         <li>Subscriptions: <code>{customer_name}</code></li>
         <li>Manual / announcement: <code>{title}</code>, <code>{body}</code>, <code>{click_url}</code></li>
+        <li>Promotional coupon (<code>coupon.promotional.push</code>): <code>{customer_name}</code>, <code>{coupon_code}</code>, <code>{discount_value}</code>, <code>{minimum_order}</code>, <code>{expiry_date}</code>, <code>{click_url}</code> — populated from verified coupon and customer records (admin coupon send or future automation)</li>
+        <li>Offer promo (<code>offer.promo.push</code>): <code>{title}</code>, <code>{body}</code>, <code>{click_url}</code></li>
     </ul>
 </div>
 

@@ -201,5 +201,6 @@ function disposable_firebase_push_migration_paths(): array
         $root . '1.39.0_firebase_push_notifications.sql',
         $root . '1.39.1_push_registration_target_type.sql',
         $root . '1.39.2_push_subscription_templates.sql',
+        $root . '1.39.3_push_coupon_template.sql',
     ];
 }

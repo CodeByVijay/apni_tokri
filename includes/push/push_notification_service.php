@@ -41,8 +41,12 @@ final class PushNotificationService
         if ($customerId <= 0 || $idempotencyKey === '') {
             return ['ok' => false];
         }
-        if ($notificationType === 'admin.manual' && !PushSettings::recordManualSendAttempt()) {
-            return ['ok' => false];
+        if (str_starts_with($notificationType, 'admin.manual') && !PushSettings::recordManualSendAttempt()) {
+            return [
+                'ok' => false,
+                'reason' => 'rate_limit',
+                'message' => 'Daily manual send limit reached (' . PushSettings::MANUAL_SEND_DAILY_MAX . ').',
+            ];
         }
         if (!self::sendsAllowed()) {
             return ['ok' => true, 'skipped' => true];
