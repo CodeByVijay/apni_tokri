@@ -8886,3 +8886,160 @@ body.at-map-viewer-open { overflow: hidden; }
     white-space: normal;
   }
 }
+
+/* Firebase push admin */
+.at-firebase-subnav__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.at-firebase-subnav__link {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid var(--at-border);
+  border-radius: var(--at-radius-sm);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--at-ink);
+  background: #fff;
+}
+.at-firebase-subnav__link.is-active {
+  background: var(--at-green-50);
+  border-color: var(--at-green-200);
+  color: var(--at-green-dark);
+}
+.at-firebase-toolbar__grid {
+  display: grid;
+  gap: 0.75rem 1rem;
+  align-items: end;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 640px) {
+  .at-firebase-toolbar__grid {
+    grid-template-columns: minmax(12rem, 2fr) repeat(2, minmax(8rem, 1fr)) auto;
+  }
+}
+.at-firebase-toolbar__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.at-firebase-form-wrap {
+  max-width: 48rem;
+  margin: 0 auto;
+}
+.at-firebase-form__section {
+  padding: 1.25rem 0;
+  border-bottom: 1px solid var(--at-border);
+}
+.at-firebase-form__section:last-of-type {
+  border-bottom: 0;
+}
+.at-firebase-form__section-title {
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+  font-weight: 700;
+}
+.at-firebase-form__section-desc {
+  margin: 0 0 1rem;
+  font-size: 0.8125rem;
+  color: var(--at-muted);
+}
+.at-firebase-form__section-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.at-firebase-form__grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 640px) {
+  .at-firebase-form__grid--2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.at-firebase-form__grid .span-full {
+  grid-column: 1 / -1;
+}
+.at-label__required {
+  color: var(--at-danger);
+  font-weight: 700;
+}
+.at-label__optional {
+  font-weight: 400;
+  color: var(--at-muted);
+  font-size: 0.75rem;
+}
+.at-input--file {
+  padding: 0.5rem;
+  background: var(--at-surface);
+}
+.at-input--mono {
+  font-family: ui-monospace, monospace;
+  font-size: 0.8125rem;
+  min-height: 7rem;
+  resize: vertical;
+}
+.at-input.at-input--truncate-placeholder::placeholder {
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.at-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.12rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+.at-pill--web {
+  background: #e8f0fe;
+  color: #1a4fd6;
+}
+.at-pill--android {
+  background: #e6f4ea;
+  color: #137333;
+}
+.at-pill--fid {
+  background: #f3e8fd;
+  color: #6a1b9a;
+}
+.at-pill--token {
+  background: #fff3e0;
+  color: #e65100;
+}
+.at-firebase-token-prefix {
+  font-size: 0.75rem;
+  color: var(--at-muted);
+}
+.at-firebase-empty {
+  padding: 2rem 1rem;
+  text-align: center;
+}
+.at-firebase-empty__title {
+  margin: 0 0 0.35rem;
+  font-weight: 700;
+}
+.at-firebase-empty__detail {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--at-muted);
+  max-width: 28rem;
+  margin-left: auto;
+  margin-right: auto;
+}
+.at-admin-actions--firebase {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.5rem;
+  align-items: center;
+}

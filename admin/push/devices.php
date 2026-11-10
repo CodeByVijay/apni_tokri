@@ -3,8 +3,12 @@
 declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/_init.php';
+require_once APNI_TOKRI_ROOT . '/includes/partials/admin/list-pagination.php';
+require_once APNI_TOKRI_ROOT . '/includes/partials/admin/firebase-ui.php';
 
 AdminDemoPerms::denyIfCannot('firebase');
+
+$listSelf = url_base() . '/admin/push/devices.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     Csrf::requireValid();
@@ -13,77 +17,108 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $result = PushTokenService::adminRevokeById($id);
         admin_flash_set((string) ($result['message'] ?? 'Done.'), !empty($result['ok']) ? 'success' : 'error');
     }
-    header('Location: ' . url_base() . '/admin/push/devices.php', true, 302);
+    header('Location: ' . $listSelf . PushAdminList::listRedirectQuery($_GET), true, 302);
     exit;
 }
 
-$rows = [];
-if (PushSchema::tableReady('device_push_registrations')) {
-    Install::ensureConnection();
-    $stmt = Database::pdo()->query(
-        'SELECT d.id, d.customer_id, d.platform, d.target_type, d.status, d.permission_status,
-                d.last_refresh_at, d.created_at, LEFT(d.fcm_token, 12) AS token_prefix,
-                p.name AS project_name, p.is_active_global
-         FROM device_push_registrations d
-         INNER JOIN firebase_projects p ON p.id = d.firebase_project_id
-         ORDER BY d.id DESC LIMIT 200'
-    );
-    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
-}
+$listQ = AdminServerList::searchFromRequest(isset($_GET['q']) ? (string) $_GET['q'] : '');
+$listPage = AdminServerList::pageFromRequest(isset($_GET['page']) ? (int) $_GET['page'] : null);
+$listPerPage = AdminServerList::perPageFromRequest(isset($_GET['per_page']) ? (int) $_GET['per_page'] : null);
+$filterPlatform = isset($_GET['platform']) ? (string) $_GET['platform'] : '';
+$filterStatus = isset($_GET['status']) ? (string) $_GET['status'] : '';
+$queryBase = array_filter([
+    'q' => $listQ !== '' ? $listQ : null,
+    'platform' => $filterPlatform !== '' ? $filterPlatform : null,
+    'status' => $filterStatus !== '' ? $filterStatus : null,
+]);
+$list = PushAdminList::devices($listQ, $filterPlatform, $filterStatus, $listPage, $listPerPage);
 
 admin_layout_start(['pageTitle' => 'Push devices', 'activeAdminNav' => 'firebase']);
 $pageHeading = 'Device push registrations';
 $pageDescription = 'Registered FIDs (Web) and FCM tokens (Android) tied to the Firebase project active at registration time.';
 require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
+firebase_admin_subnav('devices');
 ?>
 
-<div class="at-alert at-alert--info mb-4 max-w-3xl text-sm">
-    <p class="mb-2">Only a short <strong>token prefix</strong> is shown here — full tokens are never displayed. Use the prefix with Device test send when validating a single handset.</p>
-    <p class="mb-0"><strong>Revoke</strong> marks a row inactive so it will not receive pushes until the customer registers again from the app or website.</p>
-</div>
+<?php if (!PushSchema::tableReady('device_push_registrations')): ?>
+<div class="at-alert at-alert--warning mb-4">Push device table is not available. Apply migration 1.39.0.</div>
+<?php else: ?>
 
-<div class="at-card">
-    <div class="at-card__body overflow-x-auto">
-        <table class="at-data-table w-full text-sm">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Project</th>
-                    <th>Platform</th>
-                    <th>Target</th>
-                    <th>Customer</th>
-                    <th>Status</th>
-                    <th>Permission</th>
-                    <th>Last refresh</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-            <?php foreach ($rows as $r): ?>
-                <tr>
-                    <td><?= (int) $r['id'] ?></td>
-                    <td><?= Security::escape((string) $r['project_name']) ?><?php if (empty($r['is_active_global'])): ?> <span class="at-muted">(inactive)</span><?php endif; ?></td>
-                    <td><?= Security::escape((string) $r['platform']) ?></td>
-                    <td><?= Security::escape((string) ($r['target_type'] ?? 'fcm_token')) ?> · <?= Security::escape((string) ($r['token_prefix'] ?? '')) ?>…</td>
-                    <td><?= $r['customer_id'] !== null ? (int) $r['customer_id'] : 'Guest' ?></td>
-                    <td><?= Security::escape((string) $r['status']) ?></td>
-                    <td><?= Security::escape((string) $r['permission_status']) ?></td>
-                    <td><?= Security::escape((string) ($r['last_refresh_at'] ?? '—')) ?></td>
-                    <td>
-                        <?php if ((string) $r['status'] === 'active'): ?>
-                        <form method="post" class="inline" onsubmit="return confirm('Revoke this registration?');">
-                            <?= Csrf::field() ?>
-                            <input type="hidden" name="id" value="<?= (int) $r['id'] ?>">
-                            <button type="submit" name="action" value="revoke" class="at-link">Revoke</button>
-                        </form>
-                        <?php endif; ?>
-                    </td>
-                </tr>
-            <?php endforeach; ?>
-            <?php if ($rows === []): ?><tr><td colspan="9" class="at-muted">No registrations.</td></tr><?php endif; ?>
-            </tbody>
-        </table>
-    </div>
-</div>
-
-<?php admin_layout_end(); ?>
+<?php
+firebase_admin_list_toolbar($listSelf, $listQ, $queryBase, $listPerPage, [
+    [
+        'name' => 'platform',
+        'label' => 'Platform',
+        'value' => $filterPlatform,
+        'options' => ['' => 'All platforms', 'web' => 'Web', 'android' => 'Android'],
+    ],
+    [
+        'name' => 'status',
+        'label' => 'Status',
+        'value' => $filterStatus,
+        'options' => ['' => 'All statuses', 'active' => 'Active', 'revoked' => 'Revoked', 'invalid' => 'Invalid'],
+    ],
+]);
+$tableRows = [];
+foreach ($list['rows'] as $r) {
+    $regId = (int) $r['id'];
+    $projectLabel = Security::escape((string) $r['project_name']);
+    if (empty($r['is_active_global'])) {
+        $projectLabel .= ' <span class="at-muted text-xs">(inactive project)</span>';
+    }
+    $actions = '—';
+    if ((string) $r['status'] === 'active') {
+        $actions = '<form method="post" class="inline" onsubmit="return confirm(\'Revoke this registration?\');">'
+            . Csrf::field() . '<input type="hidden" name="id" value="' . $regId . '">'
+            . '<button type="submit" name="action" value="revoke" class="at-btn at-btn--sm at-btn--ghost at-focusable">Revoke</button></form>';
+    }
+    $tableRows[] = [
+        'id' => (string) $regId,
+        'project' => $projectLabel,
+        'platform' => firebase_platform_badge((string) $r['platform']),
+        'target' => firebase_target_badge((string) ($r['target_type'] ?? 'fcm_token'), (string) ($r['token_prefix'] ?? '')),
+        'customer' => $r['customer_id'] !== null ? (string) (int) $r['customer_id'] : 'Guest',
+        'status' => (string) $r['status'],
+        'permission' => firebase_permission_badge((string) $r['permission_status']),
+        'last_refresh' => trim((string) ($r['last_refresh_at'] ?? '')) !== ''
+            ? Security::escape((string) $r['last_refresh_at'])
+            : '—',
+        'actions' => $actions,
+    ];
+}
+$columns = [
+    ['label' => 'ID', 'key' => 'id', 'align' => 'num'],
+    ['label' => 'Project', 'key' => 'project', 'raw' => true],
+    ['label' => 'Platform', 'key' => 'platform', 'raw' => true],
+    ['label' => 'Target', 'key' => 'target', 'raw' => true],
+    ['label' => 'Customer', 'key' => 'customer', 'align' => 'num'],
+    ['label' => 'Status', 'key' => 'status'],
+    ['label' => 'Permission', 'key' => 'permission', 'raw' => true],
+    ['label' => 'Last refresh', 'key' => 'last_refresh'],
+    ['label' => 'Actions', 'key' => 'actions', 'align' => 'actions', 'raw' => true],
+];
+if ($list['total'] === 0 && $listQ === '' && $filterPlatform === '' && $filterStatus === ''):
+    firebase_admin_empty_state(
+        'No device registrations found',
+        'Devices will appear here after customers enable push notifications on the storefront or Android app.',
+        url_base() . '/admin/firebase/index.php',
+        'Configure Firebase project'
+    );
+else:
+    $emptyMessage = $listQ !== '' || $filterPlatform !== '' || $filterStatus !== ''
+        ? 'No device registrations match your filters.'
+        : 'No device registrations found.';
+    require APNI_TOKRI_ROOT . '/includes/partials/admin/data-table.php';
+    admin_list_pagination(
+        (int) $list['page'],
+        (int) $list['total'],
+        $listPerPage,
+        $queryBase,
+        $listSelf,
+        AdminServerList::PER_PAGE_OPTIONS,
+        'registrations',
+        $list['total'] > 0
+    );
+endif;
+endif;
+admin_layout_end();

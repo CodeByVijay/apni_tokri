@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/_init.php';
+require_once APNI_TOKRI_ROOT . '/includes/partials/admin/firebase-ui.php';
 
 AdminDemoPerms::denyIfCannot('firebase');
 
@@ -28,10 +29,11 @@ admin_layout_start(['pageTitle' => 'Push settings', 'activeAdminNav' => 'firebas
 $pageHeading = 'Push notification settings';
 $pageDescription = 'Operational flags only — Firebase credentials are managed under Firebase projects.';
 require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
+firebase_admin_subnav('settings');
 ?>
 
-<form method="post" class="at-card max-w-2xl">
-    <div class="at-card__body space-y-4">
+<form method="post" class="at-admin-card at-firebase-form-wrap">
+    <div class="at-admin-card__body space-y-4">
         <?= Csrf::field() ?>
         <p class="text-sm"><span class="at-muted">Environment</span><br><strong><?= Security::escape($form['environment']) ?></strong></p>
 

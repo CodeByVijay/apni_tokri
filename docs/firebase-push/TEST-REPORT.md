@@ -1,6 +1,6 @@
 # Test Report — Firebase Push
 
-**Last updated:** 2026-11-10 (Phase 2 verification — continued with `config.local.php`)
+**Last updated:** 2026-11-10 (Phase 3 — HTTPS staging browser verification attempt)
 
 FID + Firebase JS **13.2.0** architecture unchanged. No production DB writes, no live FCM to customers, no commit/push/deploy in this pass.
 
@@ -17,7 +17,7 @@ FID + Firebase JS **13.2.0** architecture unchanged. No production DB writes, no
 | Disposable schema test | **PASS** (4/4) |
 | Migration 1.39.1 idempotent re-apply | **PASS** |
 | Unit / regression scripts | **PASS** |
-| HTTPS staging browser tests | **NOT EXECUTED** |
+| HTTPS staging browser tests | **PARTIAL** (see §9 — HTTP dev server only; no HTTPS; no FCM delivery) |
 
 ---
 
@@ -35,23 +35,18 @@ Credentials are not recorded in this report.
 
 ## 2. Migration status (configured application database — read-only)
 
-Inspected with `php scripts/inspect-firebase-push-migration-status.php` (**no migrations executed** on `apni_tokri`).
+Inspected with `php scripts/inspect-firebase-push-migration-status.php` (**no migrations executed** in verification runs).
 
-| Item | Result |
-|------|--------|
-| `settings.schema_version` | `1.15.0-stage14-reports-6` |
-| `firebase_projects` | **MISSING** |
-| `device_push_registrations` | **MISSING** |
-| `push_notification_templates` | **MISSING** |
-| `push_notification_logs` | **MISSING** |
-| `device_push_registrations.target_type` | **MISSING** |
-| `firebase.manage` permission | **MISSING** |
-| Subscription pause/resume templates | **MISSING** (no templates table) |
-| **1.39.0 / 1.39.1 / 1.39.2 on this DB** | **NOT APPLIED** |
+| Item | Result (2026-11-10 Phase 3) |
+|------|------------------------------|
+| `settings.schema_version` | **`1.39.2-push-sub-templates`** |
+| Four push tables | **PRESENT** |
+| `device_push_registrations.target_type` | **PRESENT** (`enum('fid','fcm_token')`) |
+| `firebase.manage` | **PRESENT** |
+| `subscription.paused.push` / `resumed.push` | **PRESENT**, active |
+| **1.39.0 / 1.39.1 / 1.39.2** | **Applied** (inferred from schema + objects) |
 
-**Interpretation:** Migrations may have been applied on **another** environment (e.g. staging). This workstation’s **`apni_tokri`** database is still on schema **1.15.0** without Firebase objects. Admin Firebase screens on **this** DB will show “migration not applied.”
-
-**Action (local dev, not done in this task):** Apply `1.39.0` → `1.39.1` (if upgrading an old 1.39.0 without `target_type`) → `1.39.2` on `apni_tokri` when you want local admin push UI against real data — **not** required for disposable integration tests.
+Earlier Phase 2 note (schema 1.15.0) is **superseded** — migrations were applied on `apni_tokri` before Phase 3.
 
 ---
 
@@ -166,14 +161,78 @@ None in executed automated tests (after fixes).
 
 ---
 
-## 8. 7-phase snapshot (unchanged product view)
+## 8. 7-phase snapshot
 
 | Phase | Status |
 |-------|--------|
 | 1 Audit | Complete (docs) |
-| 2 Multi-Firebase admin | Code complete; **local `apni_tokri` DB not migrated** |
-| 3 PHP engine | Disposable **PASS**; live FCM unverified |
-| 4 Web push | Code complete; browser **pending staging** |
+| 2 Multi-Firebase admin | DB migrated; **no Firebase project rows configured yet** |
+| 3 PHP engine | Disposable **PASS**; live FCM **not verified** |
+| 4 Web push | SDK 13.2.0 in repo; browser E2E **blocked** (see §9) |
 | 5 Android | Scaffold only |
-| 6 Admin mgmt | Code complete |
-| 7 Switching & QA | Disposable **PASS**; staging E2E **pending** |
+| 6 Admin mgmt | UI reachable (login required); config incomplete |
+| 7 Switching & QA | Disposable **PASS**; staging browser **partial** |
+
+---
+
+## 9. Phase 3 — Staging / browser verification (2026-11-10)
+
+**Configuration context (no secrets):** `app.env` = `local`, `database.name` = `apni_tokri`, `database.role` unset (not production). Canonical `base_url` in config points at **veggietokri.com** — browser tests used **local PHP 8.4** built-in server only (`http://127.0.0.1:8765`), **not** HTTPS and **not** the public production host.
+
+### 9.1 Staging database — **PASS**
+
+`php scripts/inspect-firebase-push-migration-status.php` — all Phase 3 checks satisfied. No migrations applied during this pass.
+
+### 9.2 Admin Firebase configuration — **FAIL / incomplete**
+
+`php scripts/inspect-firebase-staging-readiness.php`:
+
+| Check | Result |
+|-------|--------|
+| `push_dry_run` effective | **PASS** — dry-run **on** (non-production default; empty settings) |
+| `push.enabled` | Unset (sends follow non-prod defaults) |
+| Active Firebase project | **NONE** (`firebase_project_count: 0`) |
+| Web / VAPID / service account | **Not configured** |
+| Credential test / activation | **NOT EXECUTED** (no project) |
+
+Browser: navigated to `/admin/firebase/` → redirected to **admin login** (`200`). Firebase admin UI **not inspected** (credentials not used in automation).
+
+### 9.3 Website browser verification — **PARTIAL / mostly SKIPPED**
+
+| Step | Result | Evidence |
+|------|--------|----------|
+| Apache `http://127.0.0.1/Apni_Tokri/` | **FAIL** | `PHP 7` parse errors (union types) — **use PHP 8.4** for web SAPI |
+| PHP 8.4 built-in server homepage | **PASS** | Browser loaded `http://127.0.0.1:8765/` (`200`) |
+| `GET /ajax/push-config.php` | **PASS** | JSON `{"success":true,"data":{"enabled":false},"message":"Push not configured"}` |
+| `registrationModel: fid` | **SKIPPED** | Only returned when push **enabled** with active web config |
+| `push-notifications.mjs` on homepage | **SKIPPED** | Script omitted when `FirebaseProjectManager::publicWebConfig()` is null |
+| `assets/js/push-notifications.mjs` SDK | **PASS** | Source contains `const SDK = '13.2.0'` (direct fetch `200`) |
+| Permission / `register()` / FID POST | **NOT EXECUTED** | Requires active Firebase web config + HTTPS context for real FCM |
+| Admin Devices `target_type=fid` | **NOT EXECUTED** | No registrations (`active_device_registrations: 0`) |
+| Unregister flow | **NOT EXECUTED** | Same blocker |
+
+**HTTPS:** No TLS staging host was available in this environment — steps requiring **HTTPS + service worker** need a real staging vhost (PHP 8.4+).
+
+### 9.4 Dry-run notification — **SKIPPED**
+
+`php scripts/staging-firebase-dry-run-verify.php` → exit **3**: *no active Firebase project*. Script **refuses** to run if dry-run is off or `database.role` is production.
+
+**Manual after admin setup:** with dry-run **ON**, run the script again or trigger `PushNotificationService::sendToCustomer` and confirm `push_notification_logs.status = dry_run`.
+
+### 9.5 Single test device (live FCM) — **NOT EXECUTED**
+
+Dry-run remains **ON**. **Explicit approval required** before setting `push.dry_run=0` and using Admin → Send test device.
+
+### 9.6 Summary table
+
+| Status | Items |
+|--------|--------|
+| **PASS** | DB migrations 1.39.x; dry-run default on; push-config endpoint; SDK 13.2.0 in module file; admin login gate |
+| **FAIL** | No Firebase project configured; Apache PHP 7 breaks main docroot |
+| **SKIPPED** | FID registration E2E, devices admin, dry-run log probe, live FCM |
+| **Manual required** | (1) Fix web PHP to **8.4+**. (2) Add HTTPS staging vhost. (3) Admin → create Firebase project, upload SA, web+VAPID, **Test**, **Activate**. (4) Confirm Push settings dry-run **ON**. (5) Browser: enable notifications, verify FID in Devices. (6) Run `staging-firebase-dry-run-verify.php`. (7) Optional live test **only with approval**. |
+
+### Helpers added (read-only / safe probes)
+
+- `scripts/inspect-firebase-staging-readiness.php`
+- `scripts/staging-firebase-dry-run-verify.php` (aborts if dry-run off or no active project)

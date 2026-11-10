@@ -195,10 +195,10 @@ function admin_masked_secret(string $label = 'secret'): string
 function admin_status_class(string $status): string
 {
     $lc = strtolower(trim(str_replace(['_', '-'], ' ', $status)));
-    $ok = ['delivered', 'active', 'confirmed', 'paid', 'approved', 'published', 'completed', 'sent', 'resolved', 'captured', 'success', 'in stock', 'yes', 'resolved manual', 'resolved refund'];
+    $ok = ['delivered', 'active', 'confirmed', 'paid', 'approved', 'published', 'completed', 'sent', 'resolved', 'captured', 'success', 'in stock', 'yes', 'resolved manual', 'resolved refund', 'passed'];
     $bad = ['cancelled', 'canceled', 'payment failed', 'failed', 'rejected', 'out of stock', 'error', 'expired'];
-    $info = ['processing', 'preparing', 'assigned', 'in progress', 'open', 'refunded', 'partially refunded', 'out for delivery', 'dispatched', 'shipped'];
-    $neutral = ['inactive', 'draft', 'closed', 'archived', 'disabled', 'no', 'skipped', 'paused'];
+    $info = ['processing', 'preparing', 'assigned', 'in progress', 'open', 'refunded', 'partially refunded', 'out for delivery', 'dispatched', 'shipped', 'dry run', 'dry_run'];
+    $neutral = ['inactive', 'draft', 'closed', 'archived', 'disabled', 'no', 'skipped', 'paused', 'revoked', 'invalid'];
     if (in_array($lc, $ok, true)) {
         return 'at-status--ok';
     }

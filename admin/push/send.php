@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/_init.php';
+require_once APNI_TOKRI_ROOT . '/includes/partials/admin/firebase-ui.php';
 
 AdminDemoPerms::denyIfCannot('firebase');
 $message = '';
@@ -47,13 +48,14 @@ admin_layout_start(['pageTitle' => 'Send push', 'activeAdminNav' => 'firebase'])
 $pageHeading = 'Send push notification';
 $pageDescription = 'Dry-run is default on non-production unless push.dry_run=0 in settings. Manual sends remaining today: ' . (int) PushSettings::manualSendRemainingToday() . '.';
 require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
+firebase_admin_subnav('send');
 ?>
 
 <?php if ($message !== ''): ?><div class="at-alert at-alert--success mb-4"><?= Security::escape($message) ?></div><?php endif; ?>
 <?php foreach ($errors as $e): ?><div class="at-alert at-alert--error mb-4"><?= Security::escape($e) ?></div><?php endforeach; ?>
 
-<div class="grid lg:grid-cols-2 gap-6 max-w-5xl">
-    <form method="post" class="at-card">
+<div class="grid lg:grid-cols-2 gap-6 max-w-5xl mx-auto">
+    <form method="post" class="at-admin-card">
         <div class="at-card__body space-y-3">
             <?= Csrf::field() ?>
             <input type="hidden" name="mode" value="test_device">
@@ -87,7 +89,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
             <button class="at-btn at-btn--primary" type="submit">Send test</button>
         </div>
     </form>
-    <form method="post" class="at-card" onsubmit="return confirm('Send to all active devices for this customer?');">
+    <form method="post" class="at-admin-card" onsubmit="return confirm('Send to all active devices for this customer?');">
         <div class="at-card__body space-y-3">
             <?= Csrf::field() ?>
             <input type="hidden" name="mode" value="customer">
