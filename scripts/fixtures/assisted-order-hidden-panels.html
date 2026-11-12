@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Assisted order hidden panel regression</title>
+  <!-- Reproduces staging: Tailwind CDN after stylesheet overrides UA [hidden] when .grid is present. -->
+  <style>
+    .at-assisted-order [hidden] {
+      display: none !important;
+    }
+    .at-assisted-order .at-aorder-is-hidden {
+      display: none !important;
+    }
+    .pass { color: #047857; }
+    .fail { color: #b91c1c; }
+  </style>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+  <div id="at-assisted-order" class="at-assisted-order p-4 space-y-4">
+    <div data-at-aorder-slot-panel data-at-aorder-panel>Standard slot panel</div>
+    <div data-at-aorder-custom-delivery-wrap data-at-aorder-panel hidden>
+      <div class="grid gap-3 sm:grid-cols-2">Custom delivery fields</div>
+    </div>
+    <div data-at-aorder-pending-pay-hint>Pending payment hint</div>
+    <div data-at-aorder-offline-wrap data-at-aorder-panel hidden>
+      <div class="grid gap-3 sm:grid-cols-2">Offline payment fields</div>
+    </div>
+    <div data-at-aorder-discount-coupon-panel data-at-aorder-panel hidden>
+      Coupon panel
+    </div>
+    <div data-at-aorder-discount-custom-panel data-at-aorder-panel hidden>
+      <div class="grid gap-3 sm:grid-cols-3">Custom discount fields</div>
+    </div>
+  </div>
+  <ul id="results"></ul>
+  <script>
+    function isVisible(el) {
+      if (!el) return false;
+      var s = window.getComputedStyle(el);
+      return s.display !== 'none' && s.visibility !== 'hidden';
+    }
+    function setPanel(node, visible) {
+      if (!node) return;
+      node.hidden = !visible;
+      node.classList.toggle('at-aorder-is-hidden', !visible);
+      node.setAttribute('aria-hidden', visible ? 'false' : 'true');
+    }
+    var root = document.getElementById('at-assisted-order');
+    var custom = root.querySelector('[data-at-aorder-custom-delivery-wrap]');
+    var offline = root.querySelector('[data-at-aorder-offline-wrap]');
+    var coupon = root.querySelector('[data-at-aorder-discount-coupon-panel]');
+    var disc = root.querySelector('[data-at-aorder-discount-custom-panel]');
+    var slot = root.querySelector('[data-at-aorder-slot-panel]');
+    var hint = root.querySelector('[data-at-aorder-pending-pay-hint]');
+    // Initial defaults (standard / pending / none)
+    setPanel(slot, true);
+    setPanel(custom, false);
+    setPanel(offline, false);
+    setPanel(hint, true);
+    setPanel(coupon, false);
+    setPanel(disc, false);
+    var checks = [
+      ['slot visible', isVisible(slot)],
+      ['custom hidden', !isVisible(custom)],
+      ['offline hidden', !isVisible(offline)],
+      ['coupon hidden', !isVisible(coupon)],
+      ['custom discount hidden', !isVisible(disc)],
+      ['pending hint visible', isVisible(hint)]
+    ];
+    // Toggle custom on then off
+    setPanel(custom, true); setPanel(slot, false);
+    checks.push(['custom visible after toggle', isVisible(custom)]);
+    checks.push(['slot hidden after custom', !isVisible(slot)]);
+    setPanel(custom, false); setPanel(slot, true);
+    checks.push(['custom hidden after back', !isVisible(custom)]);
+    setPanel(offline, true); setPanel(hint, false);
+    checks.push(['offline visible', isVisible(offline)]);
+    setPanel(offline, false); setPanel(hint, true);
+    checks.push(['offline hidden again', !isVisible(offline)]);
+    setPanel(disc, true);
+    checks.push(['discount custom visible', isVisible(disc)]);
+    setPanel(disc, false);
+    checks.push(['discount custom hidden again', !isVisible(disc)]);
+    var ul = document.getElementById('results');
+    var fail = 0;
+    checks.forEach(function (c) {
+      var li = document.createElement('li');
+      li.className = c[1] ? 'pass' : 'fail';
+      li.textContent = (c[1] ? 'OK' : 'FAIL') + ': ' + c[0];
+      if (!c[1]) fail++;
+      ul.appendChild(li);
+    });
+    document.title = fail === 0 ? 'PASS assisted hidden panels' : 'FAIL assisted hidden panels (' + fail + ')';
+  </script>
+</body>
+</html>

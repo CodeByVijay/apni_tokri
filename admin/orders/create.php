@@ -168,7 +168,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
                     Custom delivery date/time
                 </label>
             </fieldset>
-            <div data-at-aorder-slot-panel>
+            <div data-at-aorder-slot-panel data-at-aorder-panel>
                 <?php if ($checkoutSlots === []): ?>
                     <p class="text-sm at-muted">Next available slot will be selected automatically when you refresh the quote.</p>
                     <input type="hidden" value="auto" data-at-aorder-delivery-slot>
@@ -187,7 +187,8 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
                 </select>
                 <?php endif; ?>
             </div>
-            <div data-at-aorder-custom-delivery-wrap data-at-aorder-panel hidden>
+            <!-- Panel wrapper must not use Tailwind display utilities (.grid); those override [hidden]. -->
+            <div data-at-aorder-custom-delivery-wrap data-at-aorder-panel hidden class="at-aorder-is-hidden">
                 <div class="grid gap-3 sm:grid-cols-2 max-w-2xl">
                     <div>
                         <label class="at-label" for="at-aorder-custom-date">Delivery date</label>
@@ -250,7 +251,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
                     <span><strong>Admin custom discount</strong><br><span class="at-muted text-xs">Grant a special discount manually (merchandise only).</span></span>
                 </label>
             </fieldset>
-            <div data-at-aorder-discount-coupon-panel data-at-aorder-panel hidden>
+            <div data-at-aorder-discount-coupon-panel data-at-aorder-panel hidden class="at-aorder-is-hidden">
                 <div class="max-w-lg space-y-2">
                 <div class="flex flex-wrap gap-2 items-end">
                     <div class="flex-1 min-w-[12rem]">
@@ -263,7 +264,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
                 <p class="text-sm" data-at-aorder-coupon-status hidden aria-live="polite"></p>
                 </div>
             </div>
-            <div data-at-aorder-discount-custom-panel data-at-aorder-panel hidden>
+            <div data-at-aorder-discount-custom-panel data-at-aorder-panel hidden class="at-aorder-is-hidden">
                 <div class="grid gap-3 sm:grid-cols-3 max-w-2xl">
                     <div>
                         <label class="at-label" for="at-aorder-custom-type">Type</label>
@@ -302,7 +303,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
                 <?php endif; ?>
             </fieldset>
             <p class="text-sm at-muted max-w-2xl" data-at-aorder-pending-pay-hint>The customer will receive the usual pending-payment email and can pay online via Razorpay/Cashfree.</p>
-            <div data-at-aorder-offline-wrap data-at-aorder-panel hidden>
+            <div data-at-aorder-offline-wrap data-at-aorder-panel hidden class="at-aorder-is-hidden">
                 <div class="grid gap-3 sm:grid-cols-2 max-w-2xl">
                     <div>
                         <label class="at-label" for="at-aorder-offline-method">Payment method</label>

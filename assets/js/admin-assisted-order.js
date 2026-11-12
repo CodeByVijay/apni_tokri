@@ -596,7 +596,9 @@
 
         function setAorderPanelVisible(node, visible) {
             if (!node) { return; }
+            // Use both [hidden] and a class — Tailwind .grid can override UA [hidden] alone.
             node.hidden = !visible;
+            node.classList.toggle('at-aorder-is-hidden', !visible);
             node.setAttribute('aria-hidden', visible ? 'false' : 'true');
         }
 
