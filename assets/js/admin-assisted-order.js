@@ -36,6 +36,7 @@
         var csrfField = root.getAttribute('data-csrf-field') || '_csrf_token';
         var urlCustomers = root.getAttribute('data-url-customers') || '';
         var urlAddresses = root.getAttribute('data-url-addresses') || '';
+        var urlAddressCreate = root.getAttribute('data-url-address-create') || '';
         var urlVariants = root.getAttribute('data-url-variants') || '';
         var urlLine = root.getAttribute('data-url-line') || '';
         var urlQuote = root.getAttribute('data-url-quote') || '';
@@ -48,7 +49,9 @@
             selectedVariant: null,
             lines: [],
             customerPage: 1,
-            variantPage: 1
+            variantPage: 1,
+            addressSubmissionKey: '',
+            selectedAddress: null
         };
 
         var customerSearch = document.getElementById('at-aorder-customer-search');
@@ -61,6 +64,14 @@
         var addressSection = root.querySelector('[data-at-aorder-address-section]');
         var addressList = root.querySelector('[data-at-aorder-address-list]');
         var addressEmpty = root.querySelector('[data-at-aorder-address-empty]');
+        var addressExistingPanel = root.querySelector('[data-at-aorder-address-existing-panel]');
+        var addressForm = root.querySelector('[data-at-aorder-address-form]');
+        var addressSummary = root.querySelector('[data-at-aorder-address-summary]');
+        var addrModeButtons = root.querySelectorAll('[data-at-aorder-addr-mode]');
+        var addrSaveBtn = root.querySelector('[data-at-aorder-addr-save]');
+        var addrCancelBtn = root.querySelector('[data-at-aorder-addr-cancel]');
+        var addrFormError = root.querySelector('[data-at-aorder-addr-form-error]');
+        var addrLabelCustomWrap = root.querySelector('[data-at-aorder-addr-label-custom-wrap]');
 
         var variantSearch = document.getElementById('at-aorder-variant-search');
         var variantResults = root.querySelector('[data-at-aorder-variant-results]');
@@ -77,7 +88,31 @@
         var freeReason = root.querySelector('[data-at-aorder-free-reason]');
         var deliverySummary = root.querySelector('[data-at-aorder-delivery-summary]');
         var couponInput = root.querySelector('[data-at-aorder-coupon]');
+        var couponApply = root.querySelector('[data-at-aorder-coupon-apply]');
         var couponClear = root.querySelector('[data-at-aorder-coupon-clear]');
+        var couponStatus = root.querySelector('[data-at-aorder-coupon-status]');
+        var schedSlot = root.querySelector('[data-at-aorder-sched-slot]');
+        var schedCustom = root.querySelector('[data-at-aorder-sched-custom]');
+        var slotPanel = root.querySelector('[data-at-aorder-slot-panel]');
+        var customDeliveryWrap = root.querySelector('[data-at-aorder-custom-delivery-wrap]');
+        var customDate = root.querySelector('[data-at-aorder-custom-date]');
+        var customStart = root.querySelector('[data-at-aorder-custom-start]');
+        var customEnd = root.querySelector('[data-at-aorder-custom-end]');
+        var customReason = root.querySelector('[data-at-aorder-custom-reason]');
+        var payPending = root.querySelector('[data-at-aorder-pay-pending]');
+        var payOffline = root.querySelector('[data-at-aorder-pay-offline]');
+        var offlineWrap = root.querySelector('[data-at-aorder-offline-wrap]');
+        var offlineMethod = root.querySelector('[data-at-aorder-offline-method]');
+        var offlineAmount = root.querySelector('[data-at-aorder-offline-amount]');
+        var offlineRef = root.querySelector('[data-at-aorder-offline-ref]');
+        var offlinePayDate = root.querySelector('[data-at-aorder-offline-pay-date]');
+        var offlinePayTime = root.querySelector('[data-at-aorder-offline-pay-time]');
+        var offlineProvider = root.querySelector('[data-at-aorder-offline-provider]');
+        var offlineNote = root.querySelector('[data-at-aorder-offline-note]');
+        var offlineConfirm = root.querySelector('[data-at-aorder-offline-confirm]');
+        var canRecordOffline = root.getAttribute('data-can-record-offline') === '1';
+        var appliedCoupon = '';
+        var couponApplyBusy = false;
         var customEnabled = root.querySelector('[data-at-aorder-custom-enabled]');
         var customWrap = root.querySelector('[data-at-aorder-custom-wrap]');
         var customType = root.querySelector('[data-at-aorder-custom-type]');
@@ -97,16 +132,126 @@
         var variantTimer = null;
         var variantSeq = 0;
 
+        function randomHex(byteCount) {
+            var arr = new Uint8Array(byteCount);
+            if (window.crypto && window.crypto.getRandomValues) {
+                window.crypto.getRandomValues(arr);
+            } else {
+                for (var i = 0; i < byteCount; i++) { arr[i] = Math.floor(Math.random() * 256); }
+            }
+            return Array.from(arr, function (b) { return b.toString(16).padStart(2, '0'); }).join('');
+        }
+
         function clearCustomer() {
             state.customer = null;
             state.addressId = null;
+            state.selectedAddress = null;
+            state.addressSubmissionKey = '';
             customerIdInput.value = '';
             customerChip.innerHTML = '';
             customerChip.appendChild(el('span', 'text-sm at-muted', 'No customer selected.'));
             customerSummary.hidden = true;
             addressSection.hidden = true;
             addressList.innerHTML = '';
+            if (addressSummary) { addressSummary.hidden = true; addressSummary.textContent = ''; }
+            if (addressForm) { addressForm.hidden = true; }
             updateAddButton();
+        }
+
+        function clearAddressFieldErrors() {
+            root.querySelectorAll('[data-at-aorder-err]').forEach(function (node) {
+                node.hidden = true;
+                node.textContent = '';
+            });
+            if (addrFormError) { addrFormError.hidden = true; addrFormError.textContent = ''; }
+        }
+
+        function showAddressFieldErrors(errors) {
+            clearAddressFieldErrors();
+            if (!errors || typeof errors !== 'object') { return; }
+            Object.keys(errors).forEach(function (key) {
+                var node = root.querySelector('[data-at-aorder-err="' + key + '"]');
+                if (node) {
+                    node.textContent = errors[key];
+                    node.hidden = false;
+                }
+            });
+            if (addrFormError && errors.form) {
+                addrFormError.textContent = errors.form;
+                addrFormError.hidden = false;
+            }
+        }
+
+        function setAddressMode(mode) {
+            var isNew = mode === 'new';
+            addrModeButtons.forEach(function (btn) {
+                var m = btn.getAttribute('data-at-aorder-addr-mode');
+                var active = m === mode;
+                btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+                btn.classList.toggle('at-btn--secondary', active);
+                btn.classList.toggle('at-btn--ghost', !active);
+            });
+            if (addressExistingPanel) { addressExistingPanel.hidden = isNew; }
+            if (addressForm) {
+                addressForm.hidden = !isNew;
+                if (isNew && state.addressSubmissionKey === '') {
+                    state.addressSubmissionKey = randomHex(16);
+                }
+            }
+        }
+
+        function updateAddressSummary(addr) {
+            if (!addressSummary) { return; }
+            if (!addr) {
+                addressSummary.hidden = true;
+                addressSummary.innerHTML = '';
+                return;
+            }
+            addressSummary.hidden = false;
+            addressSummary.innerHTML = '';
+            addressSummary.appendChild(el('p', 'font-semibold mb-1', 'Selected address'));
+            var title = (addr.label || 'Address') + (addr.is_default ? ' (Default)' : '');
+            addressSummary.appendChild(el('p', '', title));
+            if (addr.receiver_name) {
+                addressSummary.appendChild(el('p', 'at-muted', addr.receiver_name + (addr.receiver_phone ? ' · ' + addr.receiver_phone : '')));
+            }
+            addressSummary.appendChild(el('p', '', addr.full_address || ''));
+        }
+
+        function appendAddressRadio(addr, forceSelect) {
+            var id = 'at-aorder-addr-' + addr.id;
+            var wrap = el('label', 'flex gap-2 p-3 border border-gray-200 rounded-lg cursor-pointer hover:border-green-600');
+            wrap.setAttribute('for', id);
+            var radio = document.createElement('input');
+            radio.type = 'radio';
+            radio.name = 'address_id';
+            radio.id = id;
+            radio.value = String(addr.id);
+            radio.className = 'mt-1';
+            radio.addEventListener('change', function () {
+                selectAddress(addr);
+            });
+            if (forceSelect || addr.is_default) {
+                radio.checked = true;
+                selectAddress(addr);
+            }
+            var body = el('div', 'text-sm flex-1');
+            var title = (addr.label || 'Address') + (addr.is_default ? ' (Default)' : '');
+            body.appendChild(el('p', 'font-semibold', title));
+            if (addr.receiver_name) {
+                body.appendChild(el('p', 'at-muted', addr.receiver_name + (addr.receiver_phone ? ' · ' + addr.receiver_phone : '')));
+            }
+            body.appendChild(el('p', '', addr.full_address || ''));
+            wrap.insertBefore(radio, wrap.firstChild);
+            wrap.appendChild(body);
+            addressList.appendChild(wrap);
+        }
+
+        function selectAddress(addr) {
+            state.addressId = addr.id;
+            state.selectedAddress = addr;
+            updateAddressSummary(addr);
+            scheduleQuote();
         }
 
         function setCustomer(c) {
@@ -227,51 +372,86 @@
             }
         });
 
-        function loadAddresses(customerId) {
+        function loadAddresses(customerId, selectId) {
             addressSection.hidden = false;
             addressList.innerHTML = '';
             addressEmpty.hidden = true;
+            state.addressId = null;
+            state.selectedAddress = null;
+            updateAddressSummary(null);
+            setAddressMode('existing');
             fetchJson(urlAddresses + '?customer_id=' + encodeURIComponent(customerId)).then(function (j) {
                 if (!j.success) {
                     addressEmpty.hidden = false;
                     addressEmpty.textContent = (j.error && j.error.message) || 'Could not load addresses.';
+                    setAddressMode('new');
                     return;
                 }
                 var items = (j.data && j.data.items) || [];
                 if (!items.length) {
                     addressEmpty.hidden = false;
-                    addressEmpty.textContent = 'No saved addresses for this customer.';
+                    addressEmpty.textContent = 'No saved addresses for this customer. Add a new address below.';
+                    setAddressMode('new');
                     return;
                 }
+                var picked = false;
                 items.forEach(function (addr) {
-                    var id = 'at-aorder-addr-' + addr.id;
-                    var wrap = el('label', 'flex gap-2 p-3 border border-gray-200 rounded-lg cursor-pointer hover:border-green-600');
-                    wrap.setAttribute('for', id);
-                    var radio = document.createElement('input');
-                    radio.type = 'radio';
-                    radio.name = 'address_id';
-                    radio.id = id;
-                    radio.value = String(addr.id);
-                    radio.className = 'mt-1';
-                    radio.addEventListener('change', function () {
-                        state.addressId = addr.id;
-                        scheduleQuote();
-                    });
-                    if (addr.is_default) {
-                        radio.checked = true;
-                        state.addressId = addr.id;
-                    }
-                    var body = el('div', 'text-sm flex-1');
-                    var title = (addr.label || 'Address') + (addr.is_default ? ' (Default)' : '');
-                    body.appendChild(el('p', 'font-semibold', title));
-                    if (addr.receiver_name) {
-                        body.appendChild(el('p', 'at-muted', addr.receiver_name + (addr.receiver_phone ? ' · ' + addr.receiver_phone : '')));
-                    }
-                    body.appendChild(el('p', '', addr.full_address || ''));
-                    wrap.insertBefore(radio, wrap.firstChild);
-                    wrap.appendChild(body);
-                    addressList.appendChild(wrap);
+                    var force = selectId != null && Number(selectId) === Number(addr.id);
+                    if (force) { picked = true; }
+                    appendAddressRadio(addr, force);
                 });
+                if (!picked && state.addressId) {
+                    var sel = items.filter(function (a) { return a.id === state.addressId; })[0];
+                    if (sel) { selectAddress(sel); }
+                }
+                updateActionButtons();
+            });
+        }
+
+        function buildAddressCreateBody() {
+            var body = new FormData();
+            body.append(csrfField, csrf);
+            body.append('customer_id', String(state.customer.id));
+            body.append('address_submission_key', state.addressSubmissionKey || randomHex(16));
+            if (!state.addressSubmissionKey) { state.addressSubmissionKey = body.get('address_submission_key'); }
+            if (!addressForm) { return body; }
+            addressForm.querySelectorAll('input, textarea, select').forEach(function (field) {
+                if (!field.name) { return; }
+                if (field.type === 'radio' && !field.checked) { return; }
+                if (field.type === 'checkbox') {
+                    if (field.checked) { body.append(field.name, field.value || '1'); }
+                    return;
+                }
+                body.append(field.name, field.value);
+            });
+            return body;
+        }
+
+        function saveNewAddress() {
+            if (!state.customer || !urlAddressCreate) { return; }
+            clearAddressFieldErrors();
+            if (addrSaveBtn) { addrSaveBtn.disabled = true; }
+            fetchJson(urlAddressCreate, { method: 'POST', body: buildAddressCreateBody() }).then(function (j) {
+                if (addrSaveBtn) { addrSaveBtn.disabled = false; }
+                if (!j.success) {
+                    showAddressFieldErrors(j.errors || {});
+                    if (j.error && j.error.message && addrFormError) {
+                        addrFormError.textContent = j.error.message;
+                        addrFormError.hidden = false;
+                    }
+                    return;
+                }
+                var addr = (j.data && j.data.address) || null;
+                if (!addr) { return; }
+                setAddressMode('existing');
+                addressEmpty.hidden = true;
+                loadAddresses(state.customer.id, addr.id);
+            }).catch(function () {
+                if (addrSaveBtn) { addrSaveBtn.disabled = false; }
+                if (addrFormError) {
+                    addrFormError.textContent = 'Could not save address.';
+                    addrFormError.hidden = false;
+                }
             });
         }
 
@@ -417,7 +597,25 @@
             body.append('apply_delivery_charges', applyDelivery && applyDelivery.checked ? '1' : '0');
             body.append('free_delivery', freeDelivery && freeDelivery.checked ? '1' : '0');
             if (freeReason) { body.append('free_delivery_reason', freeReason.value.trim()); }
-            if (couponInput) { body.append('coupon_code', couponInput.value.trim()); }
+            body.append('coupon_code', appliedCoupon || (couponInput ? couponInput.value.trim() : ''));
+            body.append('delivery_schedule_mode', schedCustom && schedCustom.checked ? 'custom' : 'slot');
+            if (schedCustom && schedCustom.checked) {
+                if (customDate) { body.append('custom_delivery_date', customDate.value); }
+                if (customStart) { body.append('custom_delivery_start', customStart.value); }
+                if (customEnd) { body.append('custom_delivery_end', customEnd.value); }
+                if (customReason) { body.append('custom_delivery_reason', customReason.value.trim()); }
+            }
+            body.append('payment_mode', payOffline && payOffline.checked ? 'offline_paid' : 'pending');
+            if (payOffline && payOffline.checked && canRecordOffline) {
+                if (offlineMethod) { body.append('offline_payment_method', offlineMethod.value); }
+                if (offlineAmount) { body.append('offline_payment_amount', offlineAmount.value); }
+                if (offlineRef) { body.append('offline_payment_reference', offlineRef.value.trim()); }
+                if (offlinePayDate) { body.append('offline_payment_date', offlinePayDate.value); }
+                if (offlinePayTime) { body.append('offline_payment_time', offlinePayTime.value); }
+                if (offlineProvider) { body.append('offline_payment_provider', offlineProvider.value.trim()); }
+                body.append('offline_payment_confirm', offlineConfirm && offlineConfirm.checked ? '1' : '0');
+                if (offlineNote) { body.append('offline_payment_verification_note', offlineNote.value.trim()); }
+            }
             body.append('custom_discount_enabled', customEnabled && customEnabled.checked ? '1' : '0');
             if (customType) { body.append('custom_discount_type', customType.value); }
             if (customValue) { body.append('custom_discount_value', customValue.value); }
@@ -477,7 +675,39 @@
                     + (q.calculated_delivery_fee !== q.delivery_fee ? ' · Calculated: ' + fmtMoney(q.calculated_delivery_fee) : '');
             }
             row('Payable total', fmtMoney(q.grand_total), true);
+            if (q.payment_mode === 'offline_paid') {
+                row('Payment mode', 'Offline (admin verified)');
+            } else {
+                row('Payment mode', 'Pending online payment');
+            }
+            if (offlineAmount && payOffline && payOffline.checked) {
+                offlineAmount.value = String(q.grand_total);
+            }
+            if (q.coupon_applied && q.coupon_code) {
+                appliedCoupon = q.coupon_code;
+                if (couponInput) { couponInput.value = q.coupon_code; }
+                if (couponStatus) {
+                    couponStatus.hidden = false;
+                    couponStatus.className = 'text-sm text-green-800';
+                    couponStatus.textContent = 'Coupon applied: ' + q.coupon_code + ' (− ' + fmtMoney(q.coupon_discount) + ')';
+                }
+                if (couponClear) { couponClear.hidden = false; }
+            } else if (appliedCoupon === '' && couponStatus) {
+                couponStatus.hidden = true;
+                couponStatus.textContent = '';
+                if (couponClear) { couponClear.hidden = true; }
+            }
+            updatePlaceButtonLabel();
             updateActionButtons();
+        }
+
+        function updatePlaceButtonLabel() {
+            if (!placeBtn) { return; }
+            if (payOffline && payOffline.checked && canRecordOffline) {
+                placeBtn.textContent = 'Create paid order (offline)';
+            } else {
+                placeBtn.textContent = 'Create order (pending payment)';
+            }
         }
 
         function refreshQuote() {
@@ -513,11 +743,48 @@
             });
         }
         if (freeReason) { freeReason.addEventListener('input', scheduleQuote); }
-        if (couponInput) { couponInput.addEventListener('change', scheduleQuote); }
+        if (couponInput) {
+            couponInput.addEventListener('input', function () {
+                if (couponApply) {
+                    couponApply.disabled = !canQuote() || couponApplyBusy || couponInput.value.trim() === '';
+                }
+                if (couponInput.value.trim() !== appliedCoupon) {
+                    appliedCoupon = '';
+                    if (couponStatus) { couponStatus.hidden = true; couponStatus.textContent = ''; }
+                    if (couponClear) { couponClear.hidden = true; }
+                }
+            });
+        }
+        if (couponApply) {
+            couponApply.addEventListener('click', function () {
+                if (couponApplyBusy || !canQuote()) { return; }
+                couponApplyBusy = true;
+                couponApply.disabled = true;
+                fetchJson(urlQuote, { method: 'POST', body: buildQuoteBody() }).then(function (j) {
+                    couponApplyBusy = false;
+                    couponApply.disabled = !canQuote() || !couponInput || couponInput.value.trim() === '';
+                    if (!j.success) {
+                        if (couponStatus) {
+                            couponStatus.hidden = false;
+                            couponStatus.className = 'text-sm text-red-700';
+                            couponStatus.textContent = (j.error && j.error.message) || 'Coupon could not be applied.';
+                        }
+                        return;
+                    }
+                    renderQuote(j.data.quote);
+                }).catch(function () {
+                    couponApplyBusy = false;
+                    couponApply.disabled = false;
+                });
+            });
+        }
         if (couponClear) {
             couponClear.addEventListener('click', function () {
-                couponInput.value = '';
-                scheduleQuote();
+                if (couponInput) { couponInput.value = ''; }
+                appliedCoupon = '';
+                if (couponStatus) { couponStatus.hidden = true; couponStatus.textContent = ''; }
+                couponClear.hidden = true;
+                refreshQuote();
             });
         }
         if (customEnabled) {
@@ -530,6 +797,27 @@
             if (el) { el.addEventListener('input', scheduleQuote); el.addEventListener('change', scheduleQuote); }
         });
         if (slotSelect) { slotSelect.addEventListener('change', scheduleQuote); }
+        function syncSchedulePanels() {
+            var custom = schedCustom && schedCustom.checked;
+            if (slotPanel) { slotPanel.hidden = !!custom; }
+            if (customDeliveryWrap) { customDeliveryWrap.hidden = !custom; }
+            scheduleQuote();
+        }
+        if (schedSlot) { schedSlot.addEventListener('change', syncSchedulePanels); }
+        if (schedCustom) { schedCustom.addEventListener('change', syncSchedulePanels); }
+        [customDate, customStart, customEnd, customReason].forEach(function (el) {
+            if (el) { el.addEventListener('change', scheduleQuote); el.addEventListener('input', scheduleQuote); }
+        });
+        function syncPaymentPanels() {
+            var offline = payOffline && payOffline.checked && canRecordOffline;
+            if (offlineWrap) { offlineWrap.hidden = !offline; }
+            if (offline && lastQuote && offlineAmount) {
+                offlineAmount.value = String(lastQuote.grand_total);
+            }
+            updatePlaceButtonLabel();
+        }
+        if (payPending) { payPending.addEventListener('change', syncPaymentPanels); }
+        if (payOffline) { payOffline.addEventListener('change', syncPaymentPanels); }
         if (refreshQuoteBtn) { refreshQuoteBtn.addEventListener('click', refreshQuote); }
         if (placeBtn) {
             placeBtn.addEventListener('click', function () {
@@ -549,7 +837,10 @@
                     var d = j.data || {};
                     placeResult.hidden = false;
                     placeResult.innerHTML = '';
-                    placeResult.appendChild(el('p', 'text-sm font-semibold text-green-800', 'Order ' + (d.order_number || '') + ' created — pending payment.'));
+                    var msg = d.payment_mode === 'offline_paid'
+                        ? 'Order ' + (d.order_number || '') + ' created — paid (offline).'
+                        : 'Order ' + (d.order_number || '') + ' created — pending payment.';
+                    placeResult.appendChild(el('p', 'text-sm font-semibold text-green-800', msg));
                     if (d.payment_url) {
                         var a = document.createElement('a');
                         a.href = d.payment_url;
@@ -639,6 +930,35 @@
             }).catch(function () {
                 addBtn.disabled = false;
                 updateAddButton();
+            });
+        });
+
+        addrModeButtons.forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var mode = btn.getAttribute('data-at-aorder-addr-mode') || 'existing';
+                setAddressMode(mode);
+                clearAddressFieldErrors();
+            });
+        });
+        if (addrSaveBtn) {
+            addrSaveBtn.addEventListener('click', saveNewAddress);
+        }
+        if (addrCancelBtn) {
+            addrCancelBtn.addEventListener('click', function () {
+                setAddressMode('existing');
+                clearAddressFieldErrors();
+            });
+        }
+        if (addressForm) {
+            addressForm.querySelectorAll('[data-at-aorder-addr-field]').forEach(function (field) {
+                field.addEventListener('input', clearAddressFieldErrors);
+            });
+        }
+        root.querySelectorAll('[data-at-aorder-addr-label-type]').forEach(function (radio) {
+            radio.addEventListener('change', function () {
+                if (addrLabelCustomWrap) {
+                    addrLabelCustomWrap.hidden = radio.value !== 'Other' || !radio.checked;
+                }
             });
         });
 

@@ -10,7 +10,7 @@ declare(strict_types=1);
  * - Footer copyright, contact page, invoice legal line → {@see self::legalName()}.
  * - legalName() uses `business.legal_name`, then `business.store_name`, then branding site name.
  * - Invoices, emails and PDFs read seller identity via {@see InvoiceSettings::seller()} (no duplicate invoice.* identity keys).
- * - Canonical public website URL (invoices, payment gateway return/callback URLs, customer emails): {@see self::websiteUrl()} (`business.website_url`), default https://veggietokri.com when unset.
+ * - Canonical public website URL (invoices, payment gateway return/callback URLs, customer emails): {@see self::configuredWebsiteUrl()} / {@see self::websiteUrl()} (`business.website_url`).
  */
 final class BusinessSettings
 {
@@ -311,31 +311,66 @@ final class BusinessSettings
     }
 
     /**
+     * Admin-configured Website URL only (business + legacy invoice key). Never the HTTP Host header.
+     */
+    public static function configuredWebsiteUrl(): ?string
+    {
+        foreach ([self::KEY_WEBSITE_URL, 'invoice.website_url'] as $key) {
+            $v = trim(AppSettings::get($key, '') ?? '');
+            if ($v !== '' && filter_var($v, FILTER_VALIDATE_URL) !== false && preg_match('#^https?://#i', $v) === 1) {
+                return self::normalizeWebsiteUrl($v);
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Public website URL for invoices, payment return links, and customer notifications.
-     * Falls back to {@see self::DEFAULT_WEBSITE_URL} when unset or cleared.
+     * Prefers admin Website URL; non-production may fall back to app.base_url before the production default.
      */
     public static function websiteUrl(): string
     {
-        $v = trim(AppSettings::get(self::KEY_WEBSITE_URL, '') ?? '');
-        if ($v !== '' && filter_var($v, FILTER_VALIDATE_URL) !== false && preg_match('#^https?://#i', $v) === 1) {
-            return self::normalizeWebsiteUrl($v);
+        $configured = self::configuredWebsiteUrl();
+        if ($configured !== null) {
+            return $configured;
+        }
+
+        $appBase = rtrim(App::baseUrl(), '/');
+        if ($appBase !== '' && filter_var($appBase, FILTER_VALIDATE_URL) !== false) {
+            if (self::isLocalDevelopmentAppBase($appBase)) {
+                return $appBase;
+            }
+            if (!AppEnvironment::isProduction()) {
+                return $appBase;
+            }
         }
 
         return self::DEFAULT_WEBSITE_URL;
     }
 
     /**
-     * Absolute base for customer-facing storefront links sent to browsers and payment gateways.
-     * Uses admin Website URL on production hosts; local / loopback installs keep {@see App::baseUrl()}.
+     * Absolute base for customer-facing storefront links (payment, emails, gateway callbacks).
+     * Always prefers admin Website URL when configured; never derives origin from HTTP Host.
      */
     public static function storefrontBaseUrl(): string
     {
+        $configured = self::configuredWebsiteUrl();
+        if ($configured !== null) {
+            return self::originWithOptionalUrlPath($configured);
+        }
+
         $appBase = rtrim(App::baseUrl(), '/');
         if ($appBase === '' || self::isLocalDevelopmentAppBase($appBase)) {
             return $appBase;
         }
 
-        $origin = rtrim(self::websiteUrl(), '/');
+        return self::originWithOptionalUrlPath(rtrim(self::websiteUrl(), '/'));
+    }
+
+    private static function originWithOptionalUrlPath(string $origin): string
+    {
+        $origin = rtrim($origin, '/');
         $urlPath = App::urlPath();
         if ($urlPath !== '' && !str_ends_with($origin, $urlPath)) {
             return $origin . $urlPath;

@@ -8,12 +8,14 @@ declare(strict_types=1);
 final class AdminAssistedOrderService
 {
     public const PERMISSION = 'orders.create_on_behalf';
+    public const PERMISSION_RECORD_OFFLINE = 'orders.record_offline_payment';
     public const MIN_SEARCH_LEN = 2;
     public const CUSTOMER_PER_PAGE = 20;
     public const VARIANT_SEARCH_LIMIT = 20;
     public const VARIANT_PAGE_LIMIT = 20;
     private const PLACE_SUBMISSION_TTL_SECONDS = 7200;
     private const PLACE_TOKEN_PREFIX = 'aplt';
+    private const SESSION_ADDRESS_SUBMISSIONS = 'admin_assisted_address_submissions';
 
     public static function canCreateOnBehalf(): bool
     {
@@ -22,6 +24,15 @@ final class AdminAssistedOrderService
         }
 
         return Permission::can(self::PERMISSION);
+    }
+
+    public static function canRecordOfflinePayment(): bool
+    {
+        if (!self::canCreateOnBehalf()) {
+            return false;
+        }
+
+        return Permission::can(self::PERMISSION_RECORD_OFFLINE);
     }
 
     public static function denyUnlessCanCreate(): void
@@ -144,24 +155,122 @@ final class AdminAssistedOrderService
         $rows = CustomerAccountService::listAddresses($customerId);
         $items = [];
         foreach ($rows as $addr) {
-            $addrId = (int) ($addr['id'] ?? 0);
-            $items[] = [
-                'id' => $addrId,
-                'label' => (string) ($addr['label'] ?? ''),
-                'receiver_name' => (string) ($addr['receiver_name'] ?? ''),
-                'receiver_phone' => (string) ($addr['receiver_phone'] ?? ''),
-                'line1' => (string) ($addr['line1'] ?? ''),
-                'line2' => (string) ($addr['line2'] ?? ''),
-                'city' => (string) ($addr['city'] ?? ''),
-                'state' => (string) ($addr['state'] ?? ''),
-                'pincode' => (string) ($addr['pincode'] ?? ''),
-                'full_address' => trim(AddressInput::fullAddress($addr)),
-                'is_default' => !empty($addr['is_default']),
-                'selectable' => true,
-            ];
+            $items[] = self::mapAddressListItem($addr);
         }
 
         return ['ok' => true, 'items' => $items];
+    }
+
+    /**
+     * Create a saved address for the selected customer (admin-assisted checkout).
+     *
+     * @param array<string, mixed> $post
+     * @return array{ok: bool, message?: string, errors?: array<string, string>, address?: array<string, mixed>, reused?: bool}
+     */
+    public static function createAddressForCustomer(int $customerId, array $post): array
+    {
+        if (!self::canCreateOnBehalf()) {
+            return ['ok' => false, 'message' => 'Forbidden.'];
+        }
+        if ($customerId <= 0) {
+            return ['ok' => false, 'message' => 'Invalid customer.'];
+        }
+        $customer = self::findCustomerForAssisted($customerId);
+        if ($customer === null) {
+            return ['ok' => false, 'message' => 'Customer not found.'];
+        }
+        if ((int) ($customer['is_active'] ?? 0) !== 1) {
+            return ['ok' => false, 'message' => 'This customer is inactive and cannot receive orders.'];
+        }
+
+        $submissionKey = isset($post['address_submission_key']) && is_string($post['address_submission_key'])
+            ? trim($post['address_submission_key']) : '';
+        if ($submissionKey !== '' && preg_match('/^[a-f0-9]{16,64}$/i', $submissionKey) === 1) {
+            $cachedId = (int) (($_SESSION[self::SESSION_ADDRESS_SUBMISSIONS][$customerId][$submissionKey] ?? 0));
+            if ($cachedId > 0) {
+                $cachedRow = CustomerAccountService::findAddress($customerId, $cachedId);
+                if ($cachedRow !== null) {
+                    return [
+                        'ok' => true,
+                        'address' => self::mapAddressListItem($cachedRow),
+                        'reused' => true,
+                    ];
+                }
+            }
+        }
+
+        $input = $post;
+        $input['address_confirmed'] = '1';
+        $input['addr_checkout_autocomplete'] = '1';
+        $makeDefault = !empty($post['make_default']);
+        $added = CustomerAccountService::addAddress($customerId, $input, $makeDefault);
+        if (empty($added['ok'])) {
+            $errors = is_array($added['errors'] ?? null) ? $added['errors'] : [];
+            $message = (string) ($errors['form'] ?? $errors['pincode'] ?? $errors['receiver_phone'] ?? 'Could not save this address.');
+
+            return ['ok' => false, 'message' => $message, 'errors' => $errors];
+        }
+
+        $addressId = (int) ($added['id'] ?? 0);
+        if ($addressId <= 0) {
+            return ['ok' => false, 'message' => 'Could not save this address.'];
+        }
+
+        if ($submissionKey !== '' && preg_match('/^[a-f0-9]{16,64}$/i', $submissionKey) === 1) {
+            if (!isset($_SESSION[self::SESSION_ADDRESS_SUBMISSIONS]) || !is_array($_SESSION[self::SESSION_ADDRESS_SUBMISSIONS])) {
+                $_SESSION[self::SESSION_ADDRESS_SUBMISSIONS] = [];
+            }
+            if (!isset($_SESSION[self::SESSION_ADDRESS_SUBMISSIONS][$customerId])
+                || !is_array($_SESSION[self::SESSION_ADDRESS_SUBMISSIONS][$customerId])) {
+                $_SESSION[self::SESSION_ADDRESS_SUBMISSIONS][$customerId] = [];
+            }
+            $_SESSION[self::SESSION_ADDRESS_SUBMISSIONS][$customerId][$submissionKey] = $addressId;
+        }
+
+        $adminId = AdminAuth::id();
+        AuditLog::write(
+            'customer.address_assisted_create',
+            'customer_addresses',
+            (string) $addressId,
+            [
+                'customer_id' => $customerId,
+                'pincode_suffix' => substr(preg_replace('/\D+/', '', (string) ($post['pincode'] ?? '')) ?? '', -3),
+                'make_default' => $makeDefault ? 1 : 0,
+            ],
+            $adminId
+        );
+
+        $row = CustomerAccountService::findAddress($customerId, $addressId);
+        if ($row === null) {
+            return ['ok' => false, 'message' => 'Address saved but could not be loaded. Refresh and try again.'];
+        }
+
+        return [
+            'ok' => true,
+            'address' => self::mapAddressListItem($row),
+            'reused' => false,
+        ];
+    }
+
+    /** @param array<string, mixed> $addr */
+    private static function mapAddressListItem(array $addr): array
+    {
+        $addrId = (int) ($addr['id'] ?? 0);
+
+        return [
+            'id' => $addrId,
+            'label' => (string) ($addr['label'] ?? ''),
+            'receiver_name' => (string) ($addr['receiver_name'] ?? ''),
+            'receiver_phone' => (string) ($addr['receiver_phone'] ?? ''),
+            'line1' => (string) ($addr['line1'] ?? ''),
+            'line2' => (string) ($addr['line2'] ?? ''),
+            'city' => (string) ($addr['city'] ?? ''),
+            'state' => (string) ($addr['state'] ?? ''),
+            'pincode' => (string) ($addr['pincode'] ?? ''),
+            'full_address' => trim(AddressInput::fullAddress($addr)),
+            'is_default' => !empty($addr['is_default']),
+            'selectable' => true,
+        ];
     }
 
     /**
@@ -525,11 +634,28 @@ final class AdminAssistedOrderService
             return ['ok' => false, 'message' => (string) $totals['coupon_error']];
         }
 
+        $scheduleMode = isset($input['delivery_schedule_mode']) && $input['delivery_schedule_mode'] === 'custom'
+            ? 'custom' : 'slot';
+        $customDelivery = null;
         $slot = isset($input['delivery_slot']) && is_string($input['delivery_slot']) ? trim($input['delivery_slot']) : '';
         $deliveryDate = isset($input['delivery_date']) && is_string($input['delivery_date']) ? trim($input['delivery_date']) : '';
+        $quoteSlotSlug = $slot;
         if (!DeliveryConfig::slotsEnabled()) {
             $slot = $slot === '' ? 'auto' : $slot;
             $deliveryDate = '';
+            $scheduleMode = 'slot';
+        } elseif ($scheduleMode === 'custom') {
+            $parsed = self::parseCustomDeliveryInput($input);
+            if (empty($parsed['ok'])) {
+                return ['ok' => false, 'message' => (string) ($parsed['message'] ?? 'Invalid custom delivery.')];
+            }
+            $customDelivery = $parsed['custom'] ?? [];
+            $deliveryDate = (string) ($customDelivery['delivery_date'] ?? '');
+            $quoteSlotSlug = self::referenceSlotSlugForCustomQuote();
+            if ($quoteSlotSlug === '') {
+                return ['ok' => false, 'message' => 'No delivery slots are configured for custom scheduling.'];
+            }
+            $slot = 'custom';
         } else {
             $resolved = self::resolveAdminDeliverySlot($slot, $deliveryDate);
             if ($resolved['slot'] === '') {
@@ -537,6 +663,7 @@ final class AdminAssistedOrderService
             }
             $slot = $resolved['slot'];
             $deliveryDate = $resolved['delivery_date'];
+            $quoteSlotSlug = $slot;
             if ($slot === '' || !DeliveryService::validateSlot($slot)) {
                 return ['ok' => false, 'message' => 'Choose a valid delivery slot.'];
             }
@@ -550,7 +677,7 @@ final class AdminAssistedOrderService
         $deliveryQuote = DeliveryQuoteService::quoteForCheckout(
             $address,
             $pricingLines,
-            $slot,
+            $quoteSlotSlug !== '' ? $quoteSlotSlug : 'auto',
             $totals,
             null,
             null,
@@ -611,6 +738,11 @@ final class AdminAssistedOrderService
             return ['ok' => false, 'message' => $minRejection];
         }
 
+        $paymentMode = self::normalizePaymentMode($input);
+        if ($paymentMode === 'offline_paid' && !self::canRecordOfflinePayment()) {
+            return ['ok' => false, 'message' => 'You do not have permission to record offline payments.'];
+        }
+
         $adminId = AdminAuth::id();
         $adminMeta = self::buildAdminMeta([
             'apply_delivery_charges' => $applyDelivery,
@@ -625,6 +757,9 @@ final class AdminAssistedOrderService
             'custom_amount' => $customDiscountAmount,
             'custom_reason' => $customEnabled ? $customReason : null,
             'admin_user_id' => $adminId,
+            'delivery_schedule_mode' => $scheduleMode,
+            'custom_delivery' => $customDelivery,
+            'payment_mode' => $paymentMode,
         ]);
 
         $quoteSignature = self::buildQuoteSignature(
@@ -641,7 +776,10 @@ final class AdminAssistedOrderService
             $customReason,
             $slot,
             $deliveryDate,
-            $grandTotal
+            $grandTotal,
+            $scheduleMode,
+            $customDelivery,
+            $paymentMode
         );
 
         $placeSubmissionToken = self::issuePlaceSubmissionToken(
@@ -671,7 +809,11 @@ final class AdminAssistedOrderService
                 'discount_total' => round($offerDiscount + $couponDiscount + $customDiscountAmount, 2),
                 'delivery_zone' => $deliveryQuote['zone_name'] ?? ($totals['delivery_zone'] ?? null),
                 'delivery_slot' => $slot,
-                'delivery_date' => $deliveryQuote['delivery_date'] ?? $deliveryDate,
+                'delivery_date' => $deliveryDate !== '' ? $deliveryDate : ($deliveryQuote['delivery_date'] ?? ''),
+                'delivery_schedule_mode' => $scheduleMode,
+                'custom_delivery' => $customDelivery,
+                'payment_mode' => $paymentMode,
+                'coupon_applied' => $couponCode !== null && $couponCode !== '' && $couponDiscount > 0,
                 'delivery_serviceable' => true,
                 'quote_signature' => $quoteSignature,
                 'place_submission_token' => $placeSubmissionToken,
@@ -706,6 +848,17 @@ final class AdminAssistedOrderService
             return ['ok' => false, 'message' => 'Refresh the quote, then create the order.'];
         }
 
+        $paymentMode = self::normalizePaymentMode($input);
+        if ($paymentMode === 'offline_paid') {
+            if (!self::canRecordOfflinePayment()) {
+                return ['ok' => false, 'message' => 'You do not have permission to record offline payments.'];
+            }
+            $offlineCheck = self::validateOfflinePaymentInput($input);
+            if (empty($offlineCheck['ok'])) {
+                return ['ok' => false, 'message' => (string) ($offlineCheck['message'] ?? 'Invalid offline payment.')];
+            }
+        }
+
         $quoted = self::quote($input, true);
         if (empty($quoted['ok'])) {
             return $quoted;
@@ -730,6 +883,12 @@ final class AdminAssistedOrderService
         if ($clientGrand !== null && abs($clientGrand - $serverGrand) > 0.009) {
             return ['ok' => false, 'message' => 'Order total changed. Refresh the quote and try again.'];
         }
+        if ($paymentMode === 'offline_paid') {
+            $offlineAmt = isset($input['offline_payment_amount']) ? round((float) $input['offline_payment_amount'], 2) : 0.0;
+            if (abs($offlineAmt - $serverGrand) > 0.009) {
+                return ['ok' => false, 'message' => 'Amount received must match the order payable total.'];
+            }
+        }
 
         $quoteSignature = (string) ($quote['quote_signature'] ?? '');
         $checkoutNonce = self::verifyPlaceSubmissionToken(
@@ -742,11 +901,24 @@ final class AdminAssistedOrderService
             return ['ok' => false, 'message' => 'This quote session has expired. Refresh the quote and try again.'];
         }
 
+        $scheduleMode = (string) ($quote['delivery_schedule_mode'] ?? 'slot');
+        $customDelivery = is_array($quote['custom_delivery'] ?? null) ? $quote['custom_delivery'] : null;
         $slot = (string) ($quote['delivery_slot'] ?? 'auto');
         $deliveryDate = isset($quote['delivery_date']) ? (string) $quote['delivery_date'] : '';
         $slotId = isset($deliveryQuote['slot_id']) ? (int) $deliveryQuote['slot_id'] : null;
         $deliveryEta = $deliveryQuote['delivery_eta'] ?? null;
         $zoneId = isset($deliveryQuote['zone_id']) ? (int) $deliveryQuote['zone_id'] : null;
+        $capacityOverride = false;
+        if ($scheduleMode === 'custom' && is_array($customDelivery)) {
+            $cap = self::resolveCapacitySlotForCustomDelivery(0, $deliveryDate, 0, Permission::can('deliveries.manage'));
+            $slotId = (int) ($cap['slot_id'] ?? 0);
+            $capacityOverride = !empty($cap['capacity_override']);
+            if ($slotId <= 0) {
+                return ['ok' => false, 'message' => 'No delivery capacity bucket is available for the custom window.'];
+            }
+            $slot = 'custom';
+            $deliveryEta = (string) ($customDelivery['window_label'] ?? $deliveryEta);
+        }
         if ($zoneId === 0) {
             $zoneId = null;
         }
@@ -761,8 +933,30 @@ final class AdminAssistedOrderService
         }
 
         $snapshotData = DeliveryQuoteService::buildSnapshot($deliveryQuote, $addrSnapshot);
+        if ($scheduleMode === 'custom' && is_array($customDelivery) && $slotId !== null && $slotId > 0) {
+            Install::ensureConnection();
+            $slotRowStmt = Database::pdo()->prepare('SELECT * FROM delivery_slots WHERE id = ? LIMIT 1');
+            $slotRowStmt->execute([$slotId]);
+            $slotRow = $slotRowStmt->fetch(PDO::FETCH_ASSOC);
+            if (is_array($slotRow)) {
+                $windowLabel = (string) ($customDelivery['window_label'] ?? '');
+                $snapshotData = DeliveryOrderSnapshot::applyAdminCustomDeliveryWindow(
+                    $snapshotData,
+                    $slotRow,
+                    $deliveryDate,
+                    (string) ($customDelivery['start_time'] ?? ''),
+                    (string) ($customDelivery['end_time'] ?? ''),
+                    $windowLabel,
+                    $capacityOverride
+                );
+                $snapshotData['assisted_custom_reason'] = (string) ($customDelivery['reason'] ?? '');
+            }
+        }
         $adminMeta = is_array($quote['admin_meta'] ?? null) ? $quote['admin_meta'] : [];
         $adminMeta['placed_at'] = date('c');
+        if ($paymentMode === 'offline_paid') {
+            $adminMeta['offline_payment'] = self::offlinePaymentMetaFromInput($input, $adminId);
+        }
         $adminMetaJson = json_encode($adminMeta, JSON_UNESCAPED_UNICODE);
         $snapJson = json_encode($snapshotData, JSON_UNESCAPED_UNICODE);
 
@@ -789,18 +983,25 @@ final class AdminAssistedOrderService
                 $status,
                 $paymentStatus,
                 $couponCode,
-                $deliveryQuote
+                $deliveryQuote,
+                $paymentMode,
+                $serverGrand,
+                $input
             ): array {
                 $pdo = Database::pdo();
 
                 $pdo->prepare('SELECT id FROM customers WHERE id = ? FOR UPDATE')->execute([$customerId]);
 
-                $dup = $pdo->prepare(
-                    "SELECT id, order_number FROM orders
-                     WHERE checkout_nonce = ? AND order_source = 'admin_assisted' AND customer_id = ?
-                       AND status = 'pending_payment' AND payment_status = 'pending'
-                     LIMIT 1 FOR UPDATE"
-                );
+                $dupSql = $paymentMode === 'offline_paid'
+                    ? "SELECT id, order_number FROM orders
+                       WHERE checkout_nonce = ? AND order_source = 'admin_assisted' AND customer_id = ?
+                         AND payment_status = 'paid'
+                       LIMIT 1 FOR UPDATE"
+                    : "SELECT id, order_number FROM orders
+                       WHERE checkout_nonce = ? AND order_source = 'admin_assisted' AND customer_id = ?
+                         AND status = 'pending_payment' AND payment_status = 'pending'
+                       LIMIT 1 FOR UPDATE";
+                $dup = $pdo->prepare($dupSql);
                 $dup->execute([$checkoutNonce, $customerId]);
                 $existing = $dup->fetch(PDO::FETCH_ASSOC);
                 if ($existing) {
@@ -809,6 +1010,7 @@ final class AdminAssistedOrderService
                         'order_id' => (int) $existing['id'],
                         'order_number' => (string) $existing['order_number'],
                         'reused' => true,
+                        'payment_mode' => $paymentMode,
                     ];
                 }
 
@@ -878,9 +1080,22 @@ final class AdminAssistedOrderService
                     && DeliverySlotReservationService::tableReady()) {
                     DeliverySlotReservationService::createHold($pdo, (int) $slotId, $deliveryDate, $orderId);
                 }
-                if (UnpaidOrderExpiryService::columnReady()) {
+                if ($paymentMode === 'pending' && UnpaidOrderExpiryService::columnReady()) {
                     $expAt = UnpaidOrderExpiryService::computeExpiryFromPlacement(date('Y-m-d H:i:s'));
                     $pdo->prepare('UPDATE orders SET payment_expires_at = ? WHERE id = ?')->execute([$expAt, $orderId]);
+                }
+
+                $offlineIdempotency = null;
+                if ($paymentMode === 'offline_paid') {
+                    $offlineIdempotency = AdminAssistedOrderService::insertOfflinePaymentRow(
+                        $pdo,
+                        $orderId,
+                        $orderNumber,
+                        $serverGrand,
+                        $input,
+                        $adminId,
+                        $checkoutNonce
+                    );
                 }
 
                 return [
@@ -888,6 +1103,8 @@ final class AdminAssistedOrderService
                     'order_id' => $orderId,
                     'order_number' => $orderNumber,
                     'reused' => false,
+                    'payment_mode' => $paymentMode,
+                    'offline_idempotency' => $offlineIdempotency,
                 ];
             });
         } catch (Throwable $e) {
@@ -904,39 +1121,90 @@ final class AdminAssistedOrderService
         $orderNumber = (string) $placed['order_number'];
         $reused = !empty($placed['reused']);
 
-        if (!$reused) {
+        $paymentModePlaced = (string) ($placed['payment_mode'] ?? $paymentMode);
+        $offlineComplete = null;
+
+        if ($paymentModePlaced === 'offline_paid') {
+            $idem = isset($placed['offline_idempotency']) && is_array($placed['offline_idempotency'])
+                ? $placed['offline_idempotency'] : null;
+            if (!$reused && $idem !== null) {
+                $ref = (string) ($idem['gateway_payment_id'] ?? '');
+                $offlineComplete = PaymentService::completePayment(
+                    $orderNumber,
+                    'offline',
+                    $ref,
+                    '',
+                    $serverGrand,
+                    'INR',
+                    (string) ($idem['idempotency_key'] ?? ''),
+                    'offline_assisted:' . $adminId . ':' . $checkoutNonce
+                );
+                if (empty($offlineComplete['ok'])) {
+                    return [
+                        'ok' => false,
+                        'message' => (string) ($offlineComplete['message'] ?? 'Order was created but offline payment could not be confirmed.'),
+                        'order_id' => $orderId,
+                        'order_number' => $orderNumber,
+                    ];
+                }
+            }
+            if (!$reused) {
+                AuditLog::write('order.offline_payment_recorded', 'orders', (string) $orderId, [
+                    'order_number' => $orderNumber,
+                    'customer_id' => $customerId,
+                    'grand_total' => $serverGrand,
+                    'method' => (string) ($input['offline_payment_method'] ?? ''),
+                    'reference' => (string) ($input['offline_payment_reference'] ?? ''),
+                ], $adminId);
+                AuditLog::write('order.assisted_create', 'orders', (string) $orderId, [
+                    'order_number' => $orderNumber,
+                    'customer_id' => $customerId,
+                    'grand_total' => $quote['grand_total'],
+                    'payment_mode' => 'offline_paid',
+                ], $adminId);
+            }
+        } elseif (!$reused) {
             NotificationDispatcher::orderPlacedPendingPayment($orderId);
             AuditLog::write('order.assisted_create', 'orders', (string) $orderId, [
                 'order_number' => $orderNumber,
                 'customer_id' => $customerId,
                 'grand_total' => $quote['grand_total'],
+                'payment_mode' => 'pending',
             ], $adminId);
         }
 
         $mobile = (string) ($customerRow['mobile'] ?? '');
         $paymentInit = null;
-        $liveReady = PaymentGatewayConfig::assertLivePaymentsReady();
-        if (PaymentGatewayConfig::useSimulatedCheckout() || !empty($liveReady['ok'])) {
-            $paymentInit = PaymentService::initiateForOrder(
-                $orderId,
-                $orderNumber,
-                $serverGrand,
-                $mobile
-            );
+        if ($paymentModePlaced === 'pending') {
+            $liveReady = PaymentGatewayConfig::assertLivePaymentsReady();
+            if (PaymentGatewayConfig::useSimulatedCheckout() || !empty($liveReady['ok'])) {
+                $paymentInit = PaymentService::initiateForOrder(
+                    $orderId,
+                    $orderNumber,
+                    $serverGrand,
+                    $mobile
+                );
+            }
         }
 
-        $paymentUrl = OrderEmailContext::customerPaymentRetryUrl($orderNumber);
+        $paymentUrl = $paymentModePlaced === 'pending'
+            ? OrderEmailContext::customerPaymentRetryUrl($orderNumber)
+            : null;
 
         return [
             'ok' => true,
             'order_id' => $orderId,
             'order_number' => $orderNumber,
             'reused' => $reused,
+            'payment_mode' => $paymentModePlaced,
+            'payment_status' => $paymentModePlaced === 'offline_paid' ? 'paid' : 'pending',
             'grand_total' => $serverGrand,
             'payment_url' => $paymentUrl,
             'payment_initiated' => is_array($paymentInit) && !empty($paymentInit['ok']),
             'payment_error' => is_array($paymentInit) && empty($paymentInit['ok'])
                 ? (string) ($paymentInit['error'] ?? '') : null,
+            'offline_payment_captured' => $paymentModePlaced === 'offline_paid'
+                && (empty($offlineComplete) || !empty($offlineComplete['ok'])),
             'admin_order_url' => url_base() . '/admin/orders/view.php?id=' . $orderId,
         ];
     }
@@ -1026,6 +1294,14 @@ final class AdminAssistedOrderService
                 'reason' => $parts['custom_reason'] ?? null,
             ],
             'admin_user_id' => isset($parts['admin_user_id']) ? (int) $parts['admin_user_id'] : null,
+            'delivery_schedule' => [
+                'mode' => (string) ($parts['delivery_schedule_mode'] ?? 'slot'),
+                'custom' => $parts['custom_delivery'] ?? null,
+            ],
+            'payment' => [
+                'mode' => (string) ($parts['payment_mode'] ?? 'pending'),
+            ],
+            'offline_payment' => $parts['offline_payment'] ?? null,
         ];
     }
 
@@ -1046,7 +1322,10 @@ final class AdminAssistedOrderService
         string $customReason,
         string $slot,
         string $deliveryDate,
-        float $grandTotal
+        float $grandTotal,
+        string $scheduleMode = 'slot',
+        ?array $customDelivery = null,
+        string $paymentMode = 'pending'
     ): string {
         $fp = [];
         foreach ($lines as $line) {
@@ -1064,6 +1343,9 @@ final class AdminAssistedOrderService
             'custom' => $customEnabled ? ['type' => $customType, 'value' => $customValue, 'reason' => $customReason] : null,
             'slot' => $slot,
             'delivery_date' => $deliveryDate,
+            'schedule_mode' => $scheduleMode,
+            'custom_delivery' => $customDelivery,
+            'payment_mode' => $paymentMode,
             'grand_total' => round($grandTotal, 2),
         ];
 
@@ -1180,6 +1462,301 @@ final class AdminAssistedOrderService
         return DeliverySlotService::assertBookable($slotRow, $deliveryDate);
     }
 
+    public static function normalizePaymentMode(array $input): string
+    {
+        $mode = isset($input['payment_mode']) && is_string($input['payment_mode'])
+            ? strtolower(trim($input['payment_mode'])) : 'pending';
+        if (in_array($mode, ['offline', 'offline_paid', 'already_paid'], true)) {
+            return 'offline_paid';
+        }
+
+        return 'pending';
+    }
+
+    /**
+     * @return array{ok: bool, message?: string, custom?: array<string, mixed>}
+     */
+    private static function parseCustomDeliveryInput(array $input): array
+    {
+        $date = isset($input['custom_delivery_date']) && is_string($input['custom_delivery_date'])
+            ? trim($input['custom_delivery_date']) : '';
+        $startRaw = isset($input['custom_delivery_start']) && is_string($input['custom_delivery_start'])
+            ? trim($input['custom_delivery_start']) : '';
+        $endRaw = isset($input['custom_delivery_end']) && is_string($input['custom_delivery_end'])
+            ? trim($input['custom_delivery_end']) : '';
+        $reason = isset($input['custom_delivery_reason']) && is_string($input['custom_delivery_reason'])
+            ? trim($input['custom_delivery_reason']) : '';
+        if ($reason === '') {
+            return ['ok' => false, 'message' => 'Enter a reason for the custom delivery schedule.'];
+        }
+        $dateErr = self::validateAdminDeliveryDate($date);
+        if ($dateErr !== null) {
+            return ['ok' => false, 'message' => $dateErr];
+        }
+        $start = self::normalizeAdminClockTime($startRaw);
+        $end = self::normalizeAdminClockTime($endRaw);
+        if ($start === null || $end === null) {
+            return ['ok' => false, 'message' => 'Enter valid start and end times (HH:MM).'];
+        }
+        if ($start >= $end) {
+            return ['ok' => false, 'message' => 'Custom delivery start time must be earlier than end time.'];
+        }
+        $pastErr = self::validateCustomWindowNotInPast($date, $start);
+        if ($pastErr !== null) {
+            return ['ok' => false, 'message' => $pastErr];
+        }
+        $windowLabel = DeliveryAdminUi::formatClockTime12h($start) . ' – '
+            . DeliveryAdminUi::formatClockTime12h($end);
+
+        return [
+            'ok' => true,
+            'custom' => [
+                'delivery_date' => $date,
+                'start_time' => $start,
+                'end_time' => $end,
+                'window_label' => $windowLabel,
+                'reason' => $reason,
+            ],
+        ];
+    }
+
+    private static function referenceSlotSlugForCustomQuote(): string
+    {
+        foreach (['tomorrow', 'morning', 'afternoon'] as $slug) {
+            if (DeliverySlotService::resolveBySlug($slug) !== null) {
+                return $slug;
+            }
+        }
+        foreach (self::checkoutSlotOptionsForAdmin() as $opt) {
+            $s = (string) ($opt['slug'] ?? '');
+            if ($s !== '') {
+                return $s;
+            }
+        }
+
+        return '';
+    }
+
+    private static function validateAdminDeliveryDate(string $deliveryDate): ?string
+    {
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $deliveryDate)) {
+            return 'Choose a valid delivery date.';
+        }
+        $today = DeliveryConfig::now()->format('Y-m-d');
+        if ($deliveryDate < $today) {
+            return 'Delivery date cannot be in the past.';
+        }
+        try {
+            $max = DeliveryConfig::now()->modify('+60 days')->format('Y-m-d');
+        } catch (Throwable $e) {
+            $max = $today;
+        }
+        if ($deliveryDate > $max) {
+            return 'Delivery date is too far in the future.';
+        }
+
+        return null;
+    }
+
+    private static function validateCustomWindowNotInPast(string $deliveryDate, string $startTime): ?string
+    {
+        try {
+            $tz = new DateTimeZone(DeliveryConfig::timezone());
+            $start = new DateTimeImmutable($deliveryDate . ' ' . $startTime, $tz);
+        } catch (Throwable $e) {
+            return 'Invalid delivery date or time.';
+        }
+        if ($start < DeliveryConfig::now()) {
+            return 'Custom delivery time cannot be in the past.';
+        }
+
+        return null;
+    }
+
+    private static function normalizeAdminClockTime(string $time): ?string
+    {
+        $time = trim($time);
+        if (!preg_match('/^(\d{1,2}):(\d{2})$/', $time, $m)) {
+            return null;
+        }
+        $h = (int) $m[1];
+        $min = (int) $m[2];
+        if ($h < 0 || $h > 23 || $min < 0 || $min > 59) {
+            return null;
+        }
+
+        return sprintf('%02d:%02d:00', $h, $min);
+    }
+
+    /**
+     * @return array{slot_id: int, capacity_override: bool}
+     */
+    private static function resolveCapacitySlotForCustomDelivery(
+        int $orderId,
+        string $deliveryDate,
+        int $preferSlotId,
+        bool $allowCapacityOverride
+    ): array {
+        if (!Install::isSchemaReady()) {
+            return ['slot_id' => 0, 'capacity_override' => false];
+        }
+        Install::ensureConnection();
+        $pdo = Database::pdo();
+        DeliverySlotReservationService::releaseExpiredHolds($pdo);
+        $stmt = $pdo->query('SELECT * FROM delivery_slots WHERE is_active = 1 ORDER BY sort_order, id');
+        $bestId = 0;
+        $bestRemaining = -1;
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) ?: [] as $slot) {
+            if (!DeliverySlotService::isWeekdayAllowed($slot, $deliveryDate)) {
+                continue;
+            }
+            $slotId = (int) $slot['id'];
+            $cap = (int) ($slot['capacity'] ?? 0);
+            $used = DeliverySlotReservationService::usedUnits($pdo, $slotId, $deliveryDate, $orderId);
+            $remaining = $cap - $used;
+            if ($remaining <= 0) {
+                continue;
+            }
+            $err = DeliverySlotService::assertBookableLocked($pdo, $slot, $deliveryDate, $orderId, true);
+            if ($err !== null) {
+                continue;
+            }
+            if ($slotId === $preferSlotId) {
+                return ['slot_id' => $slotId, 'capacity_override' => false];
+            }
+            if ($remaining > $bestRemaining) {
+                $bestRemaining = $remaining;
+                $bestId = $slotId;
+            }
+        }
+        if ($bestId > 0) {
+            return ['slot_id' => $bestId, 'capacity_override' => false];
+        }
+        if (!$allowCapacityOverride) {
+            return ['slot_id' => 0, 'capacity_override' => false];
+        }
+        $fallbackId = $preferSlotId > 0 ? $preferSlotId : (int) ($pdo->query(
+            'SELECT id FROM delivery_slots WHERE is_active = 1 ORDER BY sort_order, id LIMIT 1'
+        )->fetchColumn() ?: 0);
+
+        return ['slot_id' => $fallbackId, 'capacity_override' => $fallbackId > 0];
+    }
+
+    /**
+     * @return array{ok: bool, message?: string}
+     */
+    private static function validateOfflinePaymentInput(array $input): array
+    {
+        $method = isset($input['offline_payment_method']) && is_string($input['offline_payment_method'])
+            ? strtolower(trim($input['offline_payment_method'])) : '';
+        if (!in_array($method, ['upi', 'bank_transfer'], true)) {
+            return ['ok' => false, 'message' => 'Choose UPI or Bank transfer for offline payment.'];
+        }
+        $ref = isset($input['offline_payment_reference']) && is_string($input['offline_payment_reference'])
+            ? trim($input['offline_payment_reference']) : '';
+        if ($ref === '') {
+            return ['ok' => false, 'message' => 'Enter the transaction or reference number.'];
+        }
+        $note = isset($input['offline_payment_verification_note']) && is_string($input['offline_payment_verification_note'])
+            ? trim($input['offline_payment_verification_note']) : '';
+        if ($note === '') {
+            return ['ok' => false, 'message' => 'Enter a verification note for this offline payment.'];
+        }
+        if (!self::inputBool($input, 'offline_payment_confirm', false)) {
+            return ['ok' => false, 'message' => 'Confirm that payment has been received and verified.'];
+        }
+        $payDate = isset($input['offline_payment_date']) && is_string($input['offline_payment_date'])
+            ? trim($input['offline_payment_date']) : '';
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $payDate)) {
+            return ['ok' => false, 'message' => 'Enter the payment date.'];
+        }
+        $payTime = isset($input['offline_payment_time']) && is_string($input['offline_payment_time'])
+            ? trim($input['offline_payment_time']) : '';
+        if (self::normalizeAdminClockTime($payTime) === null) {
+            return ['ok' => false, 'message' => 'Enter a valid payment time (HH:MM).'];
+        }
+
+        return ['ok' => true];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function offlinePaymentMetaFromInput(array $input, ?int $adminId): array
+    {
+        $method = isset($input['offline_payment_method']) && is_string($input['offline_payment_method'])
+            ? strtolower(trim($input['offline_payment_method'])) : '';
+        $ref = isset($input['offline_payment_reference']) && is_string($input['offline_payment_reference'])
+            ? trim($input['offline_payment_reference']) : '';
+        $payDate = isset($input['offline_payment_date']) && is_string($input['offline_payment_date'])
+            ? trim($input['offline_payment_date']) : '';
+        $payTimeRaw = isset($input['offline_payment_time']) && is_string($input['offline_payment_time'])
+            ? trim($input['offline_payment_time']) : '';
+        $payTime = self::normalizeAdminClockTime($payTimeRaw) ?? '00:00:00';
+        $provider = isset($input['offline_payment_provider']) && is_string($input['offline_payment_provider'])
+            ? trim($input['offline_payment_provider']) : '';
+        $note = isset($input['offline_payment_verification_note']) && is_string($input['offline_payment_verification_note'])
+            ? trim($input['offline_payment_verification_note']) : '';
+        try {
+            $tz = new DateTimeZone(DeliveryConfig::timezone());
+            $receivedAt = (new DateTimeImmutable($payDate . ' ' . $payTime, $tz))->format(DATE_ATOM);
+        } catch (Throwable $e) {
+            $receivedAt = date(DATE_ATOM);
+        }
+
+        return [
+            'method' => $method,
+            'reference' => $ref,
+            'provider' => $provider !== '' ? $provider : null,
+            'received_at' => $receivedAt,
+            'verification_note' => $note,
+            'verified_by_admin_id' => $adminId,
+        ];
+    }
+
+    /**
+     * @return array{idempotency_key: string, gateway_payment_id: string}|null
+     */
+    public static function insertOfflinePaymentRow(
+        PDO $pdo,
+        int $orderId,
+        string $orderNumber,
+        float $amountInr,
+        array $input,
+        ?int $adminId,
+        string $checkoutNonce
+    ): ?array {
+        $amountInr = round($amountInr, 2);
+        $offlineMeta = self::offlinePaymentMetaFromInput($input, $adminId);
+        $ref = (string) ($offlineMeta['reference'] ?? '');
+        $idempotency = 'offline_assisted:' . substr(hash('sha256', $checkoutNonce), 0, 40);
+        $gatewayPaymentId = 'offline:' . substr(hash('sha256', $ref . '|' . $orderNumber), 0, 40);
+        $dup = $pdo->prepare('SELECT id FROM payments WHERE idempotency_key = ? LIMIT 1');
+        $dup->execute([$idempotency]);
+        if ($dup->fetchColumn()) {
+            return ['idempotency_key' => $idempotency, 'gateway_payment_id' => $gatewayPaymentId];
+        }
+        $meta = array_merge($offlineMeta, [
+            'source' => 'admin_assisted_offline',
+            'payment_environment' => PaymentGatewayConfig::recordedPaymentEnvironment('offline'),
+        ]);
+        $pdo->prepare(
+            'INSERT INTO payments (order_id, gateway, gateway_payment_id, amount, currency, status, idempotency_key, metadata_json)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+        )->execute([
+            $orderId,
+            'offline',
+            $gatewayPaymentId,
+            $amountInr,
+            'INR',
+            'created',
+            $idempotency,
+            json_encode($meta, JSON_UNESCAPED_UNICODE),
+        ]);
+
+        return ['idempotency_key' => $idempotency, 'gateway_payment_id' => $gatewayPaymentId];
+    }
+
     private static function placeTokenSigningKey(): string
     {
         $cfg = App::config();
@@ -1271,6 +1848,31 @@ final class AdminAssistedOrderService
                 ? $post['custom_discount_reason'] : '',
             'delivery_slot' => isset($post['delivery_slot']) && is_string($post['delivery_slot']) ? $post['delivery_slot'] : '',
             'delivery_date' => isset($post['delivery_date']) && is_string($post['delivery_date']) ? $post['delivery_date'] : '',
+            'delivery_schedule_mode' => isset($post['delivery_schedule_mode']) && is_string($post['delivery_schedule_mode'])
+                ? $post['delivery_schedule_mode'] : 'slot',
+            'custom_delivery_date' => isset($post['custom_delivery_date']) && is_string($post['custom_delivery_date'])
+                ? trim($post['custom_delivery_date']) : '',
+            'custom_delivery_start' => isset($post['custom_delivery_start']) && is_string($post['custom_delivery_start'])
+                ? trim($post['custom_delivery_start']) : '',
+            'custom_delivery_end' => isset($post['custom_delivery_end']) && is_string($post['custom_delivery_end'])
+                ? trim($post['custom_delivery_end']) : '',
+            'custom_delivery_reason' => isset($post['custom_delivery_reason']) && is_string($post['custom_delivery_reason'])
+                ? trim($post['custom_delivery_reason']) : '',
+            'payment_mode' => isset($post['payment_mode']) && is_string($post['payment_mode']) ? $post['payment_mode'] : 'pending',
+            'offline_payment_method' => isset($post['offline_payment_method']) && is_string($post['offline_payment_method'])
+                ? $post['offline_payment_method'] : '',
+            'offline_payment_amount' => isset($post['offline_payment_amount']) ? $post['offline_payment_amount'] : null,
+            'offline_payment_reference' => isset($post['offline_payment_reference']) && is_string($post['offline_payment_reference'])
+                ? trim($post['offline_payment_reference']) : '',
+            'offline_payment_date' => isset($post['offline_payment_date']) && is_string($post['offline_payment_date'])
+                ? trim($post['offline_payment_date']) : '',
+            'offline_payment_time' => isset($post['offline_payment_time']) && is_string($post['offline_payment_time'])
+                ? trim($post['offline_payment_time']) : '',
+            'offline_payment_provider' => isset($post['offline_payment_provider']) && is_string($post['offline_payment_provider'])
+                ? trim($post['offline_payment_provider']) : '',
+            'offline_payment_confirm' => $post['offline_payment_confirm'] ?? '0',
+            'offline_payment_verification_note' => isset($post['offline_payment_verification_note']) && is_string($post['offline_payment_verification_note'])
+                ? trim($post['offline_payment_verification_note']) : '',
             'client_grand_total' => isset($post['client_grand_total']) ? $post['client_grand_total'] : null,
             'place_submission_token' => isset($post['place_submission_token']) && is_string($post['place_submission_token'])
                 ? trim($post['place_submission_token']) : '',

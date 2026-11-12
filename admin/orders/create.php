@@ -17,9 +17,10 @@ admin_layout_start([
     'activeAdminNav' => 'orders',
 ]);
 $pageHeading = 'Create order on behalf of customer';
-$pageDescription = 'Select a customer, address and products. Review the server-calculated total, then create a pending-payment order for the customer to pay online.';
+$pageDescription = 'Select a customer, address and products. Review the server-calculated total, then create a pending-payment order or record an offline payment.';
 $slotsEnabled = DeliveryConfig::slotsEnabled();
 $checkoutSlots = $slotsEnabled ? AdminAssistedOrderService::checkoutSlotOptionsForAdmin() : [];
+$canRecordOffline = AdminAssistedOrderService::canRecordOfflinePayment();
 $defaultSlot = $slotsEnabled && $checkoutSlots !== [] ? (string) ($checkoutSlots[0]['slug'] ?? '') : 'auto';
 $defaultSlotDate = $slotsEnabled && $checkoutSlots !== [] ? (string) ($checkoutSlots[0]['delivery_date'] ?? '') : '';
 $breadcrumbs = [
@@ -45,13 +46,15 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
      data-csrf-field="<?= Security::escape($csrfField) ?>"
      data-url-customers="<?= Security::escape($ajaxBase . '/assisted-order-customers.php') ?>"
      data-url-addresses="<?= Security::escape($ajaxBase . '/assisted-order-addresses.php') ?>"
+     data-url-address-create="<?= Security::escape($ajaxBase . '/assisted-order-address-create.php') ?>"
      data-url-variants="<?= Security::escape($ajaxBase . '/assisted-order-variants.php') ?>"
      data-url-line="<?= Security::escape($ajaxBase . '/assisted-order-line.php') ?>"
      data-url-quote="<?= Security::escape($ajaxBase . '/assisted-order-quote.php') ?>"
      data-url-place="<?= Security::escape($ajaxBase . '/assisted-order-place.php') ?>"
      data-slots-enabled="<?= $slotsEnabled ? '1' : '0' ?>"
      data-default-slot="<?= Security::escape($defaultSlot) ?>"
-     data-default-slot-date="<?= Security::escape($defaultSlotDate) ?>">
+     data-default-slot-date="<?= Security::escape($defaultSlotDate) ?>"
+     data-can-record-offline="<?= $canRecordOffline ? '1' : '0' ?>">
 
     <section class="at-admin-card" aria-labelledby="at-aorder-customer-title">
         <div class="at-admin-card__head"><h2 id="at-aorder-customer-title">1. Customer</h2></div>
@@ -78,9 +81,21 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
 
     <section class="at-admin-card" aria-labelledby="at-aorder-address-title" data-at-aorder-address-section hidden>
         <div class="at-admin-card__head"><h2 id="at-aorder-address-title">2. Delivery address</h2></div>
-        <div class="at-admin-card__body">
-            <p class="text-sm at-muted mb-3" data-at-aorder-address-empty hidden>No saved addresses for this customer.</p>
-            <div class="space-y-2" data-at-aorder-address-list role="radiogroup" aria-label="Delivery address"></div>
+        <div class="at-admin-card__body space-y-4">
+            <div class="flex flex-wrap gap-2" role="tablist" aria-label="Address source">
+                <button type="button" class="at-btn at-btn--secondary at-btn--sm at-focusable" data-at-aorder-addr-mode="existing" aria-pressed="true">
+                    Select existing address
+                </button>
+                <button type="button" class="at-btn at-btn--ghost at-btn--sm at-focusable" data-at-aorder-addr-mode="new" aria-pressed="false">
+                    + Add new address
+                </button>
+            </div>
+            <p class="text-sm at-muted" data-at-aorder-address-empty hidden>No saved addresses for this customer. Add a new address below.</p>
+            <div data-at-aorder-address-existing-panel>
+                <div class="space-y-2" data-at-aorder-address-list role="radiogroup" aria-label="Delivery address"></div>
+            </div>
+            <?php require APNI_TOKRI_ROOT . '/includes/partials/admin/assisted-order-address-form.php'; ?>
+            <div class="p-3 rounded-lg border border-gray-200 bg-gray-50 text-sm" data-at-aorder-address-summary hidden aria-live="polite"></div>
         </div>
     </section>
 
@@ -140,24 +155,55 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
     <?php if ($slotsEnabled): ?>
     <section class="at-admin-card" aria-labelledby="at-aorder-slot-title">
         <div class="at-admin-card__head"><h2 id="at-aorder-slot-title">5. Delivery slot</h2></div>
-        <div class="at-admin-card__body">
-            <?php if ($checkoutSlots === []): ?>
-                <p class="text-sm at-muted">Next available slot will be selected automatically when you refresh the quote.</p>
-                <input type="hidden" value="auto" data-at-aorder-delivery-slot>
-            <?php else: ?>
-            <label class="at-label" for="at-aorder-delivery-slot">Slot</label>
-            <select id="at-aorder-delivery-slot" class="at-input at-focusable w-full max-w-md" data-at-aorder-delivery-slot>
-                <?php foreach ($checkoutSlots as $sl):
-                    $slug = (string) ($sl['slug'] ?? '');
-                    $date = (string) ($sl['delivery_date'] ?? '');
-                    $label = (string) ($sl['label'] ?? $slug);
-                    ?>
-                <option value="<?= Security::escape($slug) ?>" data-date="<?= Security::escape($date) ?>">
-                    <?= Security::escape($label) ?><?= $date !== '' ? ' · ' . Security::escape($date) : '' ?>
-                </option>
-                <?php endforeach; ?>
-            </select>
-            <?php endif; ?>
+        <div class="at-admin-card__body space-y-4">
+            <fieldset class="space-y-2">
+                <legend class="sr-only">Delivery scheduling</legend>
+                <label class="flex items-center gap-2 text-sm">
+                    <input type="radio" name="at_aorder_sched_mode" class="at-focusable" value="slot" data-at-aorder-sched-slot checked>
+                    Use a standard delivery slot
+                </label>
+                <label class="flex items-center gap-2 text-sm">
+                    <input type="radio" name="at_aorder_sched_mode" class="at-focusable" value="custom" data-at-aorder-sched-custom>
+                    Custom delivery date/time
+                </label>
+            </fieldset>
+            <div data-at-aorder-slot-panel>
+                <?php if ($checkoutSlots === []): ?>
+                    <p class="text-sm at-muted">Next available slot will be selected automatically when you refresh the quote.</p>
+                    <input type="hidden" value="auto" data-at-aorder-delivery-slot>
+                <?php else: ?>
+                <label class="at-label" for="at-aorder-delivery-slot">Slot</label>
+                <select id="at-aorder-delivery-slot" class="at-input at-focusable w-full max-w-lg" data-at-aorder-delivery-slot>
+                    <?php foreach ($checkoutSlots as $sl):
+                        $slug = (string) ($sl['slug'] ?? '');
+                        $date = (string) ($sl['delivery_date'] ?? '');
+                        $optionLabel = DeliverySlotDisplay::formatAdminAssistedOption($sl);
+                        ?>
+                    <option value="<?= Security::escape($slug) ?>" data-date="<?= Security::escape($date) ?>">
+                        <?= Security::escape($optionLabel) ?>
+                    </option>
+                    <?php endforeach; ?>
+                </select>
+                <?php endif; ?>
+            </div>
+            <div class="grid gap-3 sm:grid-cols-2 max-w-2xl" data-at-aorder-custom-delivery-wrap hidden>
+                <div>
+                    <label class="at-label" for="at-aorder-custom-date">Delivery date</label>
+                    <input id="at-aorder-custom-date" type="date" class="at-input at-focusable w-full" data-at-aorder-custom-date>
+                </div>
+                <div>
+                    <label class="at-label" for="at-aorder-custom-start">Start time</label>
+                    <input id="at-aorder-custom-start" type="time" class="at-input at-focusable w-full" data-at-aorder-custom-start>
+                </div>
+                <div>
+                    <label class="at-label" for="at-aorder-custom-end">End time</label>
+                    <input id="at-aorder-custom-end" type="time" class="at-input at-focusable w-full" data-at-aorder-custom-end>
+                </div>
+                <div class="sm:col-span-2">
+                    <label class="at-label" for="at-aorder-custom-reason">Reason for custom schedule</label>
+                    <input id="at-aorder-custom-reason" type="text" class="at-input at-focusable w-full" maxlength="255" data-at-aorder-custom-reason>
+                </div>
+            </div>
         </div>
     </section>
     <?php endif; ?>
@@ -186,12 +232,16 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
     <section class="at-admin-card" aria-labelledby="at-aorder-discounts-title">
         <div class="at-admin-card__head"><h2 id="at-aorder-discounts-title"><?= $slotsEnabled ? '7' : '6' ?>. Coupon &amp; custom discount</h2></div>
         <div class="at-admin-card__body space-y-4">
-            <div class="flex flex-wrap gap-2 items-end max-w-lg">
+            <div class="max-w-lg space-y-2">
+                <div class="flex flex-wrap gap-2 items-end">
                 <div class="flex-1 min-w-[12rem]">
                     <label class="at-label" for="at-aorder-coupon">Coupon code</label>
                     <input id="at-aorder-coupon" type="text" class="at-input at-focusable w-full uppercase" autocomplete="off" data-at-aorder-coupon>
                 </div>
-                <button type="button" class="at-btn at-btn--ghost at-btn--sm at-focusable" data-at-aorder-coupon-clear>Clear</button>
+                <button type="button" class="at-btn at-btn--secondary at-btn--sm at-focusable" data-at-aorder-coupon-apply disabled>Apply coupon</button>
+                <button type="button" class="at-btn at-btn--ghost at-btn--sm at-focusable" data-at-aorder-coupon-clear hidden>Remove</button>
+                </div>
+                <p class="text-sm" data-at-aorder-coupon-status hidden aria-live="polite"></p>
             </div>
             <label class="flex items-center gap-2 text-sm">
                 <input type="checkbox" class="at-focusable" data-at-aorder-custom-enabled>
@@ -217,15 +267,71 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
         </div>
     </section>
 
+    <section class="at-admin-card" aria-labelledby="at-aorder-payment-title">
+        <div class="at-admin-card__head"><h2 id="at-aorder-payment-title"><?= $slotsEnabled ? '8' : '7' ?>. Order payment</h2></div>
+        <div class="at-admin-card__body space-y-4">
+            <fieldset class="space-y-2">
+                <legend class="sr-only">Payment mode</legend>
+                <label class="flex items-center gap-2 text-sm">
+                    <input type="radio" name="at_aorder_pay_mode" class="at-focusable" value="pending" data-at-aorder-pay-pending checked>
+                    Pending payment — customer pays online later
+                </label>
+                <?php if ($canRecordOffline): ?>
+                <label class="flex items-center gap-2 text-sm">
+                    <input type="radio" name="at_aorder_pay_mode" class="at-focusable" value="offline_paid" data-at-aorder-pay-offline>
+                    Already paid — offline payment (UPI / bank transfer)
+                </label>
+                <?php endif; ?>
+            </fieldset>
+            <div class="grid gap-3 sm:grid-cols-2 max-w-2xl" data-at-aorder-offline-wrap hidden>
+                <div>
+                    <label class="at-label" for="at-aorder-offline-method">Payment method</label>
+                    <select id="at-aorder-offline-method" class="at-input at-focusable w-full" data-at-aorder-offline-method>
+                        <option value="upi">UPI</option>
+                        <option value="bank_transfer">Bank transfer</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="at-label" for="at-aorder-offline-amount">Amount received (₹)</label>
+                    <input id="at-aorder-offline-amount" type="number" class="at-input at-focusable w-full" min="0" step="0.01" readonly data-at-aorder-offline-amount>
+                </div>
+                <div class="sm:col-span-2">
+                    <label class="at-label" for="at-aorder-offline-ref">Transaction / reference number</label>
+                    <input id="at-aorder-offline-ref" type="text" class="at-input at-focusable w-full" maxlength="191" data-at-aorder-offline-ref>
+                </div>
+                <div>
+                    <label class="at-label" for="at-aorder-offline-pay-date">Payment date</label>
+                    <input id="at-aorder-offline-pay-date" type="date" class="at-input at-focusable w-full" data-at-aorder-offline-pay-date>
+                </div>
+                <div>
+                    <label class="at-label" for="at-aorder-offline-pay-time">Payment time</label>
+                    <input id="at-aorder-offline-pay-time" type="time" class="at-input at-focusable w-full" data-at-aorder-offline-pay-time>
+                </div>
+                <div class="sm:col-span-2">
+                    <label class="at-label" for="at-aorder-offline-provider">Provider / bank name (optional)</label>
+                    <input id="at-aorder-offline-provider" type="text" class="at-input at-focusable w-full" maxlength="128" data-at-aorder-offline-provider>
+                </div>
+                <div class="sm:col-span-2">
+                    <label class="at-label" for="at-aorder-offline-note">Verification note</label>
+                    <textarea id="at-aorder-offline-note" class="at-input at-focusable w-full" rows="2" maxlength="500" data-at-aorder-offline-note></textarea>
+                </div>
+                <label class="sm:col-span-2 flex items-start gap-2 text-sm">
+                    <input type="checkbox" class="at-focusable mt-1" data-at-aorder-offline-confirm value="1">
+                    I confirm that the payment has been received and verified.
+                </label>
+            </div>
+        </div>
+    </section>
+
     <section class="at-admin-card" aria-labelledby="at-aorder-summary-title">
-        <div class="at-admin-card__head"><h2 id="at-aorder-summary-title"><?= $slotsEnabled ? '8' : '7' ?>. Order summary</h2></div>
+        <div class="at-admin-card__head"><h2 id="at-aorder-summary-title"><?= $slotsEnabled ? '9' : '8' ?>. Order summary</h2></div>
         <div class="at-admin-card__body">
             <p class="text-sm at-muted mb-2" data-at-aorder-quote-status>Complete the sections above to calculate totals.</p>
             <dl class="text-sm space-y-1 max-w-md" data-at-aorder-quote-dl hidden></dl>
             <div class="mt-4 flex flex-wrap gap-2 items-center">
                 <button type="button" class="at-btn at-btn--secondary at-focusable" data-at-aorder-refresh-quote disabled>Refresh quote</button>
                 <button type="button" class="at-btn at-btn--primary at-focusable" data-at-aorder-place disabled<?= $migrationReady ? '' : ' title="Apply migration 1.40.0 first"' ?>>
-                    Create order (pending payment)
+                    Create order
                 </button>
             </div>
             <div class="mt-3" data-at-aorder-place-result hidden></div>

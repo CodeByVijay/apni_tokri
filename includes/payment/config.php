@@ -47,6 +47,9 @@ final class PaymentGatewayConfig
     public static function recordedPaymentEnvironment(string $gateway): string
     {
         $gateway = strtolower(trim($gateway));
+        if ($gateway === 'offline') {
+            return 'offline';
+        }
         if ($gateway === 'simulate') {
             return 'simulate';
         }
@@ -235,6 +238,9 @@ final class PaymentGatewayConfig
         }
         if ($gateway === 'simulate') {
             return 'Simulated checkout';
+        }
+        if ($gateway === 'offline') {
+            return 'Offline (admin verified)';
         }
 
         return ucfirst($gateway);

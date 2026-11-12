@@ -168,6 +168,9 @@ $adminAssistedTest = in_array(basename($targetPath), [
     'test-admin-assisted-order-quote.php',
     'test-admin-assisted-order-placement.php',
     'test-admin-assisted-order-phase5.php',
+    'test-admin-assisted-order-address.php',
+    'test-admin-assisted-order-final-ux.php',
+    'test-storefront-canonical-urls.php',
 ], true);
 if ($migrateAdminAssisted || $adminAssistedTest) {
     $migration = $root . '/database/migrations/1.40.0_admin_assisted_orders.sql';
@@ -175,6 +178,13 @@ if ($migrateAdminAssisted || $adminAssistedTest) {
     $mig = disposable_apply_migration_file($pdo, $fresh, $migration);
     if (empty($mig['ok'])) {
         fwrite(STDERR, 'Migration failed: ' . ($mig['message'] ?? 'unknown') . "\n");
+        exit(2);
+    }
+    $migration41 = $root . '/database/migrations/1.41.0_admin_assisted_offline_payment.sql';
+    fwrite(STDERR, "[disposable DB {$fresh}] applying migration 1.41.0_admin_assisted_offline_payment.sql\n");
+    $mig41 = disposable_apply_migration_file($pdo, $fresh, $migration41);
+    if (empty($mig41['ok'])) {
+        fwrite(STDERR, 'Migration failed: ' . ($mig41['message'] ?? 'unknown') . "\n");
         exit(2);
     }
 }

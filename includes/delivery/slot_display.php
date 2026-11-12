@@ -125,6 +125,28 @@ final class DeliverySlotDisplay
         return $label . ' (' . $range . ')';
     }
 
+    /**
+     * Admin assisted-order slot dropdown label: Name · start – end · j M Y
+     *
+     * @param array<string, mixed> $slotResolved DeliverySlotService::resolveBySlug() card payload
+     */
+    public static function formatAdminAssistedOption(array $slotResolved): string
+    {
+        $label = trim((string) ($slotResolved['label'] ?? $slotResolved['slug'] ?? ''));
+        $range = (string) ($slotResolved['time_range'] ?? '');
+        if ($range === '' || $range === '—') {
+            $range = self::formatWindowRange(
+                (string) ($slotResolved['start_time'] ?? ''),
+                (string) ($slotResolved['end_time'] ?? '')
+            ) ?? '';
+        }
+        $date = trim((string) ($slotResolved['delivery_date'] ?? ''));
+        $dateDisp = $date !== '' ? InvoiceFormat::date($date) : '';
+        $parts = array_values(array_filter([$label, $range, $dateDisp], static fn (string $p): bool => $p !== ''));
+
+        return $parts !== [] ? implode(' · ', $parts) : ($label !== '' ? $label : '—');
+    }
+
     public static function formatClockTime12h(string $time): string
     {
         return DeliveryAdminUi::formatClockTime12h($time);
