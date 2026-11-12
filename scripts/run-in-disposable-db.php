@@ -171,6 +171,7 @@ $adminAssistedTest = in_array(basename($targetPath), [
     'test-admin-assisted-order-address.php',
     'test-admin-assisted-order-final-ux.php',
     'test-storefront-canonical-urls.php',
+    'test-admin-assisted-order-ui.php',
 ], true);
 if ($migrateAdminAssisted || $adminAssistedTest) {
     $migration = $root . '/database/migrations/1.40.0_admin_assisted_orders.sql';

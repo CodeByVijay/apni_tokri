@@ -101,14 +101,15 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
 
     <section class="at-admin-card" aria-labelledby="at-aorder-products-title">
         <div class="at-admin-card__head"><h2 id="at-aorder-products-title">3. Products</h2></div>
-        <div class="at-admin-card__body">
+        <div class="at-admin-card__body overflow-visible">
             <div class="grid gap-3 md:grid-cols-[1fr_auto_auto] md:items-end">
-                <div>
+                <div class="at-picker at-assisted-order__variant-picker min-w-0">
                     <label class="at-label" for="at-aorder-variant-search">Search product or variant</label>
                     <input id="at-aorder-variant-search" type="search" class="at-input at-focusable w-full"
-                           autocomplete="off" placeholder="Product name, slug or SKU">
+                           autocomplete="off" placeholder="Product name, slug or SKU" aria-autocomplete="list"
+                           aria-controls="at-aorder-variant-results" aria-expanded="false">
                     <p class="text-xs at-muted mt-1" data-at-aorder-variant-status>Type at least 2 characters.</p>
-                    <ul class="at-picker__results mt-1" data-at-aorder-variant-results hidden role="listbox"></ul>
+                    <ul id="at-aorder-variant-results" class="at-picker__results" data-at-aorder-variant-results hidden role="listbox" aria-label="Product variants"></ul>
                     <nav class="flex flex-wrap items-center gap-2 mt-2 text-sm" data-at-aorder-variant-pager hidden></nav>
                 </div>
                 <div>
@@ -200,8 +201,8 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
                     <input id="at-aorder-custom-end" type="time" class="at-input at-focusable w-full" data-at-aorder-custom-end>
                 </div>
                 <div class="sm:col-span-2">
-                    <label class="at-label" for="at-aorder-custom-reason">Reason for custom schedule</label>
-                    <input id="at-aorder-custom-reason" type="text" class="at-input at-focusable w-full" maxlength="255" data-at-aorder-custom-reason>
+                    <label class="at-label" for="at-aorder-custom-delivery-reason">Reason for custom schedule</label>
+                    <input id="at-aorder-custom-delivery-reason" type="text" class="at-input at-focusable w-full" maxlength="255" data-at-aorder-custom-delivery-reason>
                 </div>
             </div>
         </div>
@@ -230,24 +231,35 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
     </section>
 
     <section class="at-admin-card" aria-labelledby="at-aorder-discounts-title">
-        <div class="at-admin-card__head"><h2 id="at-aorder-discounts-title"><?= $slotsEnabled ? '7' : '6' ?>. Coupon &amp; custom discount</h2></div>
+        <div class="at-admin-card__head"><h2 id="at-aorder-discounts-title"><?= $slotsEnabled ? '7' : '6' ?>. Discounts</h2></div>
         <div class="at-admin-card__body space-y-4">
-            <div class="max-w-lg space-y-2">
+            <fieldset class="space-y-3 max-w-2xl">
+                <legend class="sr-only">Discount type</legend>
+                <label class="flex gap-2 text-sm items-start">
+                    <input type="radio" name="at_aorder_discount_mode" class="at-focusable mt-1" value="none" data-at-aorder-discount-none checked>
+                    <span><strong>No additional discount</strong><br><span class="at-muted text-xs">No coupon or custom discount. Automatic promotions still apply.</span></span>
+                </label>
+                <label class="flex gap-2 text-sm items-start">
+                    <input type="radio" name="at_aorder_discount_mode" class="at-focusable mt-1" value="coupon" data-at-aorder-discount-coupon-mode>
+                    <span><strong>Apply coupon</strong><br><span class="at-muted text-xs">Customer has a valid promotional coupon code.</span></span>
+                </label>
+                <label class="flex gap-2 text-sm items-start">
+                    <input type="radio" name="at_aorder_discount_mode" class="at-focusable mt-1" value="custom" data-at-aorder-discount-custom-mode>
+                    <span><strong>Admin custom discount</strong><br><span class="at-muted text-xs">Grant a special discount manually (merchandise only).</span></span>
+                </label>
+            </fieldset>
+            <div class="max-w-lg space-y-2" data-at-aorder-discount-coupon-panel hidden>
                 <div class="flex flex-wrap gap-2 items-end">
-                <div class="flex-1 min-w-[12rem]">
-                    <label class="at-label" for="at-aorder-coupon">Coupon code</label>
-                    <input id="at-aorder-coupon" type="text" class="at-input at-focusable w-full uppercase" autocomplete="off" data-at-aorder-coupon>
-                </div>
-                <button type="button" class="at-btn at-btn--secondary at-btn--sm at-focusable" data-at-aorder-coupon-apply disabled>Apply coupon</button>
-                <button type="button" class="at-btn at-btn--ghost at-btn--sm at-focusable" data-at-aorder-coupon-clear hidden>Remove</button>
+                    <div class="flex-1 min-w-[12rem]">
+                        <label class="at-label" for="at-aorder-coupon">Coupon code</label>
+                        <input id="at-aorder-coupon" type="text" class="at-input at-focusable w-full uppercase" autocomplete="off" data-at-aorder-coupon>
+                    </div>
+                    <button type="button" class="at-btn at-btn--secondary at-btn--sm at-focusable" data-at-aorder-coupon-apply disabled>Apply coupon</button>
+                    <button type="button" class="at-btn at-btn--ghost at-btn--sm at-focusable" data-at-aorder-coupon-clear hidden>Remove coupon</button>
                 </div>
                 <p class="text-sm" data-at-aorder-coupon-status hidden aria-live="polite"></p>
             </div>
-            <label class="flex items-center gap-2 text-sm">
-                <input type="checkbox" class="at-focusable" data-at-aorder-custom-enabled>
-                Apply custom discount (merchandise only)
-            </label>
-            <div class="grid gap-3 sm:grid-cols-3 max-w-2xl" data-at-aorder-custom-wrap hidden>
+            <div class="grid gap-3 sm:grid-cols-3 max-w-2xl" data-at-aorder-discount-custom-panel hidden>
                 <div>
                     <label class="at-label" for="at-aorder-custom-type">Type</label>
                     <select id="at-aorder-custom-type" class="at-input at-focusable w-full" data-at-aorder-custom-type>
@@ -260,8 +272,8 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
                     <input id="at-aorder-custom-value" type="number" class="at-input at-focusable w-full" min="0" step="0.01" data-at-aorder-custom-value>
                 </div>
                 <div class="sm:col-span-3">
-                    <label class="at-label" for="at-aorder-custom-reason">Reason</label>
-                    <input id="at-aorder-custom-reason" type="text" class="at-input at-focusable w-full" maxlength="255" data-at-aorder-custom-reason>
+                    <label class="at-label" for="at-aorder-custom-discount-reason">Reason</label>
+                    <input id="at-aorder-custom-discount-reason" type="text" class="at-input at-focusable w-full" maxlength="255" data-at-aorder-custom-discount-reason>
                 </div>
             </div>
         </div>
@@ -283,6 +295,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
                 </label>
                 <?php endif; ?>
             </fieldset>
+            <p class="text-sm at-muted max-w-2xl" data-at-aorder-pending-pay-hint>The customer will receive the usual pending-payment email and can pay online via Razorpay/Cashfree.</p>
             <div class="grid gap-3 sm:grid-cols-2 max-w-2xl" data-at-aorder-offline-wrap hidden>
                 <div>
                     <label class="at-label" for="at-aorder-offline-method">Payment method</label>

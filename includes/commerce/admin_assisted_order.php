@@ -600,18 +600,16 @@ final class AdminAssistedOrderService
             return ['ok' => false, 'message' => 'Enter a reason for the free delivery override.'];
         }
 
-        $couponCode = isset($input['coupon_code']) && is_string($input['coupon_code'])
-            ? trim($input['coupon_code']) : '';
-        if ($couponCode === '') {
-            $couponCode = null;
+        $discountResolved = self::resolveAssistedDiscountFromInput($input, $strictForPlacement);
+        if (empty($discountResolved['ok'])) {
+            return ['ok' => false, 'message' => (string) ($discountResolved['message'] ?? 'Invalid discount.')];
         }
-
-        $customEnabled = self::inputBool($input, 'custom_discount_enabled', false);
-        $customType = isset($input['custom_discount_type']) && is_string($input['custom_discount_type'])
-            ? strtolower(trim($input['custom_discount_type'])) : '';
-        $customValue = isset($input['custom_discount_value']) ? (float) $input['custom_discount_value'] : 0.0;
-        $customReason = isset($input['custom_discount_reason']) && is_string($input['custom_discount_reason'])
-            ? trim($input['custom_discount_reason']) : '';
+        $discountMode = (string) ($discountResolved['mode'] ?? 'none');
+        $couponCode = $discountResolved['coupon_code'] ?? null;
+        $customEnabled = !empty($discountResolved['custom_enabled']);
+        $customType = (string) ($discountResolved['custom_type'] ?? '');
+        $customValue = (float) ($discountResolved['custom_value'] ?? 0.0);
+        $customReason = (string) ($discountResolved['custom_reason'] ?? '');
 
         if ($customEnabled) {
             if ($customReason === '') {
@@ -756,6 +754,7 @@ final class AdminAssistedOrderService
             'custom_value' => $customEnabled ? $customValue : null,
             'custom_amount' => $customDiscountAmount,
             'custom_reason' => $customEnabled ? $customReason : null,
+            'discount_mode' => $discountMode,
             'admin_user_id' => $adminId,
             'delivery_schedule_mode' => $scheduleMode,
             'custom_delivery' => $customDelivery,
@@ -779,7 +778,8 @@ final class AdminAssistedOrderService
             $grandTotal,
             $scheduleMode,
             $customDelivery,
-            $paymentMode
+            $paymentMode,
+            $discountMode
         );
 
         $placeSubmissionToken = self::issuePlaceSubmissionToken(
@@ -813,6 +813,7 @@ final class AdminAssistedOrderService
                 'delivery_schedule_mode' => $scheduleMode,
                 'custom_delivery' => $customDelivery,
                 'payment_mode' => $paymentMode,
+                'discount_mode' => $discountMode,
                 'coupon_applied' => $couponCode !== null && $couponCode !== '' && $couponDiscount > 0,
                 'delivery_serviceable' => true,
                 'quote_signature' => $quoteSignature,
@@ -1325,7 +1326,8 @@ final class AdminAssistedOrderService
         float $grandTotal,
         string $scheduleMode = 'slot',
         ?array $customDelivery = null,
-        string $paymentMode = 'pending'
+        string $paymentMode = 'pending',
+        string $discountMode = 'none'
     ): string {
         $fp = [];
         foreach ($lines as $line) {
@@ -1346,10 +1348,99 @@ final class AdminAssistedOrderService
             'schedule_mode' => $scheduleMode,
             'custom_delivery' => $customDelivery,
             'payment_mode' => $paymentMode,
+            'discount_mode' => $discountMode,
             'grand_total' => round($grandTotal, 2),
         ];
 
         return hash('sha256', json_encode($payload, JSON_UNESCAPED_UNICODE));
+    }
+
+    public static function normalizeDiscountMode(array $input): string
+    {
+        $mode = isset($input['discount_mode']) && is_string($input['discount_mode'])
+            ? strtolower(trim($input['discount_mode'])) : 'none';
+        if (!in_array($mode, ['none', 'coupon', 'custom'], true)) {
+            return 'none';
+        }
+
+        return $mode;
+    }
+
+    /**
+     * Coupon and admin custom discount are mutually exclusive in assisted-order UI.
+     *
+     * @return array{ok: bool, message?: string, mode?: string, coupon_code?: ?string, custom_enabled?: bool,
+     *     custom_type?: string, custom_value?: float, custom_reason?: string}
+     */
+    public static function resolveAssistedDiscountFromInput(array $input, bool $strictForPlacement = false): array
+    {
+        $mode = self::normalizeDiscountMode($input);
+        $couponRaw = isset($input['coupon_code']) && is_string($input['coupon_code']) ? trim($input['coupon_code']) : '';
+        if ($mode === 'none') {
+            if (self::inputBool($input, 'custom_discount_enabled', false)) {
+                $mode = 'custom';
+            } elseif ($couponRaw !== '') {
+                $mode = 'coupon';
+            }
+        }
+        $customPosted = self::inputBool($input, 'custom_discount_enabled', false);
+        $customType = isset($input['custom_discount_type']) && is_string($input['custom_discount_type'])
+            ? strtolower(trim($input['custom_discount_type'])) : '';
+        $customValue = isset($input['custom_discount_value']) ? (float) $input['custom_discount_value'] : 0.0;
+        $customReason = isset($input['custom_discount_reason']) && is_string($input['custom_discount_reason'])
+            ? trim($input['custom_discount_reason']) : '';
+
+        if ($mode === 'none') {
+            if ($strictForPlacement && ($couponRaw !== '' || $customPosted)) {
+                return ['ok' => false, 'message' => 'Clear coupon and custom discount fields or choose the matching discount mode.'];
+            }
+
+            return [
+                'ok' => true,
+                'mode' => 'none',
+                'coupon_code' => null,
+                'custom_enabled' => false,
+                'custom_type' => '',
+                'custom_value' => 0.0,
+                'custom_reason' => '',
+            ];
+        }
+
+        if ($mode === 'coupon') {
+            if ($customPosted || ($customValue > 0 && $customReason !== '')) {
+                return ['ok' => false, 'message' => 'Custom discount cannot be combined with a coupon on assisted orders.'];
+            }
+            if ($couponRaw === '') {
+                return ['ok' => false, 'message' => 'Enter a coupon code or choose another discount option.'];
+            }
+
+            return [
+                'ok' => true,
+                'mode' => 'coupon',
+                'coupon_code' => $couponRaw,
+                'custom_enabled' => false,
+                'custom_type' => '',
+                'custom_value' => 0.0,
+                'custom_reason' => '',
+            ];
+        }
+
+        if ($customPosted === false && $customValue <= 0 && $customReason === '') {
+            // UI uses discount_mode only; infer enabled from mode.
+            $customPosted = true;
+        } elseif ($couponRaw !== '') {
+            return ['ok' => false, 'message' => 'Coupon code cannot be combined with a custom admin discount.'];
+        }
+
+        return [
+            'ok' => true,
+            'mode' => 'custom',
+            'coupon_code' => null,
+            'custom_enabled' => $customPosted,
+            'custom_type' => $customType,
+            'custom_value' => $customValue,
+            'custom_reason' => $customReason,
+        ];
     }
 
     /**
@@ -1839,6 +1930,7 @@ final class AdminAssistedOrderService
             'free_delivery' => $post['free_delivery'] ?? '0',
             'free_delivery_reason' => isset($post['free_delivery_reason']) && is_string($post['free_delivery_reason'])
                 ? $post['free_delivery_reason'] : '',
+            'discount_mode' => isset($post['discount_mode']) && is_string($post['discount_mode']) ? $post['discount_mode'] : 'none',
             'coupon_code' => isset($post['coupon_code']) && is_string($post['coupon_code']) ? $post['coupon_code'] : '',
             'custom_discount_enabled' => $post['custom_discount_enabled'] ?? '0',
             'custom_discount_type' => isset($post['custom_discount_type']) && is_string($post['custom_discount_type'])

@@ -8146,7 +8146,33 @@ body.at-map-viewer-open { overflow: hidden; }
 .at-picker__empty { padding: 0.75rem; color: var(--at-muted, #6b7280); font-size: 0.875rem; }
 .at-picker__item.is-disabled { cursor: not-allowed; opacity: 0.72; }
 .at-picker__item.is-disabled:hover { background: transparent; }
-.at-assisted-order .at-picker__results { position: relative; z-index: 4; }
+.at-assisted-order .at-admin-card__body.overflow-visible { overflow: visible; }
+.at-assisted-order__variant-picker { position: relative; z-index: 2; overflow: visible; }
+.at-assisted-order__variant-picker .at-picker__results {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  margin-top: 0.25rem;
+  z-index: 40;
+  max-height: 18rem;
+}
+.at-assisted-order__variant-picker .at-picker__item--variant { align-items: center; }
+.at-assisted-order__variant-picker .at-picker__thumb {
+  width: 2.5rem;
+  height: 2.5rem;
+  flex-shrink: 0;
+  border-radius: 0.35rem;
+  object-fit: cover;
+  background: #f3f4f6;
+}
+.at-assisted-order__variant-picker .at-picker__thumb--empty {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  color: var(--at-muted, #6b7280);
+}
 
 /* ===== Subscription Menu Planner (admin) ===== */
 .mp-root { max-width: 62rem; }
