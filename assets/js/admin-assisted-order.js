@@ -594,6 +594,12 @@
             }
         });
 
+        function setAorderPanelVisible(node, visible) {
+            if (!node) { return; }
+            node.hidden = !visible;
+            node.setAttribute('aria-hidden', visible ? 'false' : 'true');
+        }
+
         function getDiscountMode() {
             if (discountCouponMode && discountCouponMode.checked) { return 'coupon'; }
             if (discountCustomMode && discountCustomMode.checked) { return 'custom'; }
@@ -615,14 +621,14 @@
 
         function toggleDeliveryModeFields() {
             var custom = schedCustom && schedCustom.checked;
-            if (slotPanel) { slotPanel.hidden = !!custom; }
-            if (customDeliveryWrap) { customDeliveryWrap.hidden = !custom; }
+            setAorderPanelVisible(slotPanel, !custom);
+            setAorderPanelVisible(customDeliveryWrap, !!custom);
         }
 
         function togglePaymentModeFields() {
             var offline = payOffline && payOffline.checked && canRecordOffline;
-            if (offlineWrap) { offlineWrap.hidden = !offline; }
-            if (pendingPayHint) { pendingPayHint.hidden = !!offline; }
+            setAorderPanelVisible(offlineWrap, !!offline);
+            setAorderPanelVisible(pendingPayHint, !offline);
             if (offline && lastQuote && offlineAmount) {
                 offlineAmount.value = String(lastQuote.grand_total);
             }
@@ -632,8 +638,8 @@
         function toggleDiscountModeFields() {
             var mode = getDiscountMode();
             state.discountMode = mode;
-            if (discountCouponPanel) { discountCouponPanel.hidden = mode !== 'coupon'; }
-            if (discountCustomPanel) { discountCustomPanel.hidden = mode !== 'custom'; }
+            setAorderPanelVisible(discountCouponPanel, mode === 'coupon');
+            setAorderPanelVisible(discountCustomPanel, mode === 'custom');
             if (couponApply) {
                 couponApply.disabled = mode !== 'coupon' || couponApplyBusy || !couponInput || couponInput.value.trim() === '';
             }

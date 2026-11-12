@@ -187,22 +187,24 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
                 </select>
                 <?php endif; ?>
             </div>
-            <div class="grid gap-3 sm:grid-cols-2 max-w-2xl" data-at-aorder-custom-delivery-wrap hidden>
-                <div>
-                    <label class="at-label" for="at-aorder-custom-date">Delivery date</label>
-                    <input id="at-aorder-custom-date" type="date" class="at-input at-focusable w-full" data-at-aorder-custom-date>
-                </div>
-                <div>
-                    <label class="at-label" for="at-aorder-custom-start">Start time</label>
-                    <input id="at-aorder-custom-start" type="time" class="at-input at-focusable w-full" data-at-aorder-custom-start>
-                </div>
-                <div>
-                    <label class="at-label" for="at-aorder-custom-end">End time</label>
-                    <input id="at-aorder-custom-end" type="time" class="at-input at-focusable w-full" data-at-aorder-custom-end>
-                </div>
-                <div class="sm:col-span-2">
-                    <label class="at-label" for="at-aorder-custom-delivery-reason">Reason for custom schedule</label>
-                    <input id="at-aorder-custom-delivery-reason" type="text" class="at-input at-focusable w-full" maxlength="255" data-at-aorder-custom-delivery-reason>
+            <div data-at-aorder-custom-delivery-wrap data-at-aorder-panel hidden>
+                <div class="grid gap-3 sm:grid-cols-2 max-w-2xl">
+                    <div>
+                        <label class="at-label" for="at-aorder-custom-date">Delivery date</label>
+                        <input id="at-aorder-custom-date" type="date" class="at-input at-focusable w-full" data-at-aorder-custom-date>
+                    </div>
+                    <div>
+                        <label class="at-label" for="at-aorder-custom-start">Start time</label>
+                        <input id="at-aorder-custom-start" type="time" class="at-input at-focusable w-full" data-at-aorder-custom-start>
+                    </div>
+                    <div>
+                        <label class="at-label" for="at-aorder-custom-end">End time</label>
+                        <input id="at-aorder-custom-end" type="time" class="at-input at-focusable w-full" data-at-aorder-custom-end>
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label class="at-label" for="at-aorder-custom-delivery-reason">Reason for custom schedule</label>
+                        <input id="at-aorder-custom-delivery-reason" type="text" class="at-input at-focusable w-full" maxlength="255" data-at-aorder-custom-delivery-reason>
+                    </div>
                 </div>
             </div>
         </div>
@@ -248,7 +250,8 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
                     <span><strong>Admin custom discount</strong><br><span class="at-muted text-xs">Grant a special discount manually (merchandise only).</span></span>
                 </label>
             </fieldset>
-            <div class="max-w-lg space-y-2" data-at-aorder-discount-coupon-panel hidden>
+            <div data-at-aorder-discount-coupon-panel data-at-aorder-panel hidden>
+                <div class="max-w-lg space-y-2">
                 <div class="flex flex-wrap gap-2 items-end">
                     <div class="flex-1 min-w-[12rem]">
                         <label class="at-label" for="at-aorder-coupon">Coupon code</label>
@@ -258,22 +261,25 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
                     <button type="button" class="at-btn at-btn--ghost at-btn--sm at-focusable" data-at-aorder-coupon-clear hidden>Remove coupon</button>
                 </div>
                 <p class="text-sm" data-at-aorder-coupon-status hidden aria-live="polite"></p>
+                </div>
             </div>
-            <div class="grid gap-3 sm:grid-cols-3 max-w-2xl" data-at-aorder-discount-custom-panel hidden>
-                <div>
-                    <label class="at-label" for="at-aorder-custom-type">Type</label>
-                    <select id="at-aorder-custom-type" class="at-input at-focusable w-full" data-at-aorder-custom-type>
-                        <option value="flat">Flat amount (₹)</option>
-                        <option value="percent">Percentage (%)</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="at-label" for="at-aorder-custom-value">Value</label>
-                    <input id="at-aorder-custom-value" type="number" class="at-input at-focusable w-full" min="0" step="0.01" data-at-aorder-custom-value>
-                </div>
-                <div class="sm:col-span-3">
-                    <label class="at-label" for="at-aorder-custom-discount-reason">Reason</label>
-                    <input id="at-aorder-custom-discount-reason" type="text" class="at-input at-focusable w-full" maxlength="255" data-at-aorder-custom-discount-reason>
+            <div data-at-aorder-discount-custom-panel data-at-aorder-panel hidden>
+                <div class="grid gap-3 sm:grid-cols-3 max-w-2xl">
+                    <div>
+                        <label class="at-label" for="at-aorder-custom-type">Type</label>
+                        <select id="at-aorder-custom-type" class="at-input at-focusable w-full" data-at-aorder-custom-type>
+                            <option value="flat">Flat amount (₹)</option>
+                            <option value="percent">Percentage (%)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="at-label" for="at-aorder-custom-value">Value</label>
+                        <input id="at-aorder-custom-value" type="number" class="at-input at-focusable w-full" min="0" step="0.01" data-at-aorder-custom-value>
+                    </div>
+                    <div class="sm:col-span-3">
+                        <label class="at-label" for="at-aorder-custom-discount-reason">Reason</label>
+                        <input id="at-aorder-custom-discount-reason" type="text" class="at-input at-focusable w-full" maxlength="255" data-at-aorder-custom-discount-reason>
+                    </div>
                 </div>
             </div>
         </div>
@@ -296,42 +302,44 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
                 <?php endif; ?>
             </fieldset>
             <p class="text-sm at-muted max-w-2xl" data-at-aorder-pending-pay-hint>The customer will receive the usual pending-payment email and can pay online via Razorpay/Cashfree.</p>
-            <div class="grid gap-3 sm:grid-cols-2 max-w-2xl" data-at-aorder-offline-wrap hidden>
-                <div>
-                    <label class="at-label" for="at-aorder-offline-method">Payment method</label>
-                    <select id="at-aorder-offline-method" class="at-input at-focusable w-full" data-at-aorder-offline-method>
-                        <option value="upi">UPI</option>
-                        <option value="bank_transfer">Bank transfer</option>
-                    </select>
+            <div data-at-aorder-offline-wrap data-at-aorder-panel hidden>
+                <div class="grid gap-3 sm:grid-cols-2 max-w-2xl">
+                    <div>
+                        <label class="at-label" for="at-aorder-offline-method">Payment method</label>
+                        <select id="at-aorder-offline-method" class="at-input at-focusable w-full" data-at-aorder-offline-method>
+                            <option value="upi">UPI</option>
+                            <option value="bank_transfer">Bank transfer</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="at-label" for="at-aorder-offline-amount">Amount received (₹)</label>
+                        <input id="at-aorder-offline-amount" type="number" class="at-input at-focusable w-full" min="0" step="0.01" readonly data-at-aorder-offline-amount>
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label class="at-label" for="at-aorder-offline-ref">Transaction / reference number</label>
+                        <input id="at-aorder-offline-ref" type="text" class="at-input at-focusable w-full" maxlength="191" data-at-aorder-offline-ref>
+                    </div>
+                    <div>
+                        <label class="at-label" for="at-aorder-offline-pay-date">Payment date</label>
+                        <input id="at-aorder-offline-pay-date" type="date" class="at-input at-focusable w-full" data-at-aorder-offline-pay-date>
+                    </div>
+                    <div>
+                        <label class="at-label" for="at-aorder-offline-pay-time">Payment time</label>
+                        <input id="at-aorder-offline-pay-time" type="time" class="at-input at-focusable w-full" data-at-aorder-offline-pay-time>
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label class="at-label" for="at-aorder-offline-provider">Provider / bank name (optional)</label>
+                        <input id="at-aorder-offline-provider" type="text" class="at-input at-focusable w-full" maxlength="128" data-at-aorder-offline-provider>
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label class="at-label" for="at-aorder-offline-note">Verification note</label>
+                        <textarea id="at-aorder-offline-note" class="at-input at-focusable w-full" rows="2" maxlength="500" data-at-aorder-offline-note></textarea>
+                    </div>
+                    <label class="sm:col-span-2 flex items-start gap-2 text-sm">
+                        <input type="checkbox" class="at-focusable mt-1" data-at-aorder-offline-confirm value="1">
+                        I confirm that the payment has been received and verified.
+                    </label>
                 </div>
-                <div>
-                    <label class="at-label" for="at-aorder-offline-amount">Amount received (₹)</label>
-                    <input id="at-aorder-offline-amount" type="number" class="at-input at-focusable w-full" min="0" step="0.01" readonly data-at-aorder-offline-amount>
-                </div>
-                <div class="sm:col-span-2">
-                    <label class="at-label" for="at-aorder-offline-ref">Transaction / reference number</label>
-                    <input id="at-aorder-offline-ref" type="text" class="at-input at-focusable w-full" maxlength="191" data-at-aorder-offline-ref>
-                </div>
-                <div>
-                    <label class="at-label" for="at-aorder-offline-pay-date">Payment date</label>
-                    <input id="at-aorder-offline-pay-date" type="date" class="at-input at-focusable w-full" data-at-aorder-offline-pay-date>
-                </div>
-                <div>
-                    <label class="at-label" for="at-aorder-offline-pay-time">Payment time</label>
-                    <input id="at-aorder-offline-pay-time" type="time" class="at-input at-focusable w-full" data-at-aorder-offline-pay-time>
-                </div>
-                <div class="sm:col-span-2">
-                    <label class="at-label" for="at-aorder-offline-provider">Provider / bank name (optional)</label>
-                    <input id="at-aorder-offline-provider" type="text" class="at-input at-focusable w-full" maxlength="128" data-at-aorder-offline-provider>
-                </div>
-                <div class="sm:col-span-2">
-                    <label class="at-label" for="at-aorder-offline-note">Verification note</label>
-                    <textarea id="at-aorder-offline-note" class="at-input at-focusable w-full" rows="2" maxlength="500" data-at-aorder-offline-note></textarea>
-                </div>
-                <label class="sm:col-span-2 flex items-start gap-2 text-sm">
-                    <input type="checkbox" class="at-focusable mt-1" data-at-aorder-offline-confirm value="1">
-                    I confirm that the payment has been received and verified.
-                </label>
             </div>
         </div>
     </section>

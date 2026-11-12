@@ -8146,6 +8146,10 @@ body.at-map-viewer-open { overflow: hidden; }
 .at-picker__empty { padding: 0.75rem; color: var(--at-muted, #6b7280); font-size: 0.875rem; }
 .at-picker__item.is-disabled { cursor: not-allowed; opacity: 0.72; }
 .at-picker__item.is-disabled:hover { background: transparent; }
+/* Admin assisted order: Tailwind CDN utilities (e.g. .grid) load after linked CSS and override [hidden]. */
+.at-assisted-order [data-at-aorder-panel][hidden] {
+  display: none !important;
+}
 .at-assisted-order .at-admin-card__body.overflow-visible { overflow: visible; }
 .at-assisted-order__variant-picker { position: relative; z-index: 2; overflow: visible; }
 .at-assisted-order__variant-picker .at-picker__results {
