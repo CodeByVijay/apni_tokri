@@ -33,8 +33,45 @@ final class AdminOrderDetailService
         $base['cancellation_refund'] = RefundRequestService::adminOrderCancellationRefundBlock($orderId);
         $base['reschedule_notes'] = self::rescheduleNotesFromHistory($base['history'] ?? []);
         $base['payment_method_primary'] = self::primaryPaymentMethodLabel($base['payments']);
+        if ((string) ($orderRow['order_source'] ?? '') === 'admin_assisted') {
+            $base['assisted'] = self::assistedOrderBlock($orderRow, $base, $pdo);
+        }
 
         return $base;
+    }
+
+    /**
+     * @param array<string, mixed> $orderRow
+     * @param array<string, mixed> $base
+     * @return array<string, mixed>
+     */
+    private static function assistedOrderBlock(array $orderRow, array $base, PDO $pdo): array
+    {
+        $adminId = isset($orderRow['created_by_admin_id']) ? (int) $orderRow['created_by_admin_id'] : 0;
+        $adminName = '—';
+        if ($adminId > 0) {
+            $stmt = $pdo->prepare('SELECT name FROM admin_users WHERE id = ? LIMIT 1');
+            $stmt->execute([$adminId]);
+            $adminName = (string) ($stmt->fetchColumn() ?: '—');
+        }
+        $meta = AdminAssistedOrderService::assistedMetaForDisplay(
+            isset($orderRow['admin_meta_json']) && is_string($orderRow['admin_meta_json'])
+                ? $orderRow['admin_meta_json'] : null
+        );
+        $pricing = $base['pricing'] ?? [];
+        $payUrl = OrderEmailContext::customerPaymentRetryUrl((string) ($orderRow['order_number'] ?? ''));
+        $canResend = in_array((string) ($orderRow['payment_status'] ?? ''), ['pending', 'failed'], true)
+            && (string) ($orderRow['status'] ?? '') !== OrderStatus::CANCELLED;
+
+        return [
+            'created_by_admin_id' => $adminId > 0 ? $adminId : null,
+            'created_by_admin_name' => $adminName,
+            'admin_meta' => $meta,
+            'customer_payment_url' => $payUrl,
+            'can_resend_payment_email' => $canResend && AdminAssistedOrderService::canCreateOnBehalf(),
+            'custom_discount' => $meta['custom_discount'] ?? null,
+            'delivery_override' => $meta['delivery'] ?? null,
+        ];
     }
 
     /** @return list<array<string, mixed>> */
@@ -214,6 +251,9 @@ final class AdminOrderDetailService
         }
         if ($source === 'storefront') {
             return 'Online storefront';
+        }
+        if ($source === 'admin_assisted') {
+            return 'Admin assisted';
         }
 
         return $source !== '' ? ucwords(str_replace('_', ' ', $source)) : '—';

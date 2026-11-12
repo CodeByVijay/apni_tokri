@@ -18,6 +18,7 @@ require_once __DIR__ . '/includes/disposable_db_runner.php';
 $migrateMediaLibrary = false;
 $migrateRememberLogin = false;
 $migrateFirebasePush = false;
+$migrateAdminAssisted = false;
 $targetArg = '';
 foreach (array_slice($argv, 1) as $arg) {
     if ($arg === '--migrate-media-library') {
@@ -30,6 +31,10 @@ foreach (array_slice($argv, 1) as $arg) {
     }
     if ($arg === '--migrate-firebase-push') {
         $migrateFirebasePush = true;
+        continue;
+    }
+    if ($arg === '--migrate-admin-assisted') {
+        $migrateAdminAssisted = true;
         continue;
     }
     if ($targetArg === '' && $arg !== '' && $arg[0] !== '-') {
@@ -155,6 +160,22 @@ if ($migrateFirebasePush || $firebasePushTest) {
             fwrite(STDERR, 'Migration failed: ' . ($mig['message'] ?? 'unknown') . "\n");
             exit(2);
         }
+    }
+}
+
+$adminAssistedTest = in_array(basename($targetPath), [
+    'test-admin-assisted-order.php',
+    'test-admin-assisted-order-quote.php',
+    'test-admin-assisted-order-placement.php',
+    'test-admin-assisted-order-phase5.php',
+], true);
+if ($migrateAdminAssisted || $adminAssistedTest) {
+    $migration = $root . '/database/migrations/1.40.0_admin_assisted_orders.sql';
+    fwrite(STDERR, "[disposable DB {$fresh}] applying migration 1.40.0_admin_assisted_orders.sql\n");
+    $mig = disposable_apply_migration_file($pdo, $fresh, $migration);
+    if (empty($mig['ok'])) {
+        fwrite(STDERR, 'Migration failed: ' . ($mig['message'] ?? 'unknown') . "\n");
+        exit(2);
     }
 }
 

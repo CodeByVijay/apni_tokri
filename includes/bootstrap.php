@@ -248,6 +248,7 @@ require_once APNI_TOKRI_ROOT . '/includes/commerce/customer_order_detail.php';
 require_once APNI_TOKRI_ROOT . '/includes/commerce/payment_gateway_settings.php';
 require_once APNI_TOKRI_ROOT . '/includes/commerce/admin_orders.php';
 require_once APNI_TOKRI_ROOT . '/includes/commerce/admin_order_detail.php';
+require_once APNI_TOKRI_ROOT . '/includes/commerce/admin_assisted_order.php';
 require_once APNI_TOKRI_ROOT . '/includes/admin/order_delivery_reschedule.php';
 require_once APNI_TOKRI_ROOT . '/includes/admin/order_status_timeline.php';
 require_once APNI_TOKRI_ROOT . '/includes/invoice/format.php';

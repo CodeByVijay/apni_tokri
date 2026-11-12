@@ -8144,6 +8144,9 @@ body.at-map-viewer-open { overflow: hidden; }
 .at-picker__body { display: flex; flex-direction: column; min-width: 0; }
 .at-picker__body small { font-size: 0.75rem; overflow-wrap: anywhere; }
 .at-picker__empty { padding: 0.75rem; color: var(--at-muted, #6b7280); font-size: 0.875rem; }
+.at-picker__item.is-disabled { cursor: not-allowed; opacity: 0.72; }
+.at-picker__item.is-disabled:hover { background: transparent; }
+.at-assisted-order .at-picker__results { position: relative; z-index: 4; }
 
 /* ===== Subscription Menu Planner (admin) ===== */
 .mp-root { max-width: 62rem; }

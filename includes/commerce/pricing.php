@@ -6,9 +6,15 @@ final class PricingService
 {
     /**
      * @param list<array<string, mixed>> $lines qty, unit_price, regular_price, on_sale, grants_free_delivery?, product_id?, category_id?, variant_id?
+     * @param int|null $forCustomerId When set (e.g. admin-assisted orders), promotions/coupons use this customer instead of the session.
      * @return array<string, float|int|string|null|bool>
      */
-    public static function totalsFromLines(array $lines, ?string $couponCode, ?string $deliveryPin = null): array
+    public static function totalsFromLines(
+        array $lines,
+        ?string $couponCode,
+        ?string $deliveryPin = null,
+        ?int $forCustomerId = null
+    ): array
     {
         $subtotal = 0.0;
         $savings = 0.0;
@@ -22,7 +28,7 @@ final class PricingService
             }
         }
 
-        $customerId = CustomerAuth::id();
+        $customerId = $forCustomerId ?? CustomerAuth::id();
         $offer = PromotionService::bestAutomaticOffer($lines, $customerId);
         $offerDiscount = (float) ($offer['discount'] ?? 0);
         $offerStacks = !empty($offer['stack_with_coupons']);

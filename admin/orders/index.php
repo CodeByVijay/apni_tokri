@@ -37,6 +37,10 @@ $queryBase = array_filter([
 
 admin_layout_start(['pageTitle' => 'Orders', 'activeAdminNav' => 'orders']);
 $pageHeading = 'Orders';
+if (AdminAssistedOrderService::canCreateOnBehalf()) {
+    $pageActionsHtml = '<a class="at-btn at-btn--primary at-focusable" href="' . Security::escape(url_base())
+        . '/admin/orders/create.php">Create order on behalf of customer</a>';
+}
 require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
 
 if (!Install::isSchemaReady()) {

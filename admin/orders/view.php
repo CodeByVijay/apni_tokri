@@ -12,6 +12,15 @@ $order = $orderId > 0 && Install::isSchemaReady() ? AdminOrderService::findById(
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $order !== null) {
     Csrf::requireValid();
     $postAction = isset($_POST['action']) && is_string($_POST['action']) ? $_POST['action'] : '';
+    if ($postAction === 'resend_assisted_payment_email') {
+        $res = AdminAssistedOrderService::resendPendingPaymentEmail($orderId);
+        admin_flash_set(
+            (string) ($res['message'] ?? ($res['ok'] ? 'Queued.' : 'Failed.')),
+            !empty($res['ok']) ? 'success' : 'error'
+        );
+        header('Location: ' . url_base() . '/admin/orders/view.php?id=' . $orderId, true, 302);
+        exit;
+    }
     if ($postAction === 'recover_payment_fulfilment') {
         $adminId = AdminAuth::id();
         if ($adminId === null) {
@@ -187,6 +196,7 @@ $canRefreshCashfree = $hasCashfreeAttempt
 <div class="at-admin-order-detail__layout">
     <div class="at-admin-order-detail__main">
         <?php require APNI_TOKRI_ROOT . '/includes/partials/admin/order-detail-overview.php'; ?>
+        <?php require APNI_TOKRI_ROOT . '/includes/partials/admin/order-detail-assisted.php'; ?>
         <?php require APNI_TOKRI_ROOT . '/includes/partials/admin/order-detail-customer.php'; ?>
         <?php require APNI_TOKRI_ROOT . '/includes/partials/admin/order-detail-items.php'; ?>
         <?php require APNI_TOKRI_ROOT . '/includes/partials/admin/order-detail-fulfilment.php'; ?>
