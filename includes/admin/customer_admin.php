@@ -236,6 +236,138 @@ final class AdminCustomerService
     }
 
     /**
+     * Admin-created customer (manual provisioning; does not issue OTP or admin credentials).
+     *
+     * @return array{ok: bool, message?: string, errors?: array<string, string>, customer_id?: int}
+     */
+    public static function createFromAdmin(
+        string $name,
+        string $mobile,
+        string $email,
+        bool $active,
+        int $adminUserId
+    ): array {
+        if (!Permission::canModule('customers') || $adminUserId <= 0) {
+            return ['ok' => false, 'message' => 'Forbidden.'];
+        }
+        if (!Install::isSchemaReady()) {
+            return ['ok' => false, 'message' => 'Database not ready.'];
+        }
+
+        $errors = [];
+        $name = trim(preg_replace('/\s+/u', ' ', $name) ?? '');
+        $len = function_exists('mb_strlen') ? mb_strlen($name) : strlen($name);
+        if ($name === '') {
+            $errors['name'] = 'Enter customer name.';
+        } elseif ($len < 2 || $len > 100) {
+            $errors['name'] = 'Name must be 2 to 100 characters.';
+        } elseif (preg_match('/[\x00-\x1F<>]/', $name)) {
+            $errors['name'] = 'Name contains invalid characters.';
+        }
+
+        $normalizedMobile = Validation::normalizeMobileIndia(trim($mobile));
+        if ($normalizedMobile === null) {
+            $errors['mobile'] = 'Enter a valid 10-digit Indian mobile number.';
+        }
+
+        $email = trim($email);
+        $emailStored = null;
+        if ($email !== '') {
+            $normalizedEmail = Validation::normalizeEmail($email);
+            if ($normalizedEmail === null) {
+                $errors['email'] = 'Enter a valid email address.';
+            } else {
+                $emailStored = $normalizedEmail;
+            }
+        }
+
+        if ($errors !== []) {
+            return ['ok' => false, 'message' => 'Fix the highlighted fields.', 'errors' => $errors];
+        }
+
+        /** @var string $normalizedMobile */
+        Install::ensureConnection();
+        $pdo = Database::pdo();
+
+        $dupMobile = $pdo->prepare('SELECT id FROM customers WHERE mobile = ? LIMIT 1');
+        $dupMobile->execute([$normalizedMobile]);
+        if ($dupMobile->fetchColumn()) {
+            return [
+                'ok' => false,
+                'message' => 'This mobile number is already registered.',
+                'errors' => ['mobile' => 'Mobile number is already in use.'],
+            ];
+        }
+
+        if ($emailStored !== null) {
+            $dupEmail = $pdo->prepare('SELECT id FROM customers WHERE LOWER(TRIM(email)) = ? LIMIT 1');
+            $dupEmail->execute([$emailStored]);
+            if ($dupEmail->fetchColumn()) {
+                return [
+                    'ok' => false,
+                    'message' => 'This email is already used by another account.',
+                    'errors' => ['email' => 'Duplicate email.'],
+                ];
+            }
+        }
+
+        try {
+            $customerId = Database::transaction(static function () use (
+                $pdo,
+                $normalizedMobile,
+                $name,
+                $emailStored,
+                $active
+            ): int {
+                $stmt = $pdo->prepare(
+                    'INSERT INTO customers (mobile, name, email, is_active) VALUES (?, ?, ?, ?)'
+                );
+                $stmt->execute([
+                    $normalizedMobile,
+                    $name,
+                    $emailStored,
+                    $active ? 1 : 0,
+                ]);
+
+                return (int) $pdo->lastInsertId();
+            });
+        } catch (PDOException $e) {
+            if ((int) ($e->errorInfo[1] ?? 0) === 1062) {
+                return [
+                    'ok' => false,
+                    'message' => 'This mobile number is already registered.',
+                    'errors' => ['mobile' => 'Mobile number is already in use.'],
+                ];
+            }
+            error_log('AdminCustomerService::createFromAdmin: ' . $e->getMessage());
+
+            return ['ok' => false, 'message' => 'Could not create customer. Please try again.'];
+        } catch (Throwable $e) {
+            error_log('AdminCustomerService::createFromAdmin: ' . get_class($e));
+
+            return ['ok' => false, 'message' => 'Could not create customer. Please try again.'];
+        }
+
+        AuditLog::write(
+            'customer.create',
+            'customers',
+            (string) $customerId,
+            [
+                'mobile_suffix' => substr($normalizedMobile, -4),
+                'is_active' => $active ? 1 : 0,
+                'has_email' => $emailStored !== null ? 1 : 0,
+            ],
+            $adminUserId
+        );
+
+        return [
+            'ok' => true,
+            'message' => 'Customer created.',
+            'customer_id' => $customerId,
+        ];
+    }
+
+    /**
      * @return array{ok: bool, message?: string, errors?: array<string, string>}
      */
     public static function updateProfile(int $customerId, string $name, string $email, int $adminUserId): array

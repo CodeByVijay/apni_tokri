@@ -20,6 +20,7 @@ $queryBase = array_filter(['q' => $listQ !== '' ? $listQ : null]);
 admin_layout_start(['pageTitle' => 'Customers', 'activeAdminNav' => 'customers']);
 $pageHeading = 'Customers';
 $pageDescription = 'Search and manage customer accounts. OTP codes and password hashes are never shown here.';
+$pageActionsHtml = '<a href="' . Security::escape(url_base()) . '/admin/customers/create.php" class="at-btn at-btn--primary at-btn--sm at-focusable">Add customer</a>';
 require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
 
 if (!Install::isSchemaReady()): ?>
