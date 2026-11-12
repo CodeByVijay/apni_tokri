@@ -314,6 +314,26 @@ final class CustomerAuth
             throw new OtpRequestException(OtpSmsService::ERR_INVALID_MOBILE);
         }
 
+        if (PlayReviewAccess::isReviewLoginEnabledForMobile($mobile)) {
+            $reviewer = PlayReviewAccess::validateReviewerCustomer($mobile);
+            if (empty($reviewer['ok'])) {
+                $code = (string) ($reviewer['code'] ?? '');
+                if ($code === 'inactive') {
+                    throw new OtpRequestException(OtpSmsService::ERR_ACCOUNT_INACTIVE);
+                }
+                throw new OtpRequestException(OtpSmsService::ERR_INVALID_MOBILE);
+            }
+            OtpRateLimit::assertWithinLimits($mobile);
+            OtpResendCooldown::assertCanSend($mobile);
+            OtpResendCooldown::recordSuccessfulSend($mobile);
+
+            return ['mobile' => $mobile, 'expires_in' => $ttlSeconds];
+        }
+
+        if (PlayReviewAccess::isEnabled() && PlayReviewAccess::isConfiguredReviewerMobile($mobile)) {
+            throw new OtpRequestException(OtpSmsService::ERR_INVALID_MOBILE);
+        }
+
         if (OtpSmsService::operationMode() === OtpSmsService::MODE_DISABLED) {
             throw new OtpRequestException(OtpSmsService::ERR_SMS_DISABLED);
         }
@@ -472,6 +492,15 @@ final class CustomerAuth
         if ($mobile === '' || !preg_match('/^\d{6}$/', $otp)) {
             return ['ok' => false, 'error' => 'Incorrect or expired OTP.'];
         }
+
+        if (PlayReviewAccess::isReviewLoginEnabledForMobile($mobile)) {
+            return PlayReviewAccess::verifyCredentials($mobile, $otp, $maxAttempts);
+        }
+
+        if (PlayReviewAccess::isEnabled() && PlayReviewAccess::isConfiguredReviewerMobile($mobile)) {
+            return ['ok' => false, 'error' => 'Incorrect or expired OTP.'];
+        }
+
         $stmt = Database::pdo()->prepare(
             'SELECT id, otp_hash, attempt_count FROM customer_otp_attempts
              WHERE mobile = ? AND verified_at IS NULL AND expires_at > NOW()

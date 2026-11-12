@@ -21,5 +21,8 @@ $base = url_base() . '/admin/settings';
     <a href="<?= Security::escape($base) ?>/delivery.php" class="<?= $settingsTab === 'delivery' ? 'is-active' : '' ?> at-focusable">Delivery</a>
     <a href="<?= Security::escape($base) ?>/map-geocoding.php" class="<?= $settingsTab === 'map_geocoding' ? 'is-active' : '' ?> at-focusable">Map &amp; Geocoding</a>
     <a href="<?= Security::escape($base) ?>/cache.php" class="<?= $settingsTab === 'cache' ? 'is-active' : '' ?> at-focusable">Server cache</a>
+    <?php if (AdminAuth::check() && AdminRbacService::userHasSuperAdminRole((int) AdminAuth::id())): ?>
+    <a href="<?= Security::escape($base) ?>/app-review-access.php" class="<?= $settingsTab === 'play_review' ? 'is-active' : '' ?> at-focusable">App Review Access</a>
+    <?php endif; ?>
 </nav>
 </div>
