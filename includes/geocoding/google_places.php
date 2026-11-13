@@ -28,7 +28,8 @@ final class GooglePlacesGeocoder
         float $biasLng,
         int $limit,
         int $timeoutSeconds,
-        ?string $apiKey
+        ?string $apiKey,
+        ?float $biasRadiusM = null
     ): array {
         $key = $apiKey !== null && $apiKey !== '' ? $apiKey : AddressAutocompleteSettings::googleApiKey();
         if ($key === null || $key === '') {
@@ -51,7 +52,7 @@ final class GooglePlacesGeocoder
                         'latitude' => $biasLat,
                         'longitude' => $biasLng,
                     ],
-                    'radius' => 25000.0,
+                    'radius' => $biasRadiusM !== null && $biasRadiusM > 0 ? $biasRadiusM : 25000.0,
                 ],
             ],
         ];

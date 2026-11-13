@@ -16,7 +16,7 @@ final class AddressAutocompleteService
     /**
      * @return array{ok: bool, error?: string, suggestions?: list<array<string, mixed>>, provider?: string}
      */
-    public static function search(string $query, string $clientIp, ?string $sessionToken): array
+    public static function search(string $query, string $clientIp, ?string $sessionToken, ?float $biasLatOverride = null, ?float $biasLngOverride = null, ?int $biasRadiusM = null): array
     {
         if (!AddressAutocompleteSettings::isEnabled()) {
             return ['ok' => false, 'error' => 'Address search is disabled.'];
@@ -32,6 +32,9 @@ final class AddressAutocompleteService
                 return ['ok' => false, 'error' => 'Google Places is not configured.'];
             }
             $bias = AddressAutocompleteSettings::biasPoint();
+            if ($biasLatOverride !== null && $biasLngOverride !== null) {
+                $bias = ['lat' => $biasLatOverride, 'lng' => $biasLngOverride];
+            }
             $lim = AddressAutocompleteSettings::maxResults();
             $t = AddressAutocompleteSettings::timeoutSeconds();
             $res = GooglePlacesGeocoder::autocomplete(
@@ -42,7 +45,8 @@ final class AddressAutocompleteService
                 $bias['lng'],
                 $lim,
                 $t,
-                null
+                null,
+                $biasRadiusM
             );
             if (empty($res['ok'])) {
                 return ['ok' => false, 'error' => (string) ($res['error'] ?? 'Search failed.')];

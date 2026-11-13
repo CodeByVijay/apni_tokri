@@ -32,6 +32,11 @@ $providerLabel = $provider === AddressAutocompleteSettings::PROVIDER_GOOGLE ? 'G
             <button type="button" class="at-btn at-btn--secondary at-btn--sm at-focusable at-addr-gps__btn" data-addr-gps>
                 <?= at_icon('pin', 'w-5 h-5') ?><span data-label>Use my current location</span><span class="at-addr-spinner" aria-hidden="true"></span>
             </button>
+            <?php if ($acOn): ?>
+            <button type="button" class="at-btn at-btn--secondary at-btn--sm at-focusable at-addr-gps__btn at-addr-geo-search" data-addr-geo-search hidden>
+                <?= at_icon('search', 'w-5 h-5') ?><span data-label>Search this area on <?= Security::escape($providerLabel) ?></span>
+            </button>
+            <?php endif; ?>
         </div>
         <p class="at-addr-msg" data-addr-map-msg role="status" aria-live="polite" hidden></p>
         <?= $err('location') ?>

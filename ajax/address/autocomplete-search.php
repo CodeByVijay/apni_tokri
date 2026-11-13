@@ -17,7 +17,21 @@ if ($sessionToken !== null && strlen($sessionToken) > 128) {
 }
 $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? '');
 
-$res = AddressAutocompleteService::search($q, $ip, $sessionToken);
+// Optional per-request bias (e.g. GPS-detected point): invalid or absent falls back to the admin bias.
+$biasLat = null;
+$biasLng = null;
+$biasRadiusM = null;
+$latRaw = isset($_POST['latitude']) && is_string($_POST['latitude']) ? $_POST['latitude'] : '';
+$lngRaw = isset($_POST['longitude']) && is_string($_POST['longitude']) ? $_POST['longitude'] : '';
+$coords = AddressInput::parseCoordinates($latRaw, $lngRaw);
+if ($coords['error'] === null && $coords['lat'] !== null && $coords['lng'] !== null) {
+    $biasLat = $coords['lat'];
+    $biasLng = $coords['lng'];
+    $r = isset($_POST['radius_m']) && is_numeric($_POST['radius_m']) ? (int) $_POST['radius_m'] : 0;
+    $biasRadiusM = ($r >= 500 && $r <= 25000) ? $r : null;
+}
+
+$res = AddressAutocompleteService::search($q, $ip, $sessionToken, $biasLat, $biasLng, $biasRadiusM);
 if (empty($res['ok'])) {
     $msg = (string) ($res['error'] ?? 'Search failed.');
     $code = (int) ($res['code'] ?? 0);

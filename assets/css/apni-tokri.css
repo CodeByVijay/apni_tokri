@@ -8177,6 +8177,7 @@ body.at-gallery-lightbox-open {
 .at-addr-gps__btn { width: 100%; gap: 0.5rem; min-height: 3rem; }
 .at-addr-gps__btn { white-space: normal; text-align: center; line-height: 1.25; padding-inline: 0.75rem; }
 @media (min-width: 640px) { .at-addr-gps__btn { width: auto; } }
+.at-addr-geo-search { margin-top: 0.4rem; }
 /* Checkout nests the form inside block > details > body; give the steps the room back on phones. */
 @media (max-width: 479px) {
   #checkout-address-form > .at-card__body, #checkout-address-form > div { padding-left: 0.5rem; padding-right: 0.5rem; }

@@ -86,6 +86,11 @@
     var $pin = $form.find('[name="pincode"]');
     var $hintDetected = $form.find('[data-addr-detected-hint]');
     var $btnGps = $form.find('[data-addr-gps]');
+    var $btnGeoSearch = $form.find('[data-addr-geo-search]');
+
+    var detectedValues = {};
+    var mismatchWarned = false;
+    var lastGeoText = { street: '', area: '', city: '', state: '' };
 
     var minChars = typeof CFG.minChars === 'number' ? CFG.minChars : 3;
     var debounceMs = typeof CFG.debounceMs === 'number' ? CFG.debounceMs : 400;
@@ -148,12 +153,15 @@
     function fillFromGooglePlace(addr, preserveUser) {
       addr = addr || {};
       var detected = 0;
+      detectedValues = {};
+      mismatchWarned = false;
       function fill($el, val) {
         if (!$el.length || val === null || val === undefined) return;
         var s = String(val).trim();
         if (s === '') return;
         if (preserveUser && $.trim($el.val() || '') !== '' && !$el.attr('data-addr-detected')) return;
         $el.val(s).attr('data-addr-detected', '1');
+        detectedValues[$el.attr('name')] = s;
         detected++;
       }
       fill($house, addr.house_number);
@@ -236,11 +244,18 @@
       var my = seq;
       $searchBusy.prop('hidden', false);
       setStatus('', '');
+      var data = { _csrf_token: csrfToken(), q: q, session_token: tok };
+      var blat = parseFloat($lat.val()), blng = parseFloat($lng.val());
+      if (isFinite(blat) && isFinite(blng)) {
+        data.latitude = $lat.val();
+        data.longitude = $lng.val();
+        data.radius_m = 5000;
+      }
       $.ajax({
         url: ajaxUrl('autocompleteSearchUrl'),
         method: 'POST',
         dataType: 'json',
-        data: { _csrf_token: csrfToken(), q: q, session_token: tok }
+        data: data
       }).done(function (res) {
         if (my !== seq) return;
         $searchBusy.prop('hidden', true);
@@ -411,6 +426,12 @@
             var accuracy = pos && pos.coords && typeof pos.coords.accuracy === 'number' ? pos.coords.accuracy : null;
             var inaccurate = accuracy === null || accuracy > 100;
             var broad = !$.trim(ra.street || '') && !$.trim(ra.area || '');
+            lastGeoText = {
+              street: $.trim(ra.street || ''),
+              area: $.trim(ra.area || ''),
+              city: $.trim(ra.city || ''),
+              state: $.trim(ra.state || '')
+            };
             clearPlaceDerivedFields();
             writeCoords(lat, lng);
             selectedPlaceQuery = null;
@@ -421,10 +442,14 @@
               state: ra.state,
               postcode: ra.pincode
             }, true);
+            if ($btnGeoSearch.length && $searchIn.length) $btnGeoSearch.prop('hidden', false);
             var missing = missingRequiredFields();
-            if (inaccurate || broad) {
-              setMsg('Your location was detected, but the address may not be accurate. Please search your exact address or verify the details before saving.'
-                + (missing.length ? ' Please complete: ' + missing.join(', ') + '.' : ''), 'warn');
+            var tail = missing.length ? ' Please complete: ' + missing.join(', ') + '.' : '';
+            if (inaccurate) {
+              setMsg('Your location was detected, but the address may not be accurate. Please search your exact address or verify the details before saving.' + tail, 'warn');
+            } else if (broad) {
+              var where = [ra.city, ra.state].filter(function (v) { return v && $.trim(v) !== ''; }).join(', ');
+              setMsg('Only an approximate location was found' + (where ? ' (' + where + ')' : '') + ' — the exact locality could not be determined. Please search your address on Google or type the details manually.' + tail, 'warn');
             } else if (missing.length) {
               setMsg('Your location has been detected. Please verify your address details. Please complete: ' + missing.join(', ') + '.', 'warn');
             } else {
@@ -453,9 +478,28 @@
       });
     }
 
-    // Editing a detected field clears its "filled from search" marker.
+    // Editing a detected field clears its "filled from search" marker. Changing city or
+    // pincode away from a detected value can move the location materially — mark the
+    // coordinates unconfirmed until the customer re-detects or picks a Google result.
     $placeFields.on('input', function () {
-      $(this).removeAttr('data-addr-detected');
+      var $f = $(this);
+      var hadDetected = $f.attr('data-addr-detected') === '1';
+      $f.removeAttr('data-addr-detected');
+      if (!hadDetected) return;
+      var name = $f.attr('name');
+      if (name !== 'pincode' && name !== 'addr_city') return;
+      var prev = detectedValues[name];
+      if (prev === undefined) return;
+      var now = $.trim($f.val() || '');
+      var same = name === 'pincode'
+        ? now.replace(/\D/g, '') === String(prev).replace(/\D/g, '')
+        : now.toLowerCase() === String(prev).toLowerCase();
+      if (same) return;
+      $conf.val('0');
+      if (!mismatchWarned) {
+        mismatchWarned = true;
+        setMsg('The address text was changed after location detection — the saved coordinates may no longer match. Please search on Google or detect your location again to confirm.', 'warn');
+      }
     });
 
     // GPS / manual-entry forms may not render the search box at all.
@@ -476,6 +520,25 @@
         return;
       }
       runSearch();
+    });
+
+    // "Search this area" after GPS: prefill a locality-context query biased to the
+    // detected coordinates. The customer still picks a suggestion — nothing is auto-selected.
+    $btnGeoSearch.on('click', function (e) {
+      e.preventDefault();
+      var parts = [];
+      if (lastGeoText.street) parts.push(lastGeoText.street);
+      if (lastGeoText.area) parts.push(lastGeoText.area);
+      if (lastGeoText.city) parts.push(lastGeoText.city);
+      if (lastGeoText.state) parts.push(lastGeoText.state);
+      var q = parts.join(', ') || $.trim($city.val() || '') || $.trim($state.val() || '');
+      if (q === '') {
+        setMsg('Type your area or locality in the search box above.', 'info');
+        $searchIn.trigger('focus');
+        return;
+      }
+      selectedPlaceQuery = q;
+      $searchIn.val(q).trigger('input').trigger('focus');
     });
 
     $searchIn.on('keydown', function (e) {
