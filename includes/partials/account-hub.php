@@ -102,4 +102,13 @@ $_hubName = $profileName !== '' ? $profileName : 'Customer';
             </ul>
         <?php endif; ?>
     </section>
+
+    <form method="post" action="<?= Security::escape($base) ?>/logout" class="at-hub-logout">
+        <?= Csrf::field() ?>
+        <button type="submit" class="at-hub-logout__btn at-focusable">
+            <span class="at-hub-logout__icon"><?= at_icon('logout', 'at-hub-logout__svg') ?></span>
+            <span class="at-hub-logout__label">Log out</span>
+            <?= at_icon('chevron-right', 'at-hub-logout__chevron') ?>
+        </button>
+    </form>
 </div>

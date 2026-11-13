@@ -3518,6 +3518,22 @@ body.at-gallery-lightbox-open {
   height: 100%;
   object-fit: cover;
 }
+.at-line-item__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-width: 0;
+}
+.at-line-item__title {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.at-line-item__total {
+  flex: 0 0 auto;
+  text-align: right;
+  white-space: nowrap;
+}
 .at-summary {
   position: sticky;
   top: 8.5rem;

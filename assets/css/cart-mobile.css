@@ -1,0 +1,382 @@
+/* ============================================================
+   Cart page — mobile-only enhancements
+   Loaded exclusively on cart.php (loadCartMobileCss).
+   Everything below is scoped to viewports <= 767.98px so the
+   existing desktop cart layout is untouched.
+   ============================================================ */
+
+@media (max-width: 767.98px) {
+
+    /* ---------- Compact page introduction ---------- */
+    .at-pagehead .at-container {
+        padding-bottom: 0.85rem;
+    }
+
+    .at-pagehead .at-breadcrumb {
+        padding-block: 0.35rem;
+        font-size: 0.72rem;
+        row-gap: 0.15rem;
+    }
+
+    .at-pagehead .at-h1 {
+        font-size: 1.45rem;
+        line-height: 1.15;
+    }
+
+    .at-pagehead .at-h1 .at-muted {
+        font-size: 0.85rem;
+    }
+
+    /* Checkout progress: keep on one line, de-emphasised */
+    .at-steps-bar {
+        gap: 0.3rem;
+        font-size: 0.66rem;
+        white-space: nowrap;
+    }
+
+    .at-steps-bar span {
+        gap: 0.3rem;
+    }
+
+    .at-steps-bar span b {
+        width: 1.3rem;
+        height: 1.3rem;
+        font-size: 0.62rem;
+    }
+
+    .at-steps-bar .line {
+        width: 0.8rem;
+    }
+
+    /* ---------- Delivery status banner ---------- */
+    [data-cart-delivery-banner].at-card {
+        border: 1px solid rgba(36, 92, 58, 0.11);
+        border-radius: 1rem;
+        box-shadow: 0 0.3rem 0.9rem rgba(19, 52, 33, 0.055);
+    }
+
+    [data-cart-delivery-banner] .at-card__body {
+        font-size: 0.8rem;
+        line-height: 1.35;
+    }
+
+    [data-cart-delivery-banner] .at-card__body .at-progress {
+        margin-top: 0.55rem;
+    }
+
+    /* ---------- Cart line items ---------- */
+    .at-line-item {
+        grid-template-columns: 4.75rem minmax(0, 1fr);
+        gap: 0.7rem;
+        padding: 0.75rem;
+        border: 1px solid rgba(36, 92, 58, 0.11);
+        border-radius: 1.05rem;
+        background: #fff;
+        box-shadow: 0 0.3rem 0.9rem rgba(19, 52, 33, 0.055);
+    }
+
+    .at-line-item__img {
+        width: 4.75rem;
+        height: 4.75rem;
+        border: 1px solid rgba(36, 92, 58, 0.08);
+        border-radius: 0.85rem;
+        background: linear-gradient(180deg, #fff 0%, var(--at-green-50) 100%);
+    }
+
+    .at-line-item__img img {
+        padding: 0.3rem;
+        object-fit: contain;
+    }
+
+    .at-line-item__head {
+        gap: 0.55rem;
+    }
+
+    .at-line-item__title > a {
+        display: -webkit-box;
+        overflow: hidden;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        color: var(--at-ink);
+        font-size: 0.9rem;
+        font-weight: 800;
+        line-height: 1.28;
+        overflow-wrap: anywhere;
+        text-decoration: none;
+    }
+
+    .at-line-item__variant {
+        margin-top: 0.15rem;
+        overflow: hidden;
+        font-size: 0.74rem;
+        font-weight: 600;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .at-line-item__total {
+        color: var(--at-green-deep);
+        font-size: 1rem;
+        font-weight: 900;
+        line-height: 1.2;
+    }
+
+    .at-line-item__head + p {
+        margin-top: 0.2rem;
+        color: var(--at-muted);
+        font-size: 0.72rem;
+        font-weight: 600;
+    }
+
+    /* Controls row: stepper left, remove right — full-width footer */
+    .at-line-item__controls {
+        justify-content: space-between;
+        gap: 0.5rem;
+        margin-top: 0.65rem;
+        padding-top: 0.6rem;
+        border-top: 1px dashed var(--at-line);
+    }
+
+    .at-line-item__controls .at-qty--sm {
+        height: 2.75rem;
+        border: 1px solid var(--at-green-100);
+        border-radius: 0.85rem;
+        background: var(--at-green-50);
+    }
+
+    .at-line-item__controls .at-qty--sm button {
+        width: 2.6rem;
+        font-size: 1.25rem;
+        font-weight: 800;
+    }
+
+    .at-line-item__controls .at-qty--sm select {
+        width: 2.3rem;
+        color: var(--at-green-deep);
+        font-size: 0.9rem;
+        font-weight: 800;
+    }
+
+    .at-line-item__controls .js-cart-remove {
+        min-height: 2.75rem;
+        align-items: center;
+        padding-inline: 0.35rem;
+        border-radius: 0.6rem;
+        font-size: 0.76rem;
+    }
+
+    /* ---------- Available offers ---------- */
+    .at-offers__title {
+        color: var(--at-green-deep);
+        font-size: 0.92rem;
+        font-weight: 800;
+    }
+
+    .at-offers__all {
+        min-height: 2.4rem;
+        font-size: 0.74rem;
+    }
+
+    .at-offers__track {
+        gap: 0.6rem;
+        margin-inline: -1rem;
+        padding: 0.1rem 1rem 0.6rem;
+    }
+
+    .at-offers__cell {
+        flex-basis: min(82vw, 19rem);
+    }
+
+    .at-coffer {
+        padding: 0.8rem;
+        border: 1px solid rgba(36, 92, 58, 0.11);
+        border-radius: 1rem;
+    }
+
+    .at-coffer.is-best,
+    .at-coffer.is-applied {
+        border-color: var(--at-green);
+        background: var(--at-green-50);
+    }
+
+    .at-coffer__value {
+        font-size: 0.92rem;
+    }
+
+    .at-coffer__desc,
+    .at-coffer__meta {
+        font-size: 0.72rem;
+    }
+
+    /* ---------- Coupon entry ---------- */
+    #at-coupon-form.at-card {
+        border: 1px solid rgba(36, 92, 58, 0.11);
+        border-radius: 1.05rem;
+        box-shadow: 0 0.3rem 0.9rem rgba(19, 52, 33, 0.055);
+    }
+
+    #at-coupon-form .at-label {
+        font-size: 0.8rem;
+        font-weight: 800;
+    }
+
+    #at-coupon-form .at-input {
+        min-height: 2.75rem;
+        flex: 1 1 9rem;
+        border-radius: 0.85rem;
+        font-size: 0.88rem;
+    }
+
+    #at-coupon-form .at-btn {
+        min-height: 2.75rem;
+        border-radius: 0.85rem;
+        font-size: 0.8rem;
+        font-weight: 800;
+    }
+
+    #at-coupon-form .at-field-hint {
+        font-size: 0.68rem;
+        line-height: 1.4;
+    }
+
+    /* ---------- Order summary ---------- */
+    .at-summary {
+        position: static;
+    }
+
+    .at-summary .at-card {
+        border: 1px solid rgba(36, 92, 58, 0.11);
+        border-radius: 1.05rem;
+        box-shadow: 0 0.3rem 0.9rem rgba(19, 52, 33, 0.055);
+    }
+
+    .at-cart-summary .at-card__title {
+        color: var(--at-green-deep);
+        font-size: 0.95rem;
+        font-weight: 800;
+    }
+
+    .at-summary-list > div {
+        font-size: 0.85rem;
+    }
+
+    .at-summary-list > div.is-total {
+        color: var(--at-green-deep);
+        font-size: 1.05rem;
+        font-weight: 900;
+    }
+
+    .at-summary .at-btn {
+        min-height: 2.9rem;
+        border-radius: 0.9rem;
+        font-size: 0.9rem;
+        font-weight: 900;
+    }
+
+    /* ---------- Fixed bottom checkout bar ---------- */
+    .at-cart-sticky {
+        gap: 0.75rem;
+        padding: 0.55rem 0.85rem calc(0.55rem + env(safe-area-inset-bottom, 0));
+        background: rgba(255, 253, 248, 0.99);
+        box-shadow: 0 -0.5rem 1.5rem rgba(19, 52, 33, 0.12);
+    }
+
+    .at-cart-sticky > .min-w-0 p:first-child {
+        font-size: 0.62rem;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+    }
+
+    .at-cart-sticky [data-cart-total] {
+        color: var(--at-green-deep);
+        font-size: 1.15rem;
+        font-weight: 900;
+    }
+
+    .at-cart-sticky__cta {
+        flex: 1 1 auto;
+        min-height: 2.9rem;
+        border-radius: 0.9rem;
+        font-size: 0.95rem;
+        font-weight: 900;
+    }
+
+    /* ---------- Empty cart state ---------- */
+    .at-empty {
+        margin-block: 1.5rem;
+        padding: 2.5rem 1.25rem;
+        border: 1px solid rgba(36, 92, 58, 0.11);
+        border-radius: 1.25rem;
+        background: #fff;
+        box-shadow: 0 0.35rem 1.05rem rgba(19, 52, 33, 0.06);
+    }
+
+    .at-empty .at-h2 {
+        margin-top: 1rem;
+        font-size: 1.25rem;
+    }
+
+    .at-empty .at-btn {
+        width: 100%;
+        min-height: 2.9rem;
+        border-radius: 0.9rem;
+        font-weight: 800;
+    }
+}
+
+@media (max-width: 359.98px) {
+    .at-pagehead .at-h1 {
+        font-size: 1.3rem;
+    }
+
+    .at-line-item {
+        grid-template-columns: 4rem minmax(0, 1fr);
+        gap: 0.55rem;
+        padding: 0.6rem;
+    }
+
+    .at-line-item__img {
+        width: 4rem;
+        height: 4rem;
+    }
+
+    .at-line-item__controls .at-qty--sm {
+        height: 2.7rem;
+    }
+
+    .at-line-item__controls .at-qty--sm button {
+        width: 2.55rem;
+    }
+
+    .at-line-item__controls .at-qty--sm select {
+        width: 2.1rem;
+        font-size: 0.85rem;
+    }
+
+    /* Icon-only remove keeps the controls row on one line at 320px. */
+    .at-line-item__controls .js-cart-remove {
+        min-width: 2.75rem;
+        justify-content: center;
+        gap: 0;
+        padding-inline: 0.3rem;
+        font-size: 0;
+    }
+
+    .at-line-item__controls .js-cart-remove svg {
+        width: 1.15rem;
+        height: 1.15rem;
+    }
+
+    #at-coupon-form #at-coupon-apply {
+        flex: 1 1 100%;
+    }
+
+    .at-offers__cell {
+        flex-basis: 86vw;
+    }
+
+    .at-cart-sticky {
+        padding-inline: 0.65rem;
+    }
+}

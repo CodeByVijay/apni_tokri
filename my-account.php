@@ -45,6 +45,7 @@ layout_public_start([
     'pageTitle' => 'My account — Veggie Tokri',
     'activeNav' => 'account',
     'loadPushJs' => $loadPushJs,
+    'loadAccountMobileCss' => true,
 ]);
 $accountActive = 'overview';
 $accountTitle = 'Hello, ' . ($p['name'] ?? 'there');

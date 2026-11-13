@@ -14,6 +14,7 @@ $loadCartJs = true;
 layout_public_start([
     'pageTitle' => 'Cart — Veggie Tokri',
     'activeNav' => 'cart',
+    'loadCartMobileCss' => true,
 ]);
 require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
 ?>
@@ -106,13 +107,20 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
                             <?php if (!empty($item['image'])): ?><img src="<?= Security::escape((string) $item['image']) ?>" alt="" loading="lazy"><?php endif; ?>
                         </a>
                         <div class="min-w-0">
-                            <a href="<?= Security::escape(url_base()) ?>/product.php?slug=<?= rawurlencode((string) $item['product_slug']) ?>" class="font-bold hover:text-[var(--at-green)] at-focusable"><?= Security::escape((string) $item['name']) ?></a>
-                            <p class="text-sm at-muted"><?= Security::escape((string) $item['label']) ?></p>
+                            <div class="at-line-item__head">
+                                <div class="at-line-item__title min-w-0">
+                                    <a href="<?= Security::escape(url_base()) ?>/product.php?slug=<?= rawurlencode((string) $item['product_slug']) ?>" class="font-bold hover:text-[var(--at-green)] at-focusable"><?= Security::escape((string) $item['name']) ?></a>
+                                    <p class="text-sm at-muted at-line-item__variant"><?= Security::escape((string) $item['label']) ?></p>
+                                </div>
+                                <p class="font-extrabold text-lg at-line-item__total" data-cart-line-total>
+                                    <?= Security::escape(catalogue_format_price((float) $item['unit_price'] * (int) $item['qty'])) ?>
+                                </p>
+                            </div>
                             <p class="text-sm mt-1"><?= Security::escape(catalogue_format_price((float) $item['unit_price'])) ?> each</p>
                             <?php if (!$lineCheck['ok']): ?>
                                 <p class="text-sm text-red-600 mt-2" role="alert"><?= Security::escape((string) ($lineCheck['message'] ?? '')) ?></p>
                             <?php endif; ?>
-                            <div class="flex flex-wrap items-center gap-3 mt-3">
+                            <div class="at-line-item__controls flex flex-wrap items-center gap-3 mt-3">
                                 <div class="at-qty at-qty--sm">
                                     <button type="button" data-qty-step="-1" aria-label="Decrease quantity">−</button>
                                     <select class="at-focusable js-cart-qty" aria-label="Quantity" min="<?= (int) $displayMin ?>" max="<?= (int) $displayCap ?>">
@@ -125,9 +133,6 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
                                 <button type="button" class="text-sm font-semibold text-[var(--at-danger)] hover:underline js-cart-remove at-focusable flex items-center gap-1"><?= at_icon('trash', 'w-4 h-4') ?>Remove</button>
                             </div>
                         </div>
-                        <p class="font-extrabold text-lg col-start-2 sm:col-start-auto sm:text-right" data-cart-line-total>
-                            <?= Security::escape(catalogue_format_price((float) $item['unit_price'] * (int) $item['qty'])) ?>
-                        </p>
                     </li>
                 <?php endforeach; ?>
             </ul>
@@ -171,7 +176,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
             <p class="text-sm mb-3 px-3 py-2 rounded-lg bg-[var(--at-cream-2)] border border-[var(--at-line)] text-[var(--at-yellow-ink)]<?= $cartMinOrderBlocking ? '' : ' hidden' ?>" data-cart-min-order-alert role="status">
                 <span data-cart-min-order-remaining>Add <?= Security::escape(catalogue_format_price((float) ($totals['min_order_shortfall'] ?? 0))) ?> more to unlock checkout.</span>
             </p>
-            <a href="<?= $cartCheckoutBlocked ? '#' : Security::escape(url_base()) . '/checkout.php' ?>" class="at-btn at-btn--primary at-btn--lg at-btn--block at-focusable mt-4 <?= $cartCheckoutBlocked ? 'pointer-events-none opacity-50' : '' ?>" data-cart-checkout-cta <?= $cartCheckoutBlocked ? 'aria-disabled="true"' : '' ?>>Proceed to checkout <?= at_icon('arrow-right', 'w-5 h-5') ?></a>
+            <a href="<?= $cartCheckoutBlocked ? '#' : Security::escape(url_base()) . '/checkout.php' ?>" class="at-btn at-btn--primary at-btn--lg at-btn--block at-focusable mt-4 <?= $cartCheckoutBlocked ? 'pointer-events-none opacity-50' : '' ?>" data-cart-checkout-cta <?= $cartCheckoutBlocked ? 'aria-disabled="true"' : '' ?>>Proceed to checkout <?= at_icon('chevron-right', 'w-5 h-5') ?></a>
             <a href="<?= Security::escape(url_base()) ?>/index.php" class="at-btn at-btn--ghost at-btn--block at-focusable mt-2">Continue shopping</a>
         </aside>
     </div>
@@ -180,7 +185,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
             <p class="text-xs at-muted leading-tight">Total</p>
             <p class="font-extrabold text-lg leading-tight" data-cart-total><?= Security::escape(catalogue_format_price((float) $totals['total'])) ?></p>
         </div>
-        <a href="<?= $cartCheckoutBlocked ? '#' : Security::escape(url_base()) . '/checkout.php' ?>" class="at-btn at-btn--primary at-focusable at-cart-sticky__cta <?= $cartCheckoutBlocked ? 'pointer-events-none opacity-50' : '' ?>" data-cart-checkout-cta <?= $cartCheckoutBlocked ? 'aria-disabled="true"' : '' ?>>Checkout <?= at_icon('arrow-right', 'w-5 h-5') ?></a>
+        <a href="<?= $cartCheckoutBlocked ? '#' : Security::escape(url_base()) . '/checkout.php' ?>" class="at-btn at-btn--primary at-focusable at-cart-sticky__cta <?= $cartCheckoutBlocked ? 'pointer-events-none opacity-50' : '' ?>" data-cart-checkout-cta <?= $cartCheckoutBlocked ? 'aria-disabled="true"' : '' ?>>Checkout <?= at_icon('chevron-right', 'w-5 h-5') ?></a>
     </div>
     <template id="at-cart-empty-template">
         <?php

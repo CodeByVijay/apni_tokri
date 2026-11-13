@@ -79,6 +79,12 @@ $locale = Lang::locale();
     <?php if (!empty($loadCategoryMobileCss)): ?>
     <link rel="stylesheet" href="<?= Security::escape(asset_url('assets/css/category-mobile.css')) ?>">
     <?php endif; ?>
+    <?php if (!empty($loadCartMobileCss)): ?>
+    <link rel="stylesheet" href="<?= Security::escape(asset_url('assets/css/cart-mobile.css')) ?>">
+    <?php endif; ?>
+    <?php if (!empty($loadAccountMobileCss)): ?>
+    <link rel="stylesheet" href="<?= Security::escape(asset_url('assets/css/account-mobile.css')) ?>">
+    <?php endif; ?>
     <?php $GLOBALS['loadAddressMap'] = !empty($loadAddressMap); ?>
     <?php $GLOBALS['loadAddressAutocompleteJs'] = !empty($loadAddressAutocompleteJs); ?>
     <?php if (!empty($loadAddressMap)): ?>
