@@ -397,7 +397,7 @@
             method: 'POST',
             dataType: 'json',
             timeout: 15000,
-            data: { _csrf_token: csrfToken(), latitude: lat, longitude: lng }
+            data: { _csrf_token: csrfToken(), latitude: lat.toFixed(7), longitude: lng.toFixed(7) }
           }).done(function (res) {
             gpsReset();
             if (!res || !res.success || !res.data || !res.data.address) {

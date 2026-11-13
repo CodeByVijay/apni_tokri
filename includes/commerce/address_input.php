@@ -208,11 +208,12 @@ final class AddressInput
             return ['lat' => null, 'lng' => null, 'error' => $m];
         };
         if ($lat === '' || $lng === '') {
-            return $bad('The map pin is incomplete. Move the pin again.');
+            return $bad('Location could not be verified. Please try again or search your address.');
         }
-        $re = '/^-?\d{1,3}(\.\d{1,12})?$/';
+        // Browser GPS doubles serialize with up to ~17 significant digits; accept them and round to 7 decimals.
+        $re = '/^-?\d{1,3}(\.\d{1,17})?$/';
         if (!preg_match($re, $lat) || !preg_match($re, $lng)) {
-            return $bad('The map pin is not valid. Move the pin again.');
+            return $bad('Location could not be verified. Please try again or search your address.');
         }
         $la = (float) $lat;
         $lo = (float) $lng;
@@ -223,7 +224,7 @@ final class AddressInput
             return $bad('Longitude must be between -180 and 180.');
         }
         if ($la == 0.0 && $lo == 0.0) {
-            return $bad('The map pin is not valid. Move the pin again.');
+            return $bad('Location could not be verified. Please try again or search your address.');
         }
 
         return ['lat' => round($la, 7), 'lng' => round($lo, 7), 'error' => null];

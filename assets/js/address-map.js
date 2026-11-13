@@ -307,8 +307,8 @@
         data: {
           _csrf_token: csrfToken(),
           pincode: pin,
-          latitude: String(lat),
-          longitude: String(lng)
+          latitude: lat.toFixed(7),
+          longitude: lng.toFixed(7)
         }
       }).always(function () {
         checkInFlight = false;
@@ -333,8 +333,8 @@
           dataType: 'json',
           data: {
             _csrf_token: csrfToken(),
-            latitude: String(lat),
-            longitude: String(lng)
+            latitude: lat.toFixed(7),
+            longitude: lng.toFixed(7)
           }
         }).done(function (res) {
           if (seq !== geocodeSeq) return;
