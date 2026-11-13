@@ -93,7 +93,7 @@ $navIsCategoryPage = $activeNav === 'categories';
         <?php endif; ?>
 
         <!-- Search (mobile) -->
-        <form action="<?= Security::escape($base) ?>/search.php" method="get" role="search" class="at-search<?= !empty($homeMobileChrome) ? ' at-search--home-mobile' : '' ?> md:hidden mt-2" data-at-search>
+        <form action="<?= Security::escape($base) ?>/search.php" method="get" role="search" class="at-search md:hidden mt-2" data-at-search>
             <label class="sr-only" for="at-search-m"><?= Security::escape(__('search_placeholder')) ?></label>
             <div class="at-search__field">
                 <?= at_icon('search') ?>

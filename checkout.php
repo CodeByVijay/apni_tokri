@@ -195,8 +195,8 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
     </div>
 </div>
 
-<div class="at-container py-6 md:py-8 grid lg:grid-cols-[1fr_24rem] gap-6 lg:gap-10 items-start">
-    <div class="grid gap-4">
+<div class="at-container py-6 md:py-8 grid lg:grid-cols-[1fr_24rem] gap-6 lg:gap-10 items-start at-checkout-grid">
+    <div class="grid gap-4 at-checkout-main">
         <?php if ($error !== ''): ?>
             <div class="at-alert at-alert--error" role="alert"><?= at_icon('info', 'w-5 h-5 flex-shrink-0') ?><span><?= Security::escape($error) ?></span></div>
         <?php endif; ?>
@@ -410,7 +410,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
     </div>
 
     <aside class="at-summary grid gap-4" data-checkout-summary>
-        <div class="at-card"><div class="at-card__body">
+        <div class="at-card at-checkout-items"><div class="at-card__body">
             <h2 class="at-card__title">Your items</h2>
             <ul class="mt-3 grid gap-3">
                 <?php foreach (CartService::items() as $it): ?>
@@ -422,7 +422,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
                 <?php endforeach; ?>
             </ul>
         </div></div>
-        <div class="at-card">
+        <div class="at-card at-checkout-coupon-card">
             <details class="at-checkout-coupon"<?= catalogue_cart_coupon_applied($totals) ? ' open' : '' ?>>
                 <summary class="at-card__body !py-3 cursor-pointer font-bold text-[var(--at-green)] flex items-center gap-2"><?= at_icon('tag', 'w-4 h-4') ?>Offers &amp; coupons<?= catalogue_cart_coupon_applied($totals) ? '<span class="at-muted font-normal text-sm">· ' . Security::escape((string) $totals['coupon_code']) . ' applied</span>' : '' ?></summary>
                 <div class="at-card__body !pt-0">
@@ -439,7 +439,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
                     </div>
                     <form id="at-coupon-form" class="mt-3">
                         <?= Csrf::field() ?>
-                        <label class="at-label flex items-center gap-2" for="coupon_code">Have a coupon?</label>
+                        <label class="at-label flex items-center gap-2" for="coupon_code"><?= at_icon('tag', 'w-4 h-4 text-[var(--at-green)]') ?>Have a coupon?</label>
                         <div class="flex flex-wrap gap-2">
                             <input id="coupon_code" name="coupon_code" class="at-input at-focusable flex-1 min-w-[10rem]" placeholder="Enter your coupon code" value="<?= Security::escape((string) ($totals['coupon_code'] ?? '')) ?>" autocomplete="off">
                             <button type="submit" id="at-coupon-apply" class="at-btn at-btn--secondary at-focusable" data-at-coupon-apply>Apply</button>
