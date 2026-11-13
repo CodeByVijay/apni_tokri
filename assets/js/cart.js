@@ -514,8 +514,14 @@
       if (res.success) {
         var totals = res.data && res.data.totals ? res.data.totals : null;
         refreshSummary(totals);
+        updateCheckoutPayAmounts(totals);
         if (res.data && typeof res.data.offers_html === 'string') {
           replaceOffers(res.data.offers_html);
+        }
+        // On checkout, re-run the delivery quote so the pay button and
+        // summary reflect server-validated totals incl. the coupon change.
+        if (typeof window.AT_CHECKOUT_REFRESH_QUOTE === 'function') {
+          window.AT_CHECKOUT_REFRESH_QUOTE();
         }
         var okMsg = res.message || 'Coupon applied.';
         if (couponAppliedFromTotals(totals)) {

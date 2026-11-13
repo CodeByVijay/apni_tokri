@@ -422,6 +422,35 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
                 <?php endforeach; ?>
             </ul>
         </div></div>
+        <div class="at-card">
+            <details class="at-checkout-coupon"<?= catalogue_cart_coupon_applied($totals) ? ' open' : '' ?>>
+                <summary class="at-card__body !py-3 cursor-pointer font-bold text-[var(--at-green)] flex items-center gap-2"><?= at_icon('tag', 'w-4 h-4') ?>Offers &amp; coupons<?= catalogue_cart_coupon_applied($totals) ? '<span class="at-muted font-normal text-sm">· ' . Security::escape((string) $totals['coupon_code']) . ' applied</span>' : '' ?></summary>
+                <div class="at-card__body !pt-0">
+                    <div data-at-offers-wrap>
+                        <?php
+                        try {
+                            $offers = CouponOfferService::forCurrentCart($totals);
+                        } catch (Throwable $e) {
+                            error_log('checkout offers: ' . get_class($e));
+                            $offers = [];
+                        }
+                        require APNI_TOKRI_ROOT . '/includes/partials/cart-offers.php';
+                        ?>
+                    </div>
+                    <form id="at-coupon-form" class="mt-3">
+                        <?= Csrf::field() ?>
+                        <label class="at-label flex items-center gap-2" for="coupon_code">Have a coupon?</label>
+                        <div class="flex flex-wrap gap-2">
+                            <input id="coupon_code" name="coupon_code" class="at-input at-focusable flex-1 min-w-[10rem]" placeholder="Enter your coupon code" value="<?= Security::escape((string) ($totals['coupon_code'] ?? '')) ?>" autocomplete="off">
+                            <button type="submit" id="at-coupon-apply" class="at-btn at-btn--secondary at-focusable" data-at-coupon-apply>Apply</button>
+                            <button type="button" id="at-coupon-remove" class="at-btn at-btn--ghost at-focusable<?= catalogue_cart_coupon_applied($totals) ? '' : ' hidden' ?>" data-at-coupon-remove>Remove</button>
+                        </div>
+                        <p id="at-coupon-feedback" class="text-sm mt-2 hidden" data-at-coupon-feedback role="alert"></p>
+                        <p class="at-field-hint mt-2">Eligibility is validated on the server. Discount appears in your order summary.</p>
+                    </form>
+                </div>
+            </details>
+        </div>
         <?php require APNI_TOKRI_ROOT . '/includes/partials/cart-summary.php'; ?>
         <p class="text-xs at-muted flex gap-2"><?= at_icon('shield', 'w-4 h-4 flex-shrink-0') ?>Delivery fee uses your address pincode and eligible cart value — recalculated on the server at payment.</p>
     </aside>
