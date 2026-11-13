@@ -219,25 +219,27 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
                         <input id="checkout-customer-name" name="customer_name" type="text" autocomplete="name"
                                form="checkout-form" class="at-input at-focusable" maxlength="100"
                                placeholder="Enter your full name" value="<?= Security::escape($checkoutContactName) ?>">
-                        <p class="text-xs at-muted mt-1.5">Your account name for orders and invoices — not the delivery receiver.</p>
+                        <p class="text-xs at-muted mt-1.5">Used for order updates — not the delivery receiver's name.</p>
                     </div>
                     <div>
                         <label class="at-label" for="checkout-customer-email">Email address <span class="at-muted font-normal">(optional)</span></label>
                         <input id="checkout-customer-email" name="customer_email" type="email" inputmode="email" autocomplete="email"
                                form="checkout-form" class="at-input at-focusable" maxlength="191"
                                placeholder="Enter your email address" value="<?= Security::escape($checkoutContactEmail) ?>">
-                        <p class="text-xs at-muted mt-1.5">For order confirmation and invoice updates.</p>
+                        <p class="text-xs at-muted mt-1.5">For order confirmation and updates.</p>
                     </div>
                 </div>
             <?php else: ?>
-                <p class="text-sm at-muted">We verify your mobile number with an OTP before you can place the order.</p>
+                <p class="text-sm at-muted">Log in with your mobile number — we'll send an OTP to confirm it's you.</p>
                 <a href="<?= Security::escape(url_base()) ?>/login.php" class="at-btn at-btn--primary at-focusable mt-3">Log in with mobile OTP</a>
             <?php endif; ?>
         </section>
 
         <section class="at-checkout-block">
             <div class="at-checkout-block__head"><span class="at-checkout-block__num">2</span><h2 class="at-h3">Delivery address</h2></div>
-            <p class="text-xs at-muted -mt-2 mb-3">Serviceability for Indore is checked before payment.<?php if ($loggedIn && $persistedCheckout): ?> <a href="<?= Security::escape(url_base()) ?>/my-addresses.php" class="underline">Manage saved addresses</a><?php endif; ?></p>
+            <?php if ($loggedIn && $persistedCheckout): ?>
+                <p class="text-xs at-muted -mt-2 mb-3"><a href="<?= Security::escape(url_base()) ?>/my-addresses.php" class="underline">Manage saved addresses</a></p>
+            <?php endif; ?>
             <?php if ($persistedCheckout && !$loggedIn): ?>
                 <p class="text-sm at-muted">Log in with your mobile OTP to add and choose a delivery address.</p>
             <?php elseif ($loggedIn && $addresses === []): ?>
@@ -257,7 +259,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
                         <?php endforeach; ?>
                     </div>
                     <div class="at-addr-card__actions">
-                        <a class="at-btn at-btn--secondary at-btn--sm at-focusable" data-checkout-edit href="<?= Security::escape(url_base()) ?>/checkout.php?edit_address=<?= (int) $selectedAddressId ?>#checkout-address-form">Edit selected address</a>
+                        <a class="at-btn at-btn--secondary at-btn--sm at-focusable" data-checkout-edit href="<?= Security::escape(url_base()) ?>/checkout.php?edit_address=<?= (int) $selectedAddressId ?>#checkout-address-form">Edit address</a>
                     </div>
                 <?php endif; ?>
                 <?php if ($loggedIn): ?>
@@ -309,7 +311,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
                 <p class="text-sm at-muted">Log in and choose a delivery address to see available slots.</p>
             <?php elseif (DeliveryConfig::slotsEnabled()):
                 ?>
-                <p class="text-sm at-muted -mt-2 mb-3">Capacity is re-checked when you pay (<?= Security::escape(DeliveryConfig::timezone()) ?>).</p>
+                <p class="text-sm at-muted -mt-2 mb-3">Your slot is confirmed when you place the order.</p>
                 <?php if ($loggedIn && $addresses === []): ?>
                     <p class="text-sm at-muted">Add a delivery address above to choose a slot.</p>
                 <?php endif; ?>
@@ -349,7 +351,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
                         <span class="at-checkout-pay__label">Amount payable</span>
                         <span class="at-checkout-pay__value at-checkout-pay__amount" data-checkout-pay-card-amount><?= Security::escape(catalogue_format_price((float) $totals['total'])) ?></span>
                     </div>
-                    <p class="at-checkout-pay__hint text-sm at-muted" data-checkout-pay-allowed<?= $checkoutMinOrderMet ? '' : ' hidden' ?>>You will pay on the next screen. Your order is confirmed only after the server verifies payment with <?= Security::escape($paymentGatewayLabel) ?>.</p>
+                    <p class="at-checkout-pay__hint text-sm at-muted" data-checkout-pay-allowed<?= $checkoutMinOrderMet ? '' : ' hidden' ?>>You'll pay on the next screen via <?= Security::escape($paymentGatewayLabel) ?>. Your order is confirmed after payment.</p>
                     <?php if (!$paymentGatewayReady): ?>
                         <p class="at-alert at-alert--warning text-sm mt-2" role="alert"><?= Security::escape($paymentGatewayBlockedMessage !== '' ? $paymentGatewayBlockedMessage : 'Online payment is temporarily unavailable. Ask the store admin to check gateway credentials under Settings → Payment gateways.') ?></p>
                     <?php endif; ?>
@@ -389,12 +391,12 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
             <div class="at-alert at-alert--warning text-sm mb-3 hidden" data-checkout-quote-error role="alert"></div>
             <div class="at-checkout-pay__blocked px-3 py-3 rounded-lg bg-[var(--at-cream-2)] border border-[var(--at-line)] text-sm space-y-2<?= $checkoutMinOrderMet ? ' hidden' : '' ?>" data-checkout-pay-blocked role="status">
                 <p class="font-semibold">Checkout is paused — minimum order not met.</p>
-                <p class="at-muted">Add <span class="font-bold tabular-nums" data-checkout-pay-blocked-shortfall><?= Security::escape(catalogue_format_price((float) ($totals['min_order_shortfall'] ?? 0))) ?></span> more in products to unlock payment. Delivery fee is extra.</p>
+                <p class="at-muted">Add <span class="font-bold tabular-nums" data-checkout-pay-blocked-shortfall><?= Security::escape(catalogue_format_price((float) ($totals['min_order_shortfall'] ?? 0))) ?></span> more in products to unlock payment. Delivery charge is extra.</p>
                 <a href="<?= Security::escape(url_base()) ?>/index.php" class="at-btn at-btn--secondary at-btn--sm at-focusable">Browse products</a>
             </div>
             <div class="flex flex-col sm:flex-row gap-3" data-checkout-pay-allowed<?= $checkoutMinOrderMet ? '' : ' hidden' ?>>
                 <?php if (CommerceGateway::useDatabase()): ?>
-                    <button type="submit" id="checkout-proceed-pay" class="at-btn at-btn--primary at-btn--lg at-focusable flex-1" data-at-checkout-submit data-at-quote-ready="<?= ($checkoutQuoteReady && $paymentGatewayReady) ? '1' : '0' ?>" <?= ($canPay && $slotsOk && $paymentGatewayReady && $checkoutQuoteReady) ? '' : 'disabled' ?>><?= at_icon('lock', 'w-5 h-5') ?> Proceed to pay <span data-checkout-pay-amount><?= Security::escape(catalogue_format_price((float) $totals['total'])) ?></span></button>
+                    <button type="submit" id="checkout-proceed-pay" class="at-btn at-btn--primary at-btn--lg at-focusable flex-1" data-at-checkout-submit data-at-quote-ready="<?= ($checkoutQuoteReady && $paymentGatewayReady) ? '1' : '0' ?>" <?= ($canPay && $slotsOk && $paymentGatewayReady && $checkoutQuoteReady) ? '' : 'disabled' ?>><?= at_icon('lock', 'w-5 h-5') ?> Pay securely <span data-checkout-pay-amount><?= Security::escape(catalogue_format_price((float) $totals['total'])) ?></span></button>
                 <?php else: ?>
                     <button type="submit" name="payment_sim" value="success" class="at-btn at-btn--primary at-btn--lg at-focusable flex-1" <?= $canPay ? '' : 'disabled' ?>><?= at_icon('lock', 'w-5 h-5') ?> Pay <?= Security::escape(catalogue_format_price((float) $totals['total'])) ?> (demo success)</button>
                     <button type="submit" name="payment_sim" value="fail" class="at-btn at-btn--secondary at-btn--lg at-focusable" <?= $canPay ? '' : 'disabled' ?>>Simulate payment failure</button>
@@ -405,7 +407,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
 
     <aside class="at-summary grid gap-4" data-checkout-summary>
         <div class="at-card at-checkout-items"><div class="at-card__body">
-            <h2 class="at-card__title">Your items</h2>
+            <div class="flex items-center justify-between gap-3"><h2 class="at-card__title">Your items</h2><a href="<?= Security::escape(url_base()) ?>/cart.php" class="text-sm font-semibold text-[var(--at-green)] at-focusable">Edit cart</a></div>
             <ul class="mt-3 grid gap-3">
                 <?php foreach (CartService::items() as $it): ?>
                     <li class="flex gap-3 items-center">
@@ -451,14 +453,14 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
                                 <button type="submit" id="at-coupon-apply" class="at-btn at-btn--secondary at-focusable" data-at-coupon-apply>Apply</button>
                             </div>
                             <p id="at-coupon-feedback" class="text-sm mt-2 hidden" data-at-coupon-feedback role="alert"></p>
-                            <p class="at-field-hint mt-2">Eligibility is validated on the server. Discount appears in your order summary.</p>
+                            <p class="at-field-hint mt-2">Discount shows in your order summary.</p>
                         </details>
                     </form>
                 </div>
             </details>
         </div>
         <?php require APNI_TOKRI_ROOT . '/includes/partials/cart-summary.php'; ?>
-        <p class="text-xs at-muted flex gap-2"><?= at_icon('shield', 'w-4 h-4 flex-shrink-0') ?>Delivery fee uses your address pincode and eligible cart value — recalculated on the server at payment.</p>
+        <p class="text-xs at-muted flex gap-2"><?= at_icon('shield', 'w-4 h-4 flex-shrink-0') ?>Delivery charge is based on your delivery address.</p>
     </aside>
 </div>
 <?php if ($dbAddressMode): ?>

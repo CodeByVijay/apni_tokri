@@ -5,8 +5,8 @@ declare(strict_types=1);
 /** Cart page free-delivery / delivery preview copy from server totals only. */
 final class CartDeliveryBanner
 {
-    public const MSG_SELECT_ADDRESS = 'Select your delivery address to see the exact delivery fee.';
-    public const MSG_UPDATE_ADDRESS = 'Update your saved delivery address to see the exact delivery fee.';
+    public const MSG_SELECT_ADDRESS = 'Select your delivery address to see your delivery charge.';
+    public const MSG_UPDATE_ADDRESS = 'Update your saved delivery address to see your delivery charge.';
     private const CTA_HREF = '/checkout.php';
     private const CTA_LABEL = 'Select delivery address';
 
@@ -48,14 +48,14 @@ final class CartDeliveryBanner
 
         if ($eligible && $toFree > 0) {
             return [
-                'message' => 'Add ' . catalogue_format_price($toFree) . ' more to unlock free delivery',
+                'message' => 'Add ' . catalogue_format_price($toFree) . ' more for free delivery',
                 'tone' => 'progress',
                 'show_progress' => true,
                 'progress' => self::progressPercent($totals, $toFree),
             ];
         }
 
-        return self::neutral('Delivery fee is shown in your order summary once your address is confirmed.');
+        return self::neutral('Your delivery charge appears in the order summary.');
     }
 
     /**

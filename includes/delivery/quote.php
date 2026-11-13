@@ -29,7 +29,7 @@ final class DeliveryQuoteService
         $store = DeliveryConfig::store();
         $pin = preg_replace('/\D+/', '', (string) ($address['pincode'] ?? '')) ?? '';
         if ($pin === '') {
-            return self::fail('invalid_pin', 'Delivery pincode is missing on this address.');
+            return self::fail('invalid_pin', 'This address is missing its pincode — please edit it.');
         }
 
         [$lat, $lon, $hasCoords] = self::coordsFromAddress($address);
@@ -39,7 +39,7 @@ final class DeliveryQuoteService
         if ($requireCoords && !$hasCoords) {
             return self::fail(
                 'coordinates_required',
-                'Select a delivery address with a confirmed location — we need it to calculate your delivery fee.'
+                'Select a delivery address to see your delivery charge.'
             );
         }
 

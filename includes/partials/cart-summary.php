@@ -30,11 +30,11 @@ $couponApplied = catalogue_cart_coupon_applied($totals);
                 ?>
             </div>
             <div class="is-saving<?= $couponApplied ? '' : ' hidden' ?>" data-cart-coupon-row<?= $couponApplied ? '' : ' hidden' ?>>
-                <dt>Coupon (<span data-cart-coupon-code><?= $couponApplied ? Security::escape(trim((string) $totals['coupon_code'])) : '' ?></span>)</dt>
+                <dt>Coupon discount (<span data-cart-coupon-code><?= $couponApplied ? Security::escape(trim((string) $totals['coupon_code'])) : '' ?></span>)</dt>
                 <dd data-cart-coupon-amount><?= $couponApplied ? '−' . Security::escape(catalogue_format_price((float) $totals['coupon_discount'])) : '' ?></dd>
             </div>
-            <div><dt>Delivery fee <span class="at-muted font-normal text-xs" data-cart-delivery-context><?= !empty($totals['delivery_zone']) ? '· to ' . Security::escape((string) $totals['delivery_zone']) : '' ?></span></dt><dd data-cart-delivery><?php if (empty($totals['delivery_quote_accurate']) && !empty($totals['delivery_quote_message'])): ?><span class="at-muted">—</span><?php elseif ((float) $totals['delivery_fee'] === 0.0): ?>Free<?php else: ?><?= Security::escape(catalogue_format_price((float) $totals['delivery_fee'])) ?><?php endif; ?></dd></div>
-            <div class="is-total"><dt>Total</dt><dd data-cart-total><?= Security::escape(catalogue_format_price((float) $totals['total'])) ?></dd></div>
+            <div><dt>Delivery charge <span class="at-muted font-normal text-xs" data-cart-delivery-context><?= !empty($totals['delivery_zone']) ? '· to ' . Security::escape((string) $totals['delivery_zone']) : '' ?></span></dt><dd data-cart-delivery><?php if (empty($totals['delivery_quote_accurate']) && !empty($totals['delivery_quote_message'])): ?><span class="at-muted">—</span><?php elseif ((float) $totals['delivery_fee'] === 0.0): ?>Free<?php else: ?><?= Security::escape(catalogue_format_price((float) $totals['delivery_fee'])) ?><?php endif; ?></dd></div>
+            <div class="is-total"><dt>Total payable</dt><dd data-cart-total><?= Security::escape(catalogue_format_price((float) $totals['total'])) ?></dd></div>
         </dl>
         <?php if (!empty($totals['delivery_quote_message'])): ?>
             <p class="text-xs mt-3 px-3 py-2 rounded-lg bg-[var(--at-cream-2)] at-muted" data-cart-quote-message role="status"><?= Security::escape((string) $totals['delivery_quote_message']) ?></p>
@@ -64,14 +64,14 @@ $couponApplied = catalogue_cart_coupon_applied($totals);
         <?php endif; ?>
         <?php if (empty($totals['delivery_quote_message']) && !empty($totals['delivery_quote_accurate']) && !empty($totals['delivery_serviceable']) && !empty($totals['free_delivery_eligible']) && (float) ($totals['amount_to_free_delivery'] ?? 0) > 0): ?>
             <p data-cart-free-delivery class="text-xs mt-3 px-3 py-2 rounded-lg bg-[var(--at-yellow-100)] text-[var(--at-yellow-ink)] font-semibold">
-                Free delivery (optional saving): add <?= Security::escape(catalogue_format_price((float) $totals['amount_to_free_delivery'])) ?> more in eligible items.
+                Optional: add <?= Security::escape(catalogue_format_price((float) $totals['amount_to_free_delivery'])) ?> more for free delivery.
             </p>
         <?php else: ?>
             <p data-cart-free-delivery class="text-xs mt-3 px-3 py-2 rounded-lg bg-[var(--at-yellow-100)] text-[var(--at-yellow-ink)] font-semibold hidden"></p>
         <?php endif; ?>
         <?php if (empty($totals['delivery_quote_message']) && empty($totals['delivery_serviceable']) && empty($totals['free_delivery_eligible'])): ?>
-            <p class="text-xs mt-3 at-muted" data-cart-quote-hint>Check your pincode to see delivery fee and free-delivery progress.</p>
+            <p class="text-xs mt-3 at-muted" data-cart-quote-hint>Select a delivery address to see your delivery charge.</p>
         <?php endif; ?>
-        <p class="text-xs at-muted mt-3">All charges are shown here — nothing is added at payment. The server recalculates the final amount at checkout.</p>
+        <p class="text-xs at-muted mt-3">All charges are shown here — nothing extra is added at payment.</p>
     </div>
 </div>

@@ -168,7 +168,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
                             <button type="submit" id="at-coupon-apply" class="at-btn at-btn--secondary at-focusable" data-at-coupon-apply>Apply</button>
                         </div>
                         <p id="at-coupon-feedback" class="text-sm mt-2 hidden" data-at-coupon-feedback role="alert"></p>
-                        <p class="at-field-hint mt-2">Eligibility is validated on the server. Discount appears in your order summary.</p>
+                        <p class="at-field-hint mt-2">Discount shows in your order summary.</p>
                     </details>
                 </div>
             </form>

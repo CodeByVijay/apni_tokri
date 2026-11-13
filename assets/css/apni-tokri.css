@@ -3744,6 +3744,15 @@ body.at-gallery-lightbox-open {
   padding: 0.35rem 0;
   font-size: 0.9375rem;
 }
+/* Narrow viewports: labels wrap, money values never split mid-amount. */
+.at-summary-list dt {
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+.at-summary-list dd {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
 /* Tailwind .hidden loses to display:flex above; keep offer/coupon rows collapsed when not applied. */
 .at-summary-list > div.hidden {
   display: none !important;
@@ -3805,6 +3814,7 @@ body.at-gallery-lightbox-open {
 }
 #at-coupon-form .at-coupon-form__row {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
 }
 #at-coupon-form .at-input {
@@ -8313,6 +8323,19 @@ body.at-gallery-lightbox-open {
 .at-checkout-pay__hint { margin: 0; line-height: 1.45; }
 .at-btn.is-loading { opacity: 0.85; pointer-events: none; }
 .at-payment-page .at-btn--lg { min-height: 3rem; }
+
+/* Touch targets on small screens: blocked-payment action, coupon remove and
+   the "Have another coupon?" expander all sit below the ~44px comfort range. */
+@media (max-width: 767.98px) {
+  .at-checkout-pay__blocked .at-btn,
+  #at-coupon-form [data-at-coupon-remove] {
+    min-height: 2.75rem;
+  }
+  #at-coupon-form .at-coupon-another__summary {
+    min-height: 2.75rem;
+    padding-block: 0.4rem;
+  }
+}
 
 /* Read-only location viewer */
 .at-map-viewer { position: fixed; inset: 0; z-index: 10040; background: rgba(10, 12, 10, 0.6); display: flex; align-items: center; justify-content: center; padding: 0.75rem; }

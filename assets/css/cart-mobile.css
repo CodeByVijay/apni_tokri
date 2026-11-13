@@ -64,6 +64,10 @@
         margin-top: 0.55rem;
     }
 
+    [data-cart-delivery-banner-cta] {
+        min-height: 2.75rem;
+    }
+
     /* ---------- Cart line items ---------- */
     .at-line-item {
         grid-template-columns: 4.75rem minmax(0, 1fr);

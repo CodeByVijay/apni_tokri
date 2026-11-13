@@ -199,13 +199,13 @@
 
     if (quoteMsg) {
       if (isSelectAddressMsg(quoteMsg)) {
-        msg = 'Select your delivery address to see the exact delivery fee.';
+        msg = 'Select your delivery address to see your delivery charge.';
       } else {
         msg = quoteMsg;
       }
       showCta = true;
     } else if (!accurate) {
-      msg = 'Select your delivery address to see the exact delivery fee.';
+      msg = 'Select your delivery address to see your delivery charge.';
       showCta = true;
     } else if (!serviceable) {
       msg = 'Delivery is not available for the selected address.';
@@ -216,7 +216,7 @@
       showProgress = true;
       progress = 100;
     } else if (eligible && toFree > 0) {
-      msg = 'Add ' + formatMoney(toFree) + ' more to unlock free delivery';
+      msg = 'Add ' + formatMoney(toFree) + ' more for free delivery';
       tone = 'progress';
       showProgress = true;
       var threshold = parseFloat(totals.free_delivery_threshold) || 0;
@@ -224,7 +224,7 @@
         progress = Math.max(4, Math.min(100, Math.round(((threshold - toFree) / threshold) * 100)));
       }
     } else {
-      msg = 'Delivery fee is shown in your order summary once your address is confirmed.';
+      msg = 'Your delivery charge appears in the order summary.';
     }
 
     var $cta = $('[data-cart-delivery-banner-cta]');
@@ -333,9 +333,9 @@
         $free
           .removeClass('hidden')
           .text(
-            'Free delivery (optional saving): add ' +
+            'Optional: add ' +
               formatMoney(totals.amount_to_free_delivery) +
-              ' more in eligible items.'
+              ' more for free delivery.'
           );
       } else {
         $free.addClass('hidden');
