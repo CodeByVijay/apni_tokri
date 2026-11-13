@@ -345,14 +345,14 @@
     .at-home-cats .at-category-tile {
         position: relative;
         display: flex;
-        flex: 0 0 6rem;
-        min-height: 8.35rem;
+        flex: 0 0 7rem;
+        min-height: 9.4rem;
         flex-direction: column;
         align-items: stretch;
         justify-content: flex-start;
-        padding: 0.45rem;
+        padding: 0.55rem;
         border: 1px solid rgba(36, 92, 58, 0.11);
-        border-radius: 1.1rem;
+        border-radius: 1.15rem;
         background: #fff;
         box-shadow: 0 0.3rem 0.9rem rgba(19, 52, 33, 0.055);
         scroll-snap-align: start;
@@ -368,40 +368,48 @@
         position: static;
         z-index: auto;
         width: 100%;
-        height: 5.1rem;
-        border-radius: 0.8rem;
+        aspect-ratio: 1 / 1;
+        height: auto;
+        border-radius: 0.85rem;
         background: var(--at-green-50);
         object-fit: cover;
     }
 
     .at-home-cats .at-category-tile__label {
         position: static;
-        display: block;
+        display: flex;
         min-width: 0;
-        padding: 0.45rem 0.1rem 0;
+        flex: 1;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        padding: 0.5rem 0.1rem 0;
         color: var(--at-ink);
         text-align: center;
     }
 
     .at-home-cats .at-category-tile__label strong {
         display: -webkit-box;
-        min-height: 2.2em;
+        min-height: calc(3 * 1.15 * 0.8rem);
         overflow: hidden;
         -webkit-box-orient: vertical;
-        -webkit-line-clamp: 2;
+        -webkit-line-clamp: 3;
         color: var(--at-green-deep);
-        font-size: 0.72rem;
+        font-size: 0.8rem;
         font-weight: 800;
-        line-height: 1.1;
+        line-height: 1.15;
         overflow-wrap: anywhere;
     }
 
     .at-home-cats .at-category-tile__label span {
-        display: block;
-        margin-top: 0.15rem;
-        color: var(--at-muted);
-        font-size: 0.58rem;
-        line-height: 1.2;
+        display: inline-block;
+        margin-top: auto;
+        padding: 0.14rem 0.55rem;
+        border-radius: var(--at-radius-pill);
+        background: var(--at-green-50);
+        color: var(--at-green);
+        font-size: 0.64rem;
+        line-height: 1.3;
     }
 
     .at-home-cats .at-category-tile__label .at-home-cat-hint,
@@ -410,7 +418,7 @@
     }
 
     .at-home-cats .at-category-tile__label .at-home-cat-count {
-        font-weight: 700;
+        font-weight: 800;
     }
 
     /* Product discovery */
@@ -564,22 +572,27 @@
 
     .at-product-card--home .at-product-card__variant {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) auto;
-        gap: 0.4rem;
-        align-items: center;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 0.45rem;
+        align-items: stretch;
         margin-top: 0.5rem;
     }
 
+    .at-product-card--home .at-product-card__variant .at-product-card__add {
+        width: 100%;
+    }
+
     .at-product-card--home .at-product-card__variant-select {
+        width: 100%;
         min-width: 0;
-        min-height: 2.75rem;
+        min-height: 2.5rem;
         padding: 0.25rem 1.65rem 0.25rem 0.55rem;
         border: 1px solid var(--at-green-100);
         border-radius: 0.85rem;
         background-color: var(--at-green-50);
         background-position: right 0.45rem center;
         color: var(--at-green-deep);
-        font-size: 0.66rem;
+        font-size: 0.74rem;
         font-weight: 800;
     }
 
@@ -1130,20 +1143,17 @@
     }
 
     .at-home-cats .at-category-tile {
-        flex-basis: 5.55rem;
-        min-height: 7.9rem;
-    }
-
-    .at-home-cats .at-category-tile img {
-        height: 4.65rem;
+        flex-basis: 6.3rem;
+        min-height: 9.3rem;
     }
 
     .at-home-cats .at-category-tile__label strong {
-        font-size: 0.66rem;
+        font-size: 0.74rem;
+        min-height: calc(3 * 1.15 * 0.74rem);
     }
 
     .at-home-cats .at-category-tile__label span {
-        font-size: 0.54rem;
+        font-size: 0.58rem;
     }
 
     .at-home-products .at-rail.at-home-grid {
@@ -1160,17 +1170,212 @@
         font-size: 0.62rem;
     }
 
-    .at-product-card--home .at-product-card__variant {
-        grid-template-columns: minmax(0, 1fr);
-    }
-
-    .at-product-card--home .at-product-card__variant .at-product-card__add {
-        width: 100%;
-    }
-
     .at-product-card--home .at-product-card__variant-select {
-        width: 100%;
         padding-left: 0.45rem;
-        font-size: 0.6rem;
+        font-size: 0.68rem;
+    }
+}
+
+/* ============================================================
+   Chrome Android "Desktop site" compensation (homepage only)
+
+   When Chrome for Android's "Desktop site" toggle is enabled it
+   ignores the meta viewport and renders the page on a fixed
+   ~980 CSS px layout viewport, then scales it down to the
+   physical screen (a 390px phone sees roughly a 0.40x
+   presentation scale). At 980px the mobile rules above
+   (max-width: 767.98px) do not apply and the desktop styles
+   render physically tiny, low-usability controls.
+
+   This block targets only that case:
+     - ~980px viewport (Chrome's documented desktop fallback
+       width; 975–986px allows small per-version variation)
+     - portrait orientation (a phone, not a landscape tablet)
+     - pointer: coarse (the primary input is still touch)
+
+   Normal mobile (< 768px) and genuine desktop / windowed
+   browsers (pointer: fine, or any other width) are unaffected.
+   ============================================================ */
+@media (min-width: 975px) and (max-width: 986px)
+     and (orientation: portrait)
+     and (pointer: coarse) {
+
+    /* --- Header: keep compact but touch-sized at ~0.4x scale --- */
+    .at-header__inner {
+        padding: 0.9rem 1.25rem 0.75rem;
+    }
+
+    .at-logo img {
+        height: 3.75rem;
+    }
+
+    .at-logo__word {
+        font-size: 1.9rem;
+    }
+
+    .at-logo__tag {
+        font-size: 1.05rem;
+    }
+
+    .at-header .at-iconbtn {
+        min-width: 5rem;
+        height: 5rem;
+        font-size: 1.4rem;
+        gap: 0.55rem;
+    }
+
+    .at-header .at-iconbtn svg {
+        width: 2.4rem;
+        height: 2.4rem;
+    }
+
+    .at-header .at-cart-badge {
+        font-size: 1.2rem;
+        min-width: 2rem;
+        height: 2rem;
+    }
+
+    /* Desktop search pill shown at this width */
+    .at-header .at-search__field {
+        height: 6rem;
+        padding-left: 1.5rem;
+    }
+
+    .at-header .at-search__field svg {
+        width: 2.1rem;
+        height: 2.1rem;
+    }
+
+    .at-header .at-search__field input {
+        font-size: 1.6rem;
+    }
+
+    .at-header .at-search__field button {
+        padding: 0 2rem;
+        margin-right: 0.5rem;
+        font-size: 1.5rem;
+    }
+
+    /* --- Category navigation links --- */
+    .at-dnav__link,
+    .at-catnav a {
+        padding: 0.8rem 1.4rem;
+        font-size: 1.45rem;
+    }
+
+    .at-dnav__link svg,
+    .at-catnav a svg {
+        width: 1.7rem;
+        height: 1.7rem;
+    }
+
+    /* --- Hero --- */
+    .at-home-hero__grid {
+        gap: 2.25rem;
+        padding-block: 2.5rem 3rem;
+    }
+
+    .at-home-hero .at-eyebrow {
+        font-size: 1.4rem;
+    }
+
+    .at-home-hero h1 {
+        font-size: clamp(3rem, 6.5vw, 4.25rem);
+    }
+
+    .at-home-hero .at-lead {
+        max-width: 38rem;
+        font-size: 1.7rem;
+        line-height: 1.5;
+    }
+
+    /* Pincode checker */
+    .at-home-checker {
+        gap: 0.75rem;
+        max-width: min(44rem, 100%);
+        min-height: 8.25rem;
+        padding: 0.75rem;
+        border-radius: 4rem;
+    }
+
+    .at-home-checker > span svg {
+        width: 2.4rem;
+        height: 2.4rem;
+    }
+
+    .at-home-checker input {
+        padding: 0 1rem;
+        font-size: 1.75rem;
+    }
+
+    .at-home-checker .at-btn {
+        min-height: 6.5rem;
+        padding-inline: 2.25rem;
+        border-radius: 3rem;
+        font-size: 1.6rem;
+    }
+
+    .at-pin-result {
+        max-width: 40rem;
+        padding: 1.1rem 1.25rem;
+        font-size: 1.45rem;
+    }
+
+    .at-pin-result .at-btn {
+        min-height: 5rem;
+        font-size: 1.4rem;
+    }
+
+    /* Hero CTAs */
+    .at-home-hero__ctas .at-btn {
+        min-height: 6.5rem;
+        padding: 0.75rem 2.25rem;
+        gap: 0.8rem;
+        font-size: 1.55rem;
+    }
+
+    .at-home-hero__ctas .at-btn svg {
+        width: 2.4rem;
+        height: 2.4rem;
+    }
+
+    /* Hero image: keep a balanced crop instead of the shallow
+       max-height-capped strip the desktop fallback produces. */
+    .at-home-hero__media {
+        aspect-ratio: 16 / 9;
+        max-height: none;
+        border-radius: 2rem;
+    }
+
+    .at-hero__chip {
+        left: 1rem;
+        bottom: 1rem;
+        gap: 0.8rem;
+        padding: 0.9rem 1.2rem;
+        font-size: 1.5rem;
+    }
+
+    .at-hero__chip svg {
+        width: 2.4rem;
+        height: 2.4rem;
+    }
+
+    /* --- Category tiles: larger labels at the scaled-down size --- */
+    .at-home-cats .at-h2 {
+        font-size: 2.6rem;
+    }
+
+    .at-category-tile__label {
+        left: 1.25rem;
+        right: 1.25rem;
+        bottom: 1.1rem;
+    }
+
+    .at-category-tile__label strong {
+        font-size: 1.9rem;
+    }
+
+    .at-category-tile__label span {
+        font-size: 1.4rem;
     }
 }

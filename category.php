@@ -74,6 +74,7 @@ layout_public_start([
     'seo' => $seoCategory,
     'jsonLd' => $categoryFiltered ? null : SeoStructuredData::forCategoryPage($category, $seoCategory),
     'activeNav' => 'categories',
+    'loadCategoryMobileCss' => true,
 ]);
 require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
 

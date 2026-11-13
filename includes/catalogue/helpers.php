@@ -103,6 +103,84 @@ function catalogue_default_variant(array $product): ?array
     return $variants[0];
 }
 
+/**
+ * Sellable state of one public variant: sellable stock, per-order cap, minimum
+ * per order, whether it can be purchased at its required minimum, and whether
+ * the homepage qty=1 quick-add may be used. Min-quantity variants are
+ * purchasable but must not be added with qty=1.
+ *
+ * @param array<string, mixed> $variant public catalogue variant array
+ * @return array{prices: array, stock: int, order_cap: int, order_min: int, purchasable: bool, can_quick_add: bool}
+ */
+function catalogue_variant_order_state(array $variant): array
+{
+    $prices = catalogue_variant_prices($variant);
+    $variantId = trim((string) ($variant['id'] ?? ''));
+    $stock = max(0, (int) ($variant['stock'] ?? 0));
+    $orderCap = 0;
+    $orderMin = CartQuantityRules::DEFAULT_MIN_PER_ORDER;
+
+    $quantityCheck = ['ok' => false, 'cap' => 0, 'min' => $orderMin];
+    if (AppEnvironment::usePersistedStorefront()) {
+        if (ctype_digit($variantId) && (int) $variantId > 0) {
+            try {
+                $dbVariantId = (int) $variantId;
+                $stock = InventoryService::availableQty($dbVariantId);
+                $orderMin = CartQuantityRules::minPerOrderForVariantId($dbVariantId);
+                $quantityCheck = CartQuantityRules::validateForVariantId($dbVariantId, $orderMin);
+            } catch (Throwable $e) {
+                $stock = 0;
+            }
+        } else {
+            $stock = 0;
+        }
+    } else {
+        $orderMin = CartQuantityRules::minPerOrderFromCatalogueVariant($variant);
+        $quantityCheck = CartQuantityRules::validateForCatalogueVariant($variant, $orderMin);
+    }
+    $orderCap = (int) ($quantityCheck['cap'] ?? 0);
+    $orderMin = (int) ($quantityCheck['min'] ?? $orderMin);
+    $purchasable = $prices['display'] > 0 && !empty($quantityCheck['ok']);
+
+    return [
+        'prices' => $prices,
+        'stock' => $stock,
+        'order_cap' => $orderCap,
+        'order_min' => $orderMin,
+        'purchasable' => $purchasable,
+        'can_quick_add' => $purchasable && $orderMin <= 1,
+    ];
+}
+
+/**
+ * Resolve a requested variant id (?variant_id=) to a purchasable public variant
+ * of the product. Returns null when the id is missing, unknown to the product,
+ * or cannot be ordered at its required minimum — callers keep the default.
+ *
+ * @param array<string, mixed> $product public catalogue product array
+ * @param mixed $rawId raw request value
+ */
+function catalogue_variant_from_request(array $product, mixed $rawId): ?array
+{
+    if (!is_string($rawId) && !is_int($rawId)) {
+        return null;
+    }
+    $requestedId = trim((string) $rawId);
+    if ($requestedId === '' || strlen($requestedId) > 64) {
+        return null;
+    }
+    foreach ($product['variants'] ?? [] as $variant) {
+        if ((string) ($variant['id'] ?? '') !== $requestedId) {
+            continue;
+        }
+        $state = catalogue_variant_order_state($variant);
+
+        return $state['purchasable'] ? $variant : null;
+    }
+
+    return null;
+}
+
 /** @param array<string, mixed> $product */
 function catalogue_is_in_stock(array $product): bool
 {

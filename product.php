@@ -27,6 +27,13 @@ if ($product === null) {
 
 $variants = $product['variants'] ?? [];
 $defaultVariant = catalogue_default_variant($product);
+
+// Homepage min-quantity handoff: ?variant_id= preselects a purchasable variant.
+// Unknown or unsatisfiable ids keep the default variant selection.
+$requestedVariant = catalogue_variant_from_request($product, $_GET['variant_id'] ?? null);
+if ($requestedVariant !== null) {
+    $defaultVariant = $requestedVariant;
+}
 $rating = demo_catalogue()->ratingSummary($slug);
 $reviews = demo_catalogue()->approvedReviewsFor($slug);
 $related = demo_catalogue()->relatedFor($product, 4);
@@ -131,7 +138,7 @@ $pdpCartUrl = url_base() . '/cart.php';
                 <fieldset>
                     <legend class="at-label">Choose weight / size</legend>
                     <div class="flex flex-wrap gap-2 mt-2">
-                        <?php foreach ($variants as $i => $v):
+                        <?php foreach ($variants as $v):
                             $vp = catalogue_variant_prices($v);
                             $orderCap = CartQuantityRules::orderableQtyFromCatalogueVariant($v);
                             $orderMin = CartQuantityRules::minPerOrderFromCatalogueVariant($v);
@@ -147,7 +154,7 @@ $pdpCartUrl = url_base() . '/cart.php';
                                     data-order-cap="<?= (int) $orderCap ?>"
                                     data-order-min="<?= (int) $orderMin ?>"
                                     data-low="<?= (int) ($v['low_stock'] ?? 5) ?>"
-                                    <?= $i === 0 ? 'checked' : '' ?>>
+                                    <?= (string) ($v['id'] ?? '') === (string) ($defaultVariant['id'] ?? '') ? 'checked' : '' ?>>
                                 <span class="at-chip"><?= Security::escape((string) $v['label']) ?> · <?= Security::escape(catalogue_format_price($vp['display'])) ?></span>
                             </label>
                         <?php endforeach; ?>

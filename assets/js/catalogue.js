@@ -18,6 +18,10 @@
         orderMin <= 1;
     }
 
+    function optionIsPurchasable($option) {
+      return $option.length > 0 && $option.data('purchasable') === 1;
+    }
+
     function rememberServerState($card, $picker) {
       if ($card.data('serverVariantState')) return;
       var $select = $picker.find('[data-card-variant-select]');
@@ -37,6 +41,8 @@
         stockHidden: typeof $stockline.attr('hidden') !== 'undefined',
         stockOut: $stockline.hasClass('at-stockline--out'),
         variantId: $add.data('variant-id'),
+        pdpUrl: $add.data('pdp-url'),
+        addHtml: $add.html(),
         selectedValue: $select.val(),
         addDisabled: $add.prop('disabled')
       });
@@ -60,21 +66,33 @@
       $stockline.text(state.stock).toggleClass('at-stockline--out', !!state.stockOut);
       if (state.stockHidden) $stockline.attr('hidden', 'hidden'); else $stockline.removeAttr('hidden');
       $select.val(state.selectedValue);
+      $add.html(state.addHtml);
+      if (state.pdpUrl) {
+        $add.data('pdp-url', state.pdpUrl).attr('data-pdp-url', state.pdpUrl);
+      } else {
+        $add.removeData('pdp-url').removeAttr('data-pdp-url');
+      }
       $add.data('variant-id', state.variantId).attr('data-variant-id', state.variantId).prop('disabled', !!state.addDisabled);
     }
 
     function syncVariant($card, $select, $add) {
       var $option = $select.find('option:selected');
-      if (!optionCanQuickAdd($option)) {
-        $option = $select.find('option[data-orderable="1"]').filter(function () {
+      if (!optionCanQuickAdd($option) && !optionIsPurchasable($option)) {
+        var $next = $select.find('option').filter(function () {
           return optionCanQuickAdd($(this));
         }).first();
-        if ($option.length) {
-          $select.val($option.attr('value'));
+        if (!$next.length) {
+          $next = $select.find('option[data-purchasable="1"]').first();
+        }
+        if ($next.length) {
+          $select.val($next.attr('value'));
+          $option = $next;
         }
       }
-      if (!$option.length) {
-        $add.prop('disabled', true).removeAttr('data-variant-id').removeData('variant-id');
+      if (!$option.length || (!optionCanQuickAdd($option) && !optionIsPurchasable($option))) {
+        $add.prop('disabled', true)
+          .removeAttr('data-variant-id').removeData('variant-id')
+          .removeAttr('data-pdp-url').removeData('pdp-url');
         return;
       }
 
@@ -84,9 +102,18 @@
       var $discount = $card.find('[data-card-discount]');
       var $stockline = $card.find('[data-card-stock]');
       var discount = parseInt($option.data('discount'), 10) || 0;
+      var serverState = $card.data('serverVariantState') || {};
 
-      $add.data('variant-id', $select.val()).attr('data-variant-id', $select.val());
-      $add.prop('disabled', false);
+      if (optionCanQuickAdd($option)) {
+        $add.data('variant-id', $select.val()).attr('data-variant-id', $select.val());
+        $add.removeData('pdp-url').removeAttr('data-pdp-url');
+        $add.prop('disabled', false);
+        if (serverState.addHtml) $add.html(serverState.addHtml);
+      } else {
+        $add.removeData('variant-id').attr('data-variant-id', '');
+        $add.data('pdp-url', $option.data('pdp-url')).attr('data-pdp-url', $option.data('pdp-url'));
+        $add.prop('disabled', false).text('View');
+      }
       $card.find('.at-product-card__unit').text($option.data('label') || 'Select a pack');
       $card.find('.at-price__now').text($option.data('price'));
 
@@ -125,6 +152,13 @@
         if (mobile.matches) {
           if (!$picker.data('variantBound')) {
             $select.on('change', function () {
+              var $opt = $select.find('option:selected');
+              var orderMin = parseInt($opt.data('order-min'), 10) || 1;
+              var pdpUrl = $opt.data('pdp-url');
+              if (orderMin > 1 && optionIsPurchasable($opt) && pdpUrl) {
+                window.location.href = pdpUrl;
+                return;
+              }
               syncVariant($card, $select, $add);
             });
             $picker.data('variantBound', true);
@@ -145,6 +179,9 @@
     } else if (typeof mobile.addListener === 'function') {
       mobile.addListener(syncMode);
     }
+    window.addEventListener('pageshow', function (ev) {
+      if (ev.persisted) syncMode();
+    });
     syncMode();
   }
 
@@ -710,6 +747,11 @@
       if ($(this).prop('disabled')) return;
       e.preventDefault();
       var $btn = $(this);
+      var pdpUrl = $btn.data('pdp-url');
+      if (pdpUrl && !$btn.data('variant-id')) {
+        window.location.href = pdpUrl;
+        return;
+      }
       var slug = $btn.data('product');
       var variantId = $btn.data('variant-id');
       var qty = 1;

@@ -7,53 +7,30 @@ $homeProductCard = !empty($homeProductCard);
 $variant = catalogue_default_variant($product);
 $variants = array_values($product['variants'] ?? []);
 $multiVariant = count($variants) > 1;
-$usePersistedStorefront = AppEnvironment::usePersistedStorefront();
-$variantOrderState = static function (array $candidateVariant) use ($usePersistedStorefront): array {
-    $prices = catalogue_variant_prices($candidateVariant);
-    $variantId = trim((string) ($candidateVariant['id'] ?? ''));
-    $stock = max(0, (int) ($candidateVariant['stock'] ?? 0));
-    $orderCap = 0;
-    $orderMin = CartQuantityRules::DEFAULT_MIN_PER_ORDER;
-
-    $quantityCheck = ['ok' => false, 'cap' => 0, 'min' => CartQuantityRules::DEFAULT_MIN_PER_ORDER];
-    if ($usePersistedStorefront) {
-        if (ctype_digit($variantId) && (int) $variantId > 0) {
-            try {
-                $dbVariantId = (int) $variantId;
-                $stock = InventoryService::availableQty($dbVariantId);
-                $quantityCheck = CartQuantityRules::validateForVariantId($dbVariantId, 1);
-            } catch (Throwable $e) {
-                $stock = 0;
-            }
-        } else {
-            $stock = 0;
-        }
-    } else {
-        $quantityCheck = CartQuantityRules::validateForCatalogueVariant($candidateVariant, 1);
-    }
-    $orderCap = (int) ($quantityCheck['cap'] ?? 0);
-    $orderMin = (int) ($quantityCheck['min'] ?? CartQuantityRules::DEFAULT_MIN_PER_ORDER);
-
-    return [
-        'prices' => $prices,
-        'stock' => $stock,
-        'order_cap' => $orderCap,
-        'order_min' => $orderMin,
-        'can_quick_add' => $prices['display'] > 0 && !empty($quantityCheck['ok']),
-    ];
-};
 $variantStates = [];
 $pickerVariant = null;
+$pickerVariantState = null;
+$pickerPurchasableVariant = null;
+$pickerPurchasableState = null;
 $singleVariantCanQuickAdd = false;
 if ($homeProductCard && $multiVariant) {
     foreach ($variants as $variantIndex => $candidateVariant) {
-        $variantStates[$variantIndex] = $variantOrderState($candidateVariant);
+        $variantStates[$variantIndex] = catalogue_variant_order_state($candidateVariant);
         if ($pickerVariant === null && $variantStates[$variantIndex]['can_quick_add']) {
             $pickerVariant = $candidateVariant;
+            $pickerVariantState = $variantStates[$variantIndex];
+        }
+        if ($pickerPurchasableVariant === null && $variantStates[$variantIndex]['purchasable']) {
+            $pickerPurchasableVariant = $candidateVariant;
+            $pickerPurchasableState = $variantStates[$variantIndex];
         }
     }
+    if ($pickerVariant === null) {
+        $pickerVariant = $pickerPurchasableVariant;
+        $pickerVariantState = $pickerPurchasableState;
+    }
 } elseif (!$multiVariant && $variant !== null) {
-    $variantStates[0] = $variantOrderState($variant);
+    $variantStates[0] = catalogue_variant_order_state($variant);
     $singleVariantCanQuickAdd = $variantStates[0]['can_quick_add'];
 }
 $homeVariantPicker = $homeProductCard && $multiVariant && $pickerVariant !== null;
@@ -167,13 +144,18 @@ $discountPct = $prices['on_sale'] && $prices['regular'] > 0
                 </a>
             <?php endif; ?>
         </div>
-        <?php if ($homeVariantPicker): ?>
+        <?php if ($homeVariantPicker):
+            $pickerCanQuickAdd = $pickerVariantState !== null && !empty($pickerVariantState['can_quick_add']);
+            $pickerPdpUrl = $productUrl . '&variant_id=' . rawurlencode((string) ($pickerVariant['id'] ?? ''));
+            ?>
         <div class="at-product-card__variant" data-card-variant-picker hidden>
             <select class="at-select at-product-card__variant-select" data-card-variant-select aria-label="Choose <?= Security::escape((string) $product['name']) ?> pack">
                 <?php foreach ($variants as $variantIndex => $variantOption):
-                    $optionState = $variantStates[$variantIndex] ?? $variantOrderState($variantOption);
+                    $optionState = $variantStates[$variantIndex] ?? catalogue_variant_order_state($variantOption);
                     $optionPrices = $optionState['prices'];
                     $optionStock = (int) $optionState['stock'];
+                    $optionMin = (int) $optionState['order_min'];
+                    $optionPdpUrl = $productUrl . '&variant_id=' . rawurlencode((string) ($variantOption['id'] ?? ''));
                     ?>
                     <option value="<?= Security::escape((string) ($variantOption['id'] ?? '')) ?>"
                         data-label="<?= Security::escape((string) ($variantOption['label'] ?? '')) ?>"
@@ -185,19 +167,22 @@ $discountPct = $prices['on_sale'] && $prices['regular'] > 0
                         data-stock="<?= (int) $optionStock ?>"
                         data-low-stock="<?= (int) ($variantOption['low_stock'] ?? 5) ?>"
                         data-orderable="<?= $optionState['can_quick_add'] ? '1' : '0' ?>"
+                        data-purchasable="<?= $optionState['purchasable'] ? '1' : '0' ?>"
                         data-order-cap="<?= (int) $optionState['order_cap'] ?>"
-                        data-order-min="<?= (int) $optionState['order_min'] ?>"
-                        <?= !$optionState['can_quick_add'] ? 'disabled' : '' ?>
+                        data-order-min="<?= $optionMin ?>"
+                        <?= $optionState['purchasable'] && $optionMin > 1 ? 'data-pdp-url="' . Security::escape($optionPdpUrl) . '"' : '' ?>
+                        <?= !$optionState['purchasable'] ? 'disabled' : '' ?>
                         <?= (string) ($variantOption['id'] ?? '') === (string) ($pickerVariant['id'] ?? '') ? 'selected' : '' ?>>
-                        <?= Security::escape((string) ($variantOption['label'] ?? 'Pack')) ?> · <?= Security::escape(catalogue_format_price($optionPrices['display'])) ?>
+                        <?= Security::escape((string) ($variantOption['label'] ?? 'Pack')) ?> · <?= Security::escape(catalogue_format_price($optionPrices['display'])) ?><?= $optionMin > 1 ? ' · Min ' . $optionMin : '' ?>
                     </option>
                 <?php endforeach; ?>
             </select>
             <button type="button" class="at-product-card__add at-focusable js-demo-add-cart"
                 data-product="<?= Security::escape((string) $product['slug']) ?>"
-                data-variant-id="<?= Security::escape((string) ($pickerVariant['id'] ?? '')) ?>"
-                aria-label="Add <?= Security::escape((string) $product['name']) ?> to cart">
-                <?= at_icon('plus', 'w-4 h-4') ?>Add
+                data-variant-id="<?= $pickerCanQuickAdd ? Security::escape((string) ($pickerVariant['id'] ?? '')) : '' ?>"
+                <?= !$pickerCanQuickAdd ? 'data-pdp-url="' . Security::escape($pickerPdpUrl) . '"' : '' ?>
+                aria-label="<?= $pickerCanQuickAdd ? 'Add ' . Security::escape((string) $product['name']) . ' to cart' : 'View ' . Security::escape((string) $product['name']) ?>">
+                <?= $pickerCanQuickAdd ? at_icon('plus', 'w-4 h-4') . 'Add' : 'View' ?>
             </button>
         </div>
         <?php endif; ?>
