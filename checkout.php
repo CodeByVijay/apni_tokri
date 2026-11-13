@@ -424,8 +424,15 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
         </div></div>
         <div class="at-card at-checkout-coupon-card">
             <details class="at-checkout-coupon"<?= catalogue_cart_coupon_applied($totals) ? ' open' : '' ?>>
-                <summary class="at-card__body !py-3 cursor-pointer font-bold text-[var(--at-green)] flex items-center gap-2"><?= at_icon('tag', 'w-4 h-4') ?>Offers &amp; coupons<?= catalogue_cart_coupon_applied($totals) ? '<span class="at-muted font-normal text-sm">· ' . Security::escape((string) $totals['coupon_code']) . ' applied</span>' : '' ?></summary>
-                <div class="at-card__body !pt-0">
+                <summary class="at-checkout-coupon__head at-focusable">
+                    <span class="at-checkout-coupon__icon"><?= at_icon('tag', 'w-4 h-4') ?></span>
+                    <span class="at-checkout-coupon__text">
+                        <span class="at-checkout-coupon__title">Offers &amp; coupons</span>
+                        <span class="at-checkout-coupon__sub<?= catalogue_cart_coupon_applied($totals) ? ' is-applied' : '' ?>" data-at-coupon-sub><?= catalogue_cart_coupon_applied($totals) ? Security::escape((string) $totals['coupon_code']) . ' applied · You save ' . Security::escape(catalogue_format_price((float) $totals['coupon_discount'])) : 'Apply a coupon and save on your order' ?></span>
+                    </span>
+                    <span class="at-checkout-coupon__chev" aria-hidden="true"><?= at_icon('chevron-down', 'w-4 h-4') ?></span>
+                </summary>
+                <div class="at-checkout-coupon__body">
                     <div data-at-offers-wrap>
                         <?php
                         try {
@@ -439,11 +446,13 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
                     </div>
                     <form id="at-coupon-form" class="mt-3">
                         <?= Csrf::field() ?>
-                        <label class="at-label flex items-center gap-2" for="coupon_code"><?= at_icon('tag', 'w-4 h-4 text-[var(--at-green)]') ?>Have a coupon?</label>
-                        <div class="flex flex-wrap gap-2">
+                        <div class="at-coupon-form__head">
+                            <label class="at-label" for="coupon_code"><?= at_icon('tag', 'w-4 h-4 text-[var(--at-green)]') ?>Have a coupon?</label>
+                            <button type="button" id="at-coupon-remove" class="at-btn at-btn--ghost at-focusable<?= catalogue_cart_coupon_applied($totals) ? '' : ' hidden' ?>" data-at-coupon-remove>Remove</button>
+                        </div>
+                        <div class="at-coupon-form__row">
                             <input id="coupon_code" name="coupon_code" class="at-input at-focusable flex-1 min-w-[10rem]" placeholder="Enter your coupon code" value="<?= Security::escape((string) ($totals['coupon_code'] ?? '')) ?>" autocomplete="off">
                             <button type="submit" id="at-coupon-apply" class="at-btn at-btn--secondary at-focusable" data-at-coupon-apply>Apply</button>
-                            <button type="button" id="at-coupon-remove" class="at-btn at-btn--ghost at-focusable<?= catalogue_cart_coupon_applied($totals) ? '' : ' hidden' ?>" data-at-coupon-remove>Remove</button>
                         </div>
                         <p id="at-coupon-feedback" class="text-sm mt-2 hidden" data-at-coupon-feedback role="alert"></p>
                         <p class="at-field-hint mt-2">Eligibility is validated on the server. Discount appears in your order summary.</p>

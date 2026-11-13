@@ -515,6 +515,14 @@
         var totals = res.data && res.data.totals ? res.data.totals : null;
         refreshSummary(totals);
         updateCheckoutPayAmounts(totals);
+        var $couponSub = $('[data-at-coupon-sub]');
+        if ($couponSub.length && totals) {
+          if (couponAppliedFromTotals(totals)) {
+            $couponSub.addClass('is-applied').text(String(totals.coupon_code).trim() + ' applied · You save ' + formatMoney(totals.coupon_discount));
+          } else {
+            $couponSub.removeClass('is-applied').text('Apply a coupon and save on your order');
+          }
+        }
         if (res.data && typeof res.data.offers_html === 'string') {
           replaceOffers(res.data.offers_html);
         }

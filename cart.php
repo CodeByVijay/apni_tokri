@@ -152,15 +152,13 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
             <form id="at-coupon-form" class="at-card at-card--flat mt-3">
                 <div class="at-card__body !py-4">
                     <?= Csrf::field() ?>
-                    <label class="at-label flex items-center gap-2" for="coupon_code"><?= at_icon('tag', 'w-4 h-4 text-[var(--at-green)]') ?>Have a coupon?</label>
-                    <div class="flex flex-wrap gap-2">
+                    <div class="at-coupon-form__head">
+                        <label class="at-label" for="coupon_code"><?= at_icon('tag', 'w-4 h-4 text-[var(--at-green)]') ?>Have a coupon?</label>
+                        <button type="button" id="at-coupon-remove" class="at-btn at-btn--ghost at-focusable<?= catalogue_cart_coupon_applied($totals) ? '' : ' hidden' ?>" data-at-coupon-remove>Remove</button>
+                    </div>
+                    <div class="at-coupon-form__row">
                         <input id="coupon_code" name="coupon_code" class="at-input at-focusable flex-1 min-w-[10rem]" placeholder="Enter your coupon code" value="<?= Security::escape((string) ($totals['coupon_code'] ?? '')) ?>" autocomplete="off">
                         <button type="submit" id="at-coupon-apply" class="at-btn at-btn--secondary at-focusable" data-at-coupon-apply>Apply</button>
-                        <?php if (catalogue_cart_coupon_applied($totals)): ?>
-                            <button type="button" id="at-coupon-remove" class="at-btn at-btn--ghost at-focusable" data-at-coupon-remove>Remove</button>
-                        <?php else: ?>
-                            <button type="button" id="at-coupon-remove" class="at-btn at-btn--ghost at-focusable hidden" data-at-coupon-remove>Remove</button>
-                        <?php endif; ?>
                     </div>
                     <p id="at-coupon-feedback" class="text-sm mt-2 hidden" data-at-coupon-feedback role="alert"></p>
                     <p class="at-field-hint mt-2">Eligibility is validated on the server. Discount appears in your order summary.</p>
