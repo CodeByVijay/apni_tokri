@@ -731,6 +731,9 @@ final class AdminAssistedOrderService
         $minRejection = MarketingSettings::checkoutMinimumRejection(array_merge($totals, [
             'total' => $grandTotal,
             'delivery_fee' => $deliveryFee,
+            'zone_min_order_amount' => MarketingSettings::zoneMinimumOrderAmount(
+                is_array($deliveryQuote['zone'] ?? null) ? $deliveryQuote['zone'] : null
+            ),
         ]));
         if ($strictForPlacement && $minRejection !== null) {
             return ['ok' => false, 'message' => $minRejection];

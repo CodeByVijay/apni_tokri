@@ -141,9 +141,9 @@ final class DeliveryZoneRepository
         $pdo->prepare(
             'INSERT INTO delivery_zones (
                name, match_type, match_value, zone_kind, min_distance_km, max_distance_km,
-               flat_fee, free_above, max_order_weight_kg, eta_display, pincode_required,
+               flat_fee, free_above, minimum_order_amount, max_order_weight_kg, eta_display, pincode_required,
                sort_order, is_active
-             ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)'
+             ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
         )->execute([
             (string) $payload['name'],
             (string) ($payload['match_type'] ?? 'pincode_prefix'),
@@ -153,6 +153,7 @@ final class DeliveryZoneRepository
             $payload['max_distance_km'],
             (float) ($payload['flat_fee'] ?? 40),
             (float) ($payload['free_above'] ?? 499),
+            $payload['minimum_order_amount'],
             $payload['max_order_weight_kg'],
             $payload['eta_display'],
             (int) ($payload['pincode_required'] ?? 0),
@@ -171,7 +172,7 @@ final class DeliveryZoneRepository
             'UPDATE delivery_zones SET
                name = ?, match_type = ?, match_value = ?, zone_kind = ?,
                min_distance_km = ?, max_distance_km = ?,
-               flat_fee = ?, free_above = ?, max_order_weight_kg = ?, eta_display = ?,
+               flat_fee = ?, free_above = ?, minimum_order_amount = ?, max_order_weight_kg = ?, eta_display = ?,
                pincode_required = ?, sort_order = ?, is_active = ?
              WHERE id = ?'
         )->execute([
@@ -183,6 +184,7 @@ final class DeliveryZoneRepository
             $payload['max_distance_km'],
             (float) ($payload['flat_fee'] ?? 40),
             (float) ($payload['free_above'] ?? 499),
+            $payload['minimum_order_amount'],
             $payload['max_order_weight_kg'],
             $payload['eta_display'],
             (int) ($payload['pincode_required'] ?? 0),

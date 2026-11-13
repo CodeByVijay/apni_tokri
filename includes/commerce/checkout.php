@@ -518,7 +518,8 @@ final class CheckoutService
         }
         DeliveryContext::setPin((string) $address['pincode']);
 
-        $totals = CartService::totals();
+        $slotDateParam = DeliveryConfig::slotsEnabled() && $deliveryDateYmd !== '' ? $deliveryDateYmd : null;
+        $totals = CartService::totals($addressId, $slot !== '' ? $slot : null, $slotDateParam);
         if (!empty($totals['coupon_error'])) {
             return ['ok' => false, 'message' => (string) $totals['coupon_error']];
         }
@@ -528,10 +529,17 @@ final class CheckoutService
         }
         $lines = CartService::items();
 
-        $slotDateParam = DeliveryConfig::slotsEnabled() && $deliveryDateYmd !== '' ? $deliveryDateYmd : null;
         $quote = DeliveryQuoteService::quoteForCheckout($address, $lines, $slot, $totals, null, null, $slotDateParam);
         if (empty($quote['ok'])) {
             return ['ok' => false, 'message' => (string) ($quote['message'] ?? 'Delivery is not available for this address.')];
+        }
+        $minRejection = MarketingSettings::checkoutMinimumRejection(array_merge($totals, [
+            'zone_min_order_amount' => MarketingSettings::zoneMinimumOrderAmount(
+                is_array($quote['zone'] ?? null) ? $quote['zone'] : null
+            ),
+        ]));
+        if ($minRejection !== null) {
+            return ['ok' => false, 'message' => $minRejection];
         }
         if ($slotDateParam !== null && (string) ($quote['delivery_date'] ?? '') !== $deliveryDateYmd) {
             return ['ok' => false, 'message' => 'This delivery slot and date are no longer available. Refresh checkout and try again.'];

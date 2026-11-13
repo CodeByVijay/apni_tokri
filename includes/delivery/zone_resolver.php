@@ -324,6 +324,9 @@ final class DeliveryZoneAdminService
                 ? ($post['max_distance_km'] ?? null) : null,
             'flat_fee' => (float) ($post['flat_fee'] ?? 40),
             'free_above' => (float) ($post['free_above'] ?? 499),
+            'minimum_order_amount' => trim((string) ($post['minimum_order_amount'] ?? '')) !== ''
+                && (float) $post['minimum_order_amount'] > 0
+                ? round((float) $post['minimum_order_amount'], 2) : null,
             'max_order_weight_kg' => ($post['max_order_weight_kg'] ?? '') !== ''
                 ? (float) $post['max_order_weight_kg'] : null,
             'eta_display' => trim((string) ($post['eta_display'] ?? '')) ?: null,

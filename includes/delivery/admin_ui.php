@@ -88,11 +88,18 @@ final class DeliveryAdminUi
         return $pin !== '' ? 'Pincodes starting with ' . $pin : '—';
     }
 
-    /** "₹40 charge, free on orders of ₹499 or more" */
+    /** "₹40 charge, free on orders of ₹499 or more" (+ "min order ₹149" when configured) */
     public static function chargeSummary(array $zone): string
     {
-        return self::inr($zone['flat_fee'] ?? 0) . ' charge, free on orders of '
+        $s = self::inr($zone['flat_fee'] ?? 0) . ' charge, free on orders of '
             . self::inr($zone['free_above'] ?? 0) . ' or more';
+        $min = isset($zone['minimum_order_amount']) && $zone['minimum_order_amount'] !== null
+            && $zone['minimum_order_amount'] !== '' ? (float) $zone['minimum_order_amount'] : 0.0;
+        if ($min > 0) {
+            $s .= '; min order ' . self::inr($min);
+        }
+
+        return $s;
     }
 
     /**
@@ -207,6 +214,10 @@ final class DeliveryAdminUi
             if ($v === '' || !is_numeric($v) || (float) $v < 0) {
                 $errors[] = $label . ' must be an amount of 0 or more.';
             }
+        }
+        $minOrder = trim((string) ($post['minimum_order_amount'] ?? ''));
+        if ($minOrder !== '' && (!is_numeric($minOrder) || (float) $minOrder <= 0)) {
+            $errors[] = 'Minimum Order Amount must be a number above 0, or left empty to use the global marketing minimum.';
         }
         $w = trim((string) ($post['max_order_weight_kg'] ?? ''));
         if ($w !== '' && (!is_numeric($w) || (float) $w <= 0)) {
@@ -325,6 +336,8 @@ final class DeliveryAdminUi
         $out['eta'] = (string) ($zone['eta_display'] ?? '');
         $out['max_weight'] = isset($zone['max_order_weight_kg']) && $zone['max_order_weight_kg'] !== null && $zone['max_order_weight_kg'] !== ''
             ? (float) $zone['max_order_weight_kg'] : null;
+        $out['min_order_zone'] = MarketingSettings::zoneMinimumOrderAmount($zone);
+        $out['min_order_effective'] = $out['min_order_zone'] ?? MarketingSettings::minOrderAmountInr();
 
         $feeFor = static function (float $amt) use ($zone): float {
             $fee = DeliveryQuoteService::deliveryFeeForZone(

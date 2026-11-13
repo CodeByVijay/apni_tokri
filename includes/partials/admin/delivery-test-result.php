@@ -72,6 +72,12 @@ $pin = (string) ($test['pin'] ?? '');
                 <dt class="at-delivery-test-result__label">Free delivery from</dt>
                 <dd class="at-delivery-test-result__value">Orders of <?= Security::escape(DeliveryAdminUi::inr($test['free_above'] ?? 0)) ?> or more</dd>
             </div>
+            <?php if (isset($test['min_order_effective']) && $test['min_order_effective'] !== null): ?>
+            <div class="at-delivery-test-result__row">
+                <dt class="at-delivery-test-result__label">Minimum order</dt>
+                <dd class="at-delivery-test-result__value"><?= Security::escape(DeliveryAdminUi::inr($test['min_order_effective'])) ?><?= !empty($test['min_order_zone']) ? ' (this delivery area)' : ' (global marketing setting)' ?></dd>
+            </div>
+            <?php endif; ?>
             <?php if (trim((string) ($test['eta'] ?? '')) !== ''): ?>
             <div class="at-delivery-test-result__row">
                 <dt class="at-delivery-test-result__label">Expected delivery time</dt>

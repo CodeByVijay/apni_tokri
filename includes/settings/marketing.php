@@ -86,38 +86,98 @@ final class MarketingSettings
     }
 
     /**
+     * Per-zone minimum order amount configured on a `delivery_zones` row.
+     * Returns null when the column is missing, NULL, blank or not positive —
+     * meaning the Marketing tab global minimum applies as fallback.
+     *
+     * @param array<string, mixed>|null $zone delivery_zones row (or quote['zone'])
+     */
+    public static function zoneMinimumOrderAmount(?array $zone): ?float
+    {
+        if ($zone === null) {
+            return null;
+        }
+        $raw = $zone['minimum_order_amount'] ?? null;
+        if ($raw === null || $raw === '' || !is_numeric($raw)) {
+            return null;
+        }
+        $v = round((float) $raw, 2);
+
+        return $v > 0 ? $v : null;
+    }
+
+    /**
+     * Stores the resolved zone minimum on totals (`zone_min_order_amount`) and
+     * (re)computes the min-order status keys. Call once the applicable delivery
+     * zone is known (session-pin preview or authoritative checkout quote).
+     *
+     * @param array<string, mixed> $totals
+     * @param array<string, mixed>|null $zone resolved delivery zone row, or null when unidentified
+     */
+    public static function withZoneMinimumOrder(array $totals, ?array $zone): array
+    {
+        $totals['zone_min_order_amount'] = self::zoneMinimumOrderAmount($zone);
+
+        return self::attachMinimumOrderTotals($totals);
+    }
+
+    /** Zone minimum already resolved onto totals, when configured > 0. */
+    private static function zoneMinimumOverride(array $totals): ?float
+    {
+        $raw = $totals['zone_min_order_amount'] ?? null;
+        if ($raw === null || $raw === '' || !is_numeric($raw)) {
+            return null;
+        }
+        $v = round((float) $raw, 2);
+
+        return $v > 0 ? $v : null;
+    }
+
+    /**
      * @return array{
      *   min_order_enabled: bool,
      *   min_order_met: bool,
      *   min_order_shortfall: float,
      *   min_order_amount_inr: float,
      *   min_order_merchandise_inr: float,
-     *   min_order_message: string
+     *   min_order_message: string,
+     *   min_order_source: string
      * }
      */
     public static function minimumOrderStatusFromTotals(array $totals): array
     {
+        $zoneMin = self::zoneMinimumOverride($totals);
+        if ($zoneMin !== null) {
+            return self::minimumOrderStatusPayload($zoneMin, $totals, 'zone');
+        }
         if (!self::minOrderEnabled()) {
-            return [
-                'min_order_enabled' => false,
-                'min_order_met' => true,
-                'min_order_shortfall' => 0.0,
-                'min_order_amount_inr' => 0.0,
-                'min_order_merchandise_inr' => self::merchandiseSubtotalAfterDiscounts($totals),
-                'min_order_message' => '',
-            ];
+            return self::minimumOrderDisabledPayload($totals);
         }
         $min = self::minOrderAmountInr();
         if ($min === null) {
-            return [
-                'min_order_enabled' => false,
-                'min_order_met' => true,
-                'min_order_shortfall' => 0.0,
-                'min_order_amount_inr' => 0.0,
-                'min_order_merchandise_inr' => self::merchandiseSubtotalAfterDiscounts($totals),
-                'min_order_message' => '',
-            ];
+            return self::minimumOrderDisabledPayload($totals);
         }
+
+        return self::minimumOrderStatusPayload($min, $totals, 'global');
+    }
+
+    /** @param array<string, mixed> $totals */
+    private static function minimumOrderDisabledPayload(array $totals): array
+    {
+        return [
+            'min_order_enabled' => false,
+            'min_order_met' => true,
+            'min_order_shortfall' => 0.0,
+            'min_order_amount_inr' => 0.0,
+            'min_order_merchandise_inr' => self::merchandiseSubtotalAfterDiscounts($totals),
+            'min_order_message' => '',
+            'min_order_source' => 'none',
+        ];
+    }
+
+    /** @param array<string, mixed> $totals */
+    private static function minimumOrderStatusPayload(float $min, array $totals, string $source): array
+    {
         $merch = self::merchandiseSubtotalAfterDiscounts($totals);
         $shortfall = round(max(0, $min - $merch), 2);
 
@@ -127,7 +187,10 @@ final class MarketingSettings
             'min_order_shortfall' => $shortfall,
             'min_order_amount_inr' => $min,
             'min_order_merchandise_inr' => $merch,
-            'min_order_message' => self::formatMinOrderCustomerMessage($min),
+            'min_order_message' => $source === 'zone'
+                ? 'Minimum order value for this delivery area is ' . self::formatInr($min) . '.'
+                : self::formatMinOrderCustomerMessage($min),
+            'min_order_source' => $source,
         ];
     }
 

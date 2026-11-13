@@ -193,6 +193,11 @@ if ($modeMismatch): ?>
                         <p class="text-xs at-muted mt-1">Orders of this amount or more get free delivery.</p>
                     </div>
                 </div>
+                <div>
+                    <label class="at-label" for="zone-min-order">Minimum Order Amount (₹)</label>
+                    <input id="zone-min-order" name="minimum_order_amount" type="number" min="0" step="0.01" class="at-input at-focusable w-full" value="<?= Security::escape($fv('minimum_order_amount')) ?>">
+                    <p class="text-xs at-muted mt-1">Leave blank to use the global minimum order amount configured in Marketing settings.</p>
+                </div>
                 <p class="text-xs at-muted" id="zone-charge-preview" aria-live="polite"></p>
             </fieldset>
 
@@ -334,6 +339,8 @@ if ($modeMismatch): ?>
             if (isNaN(mn) || isNaN(mx)) { msgs.push('Please enter both a Minimum and a Maximum Distance.'); }
             else if (mn < 0 || mx <= mn) { msgs.push('Maximum Distance must be greater than Minimum Distance.'); }
         }
+        var mo = document.getElementById('zone-min-order').value.trim();
+        if (mo !== '' && (isNaN(parseFloat(mo)) || parseFloat(mo) <= 0)) { msgs.push('Minimum Order Amount must be a number above 0, or left empty.'); }
         if (msgs.length) { e.preventDefault(); alert(msgs.join('\n')); }
     });
     apply();

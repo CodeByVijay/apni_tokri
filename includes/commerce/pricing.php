@@ -76,7 +76,10 @@ final class PricingService
             'total' => round($total, 2),
         ];
 
-        return MarketingSettings::attachMinimumOrderTotals($totals);
+        return MarketingSettings::withZoneMinimumOrder(
+            $totals,
+            is_array($delivery['zone'] ?? null) ? $delivery['zone'] : null
+        );
     }
 
     /**
@@ -123,7 +126,7 @@ final class PricingService
                     - (float) ($totals['offer_discount'] ?? 0)
                     - (float) ($totals['coupon_discount'] ?? 0), 2);
 
-                return $totals;
+                return MarketingSettings::withZoneMinimumOrder($totals, null);
             }
 
             $totals['delivery_quote_accurate'] = false;
@@ -164,7 +167,7 @@ final class PricingService
             $totals['total'] = round($after, 2);
             $totals['delivery_serviceable'] = false;
 
-            return $totals;
+            return MarketingSettings::withZoneMinimumOrder($totals, null);
         }
 
         if (DeliveryConfig::slotsEnabled() && ($deliverySlotSlug === null || $deliverySlotSlug === '')) {
@@ -175,7 +178,7 @@ final class PricingService
                 - (float) ($totals['coupon_discount'] ?? 0));
             $totals['total'] = round($after, 2);
 
-            return $totals;
+            return MarketingSettings::withZoneMinimumOrder($totals, null);
         }
 
         $quote = DeliveryQuoteService::quoteForCheckout(
@@ -196,7 +199,7 @@ final class PricingService
                 - (float) ($totals['coupon_discount'] ?? 0));
             $totals['total'] = round($after, 2);
 
-            return $totals;
+            return MarketingSettings::withZoneMinimumOrder($totals, null);
         }
 
         return self::mergeQuoteIntoTotals($totals, $quote);
@@ -216,6 +219,9 @@ final class PricingService
         );
         $totals['delivery_quote_accurate'] = true;
 
-        return $totals;
+        return MarketingSettings::withZoneMinimumOrder(
+            $totals,
+            is_array($quote['zone'] ?? null) ? $quote['zone'] : null
+        );
     }
 }

@@ -389,6 +389,17 @@ php scripts/test-startmessaging-sms.php
 
 No DDL — seeds `sms.startmessaging.variable_app_name` and `sms.startmessaging.variable_expiry` defaults. API keys, StartMessaging template IDs, and provider selection remain admin-configured (never in SQL).
 
+## Upgrade to 1.42.0-zone-min-order (Zone-wise minimum order amount)
+
+**Depends on:** 1.41.0 (any install with `delivery_zones`)  
+**Rollback:** `database/migrations/rollback/1.42.0_delivery_zone_min_order_rollback.sql`
+
+```bash
+mysql -u USER -p apni_tokri < database/migrations/1.42.0_delivery_zone_min_order.sql
+```
+
+Adds nullable `delivery_zones.minimum_order_amount`. NULL (or a non-positive value) falls back to the existing Marketing tab global minimum order amount — existing areas keep NULL and are unchanged. Idempotent (safe to re-run).
+
 Regenerate consolidated installer after schema bumps:
 
 ```bash
