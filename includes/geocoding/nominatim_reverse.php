@@ -122,22 +122,7 @@ final class NominatimReverseGeocoder
             'neighbourhood', 'suburb', 'quarter', 'locality', 'village', 'hamlet', 'city_block',
         ];
         $locality = self::firstStr($addr, $localityKeys);
-
-        if ($locality === '') {
-            $adminFallbackKeys = ['county', 'state_district', 'district', 'municipality'];
-            foreach ($adminFallbackKeys as $k) {
-                $v = self::scalarStr($addr[$k] ?? null);
-                if ($v === '') {
-                    continue;
-                }
-                $citySoon = self::cityFromAddress($addr);
-                if ($citySoon !== '' && strcasecmp($v, $citySoon) === 0) {
-                    continue;
-                }
-                $locality = $v;
-                break;
-            }
-        }
+        // Tehsil/district-level admin units are not delivery localities; leave area blank for manual entry.
 
         $city = self::cityFromAddress($addr);
         $state = self::firstStr($addr, ['state']);
@@ -155,7 +140,9 @@ final class NominatimReverseGeocoder
             'state' => $state,
             'country' => $country,
         ];
-        if ($postcode !== '' && preg_match('/^[1-9][0-9]{5}$/', $postcode) === 1) {
+        // Only trust postcode alongside street/locality evidence — OSM often returns a city-level
+        // boundary postcode (e.g. Indore 452001) that is wrong for the actual delivery pincode.
+        if ($postcode !== '' && ($street !== '' || $area !== '') && preg_match('/^[1-9][0-9]{5}$/', $postcode) === 1) {
             $out['pincode'] = $postcode;
         }
 

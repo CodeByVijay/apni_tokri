@@ -119,8 +119,9 @@
       $conf.val('0');
     }
 
+    // Clears only fields this module auto-filled — never values the customer typed.
     function clearPlaceDerivedFields() {
-      $placeFields.val('').removeAttr('data-addr-detected');
+      $placeFields.filter('[data-addr-detected]').val('').removeAttr('data-addr-detected');
       if ($hintDetected.length) $hintDetected.prop('hidden', true);
     }
 
@@ -143,13 +144,15 @@
       $el.val(s);
     }
 
-    function fillFromGooglePlace(addr) {
+    // preserveUser: never overwrite a value the customer typed (no detected marker).
+    function fillFromGooglePlace(addr, preserveUser) {
       addr = addr || {};
       var detected = 0;
       function fill($el, val) {
         if (!$el.length || val === null || val === undefined) return;
         var s = String(val).trim();
         if (s === '') return;
+        if (preserveUser && $.trim($el.val() || '') !== '' && !$el.attr('data-addr-detected')) return;
         $el.val(s).attr('data-addr-detected', '1');
         detected++;
       }
@@ -405,6 +408,9 @@
               return;
             }
             var ra = res.data.address;
+            var accuracy = pos && pos.coords && typeof pos.coords.accuracy === 'number' ? pos.coords.accuracy : null;
+            var inaccurate = accuracy === null || accuracy > 100;
+            var broad = !$.trim(ra.street || '') && !$.trim(ra.area || '');
             clearPlaceDerivedFields();
             writeCoords(lat, lng);
             selectedPlaceQuery = null;
@@ -414,12 +420,15 @@
               city: ra.city,
               state: ra.state,
               postcode: ra.pincode
-            });
+            }, true);
             var missing = missingRequiredFields();
-            if (missing.length) {
-              setMsg('Your current location was detected. Please complete: ' + missing.join(', ') + ', then verify before saving.', 'warn');
+            if (inaccurate || broad) {
+              setMsg('Your location was detected, but the address may not be accurate. Please search your exact address or verify the details before saving.'
+                + (missing.length ? ' Please complete: ' + missing.join(', ') + '.' : ''), 'warn');
+            } else if (missing.length) {
+              setMsg('Your location has been detected. Please verify your address details. Please complete: ' + missing.join(', ') + '.', 'warn');
             } else {
-              setMsg('Your current location was detected. Please verify your address details.', 'info');
+              setMsg('Your location has been detected. Please verify your address details.', 'info');
             }
             $form.trigger('input');
           }).fail(function (xhr) {
