@@ -28,6 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $enabled = AddressAutocompleteSettings::isEnabled();
+$gpsEnabled = AddressAutocompleteSettings::gpsEnabled();
 $provider = AddressAutocompleteSettings::provider();
 $defaultCountry = (string) (AppSettings::get(AddressAutocompleteSettings::KEY_DEFAULT_COUNTRY, 'India') ?? 'India');
 $countryRestriction = (string) (AppSettings::get(AddressAutocompleteSettings::KEY_COUNTRY_RESTRICTION, 'IN') ?? 'IN');
@@ -65,6 +66,12 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/settings-nav.php';
         <label class="flex gap-2 text-sm items-center">
             <input type="checkbox" name="address_autocomplete_enabled" value="1" <?= $enabled ? 'checked' : '' ?>>
             Enable address autocomplete on checkout
+        </label>
+
+        <label class="flex gap-2 text-sm items-center">
+            <input type="checkbox" name="address_autocomplete_gps_enabled" value="1" <?= $gpsEnabled ? 'checked' : '' ?>>
+            Enable "Use my current location" (GPS) on address forms
+            <span class="at-muted text-xs">— currently off: reverse-geocode detail is not reliable enough</span>
         </label>
 
         <div>

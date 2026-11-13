@@ -18,6 +18,7 @@ final class AddressAutocompleteSettings
     public const KEY_TIMEOUT = 'address_autocomplete.timeout_seconds';
     public const KEY_GOOGLE_KEY = 'google_places.api_key';
     public const KEY_RATE_PER_MIN_IP = 'address_autocomplete.rate_per_minute_ip';
+    public const KEY_GPS_ENABLED = 'address_autocomplete.gps_enabled';
 
     public const PROVIDER_GOOGLE = 'google';
     public const PROVIDER_PHOTON = 'photon';
@@ -36,6 +37,19 @@ final class AddressAutocompleteSettings
         $p = strtolower(trim((string) (AppSettings::get(self::KEY_PROVIDER, self::PROVIDER_PHOTON) ?? self::PROVIDER_PHOTON)));
 
         return in_array($p, [self::PROVIDER_GOOGLE, self::PROVIDER_PHOTON], true) ? $p : self::PROVIDER_PHOTON;
+    }
+
+    /**
+     * "Use my current location" (browser GPS + reverse geocoding). Off by default —
+     * hidden while reverse-geocode coverage is too sparse to be reliable.
+     */
+    public static function gpsEnabled(): bool
+    {
+        if (!Install::isSchemaReady()) {
+            return false;
+        }
+
+        return (AppSettings::get(self::KEY_GPS_ENABLED, '0') ?? '0') === '1';
     }
 
     public static function maxResults(): int
@@ -121,6 +135,7 @@ final class AddressAutocompleteSettings
             'enabled' => self::isEnabled(),
             /** Separate from master toggle: map-free checkout always loads the script; search UI uses this. */
             'searchEnabled' => self::isEnabled(),
+            'gpsEnabled' => self::gpsEnabled(),
             'provider' => self::provider(),
             'minChars' => 3,
             'debounceMs' => 400,

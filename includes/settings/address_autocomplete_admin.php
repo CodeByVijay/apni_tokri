@@ -65,7 +65,10 @@ final class AddressAutocompleteAdminSettings
             ? (int) $post['address_autocomplete_rpm'] : 45;
         $rpm = max(10, min(200, $rpm));
 
+        $gpsEnabled = !empty($post['address_autocomplete_gps_enabled']) ? '1' : '0';
+
         AppSettings::set(AddressAutocompleteSettings::KEY_ENABLED, $enabled);
+        AppSettings::set(AddressAutocompleteSettings::KEY_GPS_ENABLED, $gpsEnabled);
         AppSettings::set(AddressAutocompleteSettings::KEY_PROVIDER, $provider);
         AppSettings::set(AddressAutocompleteSettings::KEY_DEFAULT_COUNTRY, $defaultCountry);
         AppSettings::set(AddressAutocompleteSettings::KEY_COUNTRY_RESTRICTION, $countryRestriction);

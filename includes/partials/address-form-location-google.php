@@ -8,6 +8,7 @@ declare(strict_types=1);
  */
 $acCfg = $acCfg ?? AddressAutocompleteSettings::publicClientConfig();
 $acOn = !empty($acCfg['searchEnabled']);
+$gpsOn = !empty($acCfg['gpsEnabled']);
 $provider = (string) ($acCfg['provider'] ?? '');
 $providerLabel = $provider === AddressAutocompleteSettings::PROVIDER_GOOGLE ? 'Google' : 'OpenStreetMap';
 ?>
@@ -28,6 +29,7 @@ $providerLabel = $provider === AddressAutocompleteSettings::PROVIDER_GOOGLE ? 'G
         <?php else: ?>
         <p class="at-addr-msg text-sm" data-kind="info">Address search is unavailable. Enter your full address in the fields below.</p>
         <?php endif; ?>
+        <?php if ($gpsOn): ?>
         <div class="at-addr-gps">
             <button type="button" class="at-btn at-btn--secondary at-btn--sm at-focusable at-addr-gps__btn" data-addr-gps>
                 <?= at_icon('pin', 'w-5 h-5') ?><span data-label>Use my current location</span><span class="at-addr-spinner" aria-hidden="true"></span>
@@ -38,6 +40,7 @@ $providerLabel = $provider === AddressAutocompleteSettings::PROVIDER_GOOGLE ? 'G
             </button>
             <?php endif; ?>
         </div>
+        <?php endif; ?>
         <p class="at-addr-msg" data-addr-map-msg role="status" aria-live="polite" hidden></p>
         <?= $err('location') ?>
     </section>
