@@ -28,6 +28,11 @@ $providerLabel = $provider === AddressAutocompleteSettings::PROVIDER_GOOGLE ? 'G
         <?php else: ?>
         <p class="at-addr-msg text-sm" data-kind="info">Address search is unavailable. Enter your full address in the fields below.</p>
         <?php endif; ?>
+        <div class="at-addr-gps">
+            <button type="button" class="at-btn at-btn--secondary at-btn--sm at-focusable at-addr-gps__btn" data-addr-gps>
+                <?= at_icon('pin', 'w-5 h-5') ?><span data-label>Use my current location</span><span class="at-addr-spinner" aria-hidden="true"></span>
+            </button>
+        </div>
         <p class="at-addr-msg" data-addr-map-msg role="status" aria-live="polite" hidden></p>
         <?= $err('location') ?>
     </section>

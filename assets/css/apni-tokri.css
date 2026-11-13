@@ -8242,6 +8242,7 @@ body.at-gallery-lightbox-open {
 .at-addr-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.9rem; }
 @media (min-width: 640px) { .at-addr-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .at-addr-grid__full { grid-column: 1 / -1; } }
 .at-addr-form .at-input, .at-addr-form .at-textarea { max-width: 100%; min-height: 2.75rem; }
+.at-addr-form .at-input[data-addr-detected="1"] { border-color: var(--at-success); background: var(--at-success-bg); }
 .at-addr-preview { background: var(--at-green-50); border: 1px solid var(--at-green-100); border-radius: var(--at-radius); padding: 0.75rem 0.9rem; margin-bottom: 0.75rem; }
 .at-addr-preview__list { margin: 0; display: grid; gap: 0.4rem; }
 .at-addr-preview__list > div { display: grid; grid-template-columns: minmax(0, 8.5rem) minmax(0, 1fr); gap: 0.5rem; font-size: 0.875rem; }

@@ -26,7 +26,10 @@
     if (idx !== -1) return path.substring(0, idx);
     var last = path.lastIndexOf('/');
     var base = last > 0 ? path.substring(0, last) : '';
-    return base + (key === 'googlePlaceDetailsUrl' ? '/ajax/address/google-place-details.php' : '/ajax/address/autocomplete-search.php');
+    var fallback = '/ajax/address/autocomplete-search.php';
+    if (key === 'googlePlaceDetailsUrl') fallback = '/ajax/address/google-place-details.php';
+    else if (key === 'reverseGeocodeUrl') fallback = '/ajax/address/reverse-geocode.php';
+    return base + fallback;
   }
 
   function debounce(fn, ms) {
@@ -63,10 +66,6 @@
     if ($form.data('atAddrAcInit')) return;
     $form.data('atAddrAcInit', true);
 
-    if (CFG.searchEnabled !== true && CFG.enabled !== true) {
-      return;
-    }
-
     var tok = sessionToken();
 
     var $searchIn = $form.find('[data-addr-ac-search]');
@@ -78,6 +77,7 @@
     var $conf = $form.find('input[name="location_confirmed"]');
     var $msg = $form.find('[data-addr-map-msg]');
 
+    var $house = $form.find('[name="house_number"]');
     var $building = $form.find('[name="building_name"]');
     var $street = $form.find('[name="street"]');
     var $area = $form.find('[name="area"]');
@@ -85,6 +85,7 @@
     var $state = $form.find('[name="addr_state"]');
     var $pin = $form.find('[name="pincode"]');
     var $hintDetected = $form.find('[data-addr-detected-hint]');
+    var $btnGps = $form.find('[data-addr-gps]');
 
     var minChars = typeof CFG.minChars === 'number' ? CFG.minChars : 3;
     var debounceMs = typeof CFG.debounceMs === 'number' ? CFG.debounceMs : 400;
@@ -110,11 +111,7 @@
     $form.on('change', 'input[name="label_type"]', syncLabelType);
     syncLabelType();
 
-    if (!$searchIn.length) {
-      return;
-    }
-
-    var $placeFields = $building.add($street).add($area).add($city).add($state).add($pin);
+    var $placeFields = $house.add($building).add($street).add($area).add($city).add($state).add($pin);
 
     function clearCoords() {
       $lat.val('');
@@ -123,7 +120,7 @@
     }
 
     function clearPlaceDerivedFields() {
-      $placeFields.val('');
+      $placeFields.val('').removeAttr('data-addr-detected');
       if ($hintDetected.length) $hintDetected.prop('hidden', true);
     }
 
@@ -148,17 +145,44 @@
 
     function fillFromGooglePlace(addr) {
       addr = addr || {};
-      setPlaceField($building, addr.building_name);
-      setPlaceField($street, addr.street);
-      setPlaceField($area, addr.area);
-      setPlaceField($city, addr.city);
-      setPlaceField($state, addr.state);
+      var detected = 0;
+      function fill($el, val) {
+        if (!$el.length || val === null || val === undefined) return;
+        var s = String(val).trim();
+        if (s === '') return;
+        $el.val(s).attr('data-addr-detected', '1');
+        detected++;
+      }
+      fill($house, addr.house_number);
+      fill($building, addr.building_name);
+      fill($street, addr.street);
+      fill($area, addr.area);
+      fill($city, addr.city);
+      fill($state, addr.state);
       if (addr.postcode) {
         var p = String(addr.postcode).replace(/\D/g, '');
-        if (p.length === 6) setPlaceField($pin, p);
+        if (p.length === 6) fill($pin, p);
       }
-      if ($building.val() || $street.val() || $area.val() || $city.val() || $state.val() || $pin.val()) {
-        showDetectedHint();
+      if (detected > 0) showDetectedHint();
+    }
+
+    function missingRequiredFields() {
+      var missing = [];
+      if (!$.trim($house.val() || '')) missing.push('house / flat number');
+      if (!$.trim($street.val() || '')) missing.push('street / road');
+      if (!$.trim($area.val() || '')) missing.push('area / locality');
+      if (!$.trim($city.val() || '')) missing.push('city');
+      if (!$.trim($state.val() || '')) missing.push('state');
+      if (!$.trim($pin.val() || '')) missing.push('pincode');
+      return missing;
+    }
+
+    function afterPlaceFill() {
+      var missing = missingRequiredFields();
+      if (missing.length) {
+        setMsg('Location selected. Please enter: ' + missing.join(', ') + '.', 'warn');
+      } else {
+        setMsg('Location selected — please verify all fields before saving.', 'info');
       }
     }
 
@@ -301,7 +325,7 @@
           writeCoords(lat, lng);
           fillFromGooglePlace(a);
           selectedPlaceQuery = $.trim($searchIn.val() || '');
-          setMsg('Location selected — please verify all fields before saving.', 'info');
+          afterPlaceFill();
           $form.trigger('input');
           tok = sessionToken();
         }).fail(function (xhr) {
@@ -330,8 +354,82 @@
       writeCoords(plat, plng);
       fillFromGooglePlace(s);
       selectedPlaceQuery = $.trim($searchIn.val() || '');
-      setMsg('Location selected — please verify all fields before saving.', 'info');
+      afterPlaceFill();
       $form.trigger('input');
+    }
+
+    if ($btnGps.length) {
+      var gpsBusy = false;
+      $btnGps.on('click', function (e) {
+        e.preventDefault();
+        if (gpsBusy) return;
+        if (!navigator.geolocation || !navigator.geolocation.getCurrentPosition) {
+          setMsg('Your browser does not support location detection. Please enter the address manually.', 'warn');
+          return;
+        }
+        gpsBusy = true;
+        $btnGps.prop('disabled', true).addClass('is-busy');
+        $btnGps.find('[data-label]').text('Finding your location…');
+        setMsg('Finding your location…', 'info');
+        navigator.geolocation.getCurrentPosition(function (pos) {
+          var lat = pos && pos.coords ? Number(pos.coords.latitude) : NaN;
+          var lng = pos && pos.coords ? Number(pos.coords.longitude) : NaN;
+          if (!validCoord(lat, lng)) {
+            gpsBusy = false;
+            $btnGps.prop('disabled', false).removeClass('is-busy');
+            $btnGps.find('[data-label]').text('Use my current location');
+            setMsg('We received an invalid location from your device. Please enter the address manually.', 'warn');
+            return;
+          }
+          $.ajax({
+            url: ajaxUrl('reverseGeocodeUrl'),
+            method: 'POST',
+            dataType: 'json',
+            data: { _csrf_token: csrfToken(), latitude: lat, longitude: lng }
+          }).done(function (res) {
+            gpsBusy = false;
+            $btnGps.prop('disabled', false).removeClass('is-busy');
+            $btnGps.find('[data-label]').text('Use my current location');
+            if (!res || !res.success || !res.data || !res.data.address) {
+              setMsg('Could not look up this location. Please enter the address manually.', 'warn');
+              return;
+            }
+            var ra = res.data.address;
+            clearPlaceDerivedFields();
+            writeCoords(lat, lng);
+            selectedPlaceQuery = null;
+            fillFromGooglePlace({
+              street: ra.street,
+              area: ra.area,
+              city: ra.city,
+              state: ra.state,
+              postcode: ra.pincode
+            });
+            afterPlaceFill();
+            $form.trigger('input');
+          }).fail(function () {
+            gpsBusy = false;
+            $btnGps.prop('disabled', false).removeClass('is-busy');
+            $btnGps.find('[data-label]').text('Use my current location');
+            setMsg('Could not look up this location. Please enter the address manually.', 'warn');
+          });
+        }, function () {
+          gpsBusy = false;
+          $btnGps.prop('disabled', false).removeClass('is-busy');
+          $btnGps.find('[data-label]').text('Use my current location');
+          setMsg('Location permission was denied or timed out. Please enter the address manually.', 'warn');
+        }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 });
+      });
+    }
+
+    // Editing a detected field clears its "filled from search" marker.
+    $placeFields.on('input', function () {
+      $(this).removeAttr('data-addr-detected');
+    });
+
+    // GPS / manual-entry forms may not render the search box at all.
+    if ($searchIn.length === 0 || $searchList.length === 0 || (CFG.searchEnabled !== true && CFG.enabled !== true)) {
+      return;
     }
 
     $searchIn.on('input', function () {

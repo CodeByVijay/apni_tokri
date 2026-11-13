@@ -110,26 +110,12 @@ final class AddressInput
         }
 
         // Step C — structured address
-        $house = self::req($input, 'house_number', 100, 'house_number', 'Enter your house / flat / door number.', $errors);
-        $building = self::req($input, 'building_name', 150, 'building_name', 'Enter the building, apartment or society name.', $errors);
+        $house = self::req($input, 'house_number', 100, 'house_number', 'Please enter your house / flat number so the delivery partner can locate your address.', $errors);
+        $building = self::opt($input, 'building_name', 150, 'building_name', 'Building / apartment / society', $errors);
         $street = self::req($input, 'street', 150, 'street', 'Enter the street or road.', $errors);
         $area = self::req($input, 'area', 150, 'area', 'Enter the area or locality.', $errors);
-        $city = self::str($input, 'addr_city');
-        if ($city !== '') {
-            if (self::len($city) > 128 || self::unsafe($city)) {
-                $errors['addr_city'] = 'City must be up to 128 characters, without invalid symbols.';
-            }
-        } else {
-            $city = 'Indore';
-        }
-        $state = self::str($input, 'addr_state');
-        if ($state !== '') {
-            if (self::len($state) > 128 || self::unsafe($state)) {
-                $errors['addr_state'] = 'State must be up to 128 characters, without invalid symbols.';
-            }
-        } else {
-            $state = 'Madhya Pradesh';
-        }
+        $city = self::req($input, 'addr_city', 128, 'addr_city', 'Enter your city.', $errors);
+        $state = self::req($input, 'addr_state', 128, 'addr_state', 'Enter your state.', $errors);
         $landmark = self::opt($input, 'landmark', 191, 'landmark', 'Landmark', $errors);
         $instructions = self::opt($input, 'delivery_instructions', 500, 'delivery_instructions', 'Delivery instructions', $errors);
 
@@ -427,6 +413,8 @@ final class AddressInput
             $errors[$errKey] = $emptyMsg;
         } elseif (self::len($v) > $max || self::unsafe($v)) {
             $errors[$errKey] = 'Use up to ' . $max . ' characters, without special symbols like < or >.';
+        } elseif (preg_match('/[\p{L}\p{N}]/u', $v) !== 1) {
+            $errors[$errKey] = 'This does not look like a real value — please enter actual text.';
         }
 
         return $v;

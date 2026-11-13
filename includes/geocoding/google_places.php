@@ -483,6 +483,7 @@ final class GooglePlacesGeocoder
 
         $building = $pick($byType, [
             'premise',
+            'subpremise',
             'establishment',
             'point_of_interest',
             'shopping_mall',
@@ -511,6 +512,7 @@ final class GooglePlacesGeocoder
             && self::shouldUseDisplayNameAsBuilding($displayName, $placeTypes, $byType, $route, $locality, $city, $area)) {
             $building = $displayName;
         }
+        $houseNumber = $pick($byType, ['street_number']);
         $state = $pick($byType, ['administrative_area_level_1']);
         $postcode = $pick($byType, ['postal_code']);
         $country = $pick($byType, ['country']);
@@ -523,7 +525,7 @@ final class GooglePlacesGeocoder
         return [
             'place_id' => $placeId,
             'description' => $formatted,
-            'house_number' => null,
+            'house_number' => ($houseNumber !== null && $houseNumber !== '') ? $houseNumber : null,
             'building_name' => ($building !== null && $building !== '') ? $building : null,
             'street' => ($route !== null && $route !== '') ? $route : null,
             'area' => ($area !== null && $area !== '') ? $area : null,

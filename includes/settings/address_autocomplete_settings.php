@@ -127,6 +127,7 @@ final class AddressAutocompleteSettings
             'maxResults' => self::maxResults(),
             'autocompleteSearchUrl' => $base . '/ajax/address/autocomplete-search.php',
             'googlePlaceDetailsUrl' => $base . '/ajax/address/google-place-details.php',
+            'reverseGeocodeUrl' => $base . '/ajax/address/reverse-geocode.php',
         ];
     }
 }

@@ -86,8 +86,9 @@ $acCfg = $addrAutocompleteClientConfig ?? AddressAutocompleteSettings::publicCli
                 <?= $err('house_number') ?>
             </div>
             <div>
-                <label class="at-label" for="<?= Security::escape($uid) ?>-building">Building / Apartment / Society <span class="at-req">*</span></label>
-                <input id="<?= Security::escape($uid) ?>-building" name="building_name" class="at-input at-focusable" maxlength="150" required autocomplete="address-line2" value="<?= $v('building_name') ?>" placeholder="Building, apartment or society"<?= $invalid('building_name') ?>>
+                <label class="at-label" for="<?= Security::escape($uid) ?>-building">Building / Apartment / Society <span class="at-muted font-normal">(optional)</span></label>
+                <input id="<?= Security::escape($uid) ?>-building" name="building_name" class="at-input at-focusable" maxlength="150" autocomplete="address-line2" value="<?= $v('building_name') ?>" placeholder="Building, apartment or society"<?= $invalid('building_name') ?>>
+                <p class="text-xs at-muted mt-1">Leave blank for an independent house.</p>
                 <?= $err('building_name') ?>
             </div>
             <div>
@@ -101,13 +102,13 @@ $acCfg = $addrAutocompleteClientConfig ?? AddressAutocompleteSettings::publicCli
                 <?= $err('area') ?>
             </div>
             <div>
-                <label class="at-label" for="<?= Security::escape($uid) ?>-city">City</label>
-                <input id="<?= Security::escape($uid) ?>-city" name="addr_city" class="at-input at-focusable" maxlength="128" value="<?= $v('addr_city') ?>" placeholder="City"<?= $invalid('addr_city') ?>>
+                <label class="at-label" for="<?= Security::escape($uid) ?>-city">City <span class="at-req">*</span></label>
+                <input id="<?= Security::escape($uid) ?>-city" name="addr_city" class="at-input at-focusable" maxlength="128" required value="<?= $v('addr_city') ?>" placeholder="City"<?= $invalid('addr_city') ?>>
                 <?= $err('addr_city') ?>
             </div>
             <div>
-                <label class="at-label" for="<?= Security::escape($uid) ?>-state">State</label>
-                <input id="<?= Security::escape($uid) ?>-state" name="addr_state" class="at-input at-focusable" maxlength="128" value="<?= $v('addr_state') ?>" placeholder="State"<?= $invalid('addr_state') ?>>
+                <label class="at-label" for="<?= Security::escape($uid) ?>-state">State <span class="at-req">*</span></label>
+                <input id="<?= Security::escape($uid) ?>-state" name="addr_state" class="at-input at-focusable" maxlength="128" required value="<?= $v('addr_state') ?>" placeholder="State"<?= $invalid('addr_state') ?>>
                 <?= $err('addr_state') ?>
             </div>
             <div>
@@ -154,7 +155,9 @@ $acCfg = $addrAutocompleteClientConfig ?? AddressAutocompleteSettings::publicCli
     <!-- Step E -->
     <section class="at-addr-step at-addr-step--review" data-addr-step="review" aria-labelledby="<?= Security::escape($uid) ?>-h-review">
         <h3 class="at-addr-step__title" id="<?= Security::escape($uid) ?>-h-review"><span class="at-addr-step__num">5</span>Review &amp; save</h3>
+        <?php if ($addrFormShowPreview ?? true): ?>
         <div class="at-addr-preview" data-addr-preview aria-live="polite"></div>
+        <?php endif; ?>
         <label class="at-addr-confirm">
             <input type="checkbox" name="address_confirmed" value="1" required <?= ($vals['address_confirmed'] ?? '') === '1' ? 'checked' : '' ?>>
             <span>I have checked this address and the receiver details.</span>

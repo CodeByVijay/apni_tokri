@@ -31,8 +31,8 @@ declare(strict_types=1);
             <p class="text-xs text-red-700 mt-1" data-at-aorder-err="house_number" hidden></p>
         </div>
         <div>
-            <label class="at-label" for="at-aorder-addr-building">Building / society *</label>
-            <input id="at-aorder-addr-building" class="at-input at-focusable w-full" name="building_name" maxlength="150" data-at-aorder-addr-field required>
+            <label class="at-label" for="at-aorder-addr-building">Building / society (optional)</label>
+            <input id="at-aorder-addr-building" class="at-input at-focusable w-full" name="building_name" maxlength="150" data-at-aorder-addr-field>
             <p class="text-xs text-red-700 mt-1" data-at-aorder-err="building_name" hidden></p>
         </div>
         <div>
@@ -46,13 +46,13 @@ declare(strict_types=1);
             <p class="text-xs text-red-700 mt-1" data-at-aorder-err="area" hidden></p>
         </div>
         <div>
-            <label class="at-label" for="at-aorder-addr-city">City</label>
-            <input id="at-aorder-addr-city" class="at-input at-focusable w-full" name="addr_city" maxlength="128" value="Indore" data-at-aorder-addr-field>
+            <label class="at-label" for="at-aorder-addr-city">City *</label>
+            <input id="at-aorder-addr-city" class="at-input at-focusable w-full" name="addr_city" maxlength="128" value="Indore" data-at-aorder-addr-field required>
             <p class="text-xs text-red-700 mt-1" data-at-aorder-err="addr_city" hidden></p>
         </div>
         <div>
-            <label class="at-label" for="at-aorder-addr-state">State</label>
-            <input id="at-aorder-addr-state" class="at-input at-focusable w-full" name="addr_state" maxlength="128" value="Madhya Pradesh" data-at-aorder-addr-field>
+            <label class="at-label" for="at-aorder-addr-state">State *</label>
+            <input id="at-aorder-addr-state" class="at-input at-focusable w-full" name="addr_state" maxlength="128" value="Madhya Pradesh" data-at-aorder-addr-field required>
             <p class="text-xs text-red-700 mt-1" data-at-aorder-err="addr_state" hidden></p>
         </div>
         <div>
