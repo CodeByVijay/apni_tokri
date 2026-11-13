@@ -393,6 +393,9 @@ final class CartService
             'price' => $variant['price'],
             'sale_price' => $variant['sale_price'],
         ]);
+        if ($prices['display'] <= 0) {
+            return ['ok' => false, 'message' => 'Please select a valid variant.'];
+        }
         $cartId = self::resolveCartId(true);
         Install::ensureConnection();
 
@@ -680,6 +683,9 @@ final class SessionCartBackend
             return ['ok' => false, 'message' => 'Please select a valid variant.'];
         }
         $prices = catalogue_variant_prices($variant);
+        if ($prices['display'] <= 0) {
+            return ['ok' => false, 'message' => 'Please select a valid variant.'];
+        }
         $state = self::state();
         $key = self::lineKey($productSlug, $variantId);
         $existingQty = 0;

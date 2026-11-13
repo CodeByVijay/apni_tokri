@@ -73,6 +73,9 @@ $locale = Lang::locale();
         };
     </script>
     <link rel="stylesheet" href="<?= Security::escape(asset_url('assets/css/apni-tokri.css')) ?>">
+    <?php if (!empty($loadHomeMobileCss)): ?>
+    <link rel="stylesheet" href="<?= Security::escape(asset_url('assets/css/home-mobile.css')) ?>">
+    <?php endif; ?>
     <?php $GLOBALS['loadAddressMap'] = !empty($loadAddressMap); ?>
     <?php $GLOBALS['loadAddressAutocompleteJs'] = !empty($loadAddressAutocompleteJs); ?>
     <?php if (!empty($loadAddressMap)): ?>

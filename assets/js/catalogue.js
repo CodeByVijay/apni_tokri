@@ -1,6 +1,153 @@
 (function ($) {
   'use strict';
 
+  function initHomeVariantCards() {
+    if (typeof window.matchMedia !== 'function') return;
+    var mobile = window.matchMedia('(max-width: 767.98px)');
+
+    function optionCanQuickAdd($option) {
+      var stock = parseInt($option.data('stock'), 10) || 0;
+      var displayPrice = parseFloat($option.data('price-value')) || 0;
+      var orderCap = parseInt($option.data('order-cap'), 10) || 0;
+      var orderMin = parseInt($option.data('order-min'), 10) || 1;
+
+      return $option.data('orderable') === 1 &&
+        displayPrice > 0 &&
+        stock >= 1 &&
+        orderCap >= 1 &&
+        orderMin <= 1;
+    }
+
+    function rememberServerState($card, $picker) {
+      if ($card.data('serverVariantState')) return;
+      var $select = $picker.find('[data-card-variant-select]');
+      var $add = $picker.find('.js-demo-add-cart');
+      var $was = $card.find('.at-price__was');
+      var $discount = $card.find('[data-card-discount]');
+      var $stockline = $card.find('[data-card-stock]');
+
+      $card.data('serverVariantState', {
+        unit: $card.find('.at-product-card__unit').text(),
+        price: $card.find('.at-price__now').text(),
+        regular: $was.text(),
+        regularHidden: typeof $was.attr('hidden') !== 'undefined',
+        discount: $discount.text(),
+        discountHidden: typeof $discount.attr('hidden') !== 'undefined',
+        stock: $stockline.text(),
+        stockHidden: typeof $stockline.attr('hidden') !== 'undefined',
+        stockOut: $stockline.hasClass('at-stockline--out'),
+        variantId: $add.data('variant-id'),
+        selectedValue: $select.val(),
+        addDisabled: $add.prop('disabled')
+      });
+    }
+
+    function restoreServerState($card, $picker) {
+      var state = $card.data('serverVariantState');
+      if (!state) return;
+      var $select = $picker.find('[data-card-variant-select]');
+      var $add = $picker.find('.js-demo-add-cart');
+      var $was = $card.find('.at-price__was');
+      var $discount = $card.find('[data-card-discount]');
+      var $stockline = $card.find('[data-card-stock]');
+
+      $card.find('.at-product-card__unit').text(state.unit);
+      $card.find('.at-price__now').text(state.price);
+      $was.text(state.regular);
+      if (state.regularHidden) $was.attr('hidden', 'hidden'); else $was.removeAttr('hidden');
+      $discount.text(state.discount);
+      if (state.discountHidden) $discount.attr('hidden', 'hidden'); else $discount.removeAttr('hidden');
+      $stockline.text(state.stock).toggleClass('at-stockline--out', !!state.stockOut);
+      if (state.stockHidden) $stockline.attr('hidden', 'hidden'); else $stockline.removeAttr('hidden');
+      $select.val(state.selectedValue);
+      $add.data('variant-id', state.variantId).attr('data-variant-id', state.variantId).prop('disabled', !!state.addDisabled);
+    }
+
+    function syncVariant($card, $select, $add) {
+      var $option = $select.find('option:selected');
+      if (!optionCanQuickAdd($option)) {
+        $option = $select.find('option[data-orderable="1"]').filter(function () {
+          return optionCanQuickAdd($(this));
+        }).first();
+        if ($option.length) {
+          $select.val($option.attr('value'));
+        }
+      }
+      if (!$option.length) {
+        $add.prop('disabled', true).removeAttr('data-variant-id').removeData('variant-id');
+        return;
+      }
+
+      var stock = parseInt($option.data('stock'), 10) || 0;
+      var lowStock = parseInt($option.data('low-stock'), 10) || 5;
+      var $was = $card.find('.at-price__was');
+      var $discount = $card.find('[data-card-discount]');
+      var $stockline = $card.find('[data-card-stock]');
+      var discount = parseInt($option.data('discount'), 10) || 0;
+
+      $add.data('variant-id', $select.val()).attr('data-variant-id', $select.val());
+      $add.prop('disabled', false);
+      $card.find('.at-product-card__unit').text($option.data('label') || 'Select a pack');
+      $card.find('.at-price__now').text($option.data('price'));
+
+      if ($option.data('sale') === 1 || $option.data('sale') === '1') {
+        $was.text($option.data('regular')).removeAttr('hidden');
+      } else {
+        $was.attr('hidden', 'hidden');
+      }
+
+      if (discount > 0) {
+        $discount.text(discount + '% off').removeAttr('hidden');
+      } else {
+        $discount.attr('hidden', 'hidden');
+      }
+
+      if (stock <= 0) {
+        $stockline.text('Out of stock').addClass('at-stockline--out').removeAttr('hidden');
+      } else if (stock <= lowStock) {
+        $stockline.text('Only ' + stock + ' left').removeClass('at-stockline--out').removeAttr('hidden');
+      } else {
+        $stockline.attr('hidden', 'hidden');
+      }
+    }
+
+    function syncMode() {
+      $('.at-product-card--home [data-card-variant-picker]').each(function () {
+        var $picker = $(this);
+        var $card = $picker.closest('.at-product-card');
+        var $options = $card.find('.at-product-card__options');
+        var $select = $picker.find('[data-card-variant-select]');
+        var $add = $picker.find('.js-demo-add-cart');
+
+        if (!$select.length || !$add.length) return;
+        rememberServerState($card, $picker);
+
+        if (mobile.matches) {
+          if (!$picker.data('variantBound')) {
+            $select.on('change', function () {
+              syncVariant($card, $select, $add);
+            });
+            $picker.data('variantBound', true);
+          }
+          $options.attr('hidden', 'hidden');
+          $picker.removeAttr('hidden');
+          syncVariant($card, $select, $add);
+        } else {
+          $picker.attr('hidden', 'hidden');
+          $options.removeAttr('hidden');
+          restoreServerState($card, $picker);
+        }
+      });
+    }
+
+    if (typeof mobile.addEventListener === 'function') {
+      mobile.addEventListener('change', syncMode);
+    } else if (typeof mobile.addListener === 'function') {
+      mobile.addListener(syncMode);
+    }
+    syncMode();
+  }
+
   function initGallery() {
     var $gallery = $('[data-at-gallery]');
     if (!$gallery.length) return;
@@ -557,6 +704,7 @@
     initGallery();
     initProductShare();
     initVariantPicker();
+    initHomeVariantCards();
 
     $('.js-demo-add-cart').on('click', function (e) {
       if ($(this).prop('disabled')) return;

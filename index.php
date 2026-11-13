@@ -18,6 +18,8 @@ layout_public_start([
     'jsonLd' => SeoStructuredData::forHomepage($seoHome),
     'activeNav' => 'home',
     'preloadLcpImage' => $heroImageUrl,
+    'loadHomeMobileCss' => true,
+    'homeMobileChrome' => true,
 ]);
 require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
 
@@ -32,14 +34,14 @@ $categoryHints = [
 ?>
 
 <!-- Hero -->
-<section class="at-hero">
-    <div class="at-container at-hero__grid">
-        <div class="at-reveal">
+<section class="at-hero at-home-hero">
+    <div class="at-container at-hero__grid at-home-hero__grid">
+        <div class="at-reveal at-home-hero__content">
             <p class="at-eyebrow">Indore · Fresh, packed with care</p>
             <h1 class="at-display mt-3"><?= Security::escape(__('tagline')) ?></h1>
-            <p class="at-lead mt-4 max-w-lg">Fresh vegetables, fruits, ready-cut produce and pantry favourites — with clear prices and the delivery fee shown before you pay.</p>
+            <p class="at-lead mt-4 max-w-lg">Fresh vegetables, fruits and daily staples — clear prices upfront.</p>
 
-            <form class="at-checker mt-6" id="at-hero-pin-form" action="#" novalidate aria-label="<?= Security::escape(__('check_delivery')) ?>">
+            <form class="at-checker at-home-checker mt-6" id="at-hero-pin-form" action="#" novalidate aria-label="<?= Security::escape(__('check_delivery')) ?>">
                 <span class="hidden sm:flex items-center pl-3 text-[var(--at-green)]"><?= at_icon('pin', 'w-5 h-5') ?></span>
                 <label class="sr-only" for="hero-pincode">Pincode</label>
                 <input id="hero-pincode" type="text" inputmode="numeric" maxlength="6" autocomplete="postal-code" placeholder="Enter pincode, e.g. 452001" value="<?= Security::escape((string) (DeliveryContext::sessionPin() ?? '')) ?>">
@@ -54,12 +56,12 @@ $categoryHints = [
                 </div>
             </div>
 
-            <div class="mt-5 flex flex-wrap gap-3">
+            <div class="at-home-hero__ctas mt-5 flex flex-wrap gap-3">
                 <a href="<?= Security::escape($primaryCategoryUrl) ?>" class="at-btn at-btn--accent at-btn--lg at-focusable">Shop fresh vegetables <?= at_icon('arrow-right', 'w-5 h-5') ?></a>
                 <a href="<?= Security::escape($base) ?>/my-subscriptions.php" class="at-btn at-btn--secondary at-btn--lg at-focusable">See subscriptions</a>
             </div>
         </div>
-        <div class="at-hero__media at-reveal" style="animation-delay:.08s">
+        <div class="at-hero__media at-home-hero__media at-reveal" style="animation-delay:.08s">
             <img src="<?= Security::escape($heroImageUrl) ?>" alt="A cane tokri basket filled with tomatoes, capsicum, bananas, apples and coriander" width="1024" height="576" fetchpriority="high" decoding="async">
             <div class="at-hero__chip">
                 <?= at_icon('shield') ?>
@@ -72,7 +74,7 @@ $categoryHints = [
 <?php HomepageTrustRenderer::renderSections($base, $catalogue, 'after_hero'); ?>
 
 <!-- Categories -->
-<section class="at-section" aria-labelledby="home-cats">
+<section class="at-section at-home-cats" aria-labelledby="home-cats">
     <div class="at-container">
         <div class="at-section-head">
             <div>
@@ -87,7 +89,7 @@ $categoryHints = [
             require APNI_TOKRI_ROOT . '/includes/partials/empty-state.php';
             ?>
         <?php else: ?>
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-5">
+        <div class="at-home-cat-rail grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-5">
             <?php foreach (catalogue_homepage_categories() as $cat):
                 $name = Lang::locale() === 'hi' ? ($cat['name_hi'] ?? $cat['name']) : $cat['name'];
                 $count = count($catalogue->productsInCategory((string) $cat['slug']));
@@ -96,7 +98,7 @@ $categoryHints = [
                     <img src="<?= Security::escape(catalogue_category_tile_image($cat)) ?>" alt="<?= Security::escape(catalogue_category_tile_image_alt($cat)) ?>" loading="lazy">
                     <span class="at-category-tile__label">
                         <strong><?= Security::escape($name) ?></strong>
-                        <span><?= Security::escape($categoryHints[$cat['slug']] ?? '') ?> · <?= (int) $count ?> items</span>
+                        <span><span class="at-home-cat-hint"><?= Security::escape($categoryHints[$cat['slug']] ?? '') ?></span><span class="at-home-cat-sep" aria-hidden="true"> · </span><span class="at-home-cat-count"><?= (int) $count ?> items</span></span>
                     </span>
                 </a>
             <?php endforeach; ?>
@@ -107,6 +109,7 @@ $categoryHints = [
 
 <?php if (!storefront_catalogue_coming_soon()): ?>
 <?php
+$sectionLayout = 'home-grid';
 $sectionTitle = 'Best sellers';
 $sectionSubtitle = storefront_uses_demo_catalogue()
     ? 'Our most-picked items (demo flags until real sales data exists)'
@@ -184,7 +187,7 @@ foreach ($rails as $rail) {
         <?php if ($homePlans === []): ?>
             <div class="at-alert at-alert--info">Subscription plans will be available soon.</div>
         <?php else: ?>
-        <div class="at-plans">
+        <div class="at-plans at-home-plans">
             <?php foreach ($homePlans as $i => $plan):
                 $featured = $i === 1 && count($homePlans) > 1;
                 ?>

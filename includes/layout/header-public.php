@@ -84,8 +84,16 @@ $navIsCategoryPage = $activeNav === 'categories';
             </div>
         </div>
 
+        <?php if (!empty($homeMobileChrome)): ?>
+        <button type="button" class="at-location at-home-location md:hidden at-focusable" data-at-open-modal="#at-delivery-modal" aria-haspopup="dialog">
+            <span class="at-location__pin"><?= at_icon('pin', 'w-4 h-4') ?></span>
+            <span class="at-home-location__text min-w-0 flex-1"><small><?= Security::escape(__('delivery_to')) ?></small><strong>Indore<span data-at-loc-pin><?= $deliveryPin !== null ? ' · ' . Security::escape($deliveryPin) : ' · ' . Security::escape(__('check_delivery')) ?></span></strong></span>
+            <?= at_icon('chevron-right', 'w-4 h-4 at-home-location__chevron') ?>
+        </button>
+        <?php endif; ?>
+
         <!-- Search (mobile) -->
-        <form action="<?= Security::escape($base) ?>/search.php" method="get" role="search" class="at-search md:hidden mt-2" data-at-search>
+        <form action="<?= Security::escape($base) ?>/search.php" method="get" role="search" class="at-search<?= !empty($homeMobileChrome) ? ' at-search--home-mobile' : '' ?> md:hidden mt-2" data-at-search>
             <label class="sr-only" for="at-search-m"><?= Security::escape(__('search_placeholder')) ?></label>
             <div class="at-search__field">
                 <?= at_icon('search') ?>

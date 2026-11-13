@@ -6,6 +6,6 @@ declare(strict_types=1);
 ?>
 <div class="at-grid-products at-grid-products--5">
     <?php foreach ($products as $product): ?>
-        <?php require APNI_TOKRI_ROOT . '/includes/partials/product-card.php'; ?>
+        <?php $homeProductCard = false; require APNI_TOKRI_ROOT . '/includes/partials/product-card.php'; ?>
     <?php endforeach; ?>
 </div>

@@ -18,6 +18,7 @@ function layout_public_start(array $vars): void
         $vars['pageTitle'] = $vars['seo']->documentTitle;
     }
     extract($vars, EXTR_SKIP);
+    $GLOBALS['atHomeMobileChrome'] = !empty($vars['homeMobileChrome']);
     if (!isset($seo) || !$seo instanceof SeoMetadata) {
         $seo = SeoMetadata::fromLegacy(
             (string) ($pageTitle ?? 'Veggie Tokri'),

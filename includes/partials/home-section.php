@@ -7,8 +7,11 @@ declare(strict_types=1);
 /** @var string|null $sectionHref */
 /** @var string|null $sectionLinkLabel */
 /** @var list<array<string, mixed>> $products */
+/** @var string|null $sectionLayout */
+$sectionLayout = $sectionLayout ?? 'rail';
+$homeGridLayout = $sectionLayout === 'home-grid';
 ?>
-<section class="at-section">
+<section class="at-section<?= $homeGridLayout ? ' at-home-products' : '' ?>">
     <div class="at-container">
         <div class="at-section-head">
             <div>
@@ -35,9 +38,12 @@ declare(strict_types=1);
             require APNI_TOKRI_ROOT . '/includes/partials/empty-state.php';
             ?>
         <?php else: ?>
-            <div class="at-rail at-rail--5">
+            <div class="at-rail at-rail--5<?= $homeGridLayout ? ' at-home-grid' : '' ?>">
                 <?php foreach ($products as $product): ?>
-                    <?php require APNI_TOKRI_ROOT . '/includes/partials/product-card.php'; ?>
+                    <?php
+                    $homeProductCard = $homeGridLayout;
+                    require APNI_TOKRI_ROOT . '/includes/partials/product-card.php';
+                    ?>
                 <?php endforeach; ?>
             </div>
         <?php endif; ?>

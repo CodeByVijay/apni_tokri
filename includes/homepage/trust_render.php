@@ -60,7 +60,7 @@ final class HomepageTrustRenderer
             return;
         }
         ?>
-<section class="at-section--white" aria-label="Why shop with us">
+<section class="at-section--white at-home-trust-strip" aria-label="Why shop with us">
     <div class="at-container py-5 md:py-6">
         <div class="at-trust">
             <?php foreach ($items as $item): ?>
@@ -97,7 +97,7 @@ final class HomepageTrustRenderer
             return;
         }
         ?>
-<section class="at-section">
+<section class="at-section at-home-features">
     <div class="at-container">
         <div class="at-section-head">
             <div>
@@ -135,7 +135,7 @@ final class HomepageTrustRenderer
         }
         $ctaUrl = $ctaHref !== '' ? url_to($ctaHref) : '';
         ?>
-<section class="at-section at-section--white">
+<section class="at-section at-section--white at-home-quality">
     <div class="at-container grid md:grid-cols-2 gap-8 lg:gap-14 items-center">
         <div class="rounded-[var(--at-radius-lg)] overflow-hidden aspect-[4/3] bg-[var(--at-cream-2)]">
             <img src="<?= Security::escape(asset_url($imagePath)) ?>" alt="" class="w-full h-full object-cover" loading="lazy" width="1024" height="768">
@@ -169,7 +169,7 @@ final class HomepageTrustRenderer
         $subtitle = HomepageTrustService::sanitizeText($section['subtitle'] ?? '', 500);
         $featuredTestimonials = Install::isSchemaReady() ? TestimonialService::featuredPublic(4) : [];
         ?>
-<section class="at-section">
+<section class="at-section at-home-testimonials">
     <div class="at-container">
         <div class="at-section-head">
             <div>
@@ -220,7 +220,7 @@ final class HomepageTrustRenderer
         $eyebrow = HomepageTrustService::sanitizeText($section['eyebrow'] ?? '', 120);
         $body = HomepageTrustService::sanitizeText($section['body'] ?? '', 2000);
         ?>
-<section class="at-section at-section--white">
+<section class="at-section at-section--white at-home-faq">
     <div class="at-container grid lg:grid-cols-[1fr_1.6fr] gap-8 lg:gap-14">
         <div>
             <?php if ($eyebrow !== ''): ?><p class="at-eyebrow"><?= Security::escape($eyebrow) ?></p><?php endif; ?>
