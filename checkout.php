@@ -215,31 +215,32 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
                 </p>
                 <div class="at-checkout-contact-fields mt-4 grid gap-4">
                     <div>
-                        <label class="at-label" for="checkout-customer-name">Full name</label>
+                        <label class="at-label" for="checkout-customer-name">Your name</label>
                         <input id="checkout-customer-name" name="customer_name" type="text" autocomplete="name"
                                form="checkout-form" class="at-input at-focusable" maxlength="100"
-                               placeholder="Enter your full name" value="<?= Security::escape($checkoutContactName) ?>">
-                        <p class="text-xs at-muted mt-1.5">Used for order updates — not the delivery receiver's name.</p>
+                               placeholder="Enter your name" value="<?= Security::escape($checkoutContactName) ?>">
                     </div>
                     <div>
                         <label class="at-label" for="checkout-customer-email">Email address <span class="at-muted font-normal">(optional)</span></label>
                         <input id="checkout-customer-email" name="customer_email" type="email" inputmode="email" autocomplete="email"
                                form="checkout-form" class="at-input at-focusable" maxlength="191"
-                               placeholder="Enter your email address" value="<?= Security::escape($checkoutContactEmail) ?>">
-                        <p class="text-xs at-muted mt-1.5">For order confirmation and updates.</p>
+                               placeholder="name@example.com" value="<?= Security::escape($checkoutContactEmail) ?>">
+                        <p class="text-xs at-muted mt-1.5">Used for order updates.</p>
                     </div>
                 </div>
             <?php else: ?>
-                <p class="text-sm at-muted">Log in with your mobile number — we'll send an OTP to confirm it's you.</p>
+                <p class="text-sm at-muted">Log in with your mobile number to continue.</p>
                 <a href="<?= Security::escape(url_base()) ?>/login.php" class="at-btn at-btn--primary at-focusable mt-3">Log in with mobile OTP</a>
             <?php endif; ?>
         </section>
 
         <section class="at-checkout-block">
-            <div class="at-checkout-block__head"><span class="at-checkout-block__num">2</span><h2 class="at-h3">Delivery address</h2></div>
-            <?php if ($loggedIn && $persistedCheckout): ?>
-                <p class="text-xs at-muted -mt-2 mb-3"><a href="<?= Security::escape(url_base()) ?>/my-addresses.php" class="underline">Manage saved addresses</a></p>
-            <?php endif; ?>
+            <div class="at-checkout-block__head justify-between flex-wrap">
+                <span class="flex items-center gap-3"><span class="at-checkout-block__num">2</span><h2 class="at-h3">Delivery address</h2></span>
+                <?php if ($loggedIn && $persistedCheckout): ?>
+                    <a href="<?= Security::escape(url_base()) ?>/my-addresses.php" class="text-xs font-semibold text-[var(--at-green)] hover:underline at-focusable">Add or manage addresses</a>
+                <?php endif; ?>
+            </div>
             <?php if ($persistedCheckout && !$loggedIn): ?>
                 <p class="text-sm at-muted">Log in with your mobile OTP to add and choose a delivery address.</p>
             <?php elseif ($loggedIn && $addresses === []): ?>
@@ -306,29 +307,80 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
         </section>
 
         <section class="at-checkout-block">
-            <div class="at-checkout-block__head"><span class="at-checkout-block__num">3</span><h2 class="at-h3">Delivery slot</h2></div>
+            <div class="at-checkout-block__head"><span class="at-checkout-block__num">3</span><h2 class="at-h3">Choose your delivery slot</h2></div>
             <?php if ($persistedCheckout && !$loggedIn): ?>
                 <p class="text-sm at-muted">Log in and choose a delivery address to see available slots.</p>
-            <?php elseif (DeliveryConfig::slotsEnabled()):
-                ?>
-                <p class="text-sm at-muted -mt-2 mb-3">Your slot is confirmed when you place the order.</p>
+            <?php elseif (DeliveryConfig::slotsEnabled()): ?>
                 <?php if ($loggedIn && $addresses === []): ?>
-                    <p class="text-sm at-muted">Add a delivery address above to choose a slot.</p>
-                <?php endif; ?>
-                <?php if ($canShowDeliverySlots && $checkoutSlots === []): ?>
-                    <p class="at-alert at-alert--warning text-sm">No slots available right now. Try again later or contact support.</p>
+                    <p class="text-sm at-muted">Add a delivery address above to see available slots.</p>
+                <?php elseif ($canShowDeliverySlots && $checkoutSlots === []): ?>
+                    <p class="at-alert at-alert--warning text-sm">No delivery slots are available right now. Please check back later.</p>
                 <?php elseif ($canShowDeliverySlots): ?>
-                    <?php $initialSlotDate = (string) ($checkoutSlots[0]['delivery_date'] ?? ''); ?>
-                    <div class="grid sm:grid-cols-3 gap-3" data-checkout-slot-grid>
-                        <?php foreach ($checkoutSlots as $i => $s): ?>
-                            <label class="at-option">
-                                <input type="radio" name="delivery_slot" form="checkout-form" value="<?= Security::escape($s['slug']) ?>" class="mt-1"
-                                       data-delivery-date="<?= Security::escape((string) ($s['delivery_date'] ?? '')) ?>" <?= $i === 0 ? 'checked' : '' ?>>
-                                <span class="text-sm"><strong class="block"><?= Security::escape($s['label']) ?></strong><?= Security::escape((string) ($s['time_range'] ?? $s['window'] ?? '—')) ?>
-                                    <br><span class="at-muted text-xs">Delivers <?= Security::escape((string) ($s['delivery_date'] ?? '')) ?> · <?= (int) $s['remaining'] ?> spots left</span></span>
-                            </label>
+                    <?php
+                    $initialSlotDate = (string) ($checkoutSlots[0]['delivery_date'] ?? '');
+                    $slotTodayYmd = DeliveryConfig::now()->format('Y-m-d');
+                    $slotTomorrowYmd = DeliveryConfig::now()->modify('+1 day')->format('Y-m-d');
+                    $slotGroups = [];
+                    foreach ($checkoutSlots as $slotIdx => $s) {
+                        $dKey = (string) ($s['delivery_date'] ?? '');
+                        if (!isset($slotGroups[$dKey])) {
+                            if ($dKey === $slotTodayYmd) {
+                                $gTitle = 'Today';
+                                $gDate = InvoiceFormat::date($dKey, 'D, j M');
+                            } elseif ($dKey === $slotTomorrowYmd) {
+                                $gTitle = 'Tomorrow';
+                                $gDate = InvoiceFormat::date($dKey, 'D, j M');
+                            } elseif ($dKey !== '') {
+                                $gTitle = InvoiceFormat::date($dKey, 'D, j M');
+                                $gDate = '';
+                            } else {
+                                $gTitle = 'Available windows';
+                                $gDate = '';
+                            }
+                            $slotGroups[$dKey] = ['title' => $gTitle, 'date_sub' => $gDate, 'slots' => []];
+                        }
+                        $s['_checked'] = ($slotIdx === 0);
+                        $slotGroups[$dKey]['slots'][] = $s;
+                    }
+                    ?>
+                    <div class="at-slot-groups" data-checkout-slot-grid>
+                        <?php foreach ($slotGroups as $grp): ?>
+                            <div class="at-slot-group">
+                                <p class="at-slot-group__head">
+                                    <span class="at-slot-group__day"><?= Security::escape($grp['title']) ?></span>
+                                    <?php if ($grp['date_sub'] !== ''): ?><span class="at-slot-group__date">· <?= Security::escape($grp['date_sub']) ?></span><?php endif; ?>
+                                </p>
+                                <div class="at-slot-group__grid">
+                                    <?php foreach ($grp['slots'] as $s):
+                                        $winText = trim((string) ($s['time_range'] ?? $s['window'] ?? ''));
+                                        $rawLabel = trim((string) ($s['label'] ?? ''));
+                                        $hasWin = $winText !== '' && $winText !== '—';
+                                        $primaryText = $hasWin ? $winText : ($rawLabel !== '' ? $rawLabel : 'Standard delivery');
+                                        $showSlotName = $hasWin && $rawLabel !== '' && !in_array(strtolower($rawLabel), ['today', 'tomorrow'], true);
+                                        $isDbSlot = (int) ($s['id'] ?? 0) > 0;
+                                        $remCount = (int) ($s['remaining'] ?? 0);
+                                        $showRem = $isDbSlot && $remCount > 0 && $remCount <= 10;
+                                        ?>
+                                        <label class="at-option at-slot-card">
+                                            <input type="radio" name="delivery_slot" form="checkout-form" value="<?= Security::escape((string) $s['slug']) ?>" class="mt-0.5"
+                                                   data-delivery-date="<?= Security::escape((string) ($s['delivery_date'] ?? '')) ?>" <?= !empty($s['_checked']) ? 'checked' : '' ?>>
+                                            <span class="at-slot-card__body">
+                                                <strong class="at-slot-card__window"><?= Security::escape($primaryText) ?></strong>
+                                                <?php if ($showSlotName || $showRem): ?>
+                                                    <span class="at-slot-card__meta">
+                                                        <?php if ($showSlotName): ?><span><?= Security::escape($rawLabel) ?></span><?php endif; ?>
+                                                        <?php if ($showSlotName && $showRem): ?><span aria-hidden="true">·</span><?php endif; ?>
+                                                        <?php if ($showRem): ?><span class="at-slot-card__rem"><?= $remCount === 1 ? '1 slot left' : $remCount . ' slots left' ?></span><?php endif; ?>
+                                                    </span>
+                                                <?php endif; ?>
+                                            </span>
+                                        </label>
+                                    <?php endforeach; ?>
+                                </div>
+                            </div>
                         <?php endforeach; ?>
                     </div>
+                    <p class="text-xs at-muted mt-3">Delivery slot availability is checked when you place your order.</p>
                 <?php endif; ?>
             <?php else: ?>
                 <p class="text-sm"><?= Security::escape(DeliverySlotService::automaticEta()) ?></p>
@@ -339,70 +391,77 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
         <section class="at-checkout-block at-checkout-pay">
             <div class="at-checkout-block__head"><span class="at-checkout-block__num">4</span><h2 class="at-h3">Payment</h2></div>
             <?php if (CommerceGateway::useDatabase()): ?>
-                <div class="at-checkout-pay__card">
+                <div class="at-checkout-pay__card<?= $checkoutMinOrderMet ? '' : ' hidden' ?>" data-checkout-pay-allowed>
                     <div class="at-checkout-pay__row">
-                        <span class="at-checkout-pay__label">Gateway</span>
+                        <span class="at-checkout-pay__label">Payment method</span>
                         <span class="at-checkout-pay__value"><?= Security::escape($paymentGatewayLabel) ?>
                             <?php if (!empty($paymentGwMeta['test_mode'])): ?><span class="at-badge">Test</span><?php endif; ?>
                             <?php if ($paymentUsesSimulate): ?><span class="at-badge at-badge--warning">Simulated</span><?php endif; ?>
                         </span>
                     </div>
                     <div class="at-checkout-pay__row">
-                        <span class="at-checkout-pay__label">Amount payable</span>
-                        <span class="at-checkout-pay__value at-checkout-pay__amount" data-checkout-pay-card-amount><?= Security::escape(catalogue_format_price((float) $totals['total'])) ?></span>
+                        <span class="at-checkout-pay__label">Total payable</span>
+                        <span class="at-checkout-pay__value at-checkout-pay__amount tabular-nums" data-checkout-pay-card-amount><?= Security::escape(catalogue_format_price((float) $totals['total'])) ?></span>
                     </div>
-                    <p class="at-checkout-pay__hint text-sm at-muted" data-checkout-pay-allowed<?= $checkoutMinOrderMet ? '' : ' hidden' ?>>You'll pay on the next screen via <?= Security::escape($paymentGatewayLabel) ?>. Your order is confirmed after payment.</p>
+                    <p class="at-checkout-pay__hint text-xs at-muted">Pay via UPI, cards or netbanking on the next screen.</p>
                     <?php if (!$paymentGatewayReady): ?>
                         <p class="at-alert at-alert--warning text-sm mt-2" role="alert"><?= Security::escape($paymentGatewayBlockedMessage !== '' ? $paymentGatewayBlockedMessage : 'Online payment is temporarily unavailable. Ask the store admin to check gateway credentials under Settings → Payment gateways.') ?></p>
                     <?php endif; ?>
                 </div>
             <?php else: ?>
-            <div class="at-option !cursor-default">
-                <span class="text-[var(--at-green)] mt-0.5"><?= at_icon('wallet', 'w-5 h-5') ?></span>
-                <span class="text-sm"><strong>Pay online</strong><br><span class="at-muted">UPI, cards and netbanking preview — use the demo buttons below.</span></span>
-            </div>
+                <div class="at-option !cursor-default<?= $checkoutMinOrderMet ? '' : ' hidden' ?>" data-checkout-pay-allowed>
+                    <span class="text-[var(--at-green)] mt-0.5"><?= at_icon('wallet', 'w-5 h-5') ?></span>
+                    <span class="text-sm"><strong>Pay online</strong><br><span class="at-muted">UPI, cards and netbanking preview — use the demo buttons below.</span></span>
+                </div>
             <?php endif; ?>
             <?php
             $checkoutSubTermsUrl = CmsPageService::publicPageUrl('subscription-terms');
             $checkoutRefundUrl = CmsPageService::publicPageUrl('refund-policy');
             $checkoutShippingUrl = CmsPageService::publicPageUrl('shipping-policy');
             ?>
-            <label class="flex items-start gap-3 mt-4 text-sm" data-checkout-pay-allowed<?= $checkoutMinOrderMet ? '' : ' hidden' ?>>
-                <input type="checkbox" form="checkout-form" name="terms" value="1" required class="mt-0.5">
+            <label class="flex items-start gap-3 mt-4 text-sm<?= $checkoutMinOrderMet ? '' : ' hidden' ?>" data-checkout-pay-allowed>
+                <input type="checkbox" form="checkout-form" name="terms" value="1" required class="mt-0.5" <?= $checkoutMinOrderMet ? '' : 'disabled' ?>>
                 <span>I agree to the
                     <?php if ($checkoutRefundUrl !== null): ?><a class="underline font-semibold" href="<?= Security::escape($checkoutRefundUrl) ?>">refund</a><?php else: ?>refund<?php endif; ?>,
                     <?php if ($checkoutShippingUrl !== null): ?><a class="underline font-semibold" href="<?= Security::escape($checkoutShippingUrl) ?>">delivery</a><?php else: ?>delivery<?php endif; ?>
                     and <?php if ($checkoutSubTermsUrl !== null): ?><a class="underline font-semibold" href="<?= Security::escape($checkoutSubTermsUrl) ?>">subscription</a><?php else: ?>subscription<?php endif; ?> terms.</span>
             </label>
-        </section>
 
-        <form id="checkout-form" method="post">
-            <?= Csrf::field() ?>
-            <input type="hidden" name="action" value="place_order">
-            <input type="hidden" name="checkout_nonce" value="<?= Security::escape($checkoutNonce) ?>">
-            <?php if (DeliveryConfig::slotsEnabled() && $canShowDeliverySlots && ($checkoutSlots ?? []) !== []): ?>
-                <input type="hidden" name="delivery_date" form="checkout-form" id="checkout-delivery-date" value="<?= Security::escape($initialSlotDate ?? '') ?>">
-            <?php endif; ?>
-            <?php if (!$loggedIn): ?><p class="at-alert at-alert--warning mb-3 text-sm"><?= at_icon('lock', 'w-5 h-5 flex-shrink-0') ?><span>Log in with your mobile number to enable payment.</span></p><?php endif; ?>
-            <?php
-            $canPay = $loggedIn && $addresses !== [];
-            $slotsOk = $slotsOkInitial;
-            ?>
-            <div class="at-alert at-alert--warning text-sm mb-3 hidden" data-checkout-quote-error role="alert"></div>
-            <div class="at-checkout-pay__blocked px-3 py-3 rounded-lg bg-[var(--at-cream-2)] border border-[var(--at-line)] text-sm space-y-2<?= $checkoutMinOrderMet ? ' hidden' : '' ?>" data-checkout-pay-blocked role="status">
-                <p class="font-semibold">Checkout is paused — minimum order not met.</p>
-                <p class="at-muted">Add <span class="font-bold tabular-nums" data-checkout-pay-blocked-shortfall><?= Security::escape(catalogue_format_price((float) ($totals['min_order_shortfall'] ?? 0))) ?></span> more in products to unlock payment. Delivery charge is extra.</p>
-                <a href="<?= Security::escape(url_base()) ?>/index.php" class="at-btn at-btn--secondary at-btn--sm at-focusable">Browse products</a>
-            </div>
-            <div class="flex flex-col sm:flex-row gap-3" data-checkout-pay-allowed<?= $checkoutMinOrderMet ? '' : ' hidden' ?>>
-                <?php if (CommerceGateway::useDatabase()): ?>
-                    <button type="submit" id="checkout-proceed-pay" class="at-btn at-btn--primary at-btn--lg at-focusable flex-1" data-at-checkout-submit data-at-quote-ready="<?= ($checkoutQuoteReady && $paymentGatewayReady) ? '1' : '0' ?>" <?= ($canPay && $slotsOk && $paymentGatewayReady && $checkoutQuoteReady) ? '' : 'disabled' ?>><?= at_icon('lock', 'w-5 h-5') ?> Pay securely <span data-checkout-pay-amount><?= Security::escape(catalogue_format_price((float) $totals['total'])) ?></span></button>
-                <?php else: ?>
-                    <button type="submit" name="payment_sim" value="success" class="at-btn at-btn--primary at-btn--lg at-focusable flex-1" <?= $canPay ? '' : 'disabled' ?>><?= at_icon('lock', 'w-5 h-5') ?> Pay <?= Security::escape(catalogue_format_price((float) $totals['total'])) ?> (demo success)</button>
-                    <button type="submit" name="payment_sim" value="fail" class="at-btn at-btn--secondary at-btn--lg at-focusable" <?= $canPay ? '' : 'disabled' ?>>Simulate payment failure</button>
+            <form id="checkout-form" method="post" class="mt-4">
+                <?= Csrf::field() ?>
+                <input type="hidden" name="action" value="place_order">
+                <input type="hidden" name="checkout_nonce" value="<?= Security::escape($checkoutNonce) ?>">
+                <?php if (DeliveryConfig::slotsEnabled() && $canShowDeliverySlots && ($checkoutSlots ?? []) !== []): ?>
+                    <input type="hidden" name="delivery_date" form="checkout-form" id="checkout-delivery-date" value="<?= Security::escape($initialSlotDate ?? '') ?>">
                 <?php endif; ?>
-            </div>
-        </form>
+                <?php if (!$loggedIn): ?><p class="at-alert at-alert--warning mb-3 text-sm"><?= at_icon('lock', 'w-5 h-5 flex-shrink-0') ?><span>Log in with your mobile number to place your order.</span></p><?php endif; ?>
+                <?php
+                $canPay = $loggedIn && $addresses !== [];
+                $slotsOk = $slotsOkInitial;
+                ?>
+                <div class="at-alert at-alert--warning text-sm mb-3 hidden" data-checkout-quote-error role="alert"></div>
+                <div class="at-checkout-pay__blocked px-3.5 py-3.5 rounded-lg bg-[var(--at-yellow-100)] border border-[var(--at-yellow-200,var(--at-line))] text-sm space-y-1.5<?= $checkoutMinOrderMet ? ' hidden' : '' ?>" data-checkout-pay-blocked role="status">
+                    <p class="font-semibold text-[var(--at-yellow-ink)] leading-snug">
+                        Add <span class="font-bold tabular-nums" data-checkout-pay-blocked-shortfall><?= Security::escape(catalogue_format_price((float) ($totals['min_order_shortfall'] ?? 0))) ?></span> more in products to place your order.
+                    </p>
+                    <p class="text-xs text-[var(--at-yellow-ink)] leading-snug">
+                        Minimum order: <span class="font-semibold tabular-nums" data-checkout-pay-blocked-min><?= Security::escape(catalogue_format_price((float) ($totals['min_order_amount_inr'] ?? 0))) ?></span> · Items after discounts: <span class="font-semibold tabular-nums" data-checkout-pay-blocked-merch><?= Security::escape(catalogue_format_price((float) ($totals['min_order_merchandise_inr'] ?? 0))) ?></span>
+                    </p>
+                    <p class="text-xs at-muted">Delivery charge does not count towards the minimum order.</p>
+                    <div class="pt-1.5">
+                        <a href="<?= Security::escape(url_base()) ?>/index.php" class="at-btn at-btn--secondary at-btn--sm at-focusable">Browse products</a>
+                    </div>
+                </div>
+                <div class="flex flex-col sm:flex-row gap-3<?= $checkoutMinOrderMet ? '' : ' hidden' ?>" data-checkout-pay-allowed>
+                    <?php if (CommerceGateway::useDatabase()): ?>
+                        <button type="submit" id="checkout-proceed-pay" class="at-btn at-btn--primary at-btn--lg at-focusable flex-1" data-at-checkout-submit data-at-quote-ready="<?= ($checkoutQuoteReady && $paymentGatewayReady) ? '1' : '0' ?>" <?= ($canPay && $slotsOk && $paymentGatewayReady && $checkoutQuoteReady) ? '' : 'disabled' ?>><?= at_icon('lock', 'w-5 h-5') ?> Pay securely <span data-checkout-pay-amount><?= Security::escape(catalogue_format_price((float) $totals['total'])) ?></span></button>
+                    <?php else: ?>
+                        <button type="submit" name="payment_sim" value="success" class="at-btn at-btn--primary at-btn--lg at-focusable flex-1" <?= $canPay ? '' : 'disabled' ?>><?= at_icon('lock', 'w-5 h-5') ?> Pay <?= Security::escape(catalogue_format_price((float) $totals['total'])) ?> (demo success)</button>
+                        <button type="submit" name="payment_sim" value="fail" class="at-btn at-btn--secondary at-btn--lg at-focusable" <?= $canPay ? '' : 'disabled' ?>>Simulate payment failure</button>
+                    <?php endif; ?>
+                </div>
+            </form>
+        </section>
     </div>
 
     <aside class="at-summary grid gap-4" data-checkout-summary>
@@ -418,13 +477,14 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
                 <?php endforeach; ?>
             </ul>
         </div></div>
+        <?php $coCouponApplied = catalogue_cart_coupon_applied($totals); $coAppliedCode = $coCouponApplied ? trim((string) $totals['coupon_code']) : ''; ?>
         <div class="at-card at-checkout-coupon-card">
-            <details class="at-checkout-coupon"<?= catalogue_cart_coupon_applied($totals) ? ' open' : '' ?>>
+            <details class="at-checkout-coupon"<?= $coCouponApplied ? ' open' : '' ?>>
                 <summary class="at-checkout-coupon__head at-focusable">
                     <span class="at-checkout-coupon__icon"><?= at_icon('tag', 'w-4 h-4') ?></span>
                     <span class="at-checkout-coupon__text">
                         <span class="at-checkout-coupon__title">Offers &amp; coupons</span>
-                        <span class="at-checkout-coupon__sub<?= catalogue_cart_coupon_applied($totals) ? ' is-applied' : '' ?>" data-at-coupon-sub><?= catalogue_cart_coupon_applied($totals) ? Security::escape((string) $totals['coupon_code']) . ' applied · You save ' . Security::escape(catalogue_format_price((float) $totals['coupon_discount'])) : 'Apply a coupon and save on your order' ?></span>
+                        <span class="at-checkout-coupon__sub" data-at-coupon-sub>Select an offer or enter a coupon code</span>
                     </span>
                     <span class="at-checkout-coupon__chev" aria-hidden="true"><?= at_icon('chevron-down', 'w-4 h-4') ?></span>
                 </summary>
@@ -440,27 +500,29 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
                         require APNI_TOKRI_ROOT . '/includes/partials/cart-offers.php';
                         ?>
                     </div>
-                    <form id="at-coupon-form" class="mt-3"<?= catalogue_cart_coupon_applied($totals) ? ' data-applied-code="' . Security::escape((string) $totals['coupon_code']) . '"' : '' ?>>
+                    <form id="at-coupon-form" class="mt-3"<?= $coCouponApplied ? ' data-applied-code="' . Security::escape($coAppliedCode) . '"' : '' ?>>
                         <?= Csrf::field() ?>
                         <div class="at-coupon-form__head">
-                            <label class="at-label" for="coupon_code"><?= at_icon('tag', 'w-4 h-4 text-[var(--at-green)]') ?><span data-at-coupon-head-label><?= catalogue_cart_coupon_applied($totals) ? 'Coupon applied' : 'Have a coupon?' ?></span></label>
-                            <button type="button" id="at-coupon-remove" class="at-btn at-btn--ghost at-focusable<?= catalogue_cart_coupon_applied($totals) ? '' : ' hidden' ?>" data-at-coupon-remove>Remove</button>
+                            <label class="at-label" for="coupon_code"><?= at_icon('tag', 'w-4 h-4 text-[var(--at-green)]') ?><span data-at-coupon-head-label><?= $coCouponApplied ? Security::escape($coAppliedCode) . ' applied' : 'Have a coupon?' ?></span></label>
+                            <button type="button" id="at-coupon-remove" class="at-btn at-btn--ghost at-focusable<?= $coCouponApplied ? '' : ' hidden' ?>" data-at-coupon-remove>Remove</button>
                         </div>
-                        <details class="at-coupon-another" data-at-coupon-another<?= catalogue_cart_coupon_applied($totals) ? '' : ' open' ?>>
-                            <summary class="at-coupon-another__summary text-sm font-semibold text-[var(--at-green)] cursor-pointer at-focusable<?= catalogue_cart_coupon_applied($totals) ? '' : ' hidden' ?>" data-at-coupon-another-summary>Have another coupon?</summary>
+                        <details class="at-coupon-another" data-at-coupon-another<?= $coCouponApplied ? '' : ' open' ?>>
+                            <summary class="at-coupon-another__summary text-sm font-semibold text-[var(--at-green)] cursor-pointer at-focusable<?= $coCouponApplied ? '' : ' hidden' ?>" data-at-coupon-another-summary>Have another coupon?</summary>
                             <div class="at-coupon-form__row mt-2">
-                                <input id="coupon_code" name="coupon_code" class="at-input at-focusable flex-1 min-w-[10rem]" placeholder="Enter your coupon code" value="<?= catalogue_cart_coupon_applied($totals) ? '' : Security::escape((string) ($totals['coupon_code'] ?? '')) ?>" autocomplete="off">
+                                <input id="coupon_code" name="coupon_code" class="at-input at-focusable flex-1 min-w-[10rem]" placeholder="Enter coupon code" value="<?= $coCouponApplied ? '' : Security::escape((string) ($totals['coupon_code'] ?? '')) ?>" autocomplete="off">
                                 <button type="submit" id="at-coupon-apply" class="at-btn at-btn--secondary at-focusable" data-at-coupon-apply>Apply</button>
                             </div>
                             <p id="at-coupon-feedback" class="text-sm mt-2 hidden" data-at-coupon-feedback role="alert"></p>
-                            <p class="at-field-hint mt-2">Discount shows in your order summary.</p>
                         </details>
                     </form>
                 </div>
             </details>
         </div>
-        <?php require APNI_TOKRI_ROOT . '/includes/partials/cart-summary.php'; ?>
-        <p class="text-xs at-muted flex gap-2"><?= at_icon('shield', 'w-4 h-4 flex-shrink-0') ?>Delivery charge is based on your delivery address.</p>
+        <?php
+        $suppressSummaryMinOrder = true;
+        require APNI_TOKRI_ROOT . '/includes/partials/cart-summary.php';
+        ?>
+        <p class="text-xs at-muted flex gap-2"><?= at_icon('shield', 'w-4 h-4 flex-shrink-0') ?>Delivery charge depends on your address and eligible items.</p>
     </aside>
 </div>
 <?php if ($dbAddressMode): ?>

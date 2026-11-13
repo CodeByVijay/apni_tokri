@@ -150,9 +150,9 @@
     var $another = $('[data-at-coupon-another]');
     if (applied && code) {
       $remove.removeClass('hidden');
-      $input.val(code);
+      $input.val('');
       $form.attr('data-applied-code', code);
-      $('[data-at-coupon-head-label]').text('Coupon applied');
+      $('[data-at-coupon-head-label]').text(code + ' applied');
       $another.prop('open', false);
       $('[data-at-coupon-another-summary]').removeClass('hidden');
     } else {
@@ -168,6 +168,50 @@
     syncCouponApplyVisibility();
   }
 
+  function isSelectAddressMsg(m) {
+    var t = String(m || '').toLowerCase();
+    return t.indexOf('select a delivery address') !== -1 ||
+      t.indexOf('select delivery address') !== -1 ||
+      t.indexOf('select your delivery address') !== -1 ||
+      t.indexOf('select an address') !== -1 ||
+      t.indexOf('delivery address for an accurate') !== -1 ||
+      t.indexOf('update your saved delivery address') !== -1 ||
+      t.indexOf('update your delivery address') !== -1 ||
+      t.indexOf('delivery address with a confirmed location') !== -1;
+  }
+
+  function isSelectSlotMsg(m) {
+    return String(m || '').toLowerCase().indexOf('delivery slot') !== -1;
+  }
+
+  function isSummaryQuoteReady(totals) {
+    if (!totals) return false;
+    var quoteMsg = String(totals.delivery_quote_message || '').trim();
+    var serviceable = totals.delivery_serviceable !== false && totals.delivery_serviceable !== 0 && !!totals.delivery_serviceable;
+    return !!totals.delivery_quote_accurate && serviceable && quoteMsg === '';
+  }
+
+  function summaryPendingMessage(totals) {
+    if (!totals || isSummaryQuoteReady(totals)) return '';
+    var quoteMsg = String(totals.delivery_quote_message || '').trim();
+    if (quoteMsg) {
+      if (isSelectAddressMsg(quoteMsg)) {
+        return 'Select an address to calculate delivery charge.';
+      }
+      if (isSelectSlotMsg(quoteMsg)) {
+        return 'Choose a delivery slot at checkout to calculate delivery charge.';
+      }
+      return quoteMsg;
+    }
+    if (!totals.delivery_quote_accurate) {
+      return 'Select an address to calculate delivery charge.';
+    }
+    if (!totals.delivery_serviceable) {
+      return 'Delivery is not available for the selected address.';
+    }
+    return '';
+  }
+
   function refreshDeliveryBanner(totals) {
     var $wrap = $('[data-cart-delivery-banner]');
     var $text = $('[data-cart-delivery-banner-text]');
@@ -177,46 +221,45 @@
 
     var quoteMsg = String(totals.delivery_quote_message || '').trim();
     var accurate = !!totals.delivery_quote_accurate;
-    var serviceable = totals.delivery_serviceable !== false && totals.delivery_serviceable !== 0;
+    var serviceable = totals.delivery_serviceable !== false && totals.delivery_serviceable !== 0 && !!totals.delivery_serviceable;
     var toFree = parseFloat(totals.amount_to_free_delivery) || 0;
     var eligible = !!totals.free_delivery_eligible;
     var fee = parseFloat(totals.delivery_fee) || 0;
+    var zone = String(totals.delivery_zone || '').trim();
+    var zoneSuffix = zone ? ' · ' + zone : '';
     var msg = '';
     var tone = 'muted';
     var showProgress = false;
     var progress = 0;
-
-    var isSelectAddressMsg = function (m) {
-      var t = String(m).toLowerCase();
-      return t.indexOf('select a delivery address') !== -1 ||
-        t.indexOf('select delivery address') !== -1 ||
-        t.indexOf('delivery address for an accurate') !== -1 ||
-        t.indexOf('update your saved delivery address') !== -1 ||
-        t.indexOf('update your delivery address') !== -1 ||
-        t.indexOf('delivery address with a confirmed location') !== -1;
-    };
     var showCta = false;
+    var ctaLabel = 'Select delivery address';
 
     if (quoteMsg) {
       if (isSelectAddressMsg(quoteMsg)) {
         msg = 'Select your delivery address to see your delivery charge.';
+        showCta = true;
+      } else if (isSelectSlotMsg(quoteMsg)) {
+        msg = 'Address saved' + zoneSuffix + ' — choose your delivery slot at checkout to see your delivery charge.';
+        showCta = false;
       } else {
         msg = quoteMsg;
+        showCta = true;
+        ctaLabel = 'Change address';
       }
-      showCta = true;
     } else if (!accurate) {
       msg = 'Select your delivery address to see your delivery charge.';
       showCta = true;
     } else if (!serviceable) {
       msg = 'Delivery is not available for the selected address.';
       showCta = true;
-    } else if (fee <= 0 && eligible && toFree <= 0) {
-      msg = "You've unlocked free delivery";
+      ctaLabel = 'Change address';
+    } else if (fee <= 0) {
+      msg = (eligible && toFree <= 0 ? 'Free delivery unlocked' : 'Free delivery') + zoneSuffix;
       tone = 'success';
-      showProgress = true;
+      showProgress = eligible;
       progress = 100;
     } else if (eligible && toFree > 0) {
-      msg = 'Add ' + formatMoney(toFree) + ' more for free delivery';
+      msg = 'Delivery charge: ' + formatMoney(fee) + zoneSuffix + ' · Add ' + formatMoney(toFree) + ' more for free delivery';
       tone = 'progress';
       showProgress = true;
       var threshold = parseFloat(totals.free_delivery_threshold) || 0;
@@ -224,19 +267,25 @@
         progress = Math.max(4, Math.min(100, Math.round(((threshold - toFree) / threshold) * 100)));
       }
     } else {
-      msg = 'Your delivery charge appears in the order summary.';
+      msg = 'Delivery charge: ' + formatMoney(fee) + zoneSuffix;
     }
 
     var $cta = $('[data-cart-delivery-banner-cta]');
     if ($cta.length) {
-      $cta.toggleClass('hidden', !showCta);
+      $cta.text(ctaLabel).toggleClass('hidden', !showCta);
     }
     if ($text.length) {
       $text.removeClass('text-[var(--at-success)]');
       if (tone === 'success') {
         $text.addClass('text-[var(--at-success)]');
       }
-      $text.text(msg);
+      var $svg = $text.find('svg').first().clone();
+      $text.empty();
+      if ($svg.length) {
+        $text.append($svg).append(document.createTextNode(' ' + msg));
+      } else {
+        $text.text(msg);
+      }
     }
     if ($progress.length) {
       $progress.toggleClass('hidden', !showProgress);
@@ -250,16 +299,19 @@
   function refreshSummary(totals) {
     if (!totals) return;
     $('[data-cart-subtotal]').text(formatMoney(totals.subtotal));
+    var quoteReady = isSummaryQuoteReady(totals);
     var deliveryLabel = '—';
-    if (totals.delivery_quote_message) {
-      deliveryLabel = '—';
-    } else if (totals.delivery_quote_accurate) {
-      deliveryLabel = parseFloat(totals.delivery_fee) === 0 ? 'Free' : formatMoney(totals.delivery_fee);
+    if (quoteReady) {
+      deliveryLabel = parseFloat(totals.delivery_fee) <= 0 ? 'Free' : formatMoney(totals.delivery_fee);
     }
     $('[data-cart-delivery]').text(deliveryLabel);
+    var zone = String(totals.delivery_zone || '').trim();
     $('[data-cart-delivery-context]').text(
-      totals.delivery_zone ? '· to ' + String(totals.delivery_zone) : ''
+      quoteReady && zone ? '· ' + zone : ''
     );
+    $('[data-cart-total-label]').text(quoteReady ? 'Total payable' : 'Items payable');
+    $('[data-cart-total-note]').toggleClass('hidden', quoteReady);
+    $('[data-cart-sticky-label]').text(quoteReady ? 'Total payable' : 'Items payable');
     $('[data-cart-total]').text(formatMoney(totals.total));
     refreshDeliveryBanner(totals);
 
@@ -325,15 +377,14 @@
     var $free = $('[data-cart-free-delivery]');
     if ($free.length) {
       var canShowFreeHint =
-        totals.delivery_quote_accurate &&
-        totals.delivery_serviceable !== false &&
+        quoteReady &&
         totals.free_delivery_eligible &&
         parseFloat(totals.amount_to_free_delivery) > 0;
       if (canShowFreeHint) {
         $free
           .removeClass('hidden')
           .text(
-            'Optional: add ' +
+            'Add ' +
               formatMoney(totals.amount_to_free_delivery) +
               ' more for free delivery.'
           );
@@ -364,16 +415,16 @@
     var shortfall = parseFloat(totals.min_order_shortfall) || 0;
     $wrap
       .find('[data-cart-min-order-min]')
-      .text('Is area mein minimum order ' + formatMoney(minAmt) + ' hai.');
+      .text(formatMoney(minAmt));
     $wrap
       .find('[data-cart-min-order-merch]')
-      .text('Aapka discounted product value ' + formatMoney(merch) + ' hai.');
+      .text(formatMoney(merch));
     $wrap
       .find('[data-cart-min-order-remaining]')
       .html(
-        'Checkout ke liye <span class="font-bold tabular-nums">' +
+        'Add <span class="font-bold tabular-nums">' +
           formatMoney(shortfall) +
-          '</span> aur products add karein.'
+          '</span> more in products to place your order.'
       );
   }
 
@@ -404,7 +455,7 @@
   function refreshQuoteMessage(totals) {
     var $msg = $('[data-cart-quote-message]');
     if (!$msg.length || !totals) return;
-    var text = String(totals.delivery_quote_message || '').trim();
+    var text = summaryPendingMessage(totals);
     if (text) {
       $msg.removeClass('hidden').text(text);
     } else {
@@ -423,12 +474,20 @@
     if (!totals) return;
     var $blocked = $('[data-checkout-pay-blocked]');
     if (!$blocked.length) return;
-    var blocked = !!(totals.min_order_enabled && !totals.min_order_met);
+    var blocked = !!(totals.min_order_enabled && !minOrderMetFromTotals(totals));
     if (blocked) {
       var shortfall = parseFloat(totals.min_order_shortfall) || 0;
+      var minAmt = parseFloat(totals.min_order_amount_inr) || 0;
+      var merch = parseFloat(totals.min_order_merchandise_inr) || 0;
       $blocked
         .find('[data-checkout-pay-blocked-shortfall]')
         .text(formatMoney(shortfall));
+      $blocked
+        .find('[data-checkout-pay-blocked-min]')
+        .text(formatMoney(minAmt));
+      $blocked
+        .find('[data-checkout-pay-blocked-merch]')
+        .text(formatMoney(merch));
     }
     $blocked.toggleClass('hidden', !blocked);
     $('[data-checkout-pay-allowed]').toggleClass('hidden', blocked);
@@ -450,6 +509,29 @@
   var couponBusy = false;
   var qtyBusy = false;
   var cartMutationSeq = 0;
+  var pendingUndo = null;
+  var undoTimer = null;
+
+  function hideUndoBar() {
+    clearTimeout(undoTimer);
+    pendingUndo = null;
+    $('[data-cart-undo]').addClass('hidden');
+  }
+
+  function showUndoBar(item) {
+    var $bar = $('[data-cart-undo]');
+    if (!$bar.length || !item || !item.productSlug || !item.variantId) return;
+    clearTimeout(undoTimer);
+    pendingUndo = item;
+    var title = item.name || 'Item';
+    if (item.label) {
+      title += ' (' + item.label + ')';
+    }
+    $bar.find('[data-cart-undo-text]').text('Removed "' + title + '" from your cart.');
+    $bar.find('[data-cart-undo-btn]').prop('disabled', false).text('Undo');
+    $bar.removeClass('hidden');
+    undoTimer = setTimeout(hideUndoBar, 8000);
+  }
 
   function applyCartMutationResponse($row, res, seq) {
     if (seq !== undefined && seq !== cartMutationSeq) {
@@ -490,14 +572,23 @@
       }
       if (res.success) {
         if (action === 'remove') {
+          var removedSnapshot = {
+            productSlug: String($row.attr('data-product-slug') || '').trim(),
+            variantId: String($row.attr('data-variant-id') || '').trim(),
+            qty: parseInt($qty.val(), 10) || 1,
+            name: String($row.attr('data-item-name') || '').trim(),
+            label: String($row.attr('data-item-label') || '').trim()
+          };
           applyCartMutationResponse($row, res, seq);
           $row.remove();
           updateCartHeadingLineCount();
           if ($('.at-line-item[data-line-key]').length === 0) {
             showEmptyCartUi();
           }
+          showUndoBar(removedSnapshot);
           return;
         }
+        hideUndoBar();
         applyCartMutationResponse($row, res, seq);
       } else {
         var errMsg = res.error && res.error.message ? res.error.message : 'Update failed';
@@ -563,13 +654,10 @@
         var totals = res.data && res.data.totals ? res.data.totals : null;
         refreshSummary(totals);
         updateCheckoutPayAmounts(totals);
+        syncMinOrderBlocked(totals);
         var $couponSub = $('[data-at-coupon-sub]');
-        if ($couponSub.length && totals) {
-          if (couponAppliedFromTotals(totals)) {
-            $couponSub.addClass('is-applied').text(String(totals.coupon_code).trim() + ' applied · You save ' + formatMoney(totals.coupon_discount));
-          } else {
-            $couponSub.removeClass('is-applied').text('Apply a coupon and save on your order');
-          }
+        if ($couponSub.length) {
+          $couponSub.removeClass('is-applied').text('Select an offer or enter a coupon code');
         }
         if (res.data && typeof res.data.offers_html === 'string') {
           replaceOffers(res.data.offers_html);
@@ -579,11 +667,11 @@
         if (typeof window.AT_CHECKOUT_REFRESH_QUOTE === 'function') {
           window.AT_CHECKOUT_REFRESH_QUOTE();
         }
-        var okMsg = res.message || 'Coupon applied.';
+        var okMsg = res.message || 'Coupon updated.';
         if (couponAppliedFromTotals(totals)) {
           okMsg = 'Coupon ' + String(totals.coupon_code).trim() + ' applied — you save ' + formatMoney(totals.coupon_discount) + '.';
         }
-        showCouponFeedback(okMsg, false);
+        showCouponFeedback('', false);
         toast(okMsg, 'success');
         if (typeof done === 'function') done(null, res);
       } else {
@@ -695,10 +783,22 @@
     });
 
     $('[data-at-coupon-remove]').on('click', function () {
-      postCoupon({ remove: '1' }, function (err) {
-        if (!err) {
-          showCouponFeedback('Coupon removed.', false);
+      postCoupon({ remove: '1' });
+    });
+
+    $(document).on('click', '[data-cart-undo-btn]', function () {
+      if (!pendingUndo) return;
+      var snap = pendingUndo;
+      clearTimeout(undoTimer);
+      var $btn = $(this);
+      $btn.prop('disabled', true).text('Restoring…');
+      window.ApniTokriCart.add(snap.productSlug, snap.variantId, snap.qty, function (err) {
+        if (err) {
+          hideUndoBar();
+          toast(err.message || 'Could not restore item.', 'error');
+          return;
         }
+        window.location.reload();
       });
     });
 

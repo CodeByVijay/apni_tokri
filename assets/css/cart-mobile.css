@@ -109,13 +109,18 @@
         text-decoration: none;
     }
 
-    .at-line-item__variant {
-        margin-top: 0.15rem;
-        overflow: hidden;
-        font-size: 0.74rem;
-        font-weight: 600;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+    .at-line-item__meta {
+        gap: 0.25rem 0.45rem;
+        margin-top: 0.25rem;
+    }
+
+    .at-line-item__pack {
+        padding: 0.1rem 0.45rem;
+        font-size: 0.72rem;
+    }
+
+    .at-line-item__unit {
+        font-size: 0.76rem;
     }
 
     .at-line-item__total {
@@ -123,13 +128,6 @@
         font-size: 1rem;
         font-weight: 900;
         line-height: 1.2;
-    }
-
-    .at-line-item__head + p {
-        margin-top: 0.2rem;
-        color: var(--at-muted);
-        font-size: 0.72rem;
-        font-weight: 600;
     }
 
     /* Controls row: stepper left, remove right — full-width footer */
@@ -154,10 +152,11 @@
         font-weight: 800;
     }
 
+    /* Keep >=16px (1rem) on <select> to avoid iOS Safari auto-zoom on tap */
     .at-line-item__controls .at-qty--sm select {
-        width: 2.3rem;
+        width: 2.35rem;
         color: var(--at-green-deep);
-        font-size: 0.9rem;
+        font-size: 1rem;
         font-weight: 800;
     }
 
@@ -224,11 +223,12 @@
         font-weight: 800;
     }
 
+    /* Keep >=16px (1rem) on <input> to avoid iOS Safari auto-zoom on focus */
     #at-coupon-form .at-input {
         min-height: 2.75rem;
         flex: 1 1 9rem;
         border-radius: 0.85rem;
-        font-size: 0.88rem;
+        font-size: 1rem;
     }
 
     #at-coupon-form .at-btn {
@@ -345,17 +345,25 @@
         height: 4rem;
     }
 
+    .at-line-item__qty-group {
+        gap: 0.35rem;
+    }
+
+    .at-line-item__qty-label {
+        font-size: 0.68rem;
+    }
+
     .at-line-item__controls .at-qty--sm {
-        height: 2.7rem;
+        height: 2.75rem;
     }
 
     .at-line-item__controls .at-qty--sm button {
-        width: 2.55rem;
+        width: 2.35rem;
     }
 
     .at-line-item__controls .at-qty--sm select {
         width: 2.1rem;
-        font-size: 0.85rem;
+        font-size: 1rem;
     }
 
     /* Icon-only remove keeps the controls row on one line at 320px. */

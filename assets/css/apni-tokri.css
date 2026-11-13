@@ -3686,7 +3686,7 @@ body.at-gallery-lightbox-open {
 }
 .at-line-item {
   display: grid;
-  grid-template-columns: 5rem 1fr;
+  grid-template-columns: 5rem minmax(0, 1fr);
   gap: 1rem;
   padding: 1rem;
   background: #fff;
@@ -3695,7 +3695,7 @@ body.at-gallery-lightbox-open {
 }
 @media (min-width: 640px) {
   .at-line-item {
-    grid-template-columns: 6.5rem 1fr auto;
+    grid-template-columns: 6.5rem minmax(0, 1fr);
     padding: 1.1rem;
   }
 }
@@ -3727,6 +3727,67 @@ body.at-gallery-lightbox-open {
 .at-line-item__title {
   flex: 1 1 auto;
   min-width: 0;
+}
+.at-line-item__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.6rem;
+  margin-top: 0.3rem;
+}
+.at-line-item__pack {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  background: var(--at-cream-2);
+  border: 1px solid var(--at-line);
+  color: var(--at-ink-2);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+.at-line-item__unit {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--at-muted);
+}
+.at-line-item__qty-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.at-line-item__qty-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--at-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.at-line-item__controls .js-cart-remove {
+  min-height: 2.5rem;
+  padding-inline: 0.4rem;
+  border-radius: var(--at-radius-sm);
+}
+.at-cart-undo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
+  padding: 0.65rem 0.9rem;
+  border-radius: var(--at-radius);
+  background: var(--at-cream-2);
+  border: 1px solid var(--at-line-strong);
+  font-size: 0.875rem;
+}
+.at-cart-undo.hidden {
+  display: none !important;
+}
+.at-cart-undo__text {
+  min-width: 0;
+  color: var(--at-ink);
+  font-weight: 600;
 }
 .at-line-item__total {
   flex: 0 0 auto;
@@ -3795,8 +3856,80 @@ body.at-gallery-lightbox-open {
   .at-checkout-grid .at-cart-summary { order: 30; }
   .at-checkout-grid [data-checkout-summary] > p { order: 40; }
   .at-checkout-grid .at-checkout-pay { order: 60; }
-  .at-checkout-grid #checkout-form { order: 70; }
   .at-checkout-grid [data-checkout-summary].opacity-60 > * { opacity: 0.6; }
+}
+/* Date-grouped checkout delivery slots */
+.at-slot-groups {
+  display: grid;
+  gap: 1rem;
+}
+.at-slot-group {
+  display: grid;
+  gap: 0.5rem;
+}
+.at-slot-group__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem;
+  margin: 0;
+  font-size: 0.8125rem;
+}
+.at-slot-group__day {
+  font-weight: 800;
+  color: var(--at-green-deep, var(--at-green));
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.at-slot-group__date {
+  color: var(--at-muted);
+  font-weight: 600;
+}
+.at-slot-group__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.625rem;
+}
+@media (min-width: 640px) {
+  .at-slot-group__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.at-slot-card {
+  min-height: 3rem;
+  align-items: center;
+  padding: 0.75rem 0.9rem;
+}
+.at-slot-card input[type="radio"] {
+  flex-shrink: 0;
+  margin-top: 0;
+}
+.at-slot-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+.at-slot-card__window {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--at-ink);
+}
+.at-slot-card:has(input:checked) .at-slot-card__window {
+  color: var(--at-green-deep, var(--at-green));
+}
+.at-slot-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.75rem;
+  color: var(--at-muted);
+}
+.at-slot-card__rem {
+  color: var(--at-yellow-ink);
+  font-weight: 700;
 }
 /* Coupon controls: identical row alignment on cart and checkout. */
 #at-coupon-form .at-coupon-form__head {
@@ -8324,16 +8457,30 @@ body.at-gallery-lightbox-open {
 .at-btn.is-loading { opacity: 0.85; pointer-events: none; }
 .at-payment-page .at-btn--lg { min-height: 3rem; }
 
+[data-checkout-pay-allowed].hidden,
+[data-checkout-pay-blocked].hidden {
+  display: none !important;
+}
+
 /* Touch targets on small screens: blocked-payment action, coupon remove and
    the "Have another coupon?" expander all sit below the ~44px comfort range. */
 @media (max-width: 767.98px) {
   .at-checkout-pay__blocked .at-btn,
+  .at-cart-undo .at-btn,
   #at-coupon-form [data-at-coupon-remove] {
     min-height: 2.75rem;
   }
   #at-coupon-form .at-coupon-another__summary {
     min-height: 2.75rem;
     padding-block: 0.4rem;
+  }
+}
+@media (max-width: 359.98px) {
+  .at-checkout-block {
+    padding: 1rem;
+  }
+  #at-coupon-form [data-at-coupon-apply] {
+    flex: 1 1 100%;
   }
 }
 

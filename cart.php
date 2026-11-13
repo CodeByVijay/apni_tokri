@@ -31,6 +31,10 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
 </div>
 
 <div class="at-container py-6 md:py-8 <?= $items !== [] ? 'at-cart-page--sticky' : '' ?>">
+<div class="at-cart-undo hidden mb-4" data-cart-undo role="status" aria-live="polite">
+    <span class="at-cart-undo__text" data-cart-undo-text></span>
+    <button type="button" class="at-btn at-btn--secondary at-btn--sm at-focusable" data-cart-undo-btn>Undo</button>
+</div>
 <?php if ($items === []): ?>
     <?php
     $emptyTitle = 'Your cart is empty';
@@ -106,8 +110,13 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
                     $displayMin = min($lineMin, $displayCap);
                     $selQty = (int) ($item['qty'] ?? 1);
                     $rangeStart = $selQty < $displayMin ? max(1, $selQty) : $displayMin;
+                    $packLabel = trim((string) ($item['label'] ?? ''));
+                    $unitPrice = (float) ($item['unit_price'] ?? 0);
+                    $regPrice = (float) ($item['regular_price'] ?? $unitPrice);
+                    $isOnSale = !empty($item['on_sale']) && $regPrice > $unitPrice;
+                    $qtySelectId = 'cart-qty-' . preg_replace('/[^a-zA-Z0-9_-]/', '-', (string) $item['line_key']);
                     ?>
-                    <li class="at-line-item" data-line-key="<?= Security::escape((string) $item['line_key']) ?>" data-unit-price="<?= Security::escape((string) (float) $item['unit_price']) ?>" data-qty-cap="<?= (int) $displayCap ?>" data-qty-min="<?= (int) $displayMin ?>" data-qty-limit-toast="<?= Security::escape($qtyLimitToast) ?>" data-qty-decrease-toast="<?= Security::escape($qtyDecreaseToast) ?>">
+                    <li class="at-line-item" data-line-key="<?= Security::escape((string) $item['line_key']) ?>" data-product-slug="<?= Security::escape((string) ($item['product_slug'] ?? '')) ?>" data-variant-id="<?= Security::escape((string) ($item['variant_id'] ?? '')) ?>" data-item-name="<?= Security::escape((string) $item['name']) ?>" data-item-label="<?= Security::escape($packLabel) ?>" data-unit-price="<?= Security::escape((string) $unitPrice) ?>" data-qty-cap="<?= (int) $displayCap ?>" data-qty-min="<?= (int) $displayMin ?>" data-qty-limit-toast="<?= Security::escape($qtyLimitToast) ?>" data-qty-decrease-toast="<?= Security::escape($qtyDecreaseToast) ?>">
                         <a href="<?= Security::escape(url_base()) ?>/product.php?slug=<?= rawurlencode((string) $item['product_slug']) ?>" class="at-line-item__img at-focusable" tabindex="-1" aria-hidden="true">
                             <?php if (!empty($item['image'])): ?><img src="<?= Security::escape((string) $item['image']) ?>" alt="" loading="lazy"><?php endif; ?>
                         </a>
@@ -115,27 +124,37 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
                             <div class="at-line-item__head">
                                 <div class="at-line-item__title min-w-0">
                                     <a href="<?= Security::escape(url_base()) ?>/product.php?slug=<?= rawurlencode((string) $item['product_slug']) ?>" class="font-bold hover:text-[var(--at-green)] at-focusable"><?= Security::escape((string) $item['name']) ?></a>
-                                    <p class="text-sm at-muted at-line-item__variant"><?= Security::escape((string) $item['label']) ?></p>
+                                    <div class="at-line-item__meta">
+                                        <?php if ($packLabel !== ''): ?>
+                                            <span class="at-line-item__pack">Pack: <?= Security::escape($packLabel) ?></span>
+                                        <?php endif; ?>
+                                        <span class="at-line-item__unit">
+                                            <?= Security::escape(catalogue_format_price($unitPrice)) ?><?= $packLabel !== '' ? ' / pack' : ' each' ?>
+                                            <?php if ($isOnSale): ?><s class="at-muted ml-1"><?= Security::escape(catalogue_format_price($regPrice)) ?></s><?php endif; ?>
+                                        </span>
+                                    </div>
                                 </div>
-                                <p class="font-extrabold text-lg at-line-item__total" data-cart-line-total>
-                                    <?= Security::escape(catalogue_format_price((float) $item['unit_price'] * (int) $item['qty'])) ?>
+                                <p class="font-extrabold text-lg at-line-item__total tabular-nums" data-cart-line-total>
+                                    <?= Security::escape(catalogue_format_price($unitPrice * $selQty)) ?>
                                 </p>
                             </div>
-                            <p class="text-sm mt-1"><?= Security::escape(catalogue_format_price((float) $item['unit_price'])) ?> each</p>
                             <?php if (!$lineCheck['ok']): ?>
                                 <p class="text-sm text-red-600 mt-2" role="alert"><?= Security::escape((string) ($lineCheck['message'] ?? '')) ?></p>
                             <?php endif; ?>
-                            <div class="at-line-item__controls flex flex-wrap items-center gap-3 mt-3">
-                                <div class="at-qty at-qty--sm">
-                                    <button type="button" data-qty-step="-1" aria-label="Decrease quantity">−</button>
-                                    <select class="at-focusable js-cart-qty" aria-label="Quantity" min="<?= (int) $displayMin ?>" max="<?= (int) $displayCap ?>">
-                                        <?php for ($q = $rangeStart; $q <= $displayCap; $q++): ?>
-                                            <option value="<?= $q ?>" <?= $selQty === $q ? 'selected' : '' ?>><?= $q ?></option>
-                                        <?php endfor; ?>
-                                    </select>
-                                    <button type="button" data-qty-step="1" aria-label="Increase quantity">+</button>
+                            <div class="at-line-item__controls flex flex-wrap items-center justify-between gap-3 mt-3">
+                                <div class="at-line-item__qty-group">
+                                    <label for="<?= Security::escape($qtySelectId) ?>" class="at-line-item__qty-label">Qty</label>
+                                    <div class="at-qty at-qty--sm">
+                                        <button type="button" data-qty-step="-1" aria-label="Decrease quantity of <?= Security::escape((string) $item['name']) ?>">−</button>
+                                        <select id="<?= Security::escape($qtySelectId) ?>" class="at-focusable js-cart-qty" min="<?= (int) $displayMin ?>" max="<?= (int) $displayCap ?>">
+                                            <?php for ($q = $rangeStart; $q <= $displayCap; $q++): ?>
+                                                <option value="<?= $q ?>" <?= $selQty === $q ? 'selected' : '' ?>><?= $q ?></option>
+                                            <?php endfor; ?>
+                                        </select>
+                                        <button type="button" data-qty-step="1" aria-label="Increase quantity of <?= Security::escape((string) $item['name']) ?>">+</button>
+                                    </div>
                                 </div>
-                                <button type="button" class="text-sm font-semibold text-[var(--at-danger)] hover:underline js-cart-remove at-focusable flex items-center gap-1"><?= at_icon('trash', 'w-4 h-4') ?>Remove</button>
+                                <button type="button" class="text-sm font-semibold text-[var(--at-danger)] hover:underline js-cart-remove at-focusable flex items-center gap-1" aria-label="Remove <?= Security::escape((string) $item['name']) ?>"><?= at_icon('trash', 'w-4 h-4') ?><span>Remove</span></button>
                             </div>
                         </div>
                     </li>
@@ -154,21 +173,21 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
                 ?>
             </div>
 
-            <form id="at-coupon-form" class="at-card at-card--flat mt-3"<?= catalogue_cart_coupon_applied($totals) ? ' data-applied-code="' . Security::escape((string) $totals['coupon_code']) . '"' : '' ?>>
+            <?php $cartCouponApplied = catalogue_cart_coupon_applied($totals); $cartAppliedCode = $cartCouponApplied ? trim((string) $totals['coupon_code']) : ''; ?>
+            <form id="at-coupon-form" class="at-card at-card--flat mt-3"<?= $cartCouponApplied ? ' data-applied-code="' . Security::escape($cartAppliedCode) . '"' : '' ?>>
                 <div class="at-card__body !py-4">
                     <?= Csrf::field() ?>
                     <div class="at-coupon-form__head">
-                        <label class="at-label" for="coupon_code"><?= at_icon('tag', 'w-4 h-4 text-[var(--at-green)]') ?><span data-at-coupon-head-label><?= catalogue_cart_coupon_applied($totals) ? 'Coupon applied' : 'Have a coupon?' ?></span></label>
-                        <button type="button" id="at-coupon-remove" class="at-btn at-btn--ghost at-focusable<?= catalogue_cart_coupon_applied($totals) ? '' : ' hidden' ?>" data-at-coupon-remove>Remove</button>
+                        <label class="at-label" for="coupon_code"><?= at_icon('tag', 'w-4 h-4 text-[var(--at-green)]') ?><span data-at-coupon-head-label><?= $cartCouponApplied ? Security::escape($cartAppliedCode) . ' applied' : 'Have a coupon?' ?></span></label>
+                        <button type="button" id="at-coupon-remove" class="at-btn at-btn--ghost at-focusable<?= $cartCouponApplied ? '' : ' hidden' ?>" data-at-coupon-remove>Remove</button>
                     </div>
-                    <details class="at-coupon-another" data-at-coupon-another<?= catalogue_cart_coupon_applied($totals) ? '' : ' open' ?>>
-                        <summary class="at-coupon-another__summary text-sm font-semibold text-[var(--at-green)] cursor-pointer at-focusable<?= catalogue_cart_coupon_applied($totals) ? '' : ' hidden' ?>" data-at-coupon-another-summary>Have another coupon?</summary>
+                    <details class="at-coupon-another" data-at-coupon-another<?= $cartCouponApplied ? '' : ' open' ?>>
+                        <summary class="at-coupon-another__summary text-sm font-semibold text-[var(--at-green)] cursor-pointer at-focusable<?= $cartCouponApplied ? '' : ' hidden' ?>" data-at-coupon-another-summary>Have another coupon?</summary>
                         <div class="at-coupon-form__row mt-2">
-                            <input id="coupon_code" name="coupon_code" class="at-input at-focusable flex-1 min-w-[10rem]" placeholder="Enter your coupon code" value="<?= catalogue_cart_coupon_applied($totals) ? '' : Security::escape((string) ($totals['coupon_code'] ?? '')) ?>" autocomplete="off">
+                            <input id="coupon_code" name="coupon_code" class="at-input at-focusable flex-1 min-w-[10rem]" placeholder="Enter coupon code" value="<?= $cartCouponApplied ? '' : Security::escape((string) ($totals['coupon_code'] ?? '')) ?>" autocomplete="off">
                             <button type="submit" id="at-coupon-apply" class="at-btn at-btn--secondary at-focusable" data-at-coupon-apply>Apply</button>
                         </div>
                         <p id="at-coupon-feedback" class="text-sm mt-2 hidden" data-at-coupon-feedback role="alert"></p>
-                        <p class="at-field-hint mt-2">Discount shows in your order summary.</p>
                     </details>
                 </div>
             </form>
@@ -183,10 +202,15 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
             <a href="<?= Security::escape(url_base()) ?>/index.php" class="at-btn at-btn--ghost at-btn--block at-focusable mt-2">Continue shopping</a>
         </aside>
     </div>
+    <?php
+    $cartStickyQuoteReady = !empty($totals['delivery_quote_accurate'])
+        && !empty($totals['delivery_serviceable'])
+        && trim((string) ($totals['delivery_quote_message'] ?? '')) === '';
+    ?>
     <div class="at-cart-sticky" data-at-cart-sticky>
         <div class="min-w-0">
-            <p class="text-xs at-muted leading-tight">Total</p>
-            <p class="font-extrabold text-lg leading-tight" data-cart-total><?= Security::escape(catalogue_format_price((float) $totals['total'])) ?></p>
+            <p class="text-xs at-muted leading-tight" data-cart-sticky-label><?= $cartStickyQuoteReady ? 'Total payable' : 'Items payable' ?></p>
+            <p class="font-extrabold text-lg leading-tight tabular-nums" data-cart-total><?= Security::escape(catalogue_format_price((float) $totals['total'])) ?></p>
         </div>
         <a href="<?= $cartCheckoutBlocked ? '#' : Security::escape(url_base()) . '/checkout.php' ?>" class="at-btn at-btn--primary at-focusable at-cart-sticky__cta <?= $cartCheckoutBlocked ? 'pointer-events-none opacity-50' : '' ?>" data-cart-checkout-cta <?= $cartCheckoutBlocked ? 'aria-disabled="true"' : '' ?>>Checkout <?= at_icon('chevron-right', 'w-5 h-5') ?></a>
     </div>

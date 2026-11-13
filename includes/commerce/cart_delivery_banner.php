@@ -7,8 +7,10 @@ final class CartDeliveryBanner
 {
     public const MSG_SELECT_ADDRESS = 'Select your delivery address to see your delivery charge.';
     public const MSG_UPDATE_ADDRESS = 'Update your saved delivery address to see your delivery charge.';
+    public const MSG_SUMMARY_NO_ADDRESS = 'Select an address to calculate delivery charge.';
     private const CTA_HREF = '/checkout.php';
     private const CTA_LABEL = 'Select delivery address';
+    private const CTA_CHANGE_LABEL = 'Change address';
 
     /**
      * @param array<string, mixed> $totals
@@ -17,45 +19,79 @@ final class CartDeliveryBanner
     public static function fromTotals(array $totals): array
     {
         $quoteMsg = trim((string) ($totals['delivery_quote_message'] ?? ''));
+        $zone = trim((string) ($totals['delivery_zone'] ?? ''));
+        $zoneSuffix = $zone !== '' ? ' · ' . $zone : '';
+
         if ($quoteMsg !== '') {
             if (self::isSelectAddressMessage($quoteMsg)) {
-                return self::withCta(self::neutral(self::MSG_SELECT_ADDRESS));
+                return self::withCta(self::neutral(self::MSG_SELECT_ADDRESS), self::CTA_LABEL);
+            }
+            if (self::isSelectSlotMessage($quoteMsg)) {
+                return self::neutral('Address saved' . $zoneSuffix . ' — choose your delivery slot at checkout to see your delivery charge.');
             }
 
-            return self::withCta(self::neutral($quoteMsg));
+            return self::withCta(self::neutral($quoteMsg), self::CTA_CHANGE_LABEL);
         }
 
         if (empty($totals['delivery_quote_accurate'])) {
-            return self::withCta(self::neutral(self::MSG_SELECT_ADDRESS));
+            return self::withCta(self::neutral(self::MSG_SELECT_ADDRESS), self::CTA_LABEL);
         }
 
         if (empty($totals['delivery_serviceable'])) {
-            return self::withCta(self::neutral('Delivery is not available for the selected address.'));
+            return self::withCta(self::neutral('Delivery is not available for the selected address.'), self::CTA_CHANGE_LABEL);
         }
 
         $fee = (float) ($totals['delivery_fee'] ?? 0);
         $toFree = (float) ($totals['amount_to_free_delivery'] ?? 0);
         $eligible = !empty($totals['free_delivery_eligible']);
 
-        if ($fee <= 0 && $eligible && $toFree <= 0) {
+        if ($fee <= 0) {
             return [
-                'message' => 'You\'ve unlocked free delivery',
+                'message' => ($eligible && $toFree <= 0 ? 'Free delivery unlocked' : 'Free delivery') . $zoneSuffix,
                 'tone' => 'success',
-                'show_progress' => true,
+                'show_progress' => $eligible,
                 'progress' => 100,
             ];
         }
 
         if ($eligible && $toFree > 0) {
             return [
-                'message' => 'Add ' . catalogue_format_price($toFree) . ' more for free delivery',
+                'message' => 'Delivery charge: ' . catalogue_format_price($fee) . $zoneSuffix . ' · Add ' . catalogue_format_price($toFree) . ' more for free delivery',
                 'tone' => 'progress',
                 'show_progress' => true,
                 'progress' => self::progressPercent($totals, $toFree),
             ];
         }
 
-        return self::neutral('Your delivery charge appears in the order summary.');
+        return self::neutral('Delivery charge: ' . catalogue_format_price($fee) . $zoneSuffix);
+    }
+
+    /**
+     * Order-summary helper line when delivery quote is not yet resolved.
+     *
+     * @param array<string, mixed> $totals
+     */
+    public static function summaryPendingMessage(array $totals): string
+    {
+        $quoteMsg = trim((string) ($totals['delivery_quote_message'] ?? ''));
+        if ($quoteMsg !== '') {
+            if (self::isSelectAddressMessage($quoteMsg)) {
+                return self::MSG_SUMMARY_NO_ADDRESS;
+            }
+            if (self::isSelectSlotMessage($quoteMsg)) {
+                return 'Choose a delivery slot at checkout to calculate delivery charge.';
+            }
+
+            return $quoteMsg;
+        }
+        if (empty($totals['delivery_quote_accurate'])) {
+            return self::MSG_SUMMARY_NO_ADDRESS;
+        }
+        if (empty($totals['delivery_serviceable'])) {
+            return 'Delivery is not available for the selected address.';
+        }
+
+        return '';
     }
 
     /**
@@ -87,23 +123,30 @@ final class CartDeliveryBanner
      * @param array{message: string, tone: string, show_progress: bool, progress: int} $banner
      * @return array{message: string, tone: string, show_progress: bool, progress: int, cta_href: string, cta_label: string}
      */
-    private static function withCta(array $banner): array
+    private static function withCta(array $banner, string $label = self::CTA_LABEL): array
     {
         $banner['cta_href'] = url_base() . self::CTA_HREF;
-        $banner['cta_label'] = self::CTA_LABEL;
+        $banner['cta_label'] = $label;
 
         return $banner;
     }
 
-    private static function isSelectAddressMessage(string $quoteMsg): bool
+    public static function isSelectAddressMessage(string $quoteMsg): bool
     {
         $lower = strtolower($quoteMsg);
 
         return str_contains($lower, 'select a delivery address')
             || str_contains($lower, 'select delivery address')
+            || str_contains($lower, 'select your delivery address')
+            || str_contains($lower, 'select an address')
             || str_contains($lower, 'delivery address for an accurate')
             || str_contains($lower, 'update your saved delivery address')
             || str_contains($lower, 'update your delivery address')
             || str_contains($lower, 'delivery address with a confirmed location');
+    }
+
+    public static function isSelectSlotMessage(string $quoteMsg): bool
+    {
+        return str_contains(strtolower($quoteMsg), 'delivery slot');
     }
 }
