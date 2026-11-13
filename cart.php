@@ -55,6 +55,11 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
                     $bannerClass = $deliveryBanner['tone'] === 'success' ? 'text-[var(--at-success)]' : '';
                     ?>
                     <p class="text-sm font-semibold flex items-center gap-2 <?= Security::escape($bannerClass) ?>" data-cart-delivery-banner-text><?= at_icon($bannerIcon, 'w-5 h-5 ' . ($deliveryBanner['tone'] === 'success' ? '' : 'text-[var(--at-green)]')) ?><?= Security::escape((string) $deliveryBanner['message']) ?></p>
+                    <?php if (!empty($deliveryBanner['cta_href'])): ?>
+                    <a href="<?= Security::escape((string) $deliveryBanner['cta_href']) ?>" class="at-btn at-btn--secondary at-btn--sm at-focusable mt-2" data-cart-delivery-banner-cta><?= Security::escape((string) ($deliveryBanner['cta_label'] ?? 'Select delivery address')) ?></a>
+                    <?php else: ?>
+                    <a href="<?= Security::escape(url_base()) ?>/checkout.php" class="at-btn at-btn--secondary at-btn--sm at-focusable mt-2 hidden" data-cart-delivery-banner-cta>Select delivery address</a>
+                    <?php endif; ?>
                     <div class="at-progress mt-3 <?= $deliveryBanner['show_progress'] ? '' : 'hidden' ?>" data-cart-delivery-progress role="progressbar" aria-valuenow="<?= (int) $deliveryBanner['progress'] ?>" aria-valuemin="0" aria-valuemax="100"><div class="at-progress__bar" data-cart-delivery-progress-bar style="width:<?= (int) $deliveryBanner['progress'] ?>%"></div></div>
                 </div>
             </div>
@@ -153,15 +158,18 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
                 <div class="at-card__body !py-4">
                     <?= Csrf::field() ?>
                     <div class="at-coupon-form__head">
-                        <label class="at-label" for="coupon_code"><?= at_icon('tag', 'w-4 h-4 text-[var(--at-green)]') ?>Have a coupon?</label>
+                        <label class="at-label" for="coupon_code"><?= at_icon('tag', 'w-4 h-4 text-[var(--at-green)]') ?><span data-at-coupon-head-label><?= catalogue_cart_coupon_applied($totals) ? 'Coupon applied' : 'Have a coupon?' ?></span></label>
                         <button type="button" id="at-coupon-remove" class="at-btn at-btn--ghost at-focusable<?= catalogue_cart_coupon_applied($totals) ? '' : ' hidden' ?>" data-at-coupon-remove>Remove</button>
                     </div>
-                    <div class="at-coupon-form__row">
-                        <input id="coupon_code" name="coupon_code" class="at-input at-focusable flex-1 min-w-[10rem]" placeholder="Enter your coupon code" value="<?= Security::escape((string) ($totals['coupon_code'] ?? '')) ?>" autocomplete="off">
-                        <button type="submit" id="at-coupon-apply" class="at-btn at-btn--secondary at-focusable<?= catalogue_cart_coupon_applied($totals) ? ' hidden' : '' ?>" data-at-coupon-apply>Apply</button>
-                    </div>
-                    <p id="at-coupon-feedback" class="text-sm mt-2 hidden" data-at-coupon-feedback role="alert"></p>
-                    <p class="at-field-hint mt-2">Eligibility is validated on the server. Discount appears in your order summary.</p>
+                    <details class="at-coupon-another" data-at-coupon-another<?= catalogue_cart_coupon_applied($totals) ? '' : ' open' ?>>
+                        <summary class="at-coupon-another__summary text-sm font-semibold text-[var(--at-green)] cursor-pointer at-focusable<?= catalogue_cart_coupon_applied($totals) ? '' : ' hidden' ?>" data-at-coupon-another-summary>Have another coupon?</summary>
+                        <div class="at-coupon-form__row mt-2">
+                            <input id="coupon_code" name="coupon_code" class="at-input at-focusable flex-1 min-w-[10rem]" placeholder="Enter your coupon code" value="<?= catalogue_cart_coupon_applied($totals) ? '' : Security::escape((string) ($totals['coupon_code'] ?? '')) ?>" autocomplete="off">
+                            <button type="submit" id="at-coupon-apply" class="at-btn at-btn--secondary at-focusable" data-at-coupon-apply>Apply</button>
+                        </div>
+                        <p id="at-coupon-feedback" class="text-sm mt-2 hidden" data-at-coupon-feedback role="alert"></p>
+                        <p class="at-field-hint mt-2">Eligibility is validated on the server. Discount appears in your order summary.</p>
+                    </details>
                 </div>
             </form>
         </div>
@@ -171,9 +179,6 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
             <?php if ($cartQtyBlocking): ?>
                 <p class="text-sm text-red-600 mb-3" role="alert">Fix quantity issues above before checkout.</p>
             <?php endif; ?>
-            <p class="text-sm mb-3 px-3 py-2 rounded-lg bg-[var(--at-cream-2)] border border-[var(--at-line)] text-[var(--at-yellow-ink)]<?= $cartMinOrderBlocking ? '' : ' hidden' ?>" data-cart-min-order-alert role="status">
-                <span data-cart-min-order-remaining>Add <?= Security::escape(catalogue_format_price((float) ($totals['min_order_shortfall'] ?? 0))) ?> more to unlock checkout.</span>
-            </p>
             <a href="<?= $cartCheckoutBlocked ? '#' : Security::escape(url_base()) . '/checkout.php' ?>" class="at-btn at-btn--primary at-btn--lg at-btn--block at-focusable mt-4 <?= $cartCheckoutBlocked ? 'pointer-events-none opacity-50' : '' ?>" data-cart-checkout-cta <?= $cartCheckoutBlocked ? 'aria-disabled="true"' : '' ?>>Proceed to checkout <?= at_icon('chevron-right', 'w-5 h-5') ?></a>
             <a href="<?= Security::escape(url_base()) ?>/index.php" class="at-btn at-btn--ghost at-btn--block at-focusable mt-2">Continue shopping</a>
         </aside>

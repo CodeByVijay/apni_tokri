@@ -3821,6 +3821,27 @@ body.at-gallery-lightbox-open {
   padding: 0.2rem 0.5rem;
   font-size: 0.8125rem;
 }
+#at-coupon-form .at-coupon-another__summary {
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+#at-coupon-form .at-coupon-another__summary::-webkit-details-marker {
+  display: none;
+}
+#at-coupon-form .at-coupon-another__summary::after {
+  content: '';
+  border: solid currentColor;
+  border-width: 0 1.5px 1.5px 0;
+  padding: 2.5px;
+  transform: rotate(45deg);
+  transition: transform 0.15s ease;
+}
+#at-coupon-form .at-coupon-another[open] .at-coupon-another__summary::after {
+  transform: rotate(-135deg);
+  margin-top: 4px;
+}
 /* Checkout "Offers & coupons" accordion. */
 .at-checkout-coupon__head {
   display: flex;

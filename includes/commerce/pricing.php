@@ -160,7 +160,7 @@ final class PricingService
 
         if (($requireCoords || DeliveryZoneResolver::zoneResolutionMode() !== 'pincode_legacy') && !$hasCoords) {
             $totals['delivery_quote_accurate'] = false;
-            $totals['delivery_quote_message'] = 'Pin your delivery location on the map for an accurate delivery fee.';
+            $totals['delivery_quote_message'] = CartDeliveryBanner::MSG_UPDATE_ADDRESS;
             $totals['delivery_fee'] = 0.0;
             $after = max(0, (float) ($totals['subtotal'] ?? 0) - (float) ($totals['offer_discount'] ?? 0)
                 - (float) ($totals['coupon_discount'] ?? 0));

@@ -349,7 +349,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
                         <span class="at-checkout-pay__label">Amount payable</span>
                         <span class="at-checkout-pay__value at-checkout-pay__amount" data-checkout-pay-card-amount><?= Security::escape(catalogue_format_price((float) $totals['total'])) ?></span>
                     </div>
-                    <p class="at-checkout-pay__hint text-sm at-muted">You will pay on the next screen. Your order is confirmed only after the server verifies payment with <?= Security::escape($paymentGatewayLabel) ?>.</p>
+                    <p class="at-checkout-pay__hint text-sm at-muted" data-checkout-pay-allowed<?= $checkoutMinOrderMet ? '' : ' hidden' ?>>You will pay on the next screen. Your order is confirmed only after the server verifies payment with <?= Security::escape($paymentGatewayLabel) ?>.</p>
                     <?php if (!$paymentGatewayReady): ?>
                         <p class="at-alert at-alert--warning text-sm mt-2" role="alert"><?= Security::escape($paymentGatewayBlockedMessage !== '' ? $paymentGatewayBlockedMessage : 'Online payment is temporarily unavailable. Ask the store admin to check gateway credentials under Settings → Payment gateways.') ?></p>
                     <?php endif; ?>
@@ -365,7 +365,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
             $checkoutRefundUrl = CmsPageService::publicPageUrl('refund-policy');
             $checkoutShippingUrl = CmsPageService::publicPageUrl('shipping-policy');
             ?>
-            <label class="flex items-start gap-3 mt-4 text-sm">
+            <label class="flex items-start gap-3 mt-4 text-sm" data-checkout-pay-allowed<?= $checkoutMinOrderMet ? '' : ' hidden' ?>>
                 <input type="checkbox" form="checkout-form" name="terms" value="1" required class="mt-0.5">
                 <span>I agree to the
                     <?php if ($checkoutRefundUrl !== null): ?><a class="underline font-semibold" href="<?= Security::escape($checkoutRefundUrl) ?>">refund</a><?php else: ?>refund<?php endif; ?>,
@@ -386,19 +386,13 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
             $canPay = $loggedIn && $addresses !== [];
             $slotsOk = $slotsOkInitial;
             ?>
-            <?php if (!empty($totals['min_order_enabled']) && empty($totals['min_order_met'])): ?>
-            <div class="at-alert at-alert--warning text-sm mb-3" data-checkout-min-order role="alert">
-                <span data-checkout-min-order-text><?= Security::escape((string) ($totals['min_order_message'] ?? '')) ?></span>
-                <span class="block mt-1 font-normal" data-checkout-min-order-remaining>Add <?= Security::escape(catalogue_format_price((float) ($totals['min_order_shortfall'] ?? 0))) ?> more to proceed to checkout.</span>
-            </div>
-            <?php else: ?>
-            <div class="at-alert at-alert--warning text-sm mb-3 hidden" data-checkout-min-order role="alert">
-                <span data-checkout-min-order-text></span>
-                <span class="block mt-1 font-normal" data-checkout-min-order-remaining></span>
-            </div>
-            <?php endif; ?>
             <div class="at-alert at-alert--warning text-sm mb-3 hidden" data-checkout-quote-error role="alert"></div>
-            <div class="flex flex-col sm:flex-row gap-3">
+            <div class="at-checkout-pay__blocked px-3 py-3 rounded-lg bg-[var(--at-cream-2)] border border-[var(--at-line)] text-sm space-y-2<?= $checkoutMinOrderMet ? ' hidden' : '' ?>" data-checkout-pay-blocked role="status">
+                <p class="font-semibold">Checkout is paused — minimum order not met.</p>
+                <p class="at-muted">Add <span class="font-bold tabular-nums" data-checkout-pay-blocked-shortfall><?= Security::escape(catalogue_format_price((float) ($totals['min_order_shortfall'] ?? 0))) ?></span> more in products to unlock payment. Delivery fee is extra.</p>
+                <a href="<?= Security::escape(url_base()) ?>/index.php" class="at-btn at-btn--secondary at-btn--sm at-focusable">Browse products</a>
+            </div>
+            <div class="flex flex-col sm:flex-row gap-3" data-checkout-pay-allowed<?= $checkoutMinOrderMet ? '' : ' hidden' ?>>
                 <?php if (CommerceGateway::useDatabase()): ?>
                     <button type="submit" id="checkout-proceed-pay" class="at-btn at-btn--primary at-btn--lg at-focusable flex-1" data-at-checkout-submit data-at-quote-ready="<?= ($checkoutQuoteReady && $paymentGatewayReady) ? '1' : '0' ?>" <?= ($canPay && $slotsOk && $paymentGatewayReady && $checkoutQuoteReady) ? '' : 'disabled' ?>><?= at_icon('lock', 'w-5 h-5') ?> Proceed to pay <span data-checkout-pay-amount><?= Security::escape(catalogue_format_price((float) $totals['total'])) ?></span></button>
                 <?php else: ?>
@@ -447,15 +441,18 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
                     <form id="at-coupon-form" class="mt-3"<?= catalogue_cart_coupon_applied($totals) ? ' data-applied-code="' . Security::escape((string) $totals['coupon_code']) . '"' : '' ?>>
                         <?= Csrf::field() ?>
                         <div class="at-coupon-form__head">
-                            <label class="at-label" for="coupon_code"><?= at_icon('tag', 'w-4 h-4 text-[var(--at-green)]') ?>Have a coupon?</label>
+                            <label class="at-label" for="coupon_code"><?= at_icon('tag', 'w-4 h-4 text-[var(--at-green)]') ?><span data-at-coupon-head-label><?= catalogue_cart_coupon_applied($totals) ? 'Coupon applied' : 'Have a coupon?' ?></span></label>
                             <button type="button" id="at-coupon-remove" class="at-btn at-btn--ghost at-focusable<?= catalogue_cart_coupon_applied($totals) ? '' : ' hidden' ?>" data-at-coupon-remove>Remove</button>
                         </div>
-                        <div class="at-coupon-form__row">
-                            <input id="coupon_code" name="coupon_code" class="at-input at-focusable flex-1 min-w-[10rem]" placeholder="Enter your coupon code" value="<?= Security::escape((string) ($totals['coupon_code'] ?? '')) ?>" autocomplete="off">
-                            <button type="submit" id="at-coupon-apply" class="at-btn at-btn--secondary at-focusable<?= catalogue_cart_coupon_applied($totals) ? ' hidden' : '' ?>" data-at-coupon-apply>Apply</button>
-                        </div>
-                        <p id="at-coupon-feedback" class="text-sm mt-2 hidden" data-at-coupon-feedback role="alert"></p>
-                        <p class="at-field-hint mt-2">Eligibility is validated on the server. Discount appears in your order summary.</p>
+                        <details class="at-coupon-another" data-at-coupon-another<?= catalogue_cart_coupon_applied($totals) ? '' : ' open' ?>>
+                            <summary class="at-coupon-another__summary text-sm font-semibold text-[var(--at-green)] cursor-pointer at-focusable<?= catalogue_cart_coupon_applied($totals) ? '' : ' hidden' ?>" data-at-coupon-another-summary>Have another coupon?</summary>
+                            <div class="at-coupon-form__row mt-2">
+                                <input id="coupon_code" name="coupon_code" class="at-input at-focusable flex-1 min-w-[10rem]" placeholder="Enter your coupon code" value="<?= catalogue_cart_coupon_applied($totals) ? '' : Security::escape((string) ($totals['coupon_code'] ?? '')) ?>" autocomplete="off">
+                                <button type="submit" id="at-coupon-apply" class="at-btn at-btn--secondary at-focusable" data-at-coupon-apply>Apply</button>
+                            </div>
+                            <p id="at-coupon-feedback" class="text-sm mt-2 hidden" data-at-coupon-feedback role="alert"></p>
+                            <p class="at-field-hint mt-2">Eligibility is validated on the server. Discount appears in your order summary.</p>
+                        </details>
                     </form>
                 </div>
             </details>

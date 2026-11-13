@@ -5,29 +5,32 @@ declare(strict_types=1);
 /** Cart page free-delivery / delivery preview copy from server totals only. */
 final class CartDeliveryBanner
 {
-    public const MSG_SELECT_ADDRESS = 'Select your delivery address to check delivery charges.';
+    public const MSG_SELECT_ADDRESS = 'Select your delivery address to see the exact delivery fee.';
+    public const MSG_UPDATE_ADDRESS = 'Update your saved delivery address to see the exact delivery fee.';
+    private const CTA_HREF = '/checkout.php';
+    private const CTA_LABEL = 'Select delivery address';
 
     /**
      * @param array<string, mixed> $totals
-     * @return array{message: string, tone: string, show_progress: bool, progress: int}
+     * @return array{message: string, tone: string, show_progress: bool, progress: int, cta_href?: string, cta_label?: string}
      */
     public static function fromTotals(array $totals): array
     {
         $quoteMsg = trim((string) ($totals['delivery_quote_message'] ?? ''));
         if ($quoteMsg !== '') {
             if (self::isSelectAddressMessage($quoteMsg)) {
-                return self::neutral(self::MSG_SELECT_ADDRESS);
+                return self::withCta(self::neutral(self::MSG_SELECT_ADDRESS));
             }
 
-            return self::neutral($quoteMsg);
+            return self::withCta(self::neutral($quoteMsg));
         }
 
         if (empty($totals['delivery_quote_accurate'])) {
-            return self::neutral(self::MSG_SELECT_ADDRESS);
+            return self::withCta(self::neutral(self::MSG_SELECT_ADDRESS));
         }
 
         if (empty($totals['delivery_serviceable'])) {
-            return self::neutral('Delivery is not available for the selected address.');
+            return self::withCta(self::neutral('Delivery is not available for the selected address.'));
         }
 
         $fee = (float) ($totals['delivery_fee'] ?? 0);
@@ -80,12 +83,27 @@ final class CartDeliveryBanner
         ];
     }
 
+    /**
+     * @param array{message: string, tone: string, show_progress: bool, progress: int} $banner
+     * @return array{message: string, tone: string, show_progress: bool, progress: int, cta_href: string, cta_label: string}
+     */
+    private static function withCta(array $banner): array
+    {
+        $banner['cta_href'] = url_base() . self::CTA_HREF;
+        $banner['cta_label'] = self::CTA_LABEL;
+
+        return $banner;
+    }
+
     private static function isSelectAddressMessage(string $quoteMsg): bool
     {
         $lower = strtolower($quoteMsg);
 
         return str_contains($lower, 'select a delivery address')
             || str_contains($lower, 'select delivery address')
-            || str_contains($lower, 'delivery address for an accurate');
+            || str_contains($lower, 'delivery address for an accurate')
+            || str_contains($lower, 'update your saved delivery address')
+            || str_contains($lower, 'update your delivery address')
+            || str_contains($lower, 'delivery address with a confirmed location');
     }
 }

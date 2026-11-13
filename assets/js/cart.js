@@ -146,16 +146,24 @@
   function setCouponUiApplied(applied, code) {
     var $remove = $('[data-at-coupon-remove]');
     var $input = $('#coupon_code');
+    var $form = $('#at-coupon-form');
+    var $another = $('[data-at-coupon-another]');
     if (applied && code) {
       $remove.removeClass('hidden');
       $input.val(code);
-      $('#at-coupon-form').attr('data-applied-code', code);
+      $form.attr('data-applied-code', code);
+      $('[data-at-coupon-head-label]').text('Coupon applied');
+      $another.prop('open', false);
+      $('[data-at-coupon-another-summary]').removeClass('hidden');
     } else {
       $remove.addClass('hidden');
-      $('#at-coupon-form').removeAttr('data-applied-code');
+      $form.removeAttr('data-applied-code');
       if (!applied) {
         $input.val('');
       }
+      $('[data-at-coupon-head-label]').text('Have a coupon?');
+      $another.prop('open', true);
+      $('[data-at-coupon-another-summary]').addClass('hidden');
     }
     syncCouponApplyVisibility();
   }
@@ -178,14 +186,30 @@
     var showProgress = false;
     var progress = 0;
 
+    var isSelectAddressMsg = function (m) {
+      var t = String(m).toLowerCase();
+      return t.indexOf('select a delivery address') !== -1 ||
+        t.indexOf('select delivery address') !== -1 ||
+        t.indexOf('delivery address for an accurate') !== -1 ||
+        t.indexOf('update your saved delivery address') !== -1 ||
+        t.indexOf('update your delivery address') !== -1 ||
+        t.indexOf('delivery address with a confirmed location') !== -1;
+    };
+    var showCta = false;
+
     if (quoteMsg) {
-      msg = /select a delivery address/i.test(quoteMsg)
-        ? 'Select your delivery address to check delivery charges.'
-        : quoteMsg;
+      if (isSelectAddressMsg(quoteMsg)) {
+        msg = 'Select your delivery address to see the exact delivery fee.';
+      } else {
+        msg = quoteMsg;
+      }
+      showCta = true;
     } else if (!accurate) {
-      msg = 'Select your delivery address to check delivery charges.';
+      msg = 'Select your delivery address to see the exact delivery fee.';
+      showCta = true;
     } else if (!serviceable) {
       msg = 'Delivery is not available for the selected address.';
+      showCta = true;
     } else if (fee <= 0 && eligible && toFree <= 0) {
       msg = "You've unlocked free delivery";
       tone = 'success';
@@ -203,6 +227,10 @@
       msg = 'Delivery fee is shown in your order summary once your address is confirmed.';
     }
 
+    var $cta = $('[data-cart-delivery-banner-cta]');
+    if ($cta.length) {
+      $cta.toggleClass('hidden', !showCta);
+    }
     if ($text.length) {
       $text.removeClass('text-[var(--at-success)]');
       if (tone === 'success') {
@@ -229,6 +257,9 @@
       deliveryLabel = parseFloat(totals.delivery_fee) === 0 ? 'Free' : formatMoney(totals.delivery_fee);
     }
     $('[data-cart-delivery]').text(deliveryLabel);
+    $('[data-cart-delivery-context]').text(
+      totals.delivery_zone ? '· to ' + String(totals.delivery_zone) : ''
+    );
     $('[data-cart-total]').text(formatMoney(totals.total));
     refreshDeliveryBanner(totals);
 
@@ -237,7 +268,7 @@
     if ($productSavingsRow.length) {
       if (productSavings > 0) {
         $productSavingsRow.removeClass('hidden');
-        $('[data-cart-product-savings]').text('−' + formatMoney(productSavings));
+        $('[data-cart-product-savings]').text(formatMoney(productSavings));
       } else {
         $productSavingsRow.addClass('hidden');
         $('[data-cart-product-savings]').text('');
@@ -302,9 +333,9 @@
         $free
           .removeClass('hidden')
           .text(
-            'Add ' +
+            'Free delivery (optional saving): add ' +
               formatMoney(totals.amount_to_free_delivery) +
-              ' more (eligible items) for free delivery.'
+              ' more in eligible items.'
           );
       } else {
         $free.addClass('hidden');
@@ -333,27 +364,17 @@
     var shortfall = parseFloat(totals.min_order_shortfall) || 0;
     $wrap
       .find('[data-cart-min-order-min]')
-      .text('Minimum order value: ' + formatMoney(minAmt));
+      .text('Is area mein minimum order ' + formatMoney(minAmt) + ' hai.');
     $wrap
       .find('[data-cart-min-order-merch]')
-      .text('Your order value after discounts is ' + formatMoney(merch) + '.');
+      .text('Aapka discounted product value ' + formatMoney(merch) + ' hai.');
     $wrap
       .find('[data-cart-min-order-remaining]')
       .html(
-        'Add <span class="font-bold tabular-nums">' +
+        'Checkout ke liye <span class="font-bold tabular-nums">' +
           formatMoney(shortfall) +
-          '</span> more in products to proceed to checkout.'
+          '</span> aur products add karein.'
       );
-  }
-
-  function fillMinOrderCtaHint($alert, totals) {
-    if (!$alert || !$alert.length) {
-      return;
-    }
-    var shortfall = parseFloat(totals.min_order_shortfall) || 0;
-    $alert
-      .find('[data-cart-min-order-remaining]')
-      .text('Add ' + formatMoney(shortfall) + ' more to unlock checkout.');
   }
 
   function refreshMinimumOrder(totals) {
@@ -363,15 +384,11 @@
     var enabled = !!totals.min_order_enabled;
     var met = minOrderMetFromTotals(totals);
     var $wrap = $('[data-cart-min-order]');
-    var $alert = $('[data-cart-min-order-alert]');
     if (!enabled || met) {
       $wrap.addClass('hidden');
-      $alert.addClass('hidden');
     } else {
       $wrap.removeClass('hidden');
-      $alert.removeClass('hidden');
       fillMinOrderSummary($wrap, totals);
-      fillMinOrderCtaHint($alert, totals);
     }
     var block = enabled && !met;
     $('[data-cart-checkout-cta]').each(function () {
@@ -400,6 +417,25 @@
     var amt = formatMoney(totals.total);
     $('[data-checkout-pay-amount]').text(amt);
     $('[data-checkout-pay-card-amount]').text(amt);
+  }
+
+  function syncMinOrderBlocked(totals) {
+    if (!totals) return;
+    var $blocked = $('[data-checkout-pay-blocked]');
+    if (!$blocked.length) return;
+    var blocked = !!(totals.min_order_enabled && !totals.min_order_met);
+    if (blocked) {
+      var shortfall = parseFloat(totals.min_order_shortfall) || 0;
+      $blocked
+        .find('[data-checkout-pay-blocked-shortfall]')
+        .text(formatMoney(shortfall));
+    }
+    $blocked.toggleClass('hidden', !blocked);
+    $('[data-checkout-pay-allowed]').toggleClass('hidden', blocked);
+    var $terms = $('#checkout-form input[name="terms"]');
+    if ($terms.length) {
+      $terms.prop('disabled', blocked);
+    }
   }
 
   function parseAjaxError(xhr, fallback) {
@@ -710,21 +746,7 @@
         var checkout = res.data.checkout || {};
         refreshSummary(totals);
         updateCheckoutPayAmounts(totals);
-        var $minAlert = $('[data-checkout-min-order]');
-        if ($minAlert.length) {
-          if (totals.min_order_enabled && !totals.min_order_met) {
-            var minShort = parseFloat(totals.min_order_shortfall) || 0;
-            $minAlert.removeClass('hidden');
-            $minAlert.find('[data-checkout-min-order-text]').text(String(totals.min_order_message || ''));
-            $minAlert
-              .find('[data-checkout-min-order-remaining]')
-              .text('Add ' + formatMoney(minShort) + ' more to proceed to checkout.');
-          } else {
-            $minAlert.addClass('hidden');
-            $minAlert.find('[data-checkout-min-order-text]').text('');
-            $minAlert.find('[data-checkout-min-order-remaining]').text('');
-          }
-        }
+        syncMinOrderBlocked(totals);
         if ($alert.length) {
           if (checkout.quote_message) {
             $alert.removeClass('hidden').text(checkout.quote_message);

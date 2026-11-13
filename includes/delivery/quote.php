@@ -39,7 +39,7 @@ final class DeliveryQuoteService
         if ($requireCoords && !$hasCoords) {
             return self::fail(
                 'coordinates_required',
-                'Add your delivery location on the map before checkout — we need your pin to calculate delivery.'
+                'Select a delivery address with a confirmed location — we need it to calculate your delivery fee.'
             );
         }
 
