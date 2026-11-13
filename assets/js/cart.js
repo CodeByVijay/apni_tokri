@@ -134,18 +134,30 @@
     }
   }
 
+  function syncCouponApplyVisibility() {
+    var $form = $('#at-coupon-form');
+    var $apply = $('[data-at-coupon-apply]');
+    if (!$form.length || !$apply.length) return;
+    var applied = String($form.attr('data-applied-code') || '').trim().toUpperCase();
+    var val = String($('#coupon_code').val() || '').trim().toUpperCase();
+    $apply.toggleClass('hidden', applied !== '' && val === applied);
+  }
+
   function setCouponUiApplied(applied, code) {
     var $remove = $('[data-at-coupon-remove]');
     var $input = $('#coupon_code');
     if (applied && code) {
       $remove.removeClass('hidden');
       $input.val(code);
+      $('#at-coupon-form').attr('data-applied-code', code);
     } else {
       $remove.addClass('hidden');
+      $('#at-coupon-form').removeAttr('data-applied-code');
       if (!applied) {
         $input.val('');
       }
     }
+    syncCouponApplyVisibility();
   }
 
   function refreshDeliveryBanner(totals) {
@@ -604,6 +616,7 @@
       e.preventDefault();
       postCoupon({ coupon_code: $('#coupon_code').val() });
     });
+    $('#coupon_code').on('input', syncCouponApplyVisibility);
 
     // Offer cards (delegated: the block is re-rendered after apply/remove).
     $(document).on('click', '[data-at-offer-apply]', function () {

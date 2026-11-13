@@ -52,7 +52,7 @@ $card = static function (array $o, bool $compact, int $idx = 0): string {
         </div>
         <div class="at-coffer__action">
             <?php if (!empty($o['applied'])): ?>
-                <button type="button" class="at-btn at-btn--ghost at-btn--sm at-coffer__btn at-focusable" data-at-offer-remove>Remove</button>
+                <span class="at-coffer__applied-mark" aria-label="Coupon applied"><?= at_icon('check-circle', 'w-5 h-5') ?></span>
             <?php elseif (!empty($o['eligible'])): ?>
                 <button type="button" class="at-btn at-btn--primary at-btn--sm at-coffer__btn at-focusable" data-at-offer-apply data-code="<?= $code ?>" aria-label="Apply coupon <?= $code ?>">Apply</button>
             <?php else: ?>

@@ -8628,6 +8628,7 @@ body.at-map-viewer-open { overflow: hidden; }
 .at-coffer__tags { margin-top: 0.15rem; font-size: 0.6875rem; color: var(--at-muted); }
 .at-coffer__action { display: flex; align-items: center; flex: none; }
 .at-coffer__btn { min-height: 44px; min-width: 4.5rem; justify-content: center; }
+.at-coffer__applied-mark { display: inline-flex; color: var(--at-green); }
 .at-offers.is-busy .at-coffer { opacity: 0.7; pointer-events: none; }
 .at-coffer--row { margin-bottom: 0.5rem; }
 
