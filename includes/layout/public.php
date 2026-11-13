@@ -19,6 +19,8 @@ function layout_public_start(array $vars): void
     }
     extract($vars, EXTR_SKIP);
     $GLOBALS['atHomeMobileChrome'] = !empty($vars['homeMobileChrome']);
+    $GLOBALS['atBottomNavActive'] = (string) ($vars['activeNav'] ?? '');
+    $GLOBALS['atShowBottomNav'] = !isset($vars['showBottomNav']) || (bool) $vars['showBottomNav'];
     if (!isset($seo) || !$seo instanceof SeoMetadata) {
         $seo = SeoMetadata::fromLegacy(
             (string) ($pageTitle ?? 'Veggie Tokri'),

@@ -5,6 +5,12 @@
    existing desktop listing layout is untouched.
    ============================================================ */
 
+/* Variant-picker cards render JS-toggled [hidden] slots; [hidden] must
+   beat author display rules (e.g. .at-badge/.at-stockline inline-flex). */
+.at-grid-products .at-product-card [hidden] {
+    display: none !important;
+}
+
 @media (max-width: 767.98px) {
 
     /* ---------- Compact page introduction ---------- */
@@ -246,6 +252,33 @@
     .at-grid-products .at-product-card__add svg {
         width: 0.85rem;
         height: 0.85rem;
+    }
+
+    /* ---------- Variant picker (matches homepage card) ---------- */
+    .at-grid-products .at-product-card__variant {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 0.45rem;
+        align-items: stretch;
+        margin-top: 0.5rem;
+    }
+
+    .at-grid-products .at-product-card__variant .at-product-card__add {
+        width: 100%;
+    }
+
+    .at-grid-products .at-product-card__variant-select {
+        width: 100%;
+        min-width: 0;
+        min-height: 2.5rem;
+        padding: 0.25rem 1.65rem 0.25rem 0.55rem;
+        border: 1px solid var(--at-green-100);
+        border-radius: 0.85rem;
+        background-color: var(--at-green-50);
+        background-position: right 0.45rem center;
+        color: var(--at-green-deep);
+        font-size: 0.74rem;
+        font-weight: 800;
     }
 }
 

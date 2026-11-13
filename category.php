@@ -175,7 +175,7 @@ $baseCatUrl = url_base() . '/category.php?slug=' . rawurlencode($slug);
             require APNI_TOKRI_ROOT . '/includes/partials/empty-state.php';
             ?>
         <?php else: ?>
-            <?php require APNI_TOKRI_ROOT . '/includes/partials/product-grid.php'; ?>
+            <?php $variantPickerCards = true; require APNI_TOKRI_ROOT . '/includes/partials/product-grid.php'; ?>
         <?php endif; ?>
     </div>
     <?php if (StorefrontDesignPreview::allowsLoadingPreview()): ?>

@@ -139,7 +139,7 @@
     }
 
     function syncMode() {
-      $('.at-product-card--home [data-card-variant-picker]').each(function () {
+      $('.at-product-card [data-card-variant-picker]').each(function () {
         var $picker = $(this);
         var $card = $picker.closest('.at-product-card');
         var $options = $card.find('.at-product-card__options');

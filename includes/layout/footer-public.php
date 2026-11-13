@@ -3,8 +3,8 @@
 declare(strict_types=1);
 
 $base = url_base();
-$showBottomNav = $showBottomNav ?? true;
-$activeNav = $activeNav ?? '';
+$showBottomNav = $showBottomNav ?? ($GLOBALS['atShowBottomNav'] ?? true);
+$activeNav = $activeNav ?? ($GLOBALS['atBottomNavActive'] ?? '');
 $homeMobileChrome = !empty($GLOBALS['atHomeMobileChrome']);
 if ($activeNav === '' && $homeMobileChrome) {
     $activeNav = 'home';
