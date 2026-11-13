@@ -360,11 +360,23 @@
 
     if ($btnGps.length) {
       var gpsBusy = false;
+      var gpsReset = function () {
+        gpsBusy = false;
+        $btnGps.prop('disabled', false).removeClass('is-busy');
+        $btnGps.find('[data-label]').text('Use my current location');
+      };
+      var geoErrorMsg = function (err) {
+        var code = err && typeof err.code === 'number' ? err.code : 0;
+        if (code === 1) {
+          return 'Please allow location access in your browser settings, then try again. Or search / enter your address manually.';
+        }
+        return 'Your current location could not be detected. Please try again or search your address.';
+      };
       $btnGps.on('click', function (e) {
         e.preventDefault();
         if (gpsBusy) return;
-        if (!navigator.geolocation || !navigator.geolocation.getCurrentPosition) {
-          setMsg('Your browser does not support location detection. Please enter the address manually.', 'warn');
+        if (window.isSecureContext === false || !navigator.geolocation || !navigator.geolocation.getCurrentPosition) {
+          setMsg('Your browser does not support location detection on this connection. Please enter the address manually.', 'warn');
           return;
         }
         gpsBusy = true;
@@ -375,23 +387,21 @@
           var lat = pos && pos.coords ? Number(pos.coords.latitude) : NaN;
           var lng = pos && pos.coords ? Number(pos.coords.longitude) : NaN;
           if (!validCoord(lat, lng)) {
-            gpsBusy = false;
-            $btnGps.prop('disabled', false).removeClass('is-busy');
-            $btnGps.find('[data-label]').text('Use my current location');
-            setMsg('We received an invalid location from your device. Please enter the address manually.', 'warn');
+            gpsReset();
+            setMsg('Your current location could not be detected. Please try again or search your address.', 'warn');
             return;
           }
+          setMsg('Location found — looking up address details…', 'info');
           $.ajax({
             url: ajaxUrl('reverseGeocodeUrl'),
             method: 'POST',
             dataType: 'json',
+            timeout: 15000,
             data: { _csrf_token: csrfToken(), latitude: lat, longitude: lng }
           }).done(function (res) {
-            gpsBusy = false;
-            $btnGps.prop('disabled', false).removeClass('is-busy');
-            $btnGps.find('[data-label]').text('Use my current location');
+            gpsReset();
             if (!res || !res.success || !res.data || !res.data.address) {
-              setMsg('Could not look up this location. Please enter the address manually.', 'warn');
+              setMsg('Location detected, but address details could not be loaded. Please search or enter your address manually.', 'warn');
               return;
             }
             var ra = res.data.address;
@@ -405,19 +415,31 @@
               state: ra.state,
               postcode: ra.pincode
             });
-            afterPlaceFill();
+            var missing = missingRequiredFields();
+            if (missing.length) {
+              setMsg('Your current location was detected. Please complete: ' + missing.join(', ') + ', then verify before saving.', 'warn');
+            } else {
+              setMsg('Your current location was detected. Please verify your address details.', 'info');
+            }
             $form.trigger('input');
-          }).fail(function () {
-            gpsBusy = false;
-            $btnGps.prop('disabled', false).removeClass('is-busy');
-            $btnGps.find('[data-label]').text('Use my current location');
-            setMsg('Could not look up this location. Please enter the address manually.', 'warn');
+          }).fail(function (xhr) {
+            gpsReset();
+            var msg = 'Location detected, but address details could not be loaded. Please search or enter your address manually.';
+            var status = xhr && typeof xhr.status === 'number' ? xhr.status : 0;
+            var jr = null;
+            try { jr = xhr && xhr.responseJSON; } catch (e) { /* ignore */ }
+            if (jr && jr.error && jr.error.message) {
+              msg = String(jr.error.message);
+            } else if (status === 0) {
+              msg = 'Could not reach the server. Please check your connection and try again.';
+            } else if (status === 403) {
+              msg = 'Your session has expired. Please reload the page and try again.';
+            }
+            setMsg(msg, 'warn');
           });
-        }, function () {
-          gpsBusy = false;
-          $btnGps.prop('disabled', false).removeClass('is-busy');
-          $btnGps.find('[data-label]').text('Use my current location');
-          setMsg('Location permission was denied or timed out. Please enter the address manually.', 'warn');
+        }, function (geoErr) {
+          gpsReset();
+          setMsg(geoErrorMsg(geoErr), 'warn');
         }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 });
       });
     }

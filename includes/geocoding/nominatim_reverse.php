@@ -54,18 +54,22 @@ final class NominatimReverseGeocoder
         curl_close($ch);
 
         if (!is_string($body) || $body === '') {
+            error_log('nominatim_reverse failed: http_status=' . $status . ' curl_error=' . $cerr);
             return ['ok' => false, 'error' => $cerr !== '' ? 'Address lookup failed.' : 'Empty response from address lookup.'];
         }
         if ($status === 429) {
+            error_log('nominatim_reverse rate-limited: http_status=429');
             return ['ok' => false, 'error' => 'Address lookup is busy. Try again in a moment.'];
         }
         if ($status < 200 || $status >= 300) {
+            error_log('nominatim_reverse failed: http_status=' . $status);
             return ['ok' => false, 'error' => 'Could not resolve this location.'];
         }
 
         try {
             $json = json_decode($body, true, 512, JSON_THROW_ON_ERROR);
         } catch (Throwable $e) {
+            error_log('nominatim_reverse failed: invalid JSON response');
             return ['ok' => false, 'error' => 'Invalid response from address lookup.'];
         }
         if (!is_array($json)) {
@@ -74,6 +78,7 @@ final class NominatimReverseGeocoder
 
         $addr = $json['address'] ?? null;
         if (!is_array($addr)) {
+            error_log('nominatim_reverse: no address object in response');
             return ['ok' => false, 'error' => 'No address details for this location.'];
         }
 
