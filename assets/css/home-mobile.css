@@ -89,10 +89,14 @@
 
     .at-home-hero__ctas .at-btn {
         min-height: 2.75rem;
+        max-width: 100%;
         padding: 0.65rem 0.95rem;
         border-radius: 0.85rem;
         font-size: 0.8rem;
         line-height: 1.1;
+        text-align: center;
+        /* Base .at-btn is nowrap; wrap instead of sliding under the media column. */
+        white-space: normal;
     }
 
     .at-home-hero__ctas .at-btn--secondary {
