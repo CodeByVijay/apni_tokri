@@ -6,6 +6,8 @@ require_once dirname(__DIR__) . '/includes/bootstrap.php';
 require_once APNI_TOKRI_ROOT . '/includes/admin/guard.php';
 require_once APNI_TOKRI_ROOT . '/includes/layout/auth.php';
 
+Security::sendSecurityHeaders(Security::isHttps(), true);
+
 if (AdminAuth::check()) {
     $dest = AdminAuth::requiresMandatoryPasswordChange()
         ? url_to('/admin/change-password.php')

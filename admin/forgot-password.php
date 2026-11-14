@@ -5,6 +5,8 @@ declare(strict_types=1);
 require_once dirname(__DIR__) . '/includes/bootstrap.php';
 require_once APNI_TOKRI_ROOT . '/includes/layout/auth.php';
 
+Security::sendSecurityHeaders(Security::isHttps(), true);
+
 if (AdminAuth::check()) {
     header('Location: ' . url_to('/admin/dashboard.php'), true, 302);
     exit;
