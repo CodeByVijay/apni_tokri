@@ -97,6 +97,29 @@ function url_to(string $path): string
 }
 
 /**
+ * Absolute URL (scheme + host + port + app path) for links used outside the app —
+ * emails, printed documents, external callbacks. The origin comes from the
+ * configured app.base_url, never from the request Host header.
+ * Returns the root-relative path unchanged when base_url is not a valid absolute URL.
+ */
+function absolute_url(string $path): string
+{
+    $relative = url_to($path);
+    $base = App::baseUrl();
+    if ($base === '') {
+        return $relative;
+    }
+    $scheme = strtolower((string) parse_url($base, PHP_URL_SCHEME));
+    $host = (string) parse_url($base, PHP_URL_HOST);
+    if ($host === '' || !in_array($scheme, ['http', 'https'], true)) {
+        return $relative;
+    }
+    $port = parse_url($base, PHP_URL_PORT);
+
+    return $scheme . '://' . $host . (is_int($port) ? ':' . $port : '') . $relative;
+}
+
+/**
  * Strip the project url_path prefix from a request URI for safe ?next= handling.
  */
 function url_app_relative(string $requestUri): string

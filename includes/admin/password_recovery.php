@@ -89,22 +89,27 @@ final class AdminPasswordRecovery
         $hash = self::hashToken($plain);
         $cfg = self::config();
         $ttl = $cfg['token_ttl_seconds'];
+
+        // Reset links must be absolute and come only from configured app.base_url —
+        // never from the request Host header (prevents host-header link poisoning).
+        $base = App::baseUrl();
+        $scheme = strtolower((string) parse_url($base, PHP_URL_SCHEME));
+        $baseHost = (string) parse_url($base, PHP_URL_HOST);
+        if ($base === '' || $baseHost === '' || !in_array($scheme, ['http', 'https'], true)) {
+            error_log('AdminPasswordRecovery: app.base_url is not a valid absolute URL; reset email not sent.');
+
+            return ['ok' => false, 'message' => 'Password reset is temporarily unavailable. Contact an administrator.'];
+        }
+
         $pdo->prepare(
             'INSERT INTO admin_password_reset_tokens (admin_user_id, token_hash, expires_at, request_ip)
              VALUES (?, ?, DATE_ADD(NOW(), INTERVAL ? SECOND), ?)'
         )->execute([(int) $user['id'], $hash, $ttl, AdminLoginSecurity::clientIp()]);
 
-        $resetUrl = url_to('/admin/reset-password.php?token=' . rawurlencode($plain));
-        $subject = 'Reset your Veggie Tokri admin password';
-        $text = "Hello " . ($user['name'] ?? '') . ",\n\n"
-            . "Use this link to reset your password (valid for " . (int) ($ttl / 60) . " minutes):\n"
-            . $resetUrl . "\n\n"
-            . "If you did not request this, ignore this email.\n";
-        $html = '<p>Hello ' . Security::escape((string) ($user['name'] ?? '')) . ',</p>'
-            . '<p><a href="' . Security::escape($resetUrl) . '">Reset your password</a> (expires in '
-            . (int) ($ttl / 60) . ' minutes).</p><p>If you did not request this, ignore this email.</p>';
+        $resetUrl = absolute_url('/admin/reset-password?token=' . rawurlencode($plain));
+        $mail = self::resetEmail((string) ($user['name'] ?? ''), $resetUrl, $ttl);
 
-        $send = self::sendMail((string) $user['email'], $subject, $text, $html);
+        $send = self::sendMail((string) $user['email'], $mail['subject'], $mail['text'], $mail['html']);
         if (empty($send['ok'])) {
             $pdo->prepare('DELETE FROM admin_password_reset_tokens WHERE token_hash = ?')->execute([$hash]);
             error_log('AdminPasswordRecovery: mail send failed');
@@ -144,6 +149,110 @@ final class AdminPasswordRecovery
         $ipStmt->execute([$ip, $cfg['window_minutes']]);
 
         return (int) $ipStmt->fetchColumn() >= $cfg['max_requests_ip'];
+    }
+
+    /**
+     * Branded admin password-reset email (text + HTML parts share the same content).
+     * The button and the plain-text fallback both carry the real, absolute reset URL.
+     *
+     * @return array{subject: string, text: string, html: string}
+     */
+    private static function resetEmail(string $name, string $resetUrl, int $ttlSeconds): array
+    {
+        $minutes = (int) ($ttlSeconds / 60);
+        $greeting = trim($name) !== '' ? trim($name) : 'Admin';
+        $safeGreeting = Security::escape($greeting);
+        $safeUrl = Security::escape($resetUrl);
+
+        $subject = 'Reset your Veggie Tokri Admin Password';
+
+        $text = "Hello {$greeting},\n\n"
+            . "We received a request to reset your Veggie Tokri admin password.\n\n"
+            . "Reset your password:\n{$resetUrl}\n\n"
+            . "This link expires in {$minutes} minutes.\n\n"
+            . "If you did not request this password reset, please ignore this email.\n\n"
+            . "Regards,\nVeggie Tokri Team\n";
+
+        $html = '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">'
+            . '<meta name="viewport" content="width=device-width, initial-scale=1">'
+            . '<title>' . Security::escape($subject) . '</title></head>'
+            . '<body style="margin:0;padding:0;background:#f4f1e6;font-family:Arial,Helvetica,sans-serif;">'
+            . '<div style="display:none;max-height:0;overflow:hidden;">Reset your Veggie Tokri admin password — link expires in '
+            . $minutes . ' minutes.</div>'
+            . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f1e6;padding:24px 12px;">'
+            . '<tr><td align="center">'
+            . '<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;'
+            . 'background:#fffdf8;border:1px solid #e3dcc8;border-radius:14px;overflow:hidden;">'
+            // Brand header
+            . '<tr><td style="background:#245c3a;padding:22px 32px;">'
+            . '<span style="font-size:20px;font-weight:800;color:#ffffff;letter-spacing:0.2px;">Veggie Tokri</span>'
+            . '<span style="font-size:11px;font-weight:700;color:#f5d9a0;text-transform:uppercase;letter-spacing:1.4px;'
+            . 'display:block;margin-top:2px;">Admin Console</span>'
+            . '</td></tr>'
+            // Body
+            . '<tr><td style="padding:32px 32px 8px;color:#292d29;">'
+            . '<p style="margin:0 0 14px;font-size:16px;line-height:1.5;">Hello ' . $safeGreeting . ',</p>'
+            . '<p style="margin:0 0 22px;font-size:15px;line-height:1.6;color:#4d554b;">'
+            . 'We received a request to reset your Veggie Tokri admin password.</p>'
+            . '</td></tr>'
+            // Button
+            . '<tr><td align="center" style="padding:0 32px 10px;">'
+            . '<a href="' . $safeUrl . '" style="display:inline-block;background:#245c3a;color:#ffffff;'
+            . 'font-size:16px;font-weight:700;text-decoration:none;padding:14px 42px;border-radius:10px;"'
+            . ' target="_blank" rel="noopener">Reset Password</a>'
+            . '</td></tr>'
+            // Fallback URL + expiry + note
+            . '<tr><td style="padding:14px 32px 30px;">'
+            . '<p style="margin:0 0 14px;font-size:13px;line-height:1.6;color:#66705f;">This link expires in '
+            . $minutes . ' minutes.</p>'
+            . '<p style="margin:0 0 14px;font-size:13px;line-height:1.6;color:#66705f;">'
+            . 'If the button does not work, copy and paste this URL into your browser:<br>'
+            . '<a href="' . $safeUrl . '" style="color:#1d4e89;word-break:break-all;">' . $safeUrl . '</a></p>'
+            . '<p style="margin:0;font-size:13px;line-height:1.6;color:#66705f;">'
+            . 'If you did not request this password reset, please ignore this email.</p>'
+            . '</td></tr>'
+            // Footer
+            . '<tr><td style="background:#f0f6f2;border-top:1px solid #e3dcc8;padding:16px 32px;">'
+            . '<p style="margin:0;font-size:12px;color:#66705f;line-height:1.5;">Regards,<br>Veggie Tokri Team</p>'
+            . '</td></tr>'
+            . '</table></td></tr></table></body></html>';
+
+        return ['subject' => $subject, 'text' => $text, 'html' => $html];
+    }
+
+    /**
+     * Read-only status of a reset token for the reset form (never consumes it).
+     *
+     * @return 'ok'|'invalid'|'used'|'expired'|'unavailable'
+     */
+    public static function tokenStatus(string $plainToken): string
+    {
+        if (!self::tablesReady()) {
+            return 'unavailable';
+        }
+        $plainToken = trim($plainToken);
+        if ($plainToken === '' || strlen($plainToken) < 32) {
+            return 'invalid';
+        }
+        try {
+            Install::ensureConnection();
+            $stmt = Database::pdo()->prepare(
+                'SELECT used_at, expires_at FROM admin_password_reset_tokens
+                 WHERE token_hash = ? LIMIT 1'
+            );
+            $stmt->execute([self::hashToken($plainToken)]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$row) {
+                return 'invalid';
+            }
+            if ($row['used_at'] !== null) {
+                return 'used';
+            }
+
+            return strtotime((string) $row['expires_at']) < time() ? 'expired' : 'ok';
+        } catch (Throwable $e) {
+            return 'unavailable';
+        }
     }
 
     /**

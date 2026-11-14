@@ -13,6 +13,99 @@
     });
   });
 
+  function setError(input, msg) {
+    var el = document.getElementById(input.id + '-error');
+    input.classList.toggle('is-invalid', !!msg);
+    input.setAttribute('aria-invalid', msg ? 'true' : 'false');
+    if (el) {
+      el.textContent = msg || '';
+      el.hidden = !msg;
+    }
+  }
+
+  function isEmail(value) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+  }
+
+  function startLoading(btn, label) {
+    if (!btn) return;
+    btn.classList.add('is-loading');
+    btn.setAttribute('aria-busy', 'true');
+    btn.disabled = true;
+    var lbl = btn.querySelector('.auth-btn__label');
+    if (lbl && label) lbl.textContent = label;
+  }
+
+  function stopLoading(btn, label) {
+    if (!btn) return;
+    btn.disabled = false;
+    btn.classList.remove('is-loading');
+    btn.removeAttribute('aria-busy');
+    var lbl = btn.querySelector('.auth-btn__label');
+    if (lbl && label) lbl.textContent = label;
+  }
+
+  // ---- Forgot password form ----
+  var forgotForm = document.getElementById('auth-forgot-form');
+  if (forgotForm) {
+    var fEmail = document.getElementById('email');
+    var fSubmit = document.getElementById('auth-submit');
+    fEmail.addEventListener('input', function () { setError(fEmail, ''); });
+    forgotForm.addEventListener('submit', function (ev) {
+      if (!fEmail.value.trim()) {
+        ev.preventDefault();
+        setError(fEmail, 'Enter your email address.');
+        fEmail.focus();
+        return;
+      }
+      if (!isEmail(fEmail.value)) {
+        ev.preventDefault();
+        setError(fEmail, 'Enter a valid email address.');
+        fEmail.focus();
+        return;
+      }
+      startLoading(fSubmit, 'Sending…');
+    });
+    window.addEventListener('pageshow', function (e) {
+      if (e.persisted) stopLoading(fSubmit, 'Send Reset Link');
+    });
+  }
+
+  // ---- Reset password form ----
+  var resetForm = document.getElementById('auth-reset-form');
+  if (resetForm) {
+    var rNew = document.getElementById('new_password');
+    var rConfirm = document.getElementById('confirm_password');
+    var rSubmit = document.getElementById('auth-submit');
+    [rNew, rConfirm].forEach(function (input) {
+      input.addEventListener('input', function () { setError(input, ''); });
+    });
+    resetForm.addEventListener('submit', function (ev) {
+      var ok = true;
+      var first = null;
+      if (rNew.value.length < 10) {
+        setError(rNew, 'Password must be at least 10 characters.');
+        ok = false; first = first || rNew;
+      } else if (!/[A-Za-z]/.test(rNew.value) || !/\d/.test(rNew.value)) {
+        setError(rNew, 'Password must include at least one letter and one number.');
+        ok = false; first = first || rNew;
+      }
+      if (rConfirm.value !== rNew.value) {
+        setError(rConfirm, 'Passwords do not match.');
+        ok = false; first = first || rConfirm;
+      }
+      if (!ok) {
+        ev.preventDefault();
+        if (first) first.focus();
+        return;
+      }
+      startLoading(rSubmit, 'Saving…');
+    });
+    window.addEventListener('pageshow', function (e) {
+      if (e.persisted) stopLoading(rSubmit, 'Save New Password');
+    });
+  }
+
   var form = document.getElementById('auth-login-form');
   if (!form) return;
 
@@ -39,16 +132,6 @@
       toggle.setAttribute('aria-pressed', show ? 'true' : 'false');
       toggle.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
     });
-  }
-
-  function setError(input, msg) {
-    var el = document.getElementById(input.id + '-error');
-    input.classList.toggle('is-invalid', !!msg);
-    input.setAttribute('aria-invalid', msg ? 'true' : 'false');
-    if (el) {
-      el.textContent = msg || '';
-      el.hidden = !msg;
-    }
   }
 
   [email, password].forEach(function (input) {
