@@ -226,6 +226,100 @@ final class CustomerOrderDetailService
         ];
     }
 
+    /**
+     * Customer-facing hero messaging for the order confirmation page (order.php).
+     * Derives title/lead/icon/tone strictly from resolved order + payment state —
+     * never claims confirmation for unpaid, failed, cancelled or refunded orders.
+     *
+     * @return array{tone: string, icon: string, title: string, lede: string, total_label: string, primary_cta: string}
+     */
+    public static function confirmationHero(
+        string $statusPublic,
+        string $paymentStatus,
+        string $currentTitle,
+        string $explanation,
+        bool $retryEligible
+    ): array {
+        $paid = $paymentStatus === 'paid' || $currentTitle === 'Payment received';
+        $hero = static function (string $tone, string $icon, string $title, string $lede, string $total, string $cta): array {
+            return ['tone' => $tone, 'icon' => $icon, 'title' => $title, 'lede' => $lede, 'total_label' => $total, 'primary_cta' => $cta];
+        };
+
+        switch ($statusPublic) {
+            case OrderStatus::PAYMENT_FAILED:
+                return $hero(
+                    'danger', 'alert-triangle', 'Payment failed',
+                    $explanation !== '' ? $explanation : 'Payment could not be completed for this order.',
+                    'Order total',
+                    $retryEligible ? 'retry' : 'details'
+                );
+            case OrderStatus::PENDING_PAYMENT:
+                if ($paid) {
+                    return $hero(
+                        'success', 'clock', 'Payment received',
+                        $explanation !== '' ? $explanation : 'Your payment was successful. We are confirming your order now — there is no need to pay again.',
+                        'Total paid', 'track'
+                    );
+                }
+                return $hero(
+                    'warning', 'wallet', 'Payment pending',
+                    $explanation !== '' ? $explanation : 'We are waiting for your payment confirmation. There is no need to reorder — this page updates when payment completes.',
+                    'Order total',
+                    $retryEligible ? 'retry' : 'details'
+                );
+            case OrderStatus::CANCELLED:
+                return $hero(
+                    'danger', 'circle-x', 'Order cancelled',
+                    $explanation !== '' ? $explanation : 'This order was cancelled. If a payment was made, refund updates appear on the order details page.',
+                    'Order total', 'details'
+                );
+            case OrderStatus::REFUNDED:
+                return $hero(
+                    'warning', 'refresh', 'Order refunded',
+                    $explanation !== '' ? $explanation : 'This order was refunded.',
+                    'Order total', 'details'
+                );
+            case OrderStatus::PARTIALLY_REFUNDED:
+                return $hero(
+                    'warning', 'refresh', 'Order partially refunded',
+                    $explanation !== '' ? $explanation : 'Part of this order was refunded.',
+                    'Order total', 'details'
+                );
+            case OrderStatus::DELIVERED:
+                return $hero(
+                    'success', 'check', 'Order delivered',
+                    $explanation !== '' ? $explanation : 'This order has been delivered. Thank you for shopping with us.',
+                    $paid ? 'Total paid' : 'Order total', 'track'
+                );
+            case OrderStatus::CONFIRMED:
+            case OrderStatus::ACCEPTED:
+            case OrderStatus::PREPARING:
+            case OrderStatus::READY:
+            case OrderStatus::OUT_FOR_DELIVERY:
+            case OrderStatus::DELIVERY_EXCEPTION:
+                return $hero(
+                    'success', 'check', 'Thank you — order confirmed',
+                    $explanation !== '' ? $explanation : 'We have your order. Our team will start preparing it for delivery.',
+                    $paid ? 'Total paid' : 'Order total', 'track'
+                );
+            default:
+                // Paid orders in any other state: distinguish payment success from acceptance.
+                if ($paid) {
+                    return $hero(
+                        'success', 'check', 'Payment received',
+                        $explanation !== '' ? $explanation : 'Your payment was successful. We are processing your order now.',
+                        'Total paid', 'track'
+                    );
+                }
+                // Unknown/legacy unpaid state: acknowledge receipt without claiming confirmation.
+                return $hero(
+                    'warning', 'receipt', 'Order received',
+                    $explanation !== '' ? $explanation : 'Your order was recorded. Check the order details page for the latest status.',
+                    'Order total', 'details'
+                );
+        }
+    }
+
     public static function orderPaymentStatusLabel(string $paymentStatus): string
     {
         switch ($paymentStatus) {
