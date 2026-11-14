@@ -42,6 +42,8 @@ final class AdminAuth
         $_SESSION['admin_user_email'] = (string) $user['email'];
         $_SESSION['admin_user_name'] = (string) $user['name'];
         $_SESSION['admin_auth_epoch'] = (int) ($user['auth_epoch'] ?? 1);
+        $_SESSION['admin_auth_issued_at'] = time();
+        $_SESSION['admin_auth_last_activity'] = time();
 
         $upd = Database::pdo()->prepare('UPDATE admin_users SET last_login_at = NOW() WHERE id = ?');
         $upd->execute([(int) $user['id']]);
@@ -68,13 +70,7 @@ final class AdminAuth
             $stmt->execute([(int) $_SESSION[self::SESSION_USER_ID]]);
             $row = $stmt->fetch(PDO::FETCH_ASSOC);
             if (!$row || !(int) $row['is_active']) {
-                unset(
-                    $_SESSION[self::SESSION_USER_ID],
-                    $_SESSION['admin_user_email'],
-                    $_SESSION['admin_user_name'],
-                    $_SESSION['admin_demo_role'],
-                    $_SESSION['admin_auth_epoch']
-                );
+                self::clearSessionState();
 
                 return false;
             }
@@ -82,13 +78,7 @@ final class AdminAuth
                 $epoch = (int) ($row['auth_epoch'] ?? 1);
                 $sessionEpoch = (int) ($_SESSION['admin_auth_epoch'] ?? 1);
                 if ($epoch !== $sessionEpoch) {
-                    unset(
-                        $_SESSION[self::SESSION_USER_ID],
-                        $_SESSION['admin_user_email'],
-                        $_SESSION['admin_user_name'],
-                        $_SESSION['admin_demo_role'],
-                        $_SESSION['admin_auth_epoch']
-                    );
+                    self::clearSessionState();
 
                     return false;
                 }
@@ -97,7 +87,75 @@ final class AdminAuth
             return false;
         }
 
+        // Server-side session lifetime enforcement (VT-2026-07). Evaluated only
+        // after the session is proven valid; timestamps live in the session so
+        // no clock state is client-controlled.
+        $now = time();
+        $issuedAt = (int) ($_SESSION['admin_auth_issued_at'] ?? 0);
+        $lastActivity = (int) ($_SESSION['admin_auth_last_activity'] ?? 0);
+        if ($issuedAt <= 0) {
+            // Backfill for sessions created before this check existed.
+            $issuedAt = $now;
+            $_SESSION['admin_auth_issued_at'] = $now;
+        }
+        if ($lastActivity <= 0) {
+            $lastActivity = $now;
+            $_SESSION['admin_auth_last_activity'] = $now;
+        }
+        $absolute = self::absoluteTimeoutSeconds();
+        $idle = self::idleTimeoutSeconds();
+        if (($absolute > 0 && $now - $issuedAt >= $absolute)
+            || ($idle > 0 && $now - $lastActivity >= $idle)) {
+            self::clearSessionState();
+            $_SESSION['admin_login_notice'] = 'Your admin session expired. Please sign in again.';
+
+            return false;
+        }
+        // Activity counts only for requests inside the admin area — a customer
+        // browsing the storefront does not extend an admin session.
+        if (str_contains((string) ($_SERVER['SCRIPT_NAME'] ?? ''), '/admin/')) {
+            $_SESSION['admin_auth_last_activity'] = $now;
+        }
+
         return true;
+    }
+
+    /** Admin idle timeout (seconds); overrides via security.admin_session.idle_timeout_seconds. */
+    public static function idleTimeoutSeconds(): int
+    {
+        try {
+            $v = (int) (App::config()['security']['admin_session']['idle_timeout_seconds'] ?? 1800);
+        } catch (Throwable $e) {
+            $v = 1800;
+        }
+
+        return max(0, $v);
+    }
+
+    /** Admin absolute session cap (seconds); overrides via security.admin_session.absolute_timeout_seconds. */
+    public static function absoluteTimeoutSeconds(): int
+    {
+        try {
+            $v = (int) (App::config()['security']['admin_session']['absolute_timeout_seconds'] ?? 28800);
+        } catch (Throwable $e) {
+            $v = 28800;
+        }
+
+        return max(0, $v);
+    }
+
+    /** Drop every admin-auth session key (expiry, deactivation, epoch mismatch, logout). */
+    private static function clearSessionState(): void
+    {
+        unset(
+            $_SESSION[self::SESSION_USER_ID],
+            $_SESSION['admin_user_email'],
+            $_SESSION['admin_user_name'],
+            $_SESSION['admin_demo_role'],
+            $_SESSION['admin_auth_epoch'],
+            $_SESSION['admin_auth_issued_at'],
+            $_SESSION['admin_auth_last_activity']
+        );
     }
 
     /** True when the signed-in admin still uses the factory seed password hash. */
@@ -164,6 +222,8 @@ final class AdminAuth
             AuditLog::write('admin.password_change_mandatory', 'admin_user', (string) $userId);
             AppSession::regenerate();
             $_SESSION[self::SESSION_USER_ID] = $userId;
+            $_SESSION['admin_auth_issued_at'] = time();
+            $_SESSION['admin_auth_last_activity'] = time();
             if (AdminLoginSecurity::authEpochColumnReady()) {
                 $epochStmt = Database::pdo()->prepare('SELECT auth_epoch FROM admin_users WHERE id = ?');
                 $epochStmt->execute([$userId]);
@@ -207,13 +267,7 @@ final class AdminAuth
                 // ignore audit failures on logout
             }
         }
-        unset(
-            $_SESSION[self::SESSION_USER_ID],
-            $_SESSION['admin_user_email'],
-            $_SESSION['admin_user_name'],
-            $_SESSION['admin_demo_role'],
-            $_SESSION['admin_auth_epoch']
-        );
+        self::clearSessionState();
         AppSession::regenerate();
     }
 

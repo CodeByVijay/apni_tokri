@@ -117,6 +117,15 @@ return [
      * before relying on admin login throttling, password reset, or guest support rate limits.
      */
     'security' => [
+        /**
+         * Admin session lifetime limits (server-side, enforced on every admin
+         * request). idle expires after N seconds of no admin-area activity;
+         * absolute caps total session age regardless of activity.
+         */
+        'admin_session' => [
+            'idle_timeout_seconds' => 1800,       // 30 minutes of inactivity
+            'absolute_timeout_seconds' => 28800,  // 8 hours from authentication
+        ],
         'admin_login' => [
             'max_failures_email' => 5,
             'max_failures_ip' => 20,
