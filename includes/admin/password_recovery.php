@@ -58,14 +58,22 @@ final class AdminPasswordRecovery
     public static function requestReset(string $email): array
     {
         $generic = 'If an account exists for that email, password reset instructions have been sent.';
+        $emailNorm = AdminLoginSecurity::normalizeEmail($email);
+        // Stage diagnostics — internal only; never log raw tokens, reset URLs or secrets.
+        AuditLog::write('admin.password_reset_request', 'admin_user', null, ['email' => $emailNorm], null);
         if (!Install::isSchemaReady()) {
+            error_log('AdminPasswordRecovery: schema not installed; reset not attempted.');
+
             return ['ok' => true, 'message' => $generic];
         }
         if (!self::tablesReady()) {
+            error_log('AdminPasswordRecovery: admin_password_reset_tokens missing; run migration 1.21.0.');
+
             return ['ok' => false, 'message' => 'Password reset is not available until the database migration is applied.'];
         }
-        $emailNorm = AdminLoginSecurity::normalizeEmail($email);
         if ($emailNorm === '' || !filter_var($emailNorm, FILTER_VALIDATE_EMAIL)) {
+            AuditLog::write('admin.password_reset_invalid_email', 'admin_user', null, ['email' => $emailNorm], null);
+
             return ['ok' => true, 'message' => $generic];
         }
         if (self::isRateLimited($emailNorm)) {
@@ -82,6 +90,14 @@ final class AdminPasswordRecovery
         $stmt->execute([$emailNorm]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$user || !(int) $user['is_active']) {
+            AuditLog::write(
+                'admin.password_reset_lookup_miss',
+                'admin_user',
+                null,
+                ['email' => $emailNorm, 'reason' => !$user ? 'not_found' : 'inactive'],
+                null
+            );
+
             return ['ok' => true, 'message' => $generic];
         }
 
@@ -99,15 +115,29 @@ final class AdminPasswordRecovery
         if ($resetUrl === null) {
             $pdo->prepare('DELETE FROM admin_password_reset_tokens WHERE token_hash = ?')->execute([$hash]);
             error_log('AdminPasswordRecovery: canonical site URL is not configured; reset email not sent.');
+            AuditLog::write('admin.password_reset_url_unconfigured', 'admin_user', (string) $user['id'], null, (int) $user['id']);
 
             return ['ok' => false, 'message' => 'Password reset is temporarily unavailable. Contact an administrator.'];
         }
         $mail = self::resetEmail((string) ($user['name'] ?? ''), $resetUrl, $ttl);
 
-        $send = self::sendMail((string) $user['email'], $mail['subject'], $mail['text'], $mail['html']);
+        try {
+            $send = self::sendMail((string) $user['email'], $mail['subject'], $mail['text'], $mail['html']);
+        } catch (Throwable $e) {
+            $send = ['ok' => false, 'error' => 'exception'];
+            error_log('AdminPasswordRecovery: mail send threw: ' . $e->getMessage());
+        }
         if (empty($send['ok'])) {
             $pdo->prepare('DELETE FROM admin_password_reset_tokens WHERE token_hash = ?')->execute([$hash]);
-            error_log('AdminPasswordRecovery: mail send failed');
+            $code = (string) ($send['error'] ?? 'send_failed');
+            error_log('AdminPasswordRecovery: mail send failed: ' . $code);
+            AuditLog::write(
+                'admin.password_reset_mail_failed',
+                'admin_user',
+                (string) $user['id'],
+                ['smtp_error' => $code],
+                (int) $user['id']
+            );
 
             return ['ok' => false, 'message' => 'Could not send reset email. Try again later or contact another administrator.'];
         }

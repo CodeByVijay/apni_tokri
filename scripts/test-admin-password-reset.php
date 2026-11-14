@@ -153,6 +153,38 @@ $mailBefore = count($mailCapture);
 $malformed = AdminPasswordRecovery::requestReset('not-an-email');
 resetOk(!empty($malformed['ok']) && count($mailCapture) === $mailBefore, 'malformed email handled without sending');
 
+// --- Internal diagnostics: audit breadcrumbs exist for each branch ---
+$auditAction = static function (string $action): int {
+    global $pdo;
+    $stmt = $pdo->prepare('SELECT COUNT(*) FROM admin_audit_logs WHERE action = ?');
+    $stmt->execute([$action]);
+
+    return (int) $stmt->fetchColumn();
+};
+resetOk($auditAction('admin.password_reset_request') > 0, 'audit: reset request logged');
+resetOk($auditAction('admin.password_reset_lookup_miss') > 0, 'audit: lookup miss logged for unknown email');
+resetOk($auditAction('admin.password_reset_requested') > 0, 'audit: successful send logged');
+resetOk(
+    (int) $pdo->query('SELECT COUNT(*) FROM admin_audit_logs WHERE payload_json LIKE "%token%" AND action LIKE "admin.password_reset%"')->fetchColumn() === 0,
+    'audit payloads never contain tokens'
+);
+
+// --- Mail send failure: error (not silent success), token rolled back, audited ---
+AdminPasswordRecovery::setMailSender(static function (): array {
+    return ['ok' => false, 'error' => 'auth_failed'];
+});
+$tokensBefore = (int) $pdo->query("SELECT COUNT(*) FROM admin_password_reset_tokens WHERE admin_user_id = {$adminId}")->fetchColumn();
+$failSend = AdminPasswordRecovery::requestReset($adminEmail);
+$tokensAfter = (int) $pdo->query("SELECT COUNT(*) FROM admin_password_reset_tokens WHERE admin_user_id = {$adminId}")->fetchColumn();
+resetOk(empty($failSend['ok']), 'mail failure surfaces as error, not green success');
+resetOk($tokensAfter === $tokensBefore, 'failed send rolls back the token row');
+resetOk($auditAction('admin.password_reset_mail_failed') > 0, 'audit: mail failure logged with smtp code');
+AdminPasswordRecovery::setMailSender(static function (string $to, string $subject, string $text, string $html) use (&$mailCapture): array {
+    $mailCapture[] = ['to' => $to, 'subject' => $subject, 'text' => $text, 'html' => $html];
+
+    return ['ok' => true];
+});
+
 // --- 11. Rate limiting (max 3 per email per hour) ---
 $mailBefore = count($mailCapture);
 AdminPasswordRecovery::requestReset($adminEmail); // 2nd
