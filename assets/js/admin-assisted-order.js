@@ -133,6 +133,18 @@
         var quoteTimer = null;
         var lastQuote = null;
 
+        var stepPanels = Array.prototype.slice.call(root.querySelectorAll('[data-at-aorder-step-panel]'));
+        var stepNavBtns = Array.prototype.slice.call(root.querySelectorAll('[data-at-aorder-stepnav]'));
+        var currentStep = 1;
+        var orderPlaced = false;
+        var itemsWrap = root.querySelector('[data-at-aorder-items-wrap]');
+        var itemsEmptyState = root.querySelector('[data-at-aorder-items-emptystate]');
+        var itemsMeta = root.querySelector('[data-at-aorder-items-meta]');
+        var deliveryWhen = root.querySelector('[data-at-aorder-delivery-when]');
+        var reviewDl = root.querySelector('[data-at-aorder-review]');
+        var qtyDecBtn = root.querySelector('[data-at-aorder-qty-dec]');
+        var qtyIncBtn = root.querySelector('[data-at-aorder-qty-inc]');
+
         var customerTimer = null;
         var customerSeq = 0;
         var variantTimer = null;
@@ -162,6 +174,7 @@
             if (addressSummary) { addressSummary.hidden = true; addressSummary.textContent = ''; }
             if (addressForm) { addressForm.hidden = true; }
             updateAddButton();
+            updateStepNav();
         }
 
         function clearAddressFieldErrors() {
@@ -284,6 +297,7 @@
             customerResults.hidden = true;
             loadAddresses(c.id);
             updateAddButton();
+            updateStepNav();
         }
 
         function renderPager(container, page, totalPages, onPage) {
@@ -684,8 +698,21 @@
             addBtn.disabled = !ok;
         }
 
+        function updateItemsMeta() {
+            var count = state.lines.reduce(function (s, l) { return s + (parseInt(l.quantity, 10) || 0); }, 0);
+            var sub = state.lines.reduce(function (s, l) { return s + (parseFloat(l.line_total) || 0); }, 0);
+            if (itemsMeta) {
+                itemsMeta.textContent = count > 0
+                    ? count + ' item(s) · merchandise subtotal ' + fmtMoney(sub)
+                    : 'No items added yet.';
+            }
+            if (itemsWrap) { itemsWrap.hidden = state.lines.length === 0; }
+            if (itemsEmptyState) { itemsEmptyState.hidden = state.lines.length !== 0; }
+        }
+
         function renderLines() {
             itemsBody.innerHTML = '';
+            updateItemsMeta();
             if (!state.lines.length) {
                 itemsBody.appendChild(itemsEmpty);
                 itemsEmpty.hidden = false;
@@ -702,14 +729,32 @@
                 var up = el('td', 'text-right', fmtMoney(line.unit_price));
                 tr.appendChild(up);
                 var qTd = el('td', 'text-right');
-                var qIn = el('input', 'at-input at-focusable w-16 text-right inline-block');
+                var qWrap = el('span', 'at-qty-stepper at-qty-stepper--sm');
+                var qMinus = el('button', 'at-qty-stepper__btn at-focusable', '−');
+                qMinus.type = 'button';
+                qMinus.setAttribute('aria-label', 'Decrease quantity');
+                var qIn = el('input', 'at-input at-focusable at-qty-stepper__input');
                 qIn.type = 'number';
                 qIn.min = '1';
+                if (line.available_qty != null) { qIn.max = String(line.available_qty); }
                 qIn.value = String(line.quantity);
+                if ((parseInt(line.quantity, 10) || 0) <= 1) { qMinus.disabled = true; }
+                qMinus.addEventListener('click', function () {
+                    revalidateLine(idx, Math.max(1, (parseInt(qIn.value, 10) || 1) - 1));
+                });
                 qIn.addEventListener('change', function () {
                     revalidateLine(idx, parseInt(qIn.value, 10) || 0);
                 });
-                qTd.appendChild(qIn);
+                var qPlus = el('button', 'at-qty-stepper__btn at-focusable', '+');
+                qPlus.type = 'button';
+                qPlus.setAttribute('aria-label', 'Increase quantity');
+                qPlus.addEventListener('click', function () {
+                    revalidateLine(idx, (parseInt(qIn.value, 10) || 0) + 1);
+                });
+                qWrap.appendChild(qMinus);
+                qWrap.appendChild(qIn);
+                qWrap.appendChild(qPlus);
+                qTd.appendChild(qWrap);
                 tr.appendChild(qTd);
                 tr.appendChild(el('td', 'text-right', fmtMoney(line.line_total)));
                 var act = el('td', '');
@@ -801,6 +846,8 @@
             clearTimeout(quoteTimer);
             quoteTimer = setTimeout(refreshQuote, 400);
             updateActionButtons();
+            updateStepNav();
+            updateDeliveryWhen();
         }
 
         function renderQuote(q) {
@@ -983,6 +1030,8 @@
                         return;
                     }
                     var d = j.data || {};
+                    orderPlaced = true;
+                    updateStepNav();
                     placeResult.hidden = false;
                     placeResult.innerHTML = '';
                     var msg = d.payment_mode === 'offline_paid'
@@ -1111,11 +1160,199 @@
             });
         });
 
+        /* ---------- 4-step wizard ---------- */
+
+        function stepIsComplete(n) {
+            if (n === 1) {
+                return !!(state.customer && state.addressId);
+            }
+            if (n === 2) {
+                return state.lines.length > 0;
+            }
+            if (n === 3) {
+                return stepGateMessage(3) === '';
+            }
+            return true;
+        }
+
+        function canEnterStep(n) {
+            for (var i = 1; i < n; i++) {
+                if (!stepIsComplete(i)) { return false; }
+            }
+            return true;
+        }
+
+        function stepGateMessage(n) {
+            if (n === 1) { return 'Select a customer and a delivery address to continue.'; }
+            if (n === 2) { return 'Add at least one product to the order.'; }
+            if (n === 3) {
+                if (slotsEnabled && schedCustom && schedCustom.checked
+                    && !(customDate && customDate.value !== ''
+                        && customStart && customStart.value !== ''
+                        && customEnd && customEnd.value !== ''
+                        && customDeliveryReason && customDeliveryReason.value.trim() !== '')) {
+                    return 'Enter delivery date, time window and reason for the custom schedule.';
+                }
+                if (applyDelivery && applyDelivery.checked && freeDelivery && freeDelivery.checked
+                    && freeReason && freeReason.value.trim() === '') {
+                    return 'Enter a reason for the free delivery override.';
+                }
+                return '';
+            }
+            return '';
+        }
+
+        function showStepError(msg) {
+            var panel = root.querySelector('[data-at-aorder-step-panel="' + currentStep + '"]');
+            var err = panel ? panel.querySelector('[data-at-aorder-step-error]') : null;
+            if (err) {
+                err.textContent = msg;
+                err.hidden = false;
+            }
+        }
+
+        function clearStepErrors() {
+            root.querySelectorAll('[data-at-aorder-step-error]').forEach(function (node) {
+                node.hidden = true;
+                node.textContent = '';
+            });
+        }
+
+        function updateStepNav() {
+            stepNavBtns.forEach(function (btn) {
+                var n = parseInt(btn.getAttribute('data-at-aorder-stepnav'), 10) || 0;
+                var item = btn.closest('[data-at-aorder-stepnav-item]');
+                var num = btn.querySelector('[data-at-aorder-stepnum]');
+                var done = orderPlaced || (n !== currentStep && stepIsComplete(n));
+                var locked = !orderPlaced && n !== currentStep && !canEnterStep(n);
+                if (item) {
+                    item.classList.toggle('is-active', n === currentStep);
+                    item.classList.toggle('is-done', done);
+                    item.classList.toggle('is-locked', locked);
+                }
+                if (num) { num.textContent = done ? '✓' : String(n); }
+                btn.disabled = locked;
+                if (n === currentStep) {
+                    btn.setAttribute('aria-current', 'step');
+                } else {
+                    btn.removeAttribute('aria-current');
+                }
+            });
+        }
+
+        function updateDeliveryWhen() {
+            if (!deliveryWhen) { return; }
+            var txt;
+            if (slotsEnabled && schedCustom && schedCustom.checked) {
+                txt = 'Custom delivery: '
+                    + (customDate && customDate.value !== '' ? customDate.value : 'date not set')
+                    + ' '
+                    + (customStart && customStart.value !== '' ? customStart.value : '--:--')
+                    + '–'
+                    + (customEnd && customEnd.value !== '' ? customEnd.value : '--:--');
+            } else if (slotsEnabled && slotSelect && slotSelect.tagName === 'SELECT') {
+                var opt = slotSelect.options[slotSelect.selectedIndex];
+                txt = 'Standard slot: ' + (opt ? opt.textContent.replace(/\s+/g, ' ').trim() : 'auto');
+            } else {
+                txt = 'Next available delivery slot will be used.';
+            }
+            deliveryWhen.textContent = txt;
+        }
+
+        function renderReview() {
+            if (!reviewDl) { return; }
+            reviewDl.innerHTML = '';
+            function reviewRow(label, value) {
+                var d = el('div', 'at-aorder-review__row');
+                d.appendChild(el('dt', 'at-aorder-review__label', label));
+                d.appendChild(el('dd', 'at-aorder-review__value', value));
+                reviewDl.appendChild(d);
+            }
+            var c = state.customer || {};
+            reviewRow('Customer', (c.name || 'Customer')
+                + (c.mobile ? ' · ' + c.mobile : '')
+                + (c.email ? ' · ' + c.email : ''));
+            var a = state.selectedAddress || {};
+            var addrBits = [
+                (a.label || 'Address') + (a.is_default ? ' (Default)' : ''),
+                a.receiver_name ? (a.receiver_name + (a.receiver_phone ? ' · ' + a.receiver_phone : '')) : '',
+                a.full_address || ''
+            ].filter(Boolean).join(' — ');
+            reviewRow('Deliver to', addrBits !== '' ? addrBits : '—');
+            var count = state.lines.reduce(function (s, l) { return s + (parseInt(l.quantity, 10) || 0); }, 0);
+            reviewRow('Items', count + ' item(s)');
+            reviewRow('Delivery', deliveryWhen ? deliveryWhen.textContent : '—');
+        }
+
+        function goToStep(n) {
+            if (n < 1 || n > stepPanels.length || n === currentStep) { return; }
+            if (!canEnterStep(n)) { return; }
+            currentStep = n;
+            stepPanels.forEach(function (p) {
+                var show = (parseInt(p.getAttribute('data-at-aorder-step-panel'), 10) || 0) === n;
+                p.hidden = !show;
+                p.classList.toggle('at-aorder-is-hidden', !show);
+            });
+            clearStepErrors();
+            if (n === 3) { updateDeliveryWhen(); }
+            if (n === stepPanels.length) {
+                renderReview();
+                if (canQuote()) { refreshQuote(); }
+            }
+            updateStepNav();
+            var wiz = root.querySelector('.at-aorder-wizard');
+            if (wiz && wiz.scrollIntoView) {
+                wiz.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+
+        function stepQty(delta) {
+            var cur = parseInt(qtyInput.value, 10) || 1;
+            var next = cur + delta;
+            if (next < 1) { next = 1; }
+            var avail = state.selectedVariant && state.selectedVariant.available_qty != null
+                ? parseInt(state.selectedVariant.available_qty, 10) : 0;
+            if (avail > 0 && next > avail) { next = avail; }
+            qtyInput.value = String(next);
+        }
+
+        root.querySelectorAll('[data-at-aorder-next]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var target = parseInt(btn.getAttribute('data-at-aorder-next'), 10) || 0;
+                if (!stepIsComplete(currentStep)) {
+                    showStepError(stepGateMessage(currentStep));
+                    return;
+                }
+                goToStep(target);
+            });
+        });
+        root.querySelectorAll('[data-at-aorder-prev]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                goToStep(parseInt(btn.getAttribute('data-at-aorder-prev'), 10) || 1);
+            });
+        });
+        stepNavBtns.forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                goToStep(parseInt(btn.getAttribute('data-at-aorder-stepnav'), 10) || 1);
+            });
+        });
+        if (qtyDecBtn) { qtyDecBtn.addEventListener('click', function () { stepQty(-1); }); }
+        if (qtyIncBtn) { qtyIncBtn.addEventListener('click', function () { stepQty(1); }); }
+
+        window.addEventListener('beforeunload', function (e) {
+            if (orderPlaced) { return; }
+            if (!state.customer && state.lines.length === 0) { return; }
+            e.preventDefault();
+            e.returnValue = '';
+        });
+
         renderLines();
         updateActionButtons();
         toggleDeliveryModeFields();
         togglePaymentModeFields();
         toggleDiscountModeFields();
+        updateStepNav();
+        updateDeliveryWhen();
     }
 
     if (document.readyState === 'loading') {

@@ -8669,7 +8669,8 @@ body.at-map-viewer-open { overflow: hidden; }
  * Force collapse for any [hidden] / .at-aorder-is-hidden under this page root.
  */
 .at-assisted-order [hidden],
-.at-assisted-order .at-aorder-is-hidden {
+.at-assisted-order .at-aorder-is-hidden,
+.at-assisted-order [data-at-aorder-panel][hidden] {
   display: none !important;
 }
 .at-assisted-order .at-admin-card__body.overflow-visible { overflow: visible; }
@@ -8699,6 +8700,62 @@ body.at-map-viewer-open { overflow: hidden; }
   font-size: 0.65rem;
   color: var(--at-muted, #6b7280);
 }
+
+/* ===== Admin assisted order — 4-step wizard ===== */
+.at-aorder-steps { display: flex; flex-wrap: wrap; gap: 0.5rem; list-style: none; padding: 0; margin: 0 0 1rem; }
+.at-aorder-steps__item { flex: 1 1 8rem; min-width: 0; }
+.at-aorder-steps__btn {
+  display: flex; align-items: center; gap: 0.5rem; width: 100%;
+  padding: 0.5rem 0.75rem; border-radius: 0.75rem;
+  background: #fff; border: 1px solid var(--at-green-100, #d7e8dc);
+  color: #5b6b61; font-size: 0.85rem; font-weight: 600; cursor: pointer;
+}
+.at-aorder-steps__num {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 1.6rem; height: 1.6rem; border-radius: 999px;
+  background: var(--at-green-50, #eef6f0); font-weight: 800; flex: none;
+}
+.at-aorder-steps__item.is-active .at-aorder-steps__btn {
+  border-color: var(--at-green, #245C3A); color: var(--at-green-dark, #1b452c);
+  background: var(--at-green-50, #eef6f0);
+}
+.at-aorder-steps__item.is-active .at-aorder-steps__num { background: var(--at-green, #245C3A); color: #fff; }
+.at-aorder-steps__item.is-done .at-aorder-steps__btn { color: var(--at-green-dark, #1b452c); }
+.at-aorder-steps__item.is-done .at-aorder-steps__num { background: var(--at-green-600, #2f7349); color: #fff; }
+.at-aorder-steps__item.is-locked .at-aorder-steps__btn { opacity: 0.55; }
+.at-aorder-steps__btn:disabled { cursor: not-allowed; }
+.at-aorder-steps__btn:not(:disabled):hover { border-color: var(--at-green-600, #2f7349); }
+.at-aorder-steps__label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 480px) {
+  .at-aorder-steps__btn { padding: 0.4rem 0.55rem; font-size: 0.78rem; }
+}
+.at-aorder-step-footer {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: 0.75rem; margin-top: 1rem;
+}
+.at-aorder-step-footer__error { font-size: 0.875rem; color: #b91c1c; margin: 0; }
+.at-aorder-step-footer__actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-left: auto; }
+.at-qty-stepper { display: inline-flex; align-items: center; gap: 0.25rem; }
+.at-qty-stepper__btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 2rem; height: 2rem; border-radius: 0.4rem; font-size: 1rem; line-height: 1;
+  border: 1px solid var(--at-line, #e5e7eb); background: #fff; cursor: pointer;
+}
+.at-qty-stepper__btn:hover:not(:disabled) { border-color: var(--at-green-600, #2f7349); color: var(--at-green-dark, #1b452c); }
+.at-qty-stepper__btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.at-qty-stepper__input { width: 3.5rem; text-align: center; }
+.at-qty-stepper--sm .at-qty-stepper__btn { width: 1.6rem; height: 1.6rem; font-size: 0.85rem; }
+.at-qty-stepper--sm .at-qty-stepper__input { width: 3rem; padding: 0.2rem 0.3rem; }
+.at-aorder-empty {
+  padding: 1rem; border: 1px dashed var(--at-line, #e5e7eb); border-radius: 0.6rem;
+  color: var(--at-muted, #6b7280); font-size: 0.875rem; text-align: center;
+}
+.at-aorder-advanced { border: 1px solid var(--at-line, #e5e7eb); border-radius: 0.6rem; padding: 0.6rem 0.75rem; }
+.at-aorder-advanced > summary { cursor: pointer; font-size: 0.875rem; font-weight: 600; color: var(--at-green-dark, #1b452c); }
+.at-aorder-review__row { display: flex; gap: 0.75rem; padding: 0.3rem 0; border-bottom: 1px dashed var(--at-line, #e5e7eb); }
+.at-aorder-review__row:last-child { border-bottom: 0; }
+.at-aorder-review__label { flex: 0 0 6rem; font-weight: 600; color: var(--at-muted, #6b7280); }
+.at-aorder-review__value { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
 
 /* ===== Subscription Menu Planner (admin) ===== */
 .mp-root { max-width: 62rem; }
