@@ -9,7 +9,49 @@ final class AdminOrderService
     /** @var list<int> */
     public const PER_PAGE_OPTIONS = [20, 50, 100];
 
-    /** Status values an admin may set manually from the order detail screen. */
+    /**
+     * Explicit admin-driven transition map (current status => allowed targets).
+     * Refund statuses are never targets — orders.status becomes refunded /
+     * partially_refunded only inside RefundCompletionService after verified
+     * refund processing. pending_payment exits only via cancellation or payment
+     * failure; pending_payment -> confirmed happens solely in
+     * PaymentService::completePayment after gateway-verified capture.
+     *
+     * @var array<string, list<string>>
+     */
+    private const ADMIN_TRANSITIONS = [
+        OrderStatus::PENDING_PAYMENT => [OrderStatus::CANCELLED, OrderStatus::PAYMENT_FAILED],
+        OrderStatus::PAYMENT_FAILED => [OrderStatus::CANCELLED],
+        OrderStatus::CONFIRMED => [
+            OrderStatus::ACCEPTED, OrderStatus::PREPARING, OrderStatus::READY,
+            OrderStatus::OUT_FOR_DELIVERY, OrderStatus::DELIVERED,
+            OrderStatus::DELIVERY_EXCEPTION, OrderStatus::CANCELLED,
+        ],
+        OrderStatus::ACCEPTED => [
+            OrderStatus::PREPARING, OrderStatus::READY, OrderStatus::OUT_FOR_DELIVERY,
+            OrderStatus::DELIVERED, OrderStatus::DELIVERY_EXCEPTION, OrderStatus::CANCELLED,
+        ],
+        OrderStatus::PREPARING => [
+            OrderStatus::READY, OrderStatus::OUT_FOR_DELIVERY, OrderStatus::DELIVERED,
+            OrderStatus::DELIVERY_EXCEPTION, OrderStatus::CANCELLED,
+        ],
+        OrderStatus::READY => [
+            OrderStatus::OUT_FOR_DELIVERY, OrderStatus::DELIVERED,
+            OrderStatus::DELIVERY_EXCEPTION, OrderStatus::CANCELLED,
+        ],
+        OrderStatus::OUT_FOR_DELIVERY => [
+            OrderStatus::DELIVERED, OrderStatus::DELIVERY_EXCEPTION, OrderStatus::CANCELLED,
+        ],
+        OrderStatus::DELIVERY_EXCEPTION => [
+            OrderStatus::OUT_FOR_DELIVERY, OrderStatus::DELIVERED, OrderStatus::CANCELLED,
+        ],
+        OrderStatus::DELIVERED => [],
+        OrderStatus::CANCELLED => [],
+        OrderStatus::PARTIALLY_REFUNDED => [],
+        OrderStatus::REFUNDED => [],
+    ];
+
+    /** Statuses an admin is ever allowed to assign manually (targets). */
     public static function adminUpdatableStatuses(): array
     {
         return [
@@ -21,9 +63,45 @@ final class AdminOrderService
             OrderStatus::DELIVERED,
             OrderStatus::CANCELLED,
             OrderStatus::DELIVERY_EXCEPTION,
-            OrderStatus::PARTIALLY_REFUNDED,
-            OrderStatus::REFUNDED,
+            OrderStatus::PAYMENT_FAILED,
         ];
+    }
+
+    /**
+     * Targets reachable from $currentStatus under ADMIN_TRANSITIONS.
+     * Unknown/legacy current statuses may only be cancelled.
+     *
+     * @return list<string>
+     */
+    public static function allowedTargetsFor(string $currentStatus): array
+    {
+        $currentStatus = strtolower(trim($currentStatus));
+
+        return self::ADMIN_TRANSITIONS[$currentStatus] ?? [OrderStatus::CANCELLED];
+    }
+
+    /**
+     * Transition validation error, or null when the move is allowed.
+     * Delivered additionally requires a verified paid payment_status —
+     * offline-paid orders already carry payment_status='paid'.
+     */
+    public static function transitionViolation(string $fromStatus, string $toStatus, string $paymentStatus): ?string
+    {
+        $fromStatus = strtolower(trim($fromStatus));
+        $toStatus = strtolower(trim($toStatus));
+        $paymentStatus = strtolower(trim($paymentStatus));
+        if (in_array($toStatus, [OrderStatus::REFUNDED, OrderStatus::PARTIALLY_REFUNDED], true)) {
+            return 'Refund status is set automatically by verified refund processing and cannot be set manually.';
+        }
+        if (!in_array($toStatus, self::allowedTargetsFor($fromStatus), true)) {
+            return 'Cannot move an order from "'
+                . self::statusLabel($fromStatus) . '" to "' . self::statusLabel($toStatus) . '".';
+        }
+        if ($toStatus === OrderStatus::DELIVERED && $paymentStatus !== PaymentStatus::PAID) {
+            return 'Delivered requires a verified paid order; record/verify payment first.';
+        }
+
+        return null;
     }
 
     /** @return array<string, string> */
@@ -334,7 +412,7 @@ final class AdminOrderService
             return ['ok' => false, 'message' => 'Order not found.'];
         }
         $status = strtolower(trim($status));
-        if ($status === '' || !in_array($status, self::adminUpdatableStatuses(), true)) {
+        if ($status === '' || !in_array($status, OrderStatus::all(), true)) {
             return ['ok' => false, 'message' => 'Choose a valid order status.'];
         }
         $note = trim($note);
@@ -362,6 +440,18 @@ final class AdminOrderService
                 $pdo->rollBack();
 
                 return ['ok' => false, 'message' => 'Status is already set to that value.'];
+            }
+            if ($previous !== $status) {
+                $violation = self::transitionViolation(
+                    $previous,
+                    $status,
+                    (string) ($row['payment_status'] ?? '')
+                );
+                if ($violation !== null) {
+                    $pdo->rollBack();
+
+                    return ['ok' => false, 'message' => $violation];
+                }
             }
             $pdo->prepare('UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ?')
                 ->execute([$status, $orderId]);

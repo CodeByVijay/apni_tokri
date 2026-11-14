@@ -171,7 +171,10 @@ function layout_admin_start(array $vars): void
     }
     echo '<a href="' . Security::escape($base) . '/index.php" class="at-btn at-btn--ghost at-btn--sm at-focusable hidden sm:inline-flex">' . at_icon('store') . 'View site</a>';
     if (AdminAuth::check()) {
-        echo '<a href="' . Security::escape($base) . '/admin/logout.php" class="at-btn at-btn--secondary at-btn--sm at-focusable">Sign out</a>';
+        echo '<form method="post" action="' . Security::escape($base) . '/admin/logout.php" class="inline-flex m-0">'
+            . Csrf::field()
+            . '<button type="submit" class="at-btn at-btn--secondary at-btn--sm at-focusable">Sign out</button>'
+            . '</form>';
     } else {
         echo '<a href="' . Security::escape($base) . '/admin/login.php" class="at-btn at-btn--secondary at-btn--sm at-focusable">Sign in</a>';
     }

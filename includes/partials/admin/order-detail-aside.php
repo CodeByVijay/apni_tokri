@@ -21,8 +21,8 @@ declare(strict_types=1);
                 <select id="status" name="status" class="at-select at-focusable" required>
                     <?php
                     $current = (string) ($order['status'] ?? '');
-                    $statusOptions = AdminOrderService::adminUpdatableStatuses();
-                    if ($current !== '' && !in_array($current, $statusOptions, true)) {
+                    $statusOptions = AdminOrderService::allowedTargetsFor($current);
+                    if ($current !== '') {
                         array_unshift($statusOptions, $current);
                     }
                     foreach ($statusOptions as $st):

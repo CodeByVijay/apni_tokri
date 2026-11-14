@@ -256,3 +256,10 @@ html, body { margin: 0; padding: 0; }
   .auth-btn__spinner { animation-duration: 2s; }
   .auth-input, .auth-btn { transition: none; }
 }
+
+/* POST logout submit styled like the former footer <a> (VT-2026-05). */
+.auth-foot-btn {
+  background: none; border: 0; padding: 0; cursor: pointer;
+  color: var(--au-green); font: inherit; font-weight: 600;
+}
+.auth-foot-btn:hover { text-decoration: underline; }

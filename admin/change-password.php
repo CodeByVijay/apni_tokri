@@ -74,7 +74,10 @@ $logo = Security::escape(asset_url('assets/images/logo.svg'));
                 <button type="submit" class="auth-btn"><span class="auth-btn__label">Update password</span></button>
             </form>
 
-            <p class="auth-card__foot"><a href="<?= Security::escape(url_to('/admin/logout.php')) ?>">Sign out</a></p>
+            <form method="post" action="<?= Security::escape(url_to('/admin/logout.php')) ?>" class="auth-card__foot">
+                <?= Csrf::field() ?>
+                <button type="submit" class="auth-foot-btn">Sign out</button>
+            </form>
         </div>
     </main>
 </div>
