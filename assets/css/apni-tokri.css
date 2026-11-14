@@ -2435,7 +2435,8 @@ body.at-modal-open {
     padding: 0.25rem 0.45rem 0.2rem;
   }
   .at-bottom-nav a {
-    min-height: 3.1rem;
+    min-height: 3.25rem;
+    justify-content: center;
     gap: 0.2rem;
     padding: 0.45rem 0.2rem;
     border-radius: 0.85rem;
@@ -2622,14 +2623,6 @@ body.at-modal-open {
 
   .at-header .at-search input {
     font-size: 0.82rem;
-  }
-}
-.at-main--with-bottom-nav {
-  padding-bottom: 4.5rem;
-}
-@media (min-width: 768px) {
-  .at-main--with-bottom-nav {
-    padding-bottom: 0;
   }
 }
 
@@ -4932,11 +4925,15 @@ body.at-gallery-lightbox-open {
 .at-footer__support a {
   overflow-wrap: break-word;
 }
+.at-footer__support li svg {
+  flex-shrink: 0;
+}
 
 /* Footer grid — layout lives here (not in utilities) so mobile can compact it. */
 .at-footer__grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
+  align-items: start;
   gap: 2.5rem;
   padding-top: 2.5rem;
   padding-bottom: 2.5rem;
@@ -4946,51 +4943,183 @@ body.at-gallery-lightbox-open {
 .at-footer__ticket { margin-top: 1rem; }
 .at-footer-apps { margin-top: 2rem; }
 .at-footer__legal-inner { padding-top: 1rem; padding-bottom: 1rem; }
-@media (min-width: 640px) {
+@media (min-width: 640px) and (max-width: 1023.98px) {
   .at-footer__grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.75rem 2rem;
+    padding-top: 2.25rem;
+    padding-bottom: 2.25rem;
+  }
+  .at-footer h3 { margin-bottom: 0.65rem; }
+  .at-footer ul { gap: 0.45rem; }
+  .at-footer__desc { margin-top: 0.75rem; }
+  .at-footer__trust { margin-top: 0.9rem; }
+  .at-footer__ticket { margin-top: 0.85rem; }
+  .at-footer-apps { margin-top: 1.5rem; }
+}
+@media (min-width: 1024px) {
+  .at-footer__grid {
+    grid-template-columns: 1.4fr 1fr 1fr 1.2fr;
     padding-top: 3.5rem;
     padding-bottom: 3.5rem;
   }
 }
-@media (min-width: 1024px) {
-  .at-footer__grid { grid-template-columns: 1.4fr 1fr 1fr 1.2fr; }
-}
 
 /* Compact mobile footer — brand/support span full width, About+Policies share a 2-col row. */
 @media (max-width: 639.98px) {
+  .at-footer {
+    font-size: 0.84375rem;
+    line-height: 1.4;
+  }
   .at-footer__grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 1.15rem 1rem;
-    padding-top: 1.6rem;
-    padding-bottom: 1.6rem;
     align-items: start;
+    align-content: start;
+    gap: 1rem 0.875rem;
+    padding-top: 1.15rem;
+    padding-bottom: 1.15rem;
   }
   .at-footer__brand,
-  .at-footer__support { grid-column: 1 / -1; }
-  .at-footer__brand .at-logo img { height: 1.9rem; }
-  .at-footer__brand .at-logo__word { font-size: 1.1rem; }
-  .at-footer__desc { margin-top: 0.45rem; font-size: 0.84rem; line-height: 1.5; max-width: 26rem; }
-  .at-footer-social { margin-top: 0.55rem; }
-  .at-footer__trust { margin-top: 0.7rem; gap: 0.7rem; font-size: 0.72rem; }
-  .at-footer h3 { margin-bottom: 0.35rem; }
-  /* Link rows are content-sized (~34px pitch): anchor padding only, no extra
-     list gap and no min-height — prevents the inflated spacing seen on WebView. */
+  .at-footer__support {
+    grid-column: 1 / -1;
+  }
+  .at-footer__brand .at-logo img {
+    height: 1.85rem;
+    width: auto;
+  }
+  .at-footer__brand .at-logo__word {
+    font-size: 1.05rem;
+  }
+  .at-footer .at-footer__desc {
+    margin-top: 0.35rem;
+    max-width: 26rem;
+    font-size: 0.8125rem;
+    line-height: 1.45;
+  }
+  .at-footer .at-footer-social {
+    margin-top: 0.45rem;
+    gap: 0.5rem;
+  }
+  .at-footer .at-footer-social__link {
+    width: 2rem;
+    height: 2rem;
+  }
+  .at-footer .at-footer__trust {
+    margin-top: 0.5rem;
+    gap: 0.65rem;
+    font-size: 0.72rem;
+    line-height: 1.3;
+  }
+  .at-footer h3 {
+    margin: 0 0 0.4rem;
+    font-size: 0.7rem;
+    line-height: 1.3;
+    letter-spacing: 0.1em;
+  }
+  /* Link rows are content-sized (~20-24px pitch): no artificial min-height or space-between. */
   .at-footer__about ul,
-  .at-footer__policies ul { gap: 0; }
+  .at-footer__policies ul {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 0.2rem;
+    margin: 0;
+    padding: 0;
+  }
+  .at-footer__about li,
+  .at-footer__policies li {
+    margin: 0;
+    padding: 0;
+    min-height: 0;
+    line-height: 1.35;
+  }
   .at-footer__about ul a,
   .at-footer__policies ul a {
-    display: block;
-    padding: 0.4rem 0;
+    display: inline-block;
+    min-height: 0;
+    padding: 0.0625rem 0;
+    font-size: 0.84375rem;
+    line-height: 1.35;
     overflow-wrap: break-word;
   }
-  .at-footer__support ul { gap: 0.15rem; }
-  .at-footer__support li { padding: 0.15rem 0; }
-  .at-footer__support ul a { padding: 0.2rem 0; }
-  .at-footer__support > p { font-size: 0.84rem; margin-bottom: 0; }
-  .at-footer__ticket { margin-top: 0.7rem; }
-  .at-footer-apps { margin-top: 1.25rem; }
-  .at-footer__legal-inner { padding-top: 0.8rem; padding-bottom: 0.8rem; }
+  .at-footer__support h3 {
+    margin-bottom: 0.25rem;
+  }
+  .at-footer__support > p {
+    margin: 0;
+    font-size: 0.8125rem;
+    line-height: 1.35;
+  }
+  .at-footer__support ul {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 0.3rem;
+    margin: 0.4rem 0 0;
+    padding: 0;
+  }
+  .at-footer__support li {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0;
+    padding: 0;
+    min-height: 0;
+    line-height: 1.35;
+  }
+  .at-footer__support li svg {
+    width: 0.95rem;
+    height: 0.95rem;
+  }
+  .at-footer__support ul a {
+    display: inline;
+    min-height: 0;
+    padding: 0.0625rem 0;
+    font-size: 0.84375rem;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+  }
+  .at-footer .at-footer__ticket {
+    margin-top: 0.6rem;
+    min-height: 2.125rem;
+    padding: 0.35rem 0.85rem;
+    font-size: 0.8125rem;
+  }
+  .at-footer .at-footer-apps {
+    margin-top: 0.9rem;
+  }
+  .at-footer .at-footer-apps__desc {
+    margin: 0.2rem 0 0.5rem;
+    font-size: 0.8125rem;
+    line-height: 1.4;
+  }
+  .at-footer .at-footer-apps__badge-img {
+    height: 40px;
+  }
+  .at-footer .at-footer__legal-inner {
+    padding-top: 0.65rem;
+    padding-bottom: 0.65rem;
+    gap: 0.25rem;
+    font-size: 0.72rem;
+    line-height: 1.4;
+  }
+}
+@media (max-width: 359.98px) {
+  .at-footer__grid {
+    column-gap: 0.75rem;
+  }
+}
+
+/* Bottom nav must never cover content (incl. footer) on phones; honour the home-indicator inset.
+   Footer owns bottom-nav clearance (PHP emits the class when the nav renders, no :has() dependency)
+   — so main's padding is reset to avoid double spacing. */
+.at-main--with-bottom-nav {
+  padding-bottom: 0;
+}
+@media (max-width: 767.98px) {
+  .at-footer--with-bottom-nav {
+    padding-bottom: calc(4.75rem + env(safe-area-inset-bottom, 0px));
+  }
 }
 /* CMS rich-text content (public pages, admin preview, version history).
    Tailwind preflight resets headings/lists and the CDN build has no typography
@@ -9291,28 +9420,6 @@ body.at-map-viewer-open { overflow: hidden; }
 }
 .at-hub-order__aside strong { font-size: 0.9375rem; font-weight: 800; }
 .at-hub-order__chevron { width: 1.2rem; height: 1.2rem; color: var(--at-muted); }
-
-/* Bottom nav must never cover content (incl. footer) on phones; honour the home-indicator inset. */
-.at-main--with-bottom-nav {
-  padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
-}
-@media (max-width: 767px) {
-  /* Footer owns bottom-nav clearance (PHP emits the class when the nav renders,
-     no :has() dependency) — so main's padding is reset to avoid double spacing. */
-  .at-footer--with-bottom-nav {
-    padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
-  }
-  .at-main--with-bottom-nav {
-    padding-bottom: 0;
-  }
-  .at-bottom-nav a {
-    min-height: 3.25rem;
-    justify-content: center;
-  }
-}
-@media (min-width: 768px) {
-  .at-main--with-bottom-nav { padding-bottom: 0; }
-}
 
 /* Admin order detail (admin/orders/view.php only) */
 .at-admin-order-detail {
