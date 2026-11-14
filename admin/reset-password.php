@@ -52,11 +52,11 @@ $logo = Security::escape(asset_url('assets/images/logo.svg'));
             <h1>Set New Password</h1>
             <?php if ($done): ?>
                 <div class="auth-alert auth-alert--ok" role="status">Your password has been updated. You can now sign in with your new password.</div>
-                <p class="auth-card__foot"><a class="auth-btn auth-btn--block" href="<?= Security::escape(url_to('/admin/login.php')) ?>">Sign In</a></p>
+                <p class="auth-card__foot"><a class="auth-btn auth-btn--block" href="<?= Security::escape(url_to('/admin/login')) ?>">Sign In</a></p>
             <?php elseif ($linkBad): ?>
                 <div class="auth-alert auth-alert--warn" role="alert"><?= Security::escape($error) ?></div>
-                <p class="auth-card__foot"><a class="auth-btn auth-btn--block" href="<?= Security::escape(url_to('/admin/forgot-password.php')) ?>">Request New Reset Link</a></p>
-                <p class="auth-card__foot"><a href="<?= Security::escape(url_to('/admin/login.php')) ?>">&larr; Back to Sign In</a></p>
+                <p class="auth-card__foot"><a class="auth-btn auth-btn--block" href="<?= Security::escape(url_to('/admin/forgot-password')) ?>">Request New Reset Link</a></p>
+                <p class="auth-card__foot"><a href="<?= Security::escape(url_to('/admin/login')) ?>">&larr; Back to Sign In</a></p>
             <?php else: ?>
                 <p class="auth-card__lead">Choose a new password for your admin account.</p>
                 <?php if ($error !== ''): ?>
@@ -99,7 +99,7 @@ $logo = Security::escape(asset_url('assets/images/logo.svg'));
                         <span class="auth-btn__label">Save New Password</span>
                     </button>
                 </form>
-                <p class="auth-card__foot"><a href="<?= Security::escape(url_to('/admin/login.php')) ?>">&larr; Back to Sign In</a></p>
+                <p class="auth-card__foot"><a href="<?= Security::escape(url_to('/admin/login')) ?>">&larr; Back to Sign In</a></p>
             <?php endif; ?>
         </div>
     </main>

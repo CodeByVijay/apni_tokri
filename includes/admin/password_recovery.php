@@ -90,23 +90,18 @@ final class AdminPasswordRecovery
         $cfg = self::config();
         $ttl = $cfg['token_ttl_seconds'];
 
-        // Reset links must be absolute and come only from configured app.base_url —
-        // never from the request Host header (prevents host-header link poisoning).
-        $base = App::baseUrl();
-        $scheme = strtolower((string) parse_url($base, PHP_URL_SCHEME));
-        $baseHost = (string) parse_url($base, PHP_URL_HOST);
-        if ($base === '' || $baseHost === '' || !in_array($scheme, ['http', 'https'], true)) {
-            error_log('AdminPasswordRecovery: app.base_url is not a valid absolute URL; reset email not sent.');
-
-            return ['ok' => false, 'message' => 'Password reset is temporarily unavailable. Contact an administrator.'];
-        }
-
         $pdo->prepare(
             'INSERT INTO admin_password_reset_tokens (admin_user_id, token_hash, expires_at, request_ip)
              VALUES (?, ?, DATE_ADD(NOW(), INTERVAL ? SECOND), ?)'
         )->execute([(int) $user['id'], $hash, $ttl, AdminLoginSecurity::clientIp()]);
 
-        $resetUrl = absolute_url('/admin/reset-password?token=' . rawurlencode($plain));
+        $resetUrl = self::resetPageUrl($plain);
+        if ($resetUrl === null) {
+            $pdo->prepare('DELETE FROM admin_password_reset_tokens WHERE token_hash = ?')->execute([$hash]);
+            error_log('AdminPasswordRecovery: canonical site URL is not configured; reset email not sent.');
+
+            return ['ok' => false, 'message' => 'Password reset is temporarily unavailable. Contact an administrator.'];
+        }
         $mail = self::resetEmail((string) ($user['name'] ?? ''), $resetUrl, $ttl);
 
         $send = self::sendMail((string) $user['email'], $mail['subject'], $mail['text'], $mail['html']);
@@ -149,6 +144,35 @@ final class AdminPasswordRecovery
         $ipStmt->execute([$ip, $cfg['window_minutes']]);
 
         return (int) $ipStmt->fetchColumn() >= $cfg['max_requests_ip'];
+    }
+
+    /**
+     * Absolute reset-page URL built from the canonical public site origin —
+     * Admin → Settings → Website URL (business.website_url), falling back to
+     * app.base_url for local development and the veggietokri.com default in
+     * production. The request Host header is never used, and production links
+     * are always https.
+     */
+    private static function resetPageUrl(string $plainToken): ?string
+    {
+        $base = SeoUrl::publicSiteBaseUrl();
+        $scheme = strtolower((string) parse_url($base, PHP_URL_SCHEME));
+        if (AppEnvironment::isProduction() && $scheme === 'http') {
+            $base = 'https' . substr($base, 4);
+            $scheme = 'https';
+        }
+        $host = (string) parse_url($base, PHP_URL_HOST);
+        if ($base === '' || $host === '' || !in_array($scheme, ['http', 'https'], true)) {
+            return null;
+        }
+
+        $relative = url_to('/admin/reset-password?token=' . rawurlencode($plainToken));
+        $basePath = rtrim((string) parse_url($base, PHP_URL_PATH), '/');
+        if ($basePath !== '' && str_starts_with($relative, $basePath . '/')) {
+            $relative = substr($relative, strlen($basePath)) ?: '/';
+        }
+
+        return rtrim($base, '/') . (str_starts_with($relative, '/') ? $relative : '/' . $relative);
     }
 
     /**

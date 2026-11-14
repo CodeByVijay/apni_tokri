@@ -35,7 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $result = AdminPasswordRecovery::requestReset($email);
         if ($result['ok']) {
             $_SESSION['admin_forgot_notice'] = $result['message'];
-            header('Location: ' . url_to('/admin/forgot-password.php'), true, 303);
+            header('Location: ' . url_to('/admin/forgot-password'), true, 303);
             exit;
         }
         $error = $result['message'];
@@ -75,7 +75,7 @@ $logo = Security::escape(asset_url('assets/images/logo.svg'));
                     <span class="auth-btn__label">Send Reset Link</span>
                 </button>
             </form>
-            <p class="auth-card__foot"><a href="<?= Security::escape(url_to('/admin/login.php')) ?>">&larr; Back to Sign In</a></p>
+            <p class="auth-card__foot"><a href="<?= Security::escape(url_to('/admin/login')) ?>">&larr; Back to Sign In</a></p>
         </div>
     </main>
 </div>

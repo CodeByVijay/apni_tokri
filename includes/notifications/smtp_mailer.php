@@ -238,6 +238,7 @@ final class SmtpMailer
         $headers = [
             'Date: ' . $date,
             'From: ' . $fromHeader,
+            'Reply-To: ' . $fromHeader,
             'To: ' . $to,
             'Subject: ' . self::encodeHeaderValue($subject),
             'Message-ID: ' . $messageId,

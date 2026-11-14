@@ -163,34 +163,66 @@ $limited = AdminPasswordRecovery::requestReset($adminEmail); // 4th — over lim
 resetOk(!empty($limited['ok']), 'rate-limited request still returns generic ok');
 resetOk(count($mailCapture) === $mailBefore + 2, 'rate-limited request sends no email');
 
-// --- 12. Production domain config → absolute https link on veggietokri.com ---
+// --- 12. Canonical domain: admin Website URL beats a stale config base_url ---
+// Reproduces the production bug: config.local.php had legacy veggietokri.in while
+// Admin → Settings → Website URL holds veggietokri.com.
+$pdo->prepare('DELETE FROM admin_password_reset_tokens WHERE admin_user_id = ?')->execute([$secondId]);
 $cfg = App::config();
-$cfg['app']['base_url'] = 'https://veggietokri.com';
+$cfg['app']['base_url'] = 'https://veggietokri.in';
 $cfg['app']['url_path'] = '';
+$cfg['app']['env'] = 'production';
 App::setConfig($cfg);
+
+AppSettings::set('business.website_url', 'https://veggietokri.com');
 AdminPasswordRecovery::requestReset('second@apnitokri.local');
 $prodMail = $mailCapture[count($mailCapture) - 1] ?? null;
 resetOk(
     $prodMail !== null
     && preg_match('#https://veggietokri\.com/admin/reset-password\?token=#', $prodMail['html']) === 1,
-    'production config yields https://veggietokri.com reset link'
+    'admin Website URL wins over stale .in base_url'
 );
 resetOk(
-    $prodMail !== null && strpos($prodMail['html'], 'localhost') === false && strpos($prodMail['html'], '.local') === false,
-    'no localhost/.local in production email link'
+    $prodMail !== null
+    && strpos($prodMail['html'], 'veggietokri.in') === false
+    && strpos($prodMail['text'], 'veggietokri.in') === false,
+    'no .in domain anywhere in the email'
 );
+
+// No Website URL set + stale .in base_url + production env → canonical veggietokri.com default.
+AppSettings::set('business.website_url', '');
+AdminPasswordRecovery::requestReset('second@apnitokri.local');
+$defMail = $mailCapture[count($mailCapture) - 1] ?? null;
+resetOk(
+    $defMail !== null
+    && strpos($defMail['html'], 'https://veggietokri.com/admin/reset-password?token=') !== false,
+    'production default veggietokri.com used when base_url stale and no Website URL'
+);
+
+// http Website URL in production → https enforced on reset links.
+AppSettings::set('business.website_url', 'http://veggietokri.com');
+AdminPasswordRecovery::requestReset('second@apnitokri.local');
+$httpMail = $mailCapture[count($mailCapture) - 1] ?? null;
+resetOk(
+    $httpMail !== null
+    && strpos($httpMail['html'], 'https://veggietokri.com/admin/reset-password?token=') !== false
+    && strpos($httpMail['html'], 'http://veggietokri.com/admin/reset-password') === false,
+    'http Website URL upgraded to https in production'
+);
+AppSettings::set('business.website_url', '');
 
 // Restore config + clean state for the page-level sanity checks below.
 $cfg['app']['base_url'] = 'http://localhost:8080/Apni_Tokri';
 $cfg['app']['url_path'] = '/Apni_Tokri';
+$cfg['app']['env'] = 'local';
 App::setConfig($cfg);
 
-// --- Missing base_url → refuses to send (no host-header fallback) ---
+// --- Missing base_url + no Website URL → refuses to send (no host-header fallback) ---
+$pdo->prepare('DELETE FROM admin_password_reset_tokens WHERE admin_user_id = ?')->execute([$secondId]);
 $cfg2 = App::config();
 $cfg2['app']['base_url'] = '';
 App::setConfig($cfg2);
 $refused = AdminPasswordRecovery::requestReset('second@apnitokri.local');
-resetOk(empty($refused['ok']), 'request refused when base_url missing (no host-header poisoning)');
+resetOk(empty($refused['ok']), 'request refused when no canonical URL configured (no host-header poisoning)');
 App::setConfig($cfg);
 
 fwrite(STDOUT, "DONE ok={$ok} fail={$fail}\n");
