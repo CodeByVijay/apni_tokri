@@ -144,7 +144,7 @@ $resetCy = OrderNumberSettings::RESET_CALENDAR_YEAR;
         <button type="submit" class="at-btn at-btn--primary at-focusable">Save order settings</button>
     </div>
 </form>
-<script>
+<script <?= Security::cspNonceAttr() ?>>
 (function () {
     var form = document.getElementById('order-settings-form');
     if (!form) return;

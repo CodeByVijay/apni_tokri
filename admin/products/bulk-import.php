@@ -180,7 +180,7 @@ $missingImagesZipMessage = ProductBulkImport::MSG_MISSING_IMAGES_ZIP;
         <div id="at-bulk-import-result" class="hidden" role="status" aria-live="polite"></div>
     </div>
 </div>
-<script>
+<script <?= Security::cspNonceAttr() ?>>
 (function () {
   const ajaxUrl = <?= json_encode($ajaxUrl, JSON_THROW_ON_ERROR) ?>;
   const csrf = <?= json_encode($csrf, JSON_THROW_ON_ERROR) ?>;

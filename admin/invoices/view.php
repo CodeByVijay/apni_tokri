@@ -144,7 +144,7 @@ $h = static function ($v): string {
         <?php endif; ?>
     </div>
 </div>
-<script>
+<script <?= Security::cspNonceAttr() ?>>
 (function () {
     var f = document.getElementById('inv-email-form'), b = document.getElementById('inv-email-btn');
     if (f && b) { f.addEventListener('submit', function () { b.disabled = true; b.textContent = 'Sending…'; }); }

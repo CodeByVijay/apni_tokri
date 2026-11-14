@@ -42,7 +42,7 @@ $remaining = isset($pw['remaining_seconds']) ? (int) $pw['remaining_seconds'] : 
         <?php endif; ?>
     </div>
 </section>
-<script>
+<script <?= Security::cspNonceAttr() ?>>
 (function () {
     var el = document.querySelector('.at-order-payment-window__countdown');
     if (!el) return;

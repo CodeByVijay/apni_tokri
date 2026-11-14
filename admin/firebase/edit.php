@@ -258,7 +258,7 @@ $progress = FirebaseSetupProgress::build(is_array($row) ? $row : null, $platform
 <?php firebase_render_setup_guide($id, $platforms, $progress, $base); ?>
 </div>
 
-<script>
+<script <?= Security::cspNonceAttr() ?>>
 (function () {
     var toggles = document.querySelectorAll('.js-platform-toggle');
     var sections = document.querySelectorAll('.js-platform-section');

@@ -46,7 +46,7 @@ $sectionLabel = SeoAdminCenter::SECTIONS[$seoSection] ?? 'SEO';
     </div>
 </header>
 
-<script>
+<script <?= Security::cspNonceAttr() ?>>
 (function () {
     var sel = document.getElementById('at-seo-section-select');
     if (sel) {

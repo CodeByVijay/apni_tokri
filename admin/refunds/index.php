@@ -281,7 +281,7 @@ if ($requestId > 0 && Install::isSchemaReady()) {
         </div>
     </form>
     <?php if ($canApproveProcess): ?>
-    <script>
+    <script <?= Security::cspNonceAttr() ?>>
     (function () {
         var form = document.getElementById('admin-refund-actions');
         if (!form) return;

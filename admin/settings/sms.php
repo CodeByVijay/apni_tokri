@@ -231,7 +231,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/settings-nav.php';
         <button type="submit" class="at-btn at-btn--secondary at-focusable" <?= !$isLive ? 'disabled' : '' ?>>Send test SMS</button>
     </div>
 </form>
-<script>
+<script <?= Security::cspNonceAttr() ?>>
 (function () {
   var sel = document.getElementById('operation_mode');
   var testFields = document.getElementById('test-mode-fields');

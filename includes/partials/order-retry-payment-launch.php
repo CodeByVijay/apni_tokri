@@ -35,7 +35,7 @@ if ($mode === 'razorpay'): ?>
         data-customer-name="<?= Security::escape((string) (CustomerService::profile()['name'] ?? 'Customer')) ?>"
         data-customer-mobile="<?= Security::escape((string) (CustomerService::profile()['mobile'] ?? '')) ?>">Pay</button>
 <?php endif; ?>
-<script>
+<script <?= Security::cspNonceAttr() ?>>
 window.AT_PAYMENT = {
     csrf: <?= json_encode(Csrf::token(), JSON_THROW_ON_ERROR) ?>,
     verifyUrl: <?= json_encode(url_base() . '/ajax/payment/verify.php', JSON_THROW_ON_ERROR) ?>,

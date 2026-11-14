@@ -1,0 +1,41 @@
+# Veggie Tokri — production deployment exclusion list
+#
+# Anything listed here must NOT be uploaded to the production webroot.
+# (Reference for the manual upload/rsync step; also enforced at the edge by
+# .htaccess where noted.)
+#
+# Internal documentation — never a web asset (also denied via .htaccess).
+docs/
+*.md
+*.markdown
+#
+# VCS / editor / OS artifacts.
+.git/
+.gitignore
+.gitattributes
+.DS_Store
+Thumbs.db
+#
+# Secrets and local environment overrides.
+.env
+.env.*
+includes/config.local.php
+#
+# Database dumps, backups, and local tooling.
+database/
+storage/backups/
+storage/logs/
+storage/temporary/
+scripts/
+*.sql
+*.bak
+*.backup
+#
+# Root-level debug/preview scratch files — must not exist on production
+# (also denied via the .htaccess "^_" rule). These were found live on
+# production during the 2026-11-14 pentest and must be deleted from the
+# server if still present:
+#   _dbg_footer.php
+#   _dbg_footerpage.php
+#   _tmp_footer_preview.php
+_*

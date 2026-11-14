@@ -26,6 +26,72 @@ final class Security
         if ($isHttps) {
             header('Strict-Transport-Security: max-age=31536000; includeSubDomains');
         }
+
+        $csp = self::contentSecurityPolicy($isHttps);
+        if ($csp !== null) {
+            header('Content-Security-Policy-Report-Only: ' . $csp);
+        }
+    }
+
+    /**
+     * Per-request CSP nonce (base64). Generated lazily and stable for the request
+     * so sendSecurityHeaders() and later layout rendering agree on one value.
+     */
+    public static function cspNonce(): string
+    {
+        static $nonce = null;
+        if ($nonce === null) {
+            $nonce = base64_encode(random_bytes(16));
+        }
+
+        return $nonce;
+    }
+
+    /** Rendered nonce attribute for inline <script> tags, e.g. nonce="abc…". */
+    public static function cspNonceAttr(): string
+    {
+        return 'nonce="' . self::cspNonce() . '"';
+    }
+
+    /**
+     * Report-Only policy. Deliberately omits 'unsafe-inline' from script-src so
+     * violation reports surface the remaining inline event handlers before the
+     * policy is enforced. style-src keeps 'unsafe-inline' (inline style=
+     * attributes and Tailwind CDN runtime styles cannot be nonced).
+     */
+    private static function contentSecurityPolicy(bool $isHttps): ?string
+    {
+        try {
+            $cfg = (array) (App::config()['security']['csp'] ?? []);
+        } catch (Throwable $e) {
+            $cfg = [];
+        }
+        if (($cfg['enabled'] ?? true) === false) {
+            return null;
+        }
+
+        $nonce = self::cspNonce();
+        $directives = [
+            "default-src 'self'",
+            "base-uri 'self'",
+            "object-src 'none'",
+            "frame-ancestors 'self'",
+            "form-action 'self'",
+            "script-src 'self' 'nonce-{$nonce}' https://cdn.tailwindcss.com https://code.jquery.com https://sdk.cashfree.com https://checkout.razorpay.com https://www.googletagmanager.com https://www.gstatic.com",
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+            "font-src 'self' https://fonts.gstatic.com data:",
+            "img-src 'self' data: https:",
+            "connect-src 'self' https://*.googleapis.com https://*.google-analytics.com https://*.googletagmanager.com https://*.gstatic.com https://*.cashfree.com https://*.razorpay.com",
+            "frame-src https://api.razorpay.com https://*.razorpay.com https://*.cashfree.com",
+            "worker-src 'self'",
+            "manifest-src 'self'",
+            "media-src 'self'",
+        ];
+        if ($isHttps) {
+            $directives[] = 'upgrade-insecure-requests';
+        }
+
+        return implode('; ', $directives);
     }
 
     public static function isHttps(): bool

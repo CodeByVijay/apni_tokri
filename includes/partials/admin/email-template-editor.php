@@ -36,7 +36,7 @@ $variableNames = $variableNames ?? [];
     <div id="email-ed-body" class="cms-editor-body at-textarea min-h-[14rem] p-3 border rounded-lg bg-white" contenteditable="true"><?= $bodyHtml ?></div>
     <textarea name="body_html" id="email-ed-html" class="hidden" aria-hidden="true"></textarea>
 </div>
-<script>
+<script <?= Security::cspNonceAttr() ?>>
 (function () {
     var body = document.getElementById('email-ed-body');
     var hidden = document.getElementById('email-ed-html');

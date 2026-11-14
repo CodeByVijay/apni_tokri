@@ -30,7 +30,7 @@ $uploadUrl = url_base() . '/admin/cms/upload-image.php';
     <textarea name="body_html" id="cms-ed-html" class="hidden" aria-hidden="true"></textarea>
     <p class="text-xs at-muted mt-1">Formatting only — scripts, iframes and unsafe HTML are removed on save.</p>
 </div>
-<script>
+<script <?= Security::cspNonceAttr() ?>>
 (function () {
     var body = document.getElementById('cms-ed-body');
     var hidden = document.getElementById('cms-ed-html');

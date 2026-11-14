@@ -526,7 +526,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
     </aside>
 </div>
 <?php if ($dbAddressMode): ?>
-<script>
+<script <?= Security::cspNonceAttr() ?>>
 (function () {
     var links = document.querySelectorAll('[data-checkout-edit]');
     function syncAddressSelection() {
@@ -554,7 +554,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
 </script>
 <?php endif; ?>
 <?php if ($dbAddressMode && $loggedIn && DemoCart::items() !== []): ?>
-<script>
+<script <?= Security::cspNonceAttr() ?>>
 window.AT_CHECKOUT = {
     quoteUrl: <?= json_encode(url_base() . '/ajax/checkout/quote.php', JSON_THROW_ON_ERROR) ?>,
     csrf: <?= json_encode(Csrf::token(), JSON_THROW_ON_ERROR) ?>
@@ -562,7 +562,7 @@ window.AT_CHECKOUT = {
 </script>
 <?php endif; ?>
 <?php if (DeliveryConfig::slotsEnabled() && ($canShowDeliverySlots ?? false) && ($checkoutSlots ?? []) !== []): ?>
-<script>
+<script <?= Security::cspNonceAttr() ?>>
 (function () {
     function syncDeliveryDateFromSlot() {
         var checked = document.querySelector('input[name="delivery_slot"][form="checkout-form"]:checked');
@@ -580,7 +580,7 @@ window.AT_CHECKOUT = {
 })();
 </script>
 <?php endif; ?>
-<script>
+<script <?= Security::cspNonceAttr() ?>>
 (function () {
   var form = document.getElementById('checkout-form');
   var btn = document.getElementById('checkout-proceed-pay');

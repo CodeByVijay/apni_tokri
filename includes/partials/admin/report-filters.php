@@ -32,7 +32,7 @@ function admin_report_filters(array $vars): void
             <button type="submit" class="at-btn at-btn--secondary at-focusable">Apply</button>
         </div>
     </form>
-    <script>
+    <script <?= Security::cspNonceAttr() ?>>
     (function () {
         var sel = document.getElementById('report-preset');
         if (!sel) return;

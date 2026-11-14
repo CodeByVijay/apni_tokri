@@ -163,7 +163,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
                 <p class="text-sm text-red-600"><?= Security::escape($errors['footer_display_order']) ?></p>
             <?php endif; ?>
         </div>
-        <script>
+        <script <?= Security::cspNonceAttr() ?>>
         (function () {
             var cb = document.querySelector('input[name="show_in_footer"]');
             var wrap = document.getElementById('cms-footer-order-wrap');

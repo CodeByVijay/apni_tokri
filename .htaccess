@@ -16,6 +16,10 @@
     RewriteRule ^storage/ - [F,L,NC]
     RewriteRule ^database/ - [F,L,NC]
     RewriteRule ^scripts(/|$) - [F,L,NC]
+    RewriteRule ^docs(/|$) - [F,L,NC]
+
+    # Root-level debug/preview scratch files (e.g. _dbg_footer.php) must never be web-reachable.
+    RewriteRule ^_ - [F,L,NC]
 
     # Homepage canonical root (never strip index.php to /index).
     RewriteCond %{REQUEST_METHOD} !POST
@@ -42,6 +46,28 @@
     RewriteCond %{REQUEST_FILENAME}.php -f
     RewriteRule ^(.+?)/?$ $1.php [END]
 
+</IfModule>
+
+# Internal documentation and VCS/backup artifacts are never web assets.
+<IfModule mod_authz_core.c>
+    <FilesMatch "\.(md|markdown|sql|sqlite|db|bak|backup|log|ini|dist|orig|sh)$">
+        Require all denied
+    </FilesMatch>
+    # Dotfiles (deploy metadata, env, VCS) — /.well-known/ files are unaffected
+    # because the match is on the filename, not the directory.
+    <FilesMatch "^\.">
+        Require all denied
+    </FilesMatch>
+</IfModule>
+<IfModule !mod_authz_core.c>
+    <FilesMatch "\.(md|markdown|sql|sqlite|db|bak|backup|log|ini|dist|orig|sh)$">
+        Order allow,deny
+        Deny from all
+    </FilesMatch>
+    <FilesMatch "^\.">
+        Order allow,deny
+        Deny from all
+    </FilesMatch>
 </IfModule>
 
 # Disable directory listing

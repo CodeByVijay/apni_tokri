@@ -317,7 +317,7 @@ $canRefreshCashfree = $hasCashfreeAttempt
     <?= Csrf::field() ?>
 </form>
 <?php if ($paymentRecovery !== null && $recoverySlots !== []): ?>
-<script>
+<script <?= Security::cspNonceAttr() ?>>
 (function () {
     var sel = document.getElementById('recovery_slot_id');
     var dateInput = document.getElementById('recovery_delivery_date');
@@ -332,7 +332,7 @@ $canRefreshCashfree = $hasCashfreeAttempt
 </script>
 <?php endif; ?>
 <?php if (!empty($canRescheduleDelivery)): ?>
-<script>
+<script <?= Security::cspNonceAttr() ?>>
 (function () {
     var dateEl = document.getElementById('reschedule_delivery_date');
     var slotEl = document.getElementById('reschedule_slot_id');
@@ -399,7 +399,7 @@ $canRefreshCashfree = $hasCashfreeAttempt
 })();
 </script>
 <?php endif; ?>
-<script>
+<script <?= Security::cspNonceAttr() ?>>
 (function () {
     var btn = document.getElementById('at-admin-od-copy-address');
     if (!btn) return;

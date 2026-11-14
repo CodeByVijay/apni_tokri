@@ -132,7 +132,7 @@ if ($mode === 'razorpay'): ?>
         </div>
     </div>
 </div>
-<script>
+<script <?= Security::cspNonceAttr() ?>>
 window.AT_PAYMENT = {
     csrf: <?= json_encode(Csrf::token(), JSON_THROW_ON_ERROR) ?>,
     verifyUrl: <?= json_encode($base . '/ajax/payment/verify.php', JSON_THROW_ON_ERROR) ?>,

@@ -362,7 +362,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/account-shell-start.php';
     <?php endif; ?>
 
     <?php if ($isActive): ?>
-    <script>
+    <script <?= Security::cspNonceAttr() ?>>
     window.AT_SUB_BASKET = {
         csrf: <?= json_encode(Csrf::token(), JSON_THROW_ON_ERROR) ?>,
         url: <?= json_encode($base . '/ajax/subscription/basket.php', JSON_THROW_ON_ERROR) ?>,
@@ -371,7 +371,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/account-shell-start.php';
         subscriptionNumber: <?= json_encode($subNumber, JSON_THROW_ON_ERROR) ?>
     };
     </script>
-    <script>
+    <script <?= Security::cspNonceAttr() ?>>
     (function ($) {
         if (typeof window.AT_SUB_BASKET === 'undefined') return;
         var cfg = window.AT_SUB_BASKET;
@@ -467,14 +467,14 @@ require APNI_TOKRI_ROOT . '/includes/partials/account-shell-start.php';
     </script>
     <?php endif; ?>
 
-    <script>
+    <script <?= Security::cspNonceAttr() ?>>
     window.AT_SUB_LIFECYCLE = {
         csrf: <?= json_encode(Csrf::token(), JSON_THROW_ON_ERROR) ?>,
         url: <?= json_encode($base . '/ajax/subscription/lifecycle.php', JSON_THROW_ON_ERROR) ?>,
         subscriptionNumber: <?= json_encode($subNumber, JSON_THROW_ON_ERROR) ?>
     };
     </script>
-    <script>
+    <script <?= Security::cspNonceAttr() ?>>
     (function ($) {
         var lc = window.AT_SUB_LIFECYCLE;
         if (lc) {

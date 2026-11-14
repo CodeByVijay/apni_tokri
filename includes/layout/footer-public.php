@@ -176,11 +176,11 @@ $loadCatalogueJs = !empty($loadCatalogueJs);
 ?>
 <?php if (!empty($GLOBALS['loadAddressMap'])): ?>
 <script defer src="<?= Security::escape(asset_url('assets/vendor/leaflet/leaflet.js')) ?>"></script>
-<script defer>window.AT_MAP_CONFIG = <?= json_encode(MapConfig::clientConfig(), JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
+<script defer <?= Security::cspNonceAttr() ?>>window.AT_MAP_CONFIG = <?= json_encode(MapConfig::clientConfig(), JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
 <script defer src="<?= Security::escape(asset_url('assets/js/address-map.js')) ?>"></script>
 <?php endif; ?>
 <?php if (!empty($GLOBALS['loadAddressAutocompleteJs'])): ?>
-<script defer>window.AT_ADDRESS_AUTOCOMPLETE = <?= json_encode(AddressAutocompleteSettings::publicClientConfig(), JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
+<script defer <?= Security::cspNonceAttr() ?>>window.AT_ADDRESS_AUTOCOMPLETE = <?= json_encode(AddressAutocompleteSettings::publicClientConfig(), JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
 <script defer src="<?= Security::escape(asset_url('assets/js/address-autocomplete.js')) ?>"></script>
 <?php endif; ?>
 <?php if ($loadCatalogueJs): ?>
@@ -189,7 +189,7 @@ $loadCatalogueJs = !empty($loadCatalogueJs);
 <?php
 $loadPushJs = !empty($loadPushJs) && FirebaseProjectManager::publicWebConfig() !== null;
 if ($loadPushJs):
-    ?><script>window.AT_BASE = <?= json_encode(url_base(), JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
+    ?><script <?= Security::cspNonceAttr() ?>>window.AT_BASE = <?= json_encode(url_base(), JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
 <script type="module" src="<?= Security::escape(asset_url('assets/js/push-notifications.mjs')) ?>"></script>
 <?php endif; ?>
 </body>

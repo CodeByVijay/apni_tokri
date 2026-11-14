@@ -471,7 +471,7 @@ if ($canRefundDash):
     </section>
 <?php endif; ?>
 
-<script>
+<script <?= Security::cspNonceAttr() ?>>
 (function () {
     var preset = document.getElementById('at-dash-preset');
     var wrap = document.getElementById('at-dash-custom-wrap');

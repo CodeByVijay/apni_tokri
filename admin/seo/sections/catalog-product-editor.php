@@ -118,7 +118,7 @@ $hasExisting = $metaTitle !== '' || $metaDesc !== '';
         </div>
     </div>
 </div>
-<script>
+<script <?= Security::cspNonceAttr() ?>>
 (function () {
     var title = document.querySelector('[data-at-seo-title]');
     var desc = document.querySelector('[data-at-seo-desc]');

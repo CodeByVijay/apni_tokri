@@ -58,7 +58,7 @@ $cancelFormAction = $cancelFormAction ?? (url_base() . '/order-details.php?id=' 
             </div>
         </form>
     </dialog>
-    <script>
+    <script <?= Security::cspNonceAttr() ?>>
     (function () {
         var dlg = document.getElementById('at-cancel-order-dialog');
         var openBtn = document.getElementById('at-open-cancel-dialog');

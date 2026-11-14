@@ -302,7 +302,7 @@ if ($modeMismatch): ?>
     <?php endif; ?>
 </div></div>
 
-<script>
+<script <?= Security::cspNonceAttr() ?>>
 (function () {
     var form = document.getElementById('zone-form');
     if (!form) { return; }

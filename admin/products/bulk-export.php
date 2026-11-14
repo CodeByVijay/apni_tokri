@@ -167,7 +167,7 @@ $ajaxUrl = $base . '/admin/ajax/product-bulk-export.php';
         </form>
     </div>
 </div>
-<script>
+<script <?= Security::cspNonceAttr() ?>>
 (function () {
   const ajaxUrl = <?= json_encode($ajaxUrl, JSON_THROW_ON_ERROR) ?>;
   const csrf = <?= json_encode($csrf, JSON_THROW_ON_ERROR) ?>;

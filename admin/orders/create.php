@@ -516,7 +516,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
 <?php
 $esc = static fn (string $s): string => Security::escape($s);
 ?>
-<script>window.AT_ADDRESS_AUTOCOMPLETE = <?= json_encode(AddressAutocompleteSettings::publicClientConfig(), JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
+<script <?= Security::cspNonceAttr() ?>>window.AT_ADDRESS_AUTOCOMPLETE = <?= json_encode(AddressAutocompleteSettings::publicClientConfig(), JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
 <script src="<?= $esc(asset_url('assets/js/address-autocomplete.js')) ?>"></script>
 <script src="<?= $esc(asset_url('assets/js/admin-assisted-order.js')) ?>"></script>
 <?php

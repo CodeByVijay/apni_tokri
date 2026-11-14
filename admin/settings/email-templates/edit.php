@@ -198,7 +198,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/settings-nav.php';
     </div>
 </div>
 
-<script>
+<script <?= Security::cspNonceAttr() ?>>
 (function () {
     var previewBtn = document.getElementById('email-tpl-preview-btn');
     var frame = document.getElementById('email-tpl-preview-frame');

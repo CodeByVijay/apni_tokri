@@ -129,12 +129,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$displayName = $postName !== '' ? $postName : (string) ($otpUi['name'] ?? '');
-$displayEmail = $postEmail !== '' ? $postEmail : (string) ($otpUi['email'] ?? '');
 $isReturning = ($otpUi['mode'] ?? '') === CustomerOtpRegistration::MODE_RETURNING;
 $isLegacy = ($otpUi['mode'] ?? '') === CustomerOtpRegistration::MODE_LEGACY_PROFILE;
 $showConsent = !empty($otpUi['show_consent']);
 $fieldsEditable = !$isReturning;
+
+// A returning customer's stored name/email must not be rendered before the OTP
+// is verified — the page is reachable by anyone who can submit the mobile on
+// login.php. Mask identifiers so the owner still recognises the account without
+// disclosing full PII.
+$maskIdentifier = static function (string $value): string {
+    $value = trim($value);
+    if ($value === '') {
+        return '';
+    }
+    $first = function_exists('mb_substr') ? mb_substr($value, 0, 1, 'UTF-8') : substr($value, 0, 1);
+
+    return $first . '••••';
+};
+$maskEmail = static function (string $email) use ($maskIdentifier): string {
+    $email = trim($email);
+    if ($email === '' || !str_contains($email, '@')) {
+        return $maskIdentifier($email);
+    }
+    [$local, $domain] = explode('@', $email, 2);
+
+    return $maskIdentifier($local) . '@' . $maskIdentifier($domain);
+};
+
+$displayName = $postName !== ''
+    ? $postName
+    : ($isReturning ? $maskIdentifier((string) ($otpUi['name'] ?? '')) : (string) ($otpUi['name'] ?? ''));
+$displayEmail = $postEmail !== ''
+    ? $postEmail
+    : ($isReturning ? $maskEmail((string) ($otpUi['email'] ?? '')) : (string) ($otpUi['email'] ?? ''));
 
 layout_public_start([
     'pageTitle' => 'Verify OTP — Veggie Tokri',
@@ -281,7 +309,7 @@ layout_public_start([
 <?php if (!$accountInactive): ?>
 <script src="<?= Security::escape(asset_url('assets/js/otp-input.js')) ?>"></script>
 <script src="<?= Security::escape(asset_url('assets/js/otp-resend.js')) ?>"></script>
-<script>
+<script <?= Security::cspNonceAttr() ?>>
 document.addEventListener('DOMContentLoaded', function () {
   if (window.AtOtpResend) {
     window.AtOtpResend.init(document.getElementById('otp-resend-wrap'));

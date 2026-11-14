@@ -38,7 +38,7 @@ $amountLabel = catalogue_format_price($retryPaymentAmount);
         </form>
     </div>
 </section>
-<script>
+<script <?= Security::cspNonceAttr() ?>>
 (function () {
     document.querySelectorAll('[data-at-retry-payment]').forEach(function (el) {
         var form = el.closest('form');
