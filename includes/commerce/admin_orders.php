@@ -52,28 +52,28 @@ final class AdminOrderService
         $proc = [RefundStatus::PROCESSING, RefundStatus::REFUND_INITIATED, RefundStatus::APPROVED];
         switch ($facet) {
             case 'cancelled':
-                return ['o.status = ?', [OrderStatus::CANCELLED]];
+                return ['sql' => 'o.status = ?', 'params' => [OrderStatus::CANCELLED]];
             case 'refund_approval':
                 return [
-                    "EXISTS (SELECT 1 FROM refund_requests rr WHERE rr.order_id = o.id AND rr.status IN ('"
-                    . implode("','", $req) . "'))",
-                    [],
+                    'sql' => "EXISTS (SELECT 1 FROM refund_requests rr WHERE rr.order_id = o.id AND rr.status IN ('"
+                        . implode("','", $req) . "'))",
+                    'params' => [],
                 ];
             case 'refund_processing':
                 return [
-                    "EXISTS (SELECT 1 FROM refund_requests rr WHERE rr.order_id = o.id AND rr.status IN ('"
-                    . implode("','", $proc) . "'))",
-                    [],
+                    'sql' => "EXISTS (SELECT 1 FROM refund_requests rr WHERE rr.order_id = o.id AND rr.status IN ('"
+                        . implode("','", $proc) . "'))",
+                    'params' => [],
                 ];
             case 'refund_failed':
                 return [
-                    "EXISTS (SELECT 1 FROM refund_requests rr WHERE rr.order_id = o.id AND rr.status = ?)",
-                    [RefundStatus::REFUND_FAILED],
+                    'sql' => "EXISTS (SELECT 1 FROM refund_requests rr WHERE rr.order_id = o.id AND rr.status = ?)",
+                    'params' => [RefundStatus::REFUND_FAILED],
                 ];
             case 'refunded':
                 return [
-                    "EXISTS (SELECT 1 FROM refund_requests rr WHERE rr.order_id = o.id AND rr.status = ?)",
-                    [RefundStatus::REFUNDED],
+                    'sql' => "EXISTS (SELECT 1 FROM refund_requests rr WHERE rr.order_id = o.id AND rr.status = ?)",
+                    'params' => [RefundStatus::REFUNDED],
                 ];
             default:
                 return null;

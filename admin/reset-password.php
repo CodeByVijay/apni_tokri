@@ -52,10 +52,10 @@ $logo = Security::escape(asset_url('assets/images/logo.svg'));
             <h1>Set New Password</h1>
             <?php if ($done): ?>
                 <div class="auth-alert auth-alert--ok" role="status">Your password has been updated. You can now sign in with your new password.</div>
-                <p class="auth-card__foot"><a class="auth-btn auth-btn--block" href="<?= Security::escape(url_to('/admin/login')) ?>">Sign In</a></p>
+                <p class="auth-card__foot"><a class="auth-btn" href="<?= Security::escape(url_to('/admin/login')) ?>"><span class="auth-btn__label">Go to Admin Login</span><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></a></p>
             <?php elseif ($linkBad): ?>
                 <div class="auth-alert auth-alert--warn" role="alert"><?= Security::escape($error) ?></div>
-                <p class="auth-card__foot"><a class="auth-btn auth-btn--block" href="<?= Security::escape(url_to('/admin/forgot-password')) ?>">Request New Reset Link</a></p>
+                <p class="auth-card__foot"><a class="auth-btn" href="<?= Security::escape(url_to('/admin/forgot-password')) ?>"><span class="auth-btn__label">Request New Reset Link</span><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></a></p>
                 <p class="auth-card__foot"><a href="<?= Security::escape(url_to('/admin/login')) ?>">&larr; Back to Sign In</a></p>
             <?php else: ?>
                 <p class="auth-card__lead">Choose a new password for your admin account.</p>

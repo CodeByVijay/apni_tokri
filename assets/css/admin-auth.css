@@ -226,6 +226,12 @@ html, body { margin: 0; padding: 0; }
 .auth-card__foot a { color: var(--au-green); font-weight: 600; text-decoration: none; }
 .auth-card__foot a:hover { text-decoration: underline; }
 
+/* Anchor styled as a button keeps its white label (footer link rule would otherwise
+   paint it green on the green button). */
+.auth-card__foot a.auth-btn { color: #fff; font-weight: 700; font-size: 1rem; }
+.auth-card__foot a.auth-btn:hover { text-decoration: none; }
+.auth-card__foot a.auth-btn svg { flex-shrink: 0; }
+
 .auth-hint { margin: 1rem 0 0; font-size: 0.78rem; color: var(--au-muted); text-align: center; line-height: 1.5; }
 
 /* ---------- Responsive ---------- */

@@ -88,7 +88,9 @@ $columns = [
     ['label' => 'Actions', 'key' => 'actions', 'align' => 'actions', 'raw' => true],
 ];
 $rows = $list['rows'];
-$emptyMessage = $listQ !== '' ? 'No orders match your search.' : 'No orders yet.';
+$emptyMessage = $listQ !== ''
+    ? 'No orders match your search.'
+    : ($refundFacet !== '' ? 'No orders found for this filter.' : 'No orders yet.');
 require APNI_TOKRI_ROOT . '/includes/partials/admin/data-table.php';
 
 $total = (int) $list['total'];
