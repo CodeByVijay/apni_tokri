@@ -259,6 +259,9 @@ if ($showGatewayCheckout && $mode === 'razorpay'): ?>
                 <button type="button" id="at-cashfree-refresh" class="at-btn at-btn--secondary at-focusable at-btn--block">
                     Refresh payment status
                 </button>
+                <a href="<?= Security::escape(url_base()) ?>/my-orders.php" class="at-btn at-btn--ghost at-focusable at-btn--block text-center">
+                    <?= at_icon('receipt', 'w-4 h-4') ?> View My Orders
+                </a>
             <?php endif; ?>
 
             <p class="text-xs at-muted"><?= at_icon('shield', 'w-4 h-4 inline') ?> Card details never touch our servers. Secrets stay on the server.</p>
