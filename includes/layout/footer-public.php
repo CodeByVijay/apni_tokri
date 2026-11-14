@@ -21,16 +21,16 @@ foreach ($cmsFooterLinks as $cmsFooterLink) {
     $cmsPolicyFooterLinks[] = $cmsFooterLink;
 }
 ?>
-<footer class="at-footer mt-auto" role="contentinfo">
-    <div class="at-container py-10 md:py-14 grid gap-10 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1.2fr]">
-        <div>
+<footer class="at-footer mt-auto<?= $showBottomNav ? ' at-footer--with-bottom-nav' : '' ?>" role="contentinfo">
+    <div class="at-container at-footer__grid">
+        <div class="at-footer__brand">
             <a href="<?= Security::escape($base) ?>/index.php" class="at-logo !text-white">
                 <img src="<?= Security::escape(BrandingSettings::footerLogoUrl()) ?>" alt="<?= Security::escape(BrandingSettings::logoAlt()) ?>" width="44" height="44">
                 <span class="at-logo__word !text-white"><?= Security::escape(__('brand_name')) ?></span>
             </a>
             <?php $footerBrandDesc = BrandingSettings::footerBrandDescription(); ?>
             <?php if ($footerBrandDesc !== null): ?>
-            <p class="mt-4 max-w-xs leading-relaxed"><?= Security::escape($footerBrandDesc) ?></p>
+            <p class="at-footer__desc max-w-xs leading-relaxed"><?= Security::escape($footerBrandDesc) ?></p>
             <?php endif; ?>
             <?php $footerSocialLinks = BrandingSocialLinks::visibleFooterLinks(); ?>
             <?php if ($footerSocialLinks !== []): ?>
@@ -43,12 +43,12 @@ foreach ($cmsFooterLinks as $cmsFooterLink) {
                 <?php endforeach; ?>
             </nav>
             <?php endif; ?>
-            <ul class="mt-5 !grid-flow-col !auto-cols-max gap-4 text-xs text-white/70">
+            <ul class="at-footer__trust !grid-flow-col !auto-cols-max gap-4 text-xs text-white/70">
                 <li class="flex items-center gap-1.5"><?= at_icon('shield', 'w-4 h-4') ?>Secure payments</li>
                 <li class="flex items-center gap-1.5"><?= at_icon('refresh', 'w-4 h-4') ?>Clear refund policy</li>
             </ul>
         </div>
-        <div>
+        <div class="at-footer__about">
             <h3><?= Security::escape(__('footer_about')) ?></h3>
             <ul>
                 <?php if ($cmsAboutFooterLink !== null): ?>
@@ -59,7 +59,7 @@ foreach ($cmsFooterLinks as $cmsFooterLink) {
                 <li><a class="at-focusable" href="<?= Security::escape($base) ?>/my-subscriptions.php">Subscriptions</a></li>
             </ul>
         </div>
-        <div>
+        <div class="at-footer__policies">
             <h3><?= Security::escape(__('footer_policies')) ?></h3>
             <ul>
                 <?php foreach ($cmsPolicyFooterLinks as $cmsPolicyLink): ?>
@@ -67,7 +67,7 @@ foreach ($cmsFooterLinks as $cmsFooterLink) {
                 <?php endforeach; ?>
             </ul>
         </div>
-        <div>
+        <div class="at-footer__support">
             <h3><?= Security::escape(__('footer_support')) ?></h3>
             <p><?= Security::escape(__('need_help')) ?></p>
             <ul class="mt-3">
@@ -96,10 +96,10 @@ foreach ($cmsFooterLinks as $cmsFooterLink) {
                 <li class="text-white/70 text-sm">Configure phone, email and WhatsApp in Admin → Settings → Business.</li>
                 <?php endif; ?>
             </ul>
-            <a href="<?= Security::escape($base) ?>/support.php" class="at-btn at-btn--light at-btn--sm at-focusable mt-4">Raise a ticket</a>
+            <a href="<?= Security::escape($base) ?>/support.php" class="at-btn at-btn--light at-btn--sm at-focusable at-footer__ticket">Raise a ticket</a>
             <?php $footerAppBadges = BrandingAppStores::visibleFooterBadges(); ?>
             <?php if ($footerAppBadges !== []): ?>
-            <section class="at-footer-apps mt-8" aria-labelledby="at-footer-apps-heading">
+            <section class="at-footer-apps" aria-labelledby="at-footer-apps-heading">
                 <h3 id="at-footer-apps-heading">Download Our App</h3>
                 <p class="at-footer-apps__desc">Get fresh vegetables and daily essentials delivered to your doorstep.</p>
                 <div class="at-footer-apps__badges">
@@ -120,7 +120,7 @@ foreach ($cmsFooterLinks as $cmsFooterLink) {
         </div>
     </div>
     <div class="border-t border-white/10">
-        <div class="at-container py-4 flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between text-xs text-white/60">
+        <div class="at-container at-footer__legal-inner flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between text-xs text-white/60">
             <span>&copy; <?= date('Y') ?> <?= Security::escape(BusinessSettings::legalName()) ?>. All rights reserved.
                 <?php
                 $fssai = BusinessSettings::fssaiLicence();
