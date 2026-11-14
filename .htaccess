@@ -18,6 +18,9 @@
     RewriteRule ^scripts(/|$) - [F,L,NC]
     RewriteRule ^docs(/|$) - [F,L,NC]
 
+    # Include-only admin page fragments (loaded by admin/seo/index.php) must not execute directly.
+    RewriteRule ^admin/seo/sections(/|$) - [F,L,NC]
+
     # Root-level debug/preview scratch files (e.g. _dbg_footer.php) must never be web-reachable.
     RewriteRule ^_ - [F,L,NC]
 
