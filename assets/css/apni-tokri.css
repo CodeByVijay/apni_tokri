@@ -4961,9 +4961,10 @@ body.at-gallery-lightbox-open {
 @media (max-width: 639.98px) {
   .at-footer__grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 1.4rem 1rem;
-    padding-top: 1.9rem;
-    padding-bottom: 1.9rem;
+    gap: 1.15rem 1rem;
+    padding-top: 1.6rem;
+    padding-bottom: 1.6rem;
+    align-items: start;
   }
   .at-footer__brand,
   .at-footer__support { grid-column: 1 / -1; }
@@ -4972,22 +4973,24 @@ body.at-gallery-lightbox-open {
   .at-footer__desc { margin-top: 0.45rem; font-size: 0.84rem; line-height: 1.5; max-width: 26rem; }
   .at-footer-social { margin-top: 0.55rem; }
   .at-footer__trust { margin-top: 0.7rem; gap: 0.7rem; font-size: 0.72rem; }
-  .at-footer h3 { margin-bottom: 0.4rem; }
+  .at-footer h3 { margin-bottom: 0.35rem; }
+  /* Link rows are content-sized (~34px pitch): anchor padding only, no extra
+     list gap and no min-height — prevents the inflated spacing seen on WebView. */
   .at-footer__about ul,
-  .at-footer__policies ul { gap: 0.1rem; }
+  .at-footer__policies ul { gap: 0; }
   .at-footer__about ul a,
   .at-footer__policies ul a {
     display: block;
-    padding: 0.65rem 0;
+    padding: 0.4rem 0;
     overflow-wrap: break-word;
   }
-  .at-footer__support ul { gap: 0.3rem; }
-  .at-footer__support li { padding: 0.25rem 0; }
-  .at-footer__support ul a { padding: 0.15rem 0; }
-  .at-footer__support > p { font-size: 0.84rem; }
-  .at-footer__ticket { margin-top: 0.75rem; }
+  .at-footer__support ul { gap: 0.15rem; }
+  .at-footer__support li { padding: 0.15rem 0; }
+  .at-footer__support ul a { padding: 0.2rem 0; }
+  .at-footer__support > p { font-size: 0.84rem; margin-bottom: 0; }
+  .at-footer__ticket { margin-top: 0.7rem; }
   .at-footer-apps { margin-top: 1.25rem; }
-  .at-footer__legal-inner { padding-top: 0.85rem; padding-bottom: 0.85rem; }
+  .at-footer__legal-inner { padding-top: 0.8rem; padding-bottom: 0.8rem; }
 }
 /* CMS rich-text content (public pages, admin preview, version history).
    Tailwind preflight resets headings/lists and the CDN build has no typography
