@@ -83,6 +83,16 @@ wizOk(str_contains($s4, 'data-at-aorder-review'), 'step 4 has review/confirmatio
 wizOk(substr_count($s4, 'at-aorder-review-group') >= 3, 'review card has grouped sections');
 wizOk(str_contains($s4, 'data-at-aorder-review-items') && str_contains($s4, 'data-at-aorder-pay-summary'), 'review has items + payment summary regions');
 wizOk(str_contains($s4, 'at-aorder-verify'), 'offline verification confirmation is a highlighted callout');
+$notePos = strpos($s4, 'data-at-aorder-offline-note');
+$detailsPos = strpos($s4, '<details class="at-aorder-advanced sm:col-span-2">');
+wizOk(
+    $notePos !== false && $detailsPos !== false && $notePos < $detailsPos,
+    'required verification note is outside optional <details>'
+);
+foreach (['method', 'amount', 'reference', 'date', 'time', 'note', 'confirm'] as $errKey) {
+    wizOk(str_contains($s4, 'data-at-aorder-offline-err="' . $errKey . '"'), "offline inline error slot: {$errKey}");
+}
+wizOk(str_contains($s2, 'data-at-aorder-line-feedback'), 'step 2 has inline line-item feedback slot');
 
 // --- JS controller hooks ---
 foreach (['stepIsComplete', 'canEnterStep', 'goToStep', 'updateStepNav', 'beforeunload', 'orderPlaced', 'renderReview', 'updateDeliveryWhen', 'updateItemsMeta', 'stepQty'] as $fn) {
@@ -104,6 +114,10 @@ wizOk(
     !str_contains($js, "q.payment_mode === 'offline_paid'"),
     'review no longer reads payment mode from a stale quote'
 );
+wizOk(str_contains($js, 'function getOfflineValidationErrors') && str_contains($js, 'function isOfflineReady'), 'client offline validation gates place button');
+wizOk(str_contains($js, 'Create order — Pending payment'), 'pending button label matches spec');
+wizOk(!str_contains($js, "Paid (offline) — subject to server verification"), 'review does not show Paid status before server verification');
+wizOk(str_contains($css, '.at-aorder-addpanel__img') && str_contains($css, 'max-width: 4rem'), 'selection card image is explicitly constrained');
 
 // --- CSS for wizard ---
 wizOk(str_contains($css, '.at-aorder-steps__item.is-active'), 'CSS styles active step');

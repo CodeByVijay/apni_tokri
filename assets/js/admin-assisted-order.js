@@ -157,10 +157,15 @@
         var stepNavBtns = Array.prototype.slice.call(root.querySelectorAll('[data-at-aorder-stepnav]'));
         var currentStep = 1;
         var orderPlaced = false;
+        var placedPaymentMode = null;
         var itemsWrap = root.querySelector('[data-at-aorder-items-wrap]');
         var itemsEmptyState = root.querySelector('[data-at-aorder-items-emptystate]');
         var itemsMeta = root.querySelector('[data-at-aorder-items-meta]');
         var addPanel = root.querySelector('[data-at-aorder-add-panel]');
+        var lineFeedback = root.querySelector('[data-at-aorder-line-feedback]');
+        var offlineGateHint = root.querySelector('[data-at-aorder-offline-gate-hint]');
+        var offlineTouched = {};
+        var offlineShowAllErrors = false;
         var nextDeliveryBtn = root.querySelector('[data-at-aorder-next="3"]');
         var deliveryWhen = root.querySelector('[data-at-aorder-delivery-when]');
         var reviewDl = root.querySelector('[data-at-aorder-review]');
@@ -646,6 +651,33 @@
             updateAddButton();
         }
 
+        function showLineFeedback(msg, isError) {
+            if (!lineFeedback) { return; }
+            if (!msg) {
+                lineFeedback.hidden = true;
+                lineFeedback.textContent = '';
+                return;
+            }
+            lineFeedback.textContent = msg;
+            lineFeedback.className = 'text-xs mt-2 font-medium ' + (isError ? 'text-red-700' : 'text-green-800');
+            lineFeedback.hidden = false;
+        }
+
+        function variantAvailInfo(v) {
+            var avail = v.available_qty != null ? parseInt(v.available_qty, 10) : parseInt(v.stock_qty, 10);
+            if (!isFinite(avail)) { avail = 0; }
+            if (!v.selectable || v.purchasable === false) {
+                return { qty: avail, label: v.unavailable_reason || 'Unavailable', cls: 'at-aorder-badge--danger', canAdd: false };
+            }
+            if (avail <= 0) {
+                return { qty: 0, label: 'Out of stock', cls: 'at-aorder-badge--danger', canAdd: false };
+            }
+            if (avail <= 5) {
+                return { qty: avail, label: 'Low stock (' + avail + ' left)', cls: 'at-aorder-badge--warn', canAdd: true };
+            }
+            return { qty: avail, label: 'In stock (' + avail + ' available)', cls: 'at-aorder-badge--ok', canAdd: true };
+        }
+
         function showVariantPreview(v) {
             if (addPanel) { addPanel.hidden = !v; }
             if (!v) {
@@ -654,36 +686,79 @@
             }
             variantPreview.innerHTML = '';
             var row = el('div', 'at-aorder-addpanel__product');
+            var media = el('div', 'at-aorder-addpanel__media');
             if (v.image_url) {
                 var img = document.createElement('img');
                 img.src = v.image_url;
                 img.alt = '';
-                img.className = 'at-picker__thumb';
-                row.appendChild(img);
+                img.className = 'at-aorder-addpanel__img';
+                img.addEventListener('error', function () {
+                    media.innerHTML = '';
+                    media.appendChild(el('span', 'at-aorder-addpanel__img at-aorder-addpanel__img--empty', '—'));
+                });
+                media.appendChild(img);
+            } else {
+                media.appendChild(el('span', 'at-aorder-addpanel__img at-aorder-addpanel__img--empty', '—'));
             }
-            var text = el('div', 'min-w-0');
-            text.appendChild(el('p', 'font-semibold mb-0', v.product_name));
-            text.appendChild(el('p', 'mb-0', v.variant_name));
-            var meta = el('p', 'at-muted text-xs mb-0 mt-1');
-            meta.textContent = [
-                v.sku ? 'SKU ' + v.sku : '',
-                'Price ' + fmtMoney(v.unit_price),
-                'Stock ' + (v.available_qty != null ? v.available_qty : v.stock_qty),
-                v.unavailable_reason || ''
-            ].filter(Boolean).join(' · ');
-            text.appendChild(meta);
+            row.appendChild(media);
+
+            var text = el('div', 'at-aorder-addpanel__text');
+            text.appendChild(el('p', 'at-aorder-addpanel__title', v.product_name));
+            var subLine = el('p', 'at-aorder-addpanel__variant');
+            subLine.appendChild(el('span', 'font-medium', v.variant_name || 'Standard'));
+            if (v.sku) {
+                subLine.appendChild(el('span', 'at-muted text-xs', ' · SKU ' + v.sku));
+            }
+            text.appendChild(subLine);
+
+            var av = variantAvailInfo(v);
+            var chips = el('div', 'at-aorder-addpanel__chips');
+            var priceSpan = el('span', 'at-aorder-addpanel__price', fmtMoney(v.unit_price));
+            if (v.on_sale && v.regular_price > v.unit_price) {
+                var reg = el('s', 'at-muted text-xs font-normal ml-1', fmtMoney(v.regular_price));
+                priceSpan.appendChild(reg);
+            }
+            chips.appendChild(priceSpan);
+            chips.appendChild(el('span', 'at-aorder-badge ' + av.cls, av.label));
+            text.appendChild(chips);
+
             row.appendChild(text);
             variantPreview.appendChild(row);
+            if (qtyInput) {
+                qtyInput.value = '1';
+                if (av.qty > 0) { qtyInput.max = String(av.qty); } else { qtyInput.removeAttribute('max'); }
+            }
+        }
+
+        function selectVariantItem(v) {
+            showLineFeedback('', false);
+            state.selectedVariant = v;
+            state.selectedVariantLabel = v.product_name + ' — ' + v.variant_name;
+            variantSearch.value = state.selectedVariantLabel;
+            variantResults.hidden = true;
+            variantPager.hidden = true;
+            variantSearch.setAttribute('aria-expanded', 'false');
+            var av = variantAvailInfo(v);
+            variantStatus.textContent = 'Selected: ' + state.selectedVariantLabel + ' · ' + fmtMoney(v.unit_price) + ' · ' + av.label;
+            variantStatus.className = 'text-xs mt-1 ' + (av.canAdd ? 'text-green-800' : 'text-red-700');
+            showVariantPreview(v);
+            updateAddButton();
         }
 
         function renderVariantResultItem(v) {
-            var li = el('li', 'at-picker__item at-picker__item--variant' + (v.selectable ? '' : ' is-disabled'));
+            var av = variantAvailInfo(v);
+            var canPick = !!(v.selectable && av.canAdd);
+            var li = el('li', 'at-picker__item at-picker__item--variant' + (canPick ? '' : ' is-disabled'));
             li.setAttribute('role', 'option');
             if (v.image_url) {
                 var thumb = document.createElement('img');
                 thumb.src = v.image_url;
                 thumb.alt = '';
                 thumb.className = 'at-picker__thumb';
+                thumb.addEventListener('error', function () {
+                    var ph = el('span', 'at-picker__thumb at-picker__thumb--empty', '—');
+                    if (thumb.parentNode) { thumb.parentNode.replaceChild(ph, thumb); }
+                });
                 li.appendChild(thumb);
             } else {
                 li.appendChild(el('span', 'at-picker__thumb at-picker__thumb--empty', '—'));
@@ -694,25 +769,19 @@
             var sub = [
                 v.sku ? 'SKU ' + v.sku : '',
                 fmtMoney(v.unit_price),
-                'Stock ' + (v.available_qty != null ? v.available_qty : v.stock_qty),
-                v.unavailable_reason || ''
+                av.label
             ].filter(Boolean).join(' · ');
             body.appendChild(el('small', 'at-muted', sub));
             li.appendChild(body);
             if (v.selectable) {
                 li.tabIndex = 0;
                 li.addEventListener('mousedown', function (e) { e.preventDefault(); });
-                li.addEventListener('click', function () {
-                    state.selectedVariant = v;
-                    state.selectedVariantLabel = v.product_name + ' — ' + v.variant_name;
-                    variantSearch.value = state.selectedVariantLabel;
-                    variantResults.hidden = true;
-                    variantSearch.setAttribute('aria-expanded', 'false');
-                    variantStatus.textContent = 'Selected: ' + state.selectedVariantLabel + ' · ' + fmtMoney(v.unit_price)
-                        + ' · Stock ' + (v.available_qty != null ? v.available_qty : v.stock_qty);
-                    variantStatus.className = 'text-xs text-green-800 mt-1';
-                    showVariantPreview(v);
-                    updateAddButton();
+                li.addEventListener('click', function () { selectVariantItem(v); });
+                li.addEventListener('keydown', function (e) {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        selectVariantItem(v);
+                    }
                 });
             }
             return li;
@@ -857,7 +926,9 @@
         }
 
         function updateAddButton() {
+            var av = state.selectedVariant ? variantAvailInfo(state.selectedVariant) : null;
             var ok = state.selectedVariant && state.selectedVariant.variant_id > 0
+                && av && av.canAdd
                 && state.customer && state.customer.is_active !== false;
             addBtn.disabled = !ok;
         }
@@ -1013,19 +1084,100 @@
             return !!(state.customer && state.addressId && state.lines.length);
         }
 
+        // Mirrors AdminAssistedOrderService::validateOfflinePaymentInput + full-amount rule.
+        function getOfflineValidationErrors() {
+            var errs = {};
+            if (currentPaymentMode() !== 'offline_paid') { return errs; }
+            var method = offlineMethod ? offlineMethod.value.trim().toLowerCase() : '';
+            if (method !== 'upi' && method !== 'bank_transfer') {
+                errs.method = 'Choose UPI or Bank transfer.';
+            }
+            var amtStr = offlineAmount ? offlineAmount.value.trim() : '';
+            var amtNum = parseFloat(amtStr);
+            if (amtStr === '' || !isFinite(amtNum) || amtNum < 0) {
+                errs.amount = 'Amount received is required.';
+            } else if (lastQuote && Math.abs(Math.round(amtNum * 100) - Math.round(Number(lastQuote.grand_total) * 100)) >= 1) {
+                errs.amount = 'Amount received must match the payable total (' + fmtMoney(lastQuote.grand_total) + ').';
+            }
+            if (!offlineRef || offlineRef.value.trim() === '') {
+                errs.reference = 'Enter the transaction or reference number.';
+            }
+            var dt = offlinePayDate ? offlinePayDate.value.trim() : '';
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(dt)) {
+                errs.date = 'Enter the payment date.';
+            }
+            var tm = offlinePayTime ? offlinePayTime.value.trim() : '';
+            if (!/^\d{1,2}:\d{2}(:\d{2})?$/.test(tm)) {
+                errs.time = 'Enter a valid payment time (HH:MM).';
+            }
+            if (!offlineNote || offlineNote.value.trim() === '') {
+                errs.note = 'Enter a verification note for this offline payment.';
+            }
+            if (!offlineConfirm || !offlineConfirm.checked) {
+                errs.confirm = 'Confirm that payment has been received and verified.';
+            }
+            return errs;
+        }
+
+        function isOfflineReady() {
+            return Object.keys(getOfflineValidationErrors()).length === 0;
+        }
+
+        function renderOfflineFieldErrors() {
+            var errs = getOfflineValidationErrors();
+            var fieldEls = {
+                method: offlineMethod,
+                amount: offlineAmount,
+                reference: offlineRef,
+                date: offlinePayDate,
+                time: offlinePayTime,
+                note: offlineNote,
+                confirm: offlineConfirm
+            };
+            var isOffline = currentPaymentMode() === 'offline_paid';
+            Object.keys(fieldEls).forEach(function (k) {
+                var p = root.querySelector('[data-at-aorder-offline-err="' + k + '"]');
+                var input = fieldEls[k];
+                var show = isOffline && (offlineShowAllErrors || offlineTouched[k]) && !!errs[k];
+                if (p) {
+                    p.hidden = !show;
+                    p.textContent = show ? errs[k] : '';
+                }
+                if (input && input.type !== 'checkbox') {
+                    input.classList.toggle('is-invalid', show);
+                    if (show) {
+                        input.setAttribute('aria-invalid', 'true');
+                    } else {
+                        input.removeAttribute('aria-invalid');
+                    }
+                }
+            });
+            if (offlineGateHint) {
+                var needHint = isOffline && canQuote() && !!lastQuote && !quoteStale && !orderPlaced && Object.keys(errs).length > 0;
+                offlineGateHint.hidden = !needHint;
+                offlineGateHint.textContent = needHint
+                    ? 'Complete all required offline payment fields (*) and confirm verification above to enable paid order creation.'
+                    : '';
+            }
+        }
+
         function updateActionButtons() {
             var ok = canQuote();
-            if (refreshQuoteBtn) { refreshQuoteBtn.disabled = !ok; }
-            if (placeBtn) { placeBtn.disabled = !ok || !lastQuote || quoteStale; }
+            var offlineBlocked = currentPaymentMode() === 'offline_paid' && !isOfflineReady();
+            if (refreshQuoteBtn) { refreshQuoteBtn.disabled = !ok || orderPlaced; }
+            if (placeBtn) { placeBtn.disabled = !ok || !lastQuote || quoteStale || offlineBlocked || orderPlaced; }
+            renderOfflineFieldErrors();
         }
 
         function scheduleQuote() {
             clearTimeout(quoteTimer);
             if (canQuote()) { quoteStale = true; }
             quoteTimer = setTimeout(refreshQuote, 400);
+            updateDeliveryWhen();
+            renderReview();
+            renderPaySummary();
             updateActionButtons();
             updateStepNav();
-            updateDeliveryWhen();
         }
 
         function renderQuote(q) {
@@ -1077,6 +1229,7 @@
                 if (couponClear) { couponClear.hidden = true; }
             }
             updatePlaceButtonLabel();
+            renderReview();
             renderPaySummary();
             updateActionButtons();
         }
@@ -1094,9 +1247,17 @@
         }
 
         function paymentStatusLabel(mode) {
-            return mode === 'offline_paid'
-                ? 'Paid (offline) — subject to server verification'
-                : 'Pending payment';
+            if (orderPlaced) {
+                return placedPaymentMode === 'offline_paid'
+                    ? 'Paid (offline — verified)'
+                    : 'Pending payment';
+            }
+            if (mode !== 'offline_paid') {
+                return 'Pending payment';
+            }
+            return isOfflineReady()
+                ? 'Awaiting server verification (recorded Paid on creation)'
+                : 'Pending offline verification — complete required details';
         }
 
         function renderPaySummary() {
@@ -1126,7 +1287,7 @@
             if (currentPaymentMode() === 'offline_paid') {
                 placeBtn.textContent = 'Create paid order (offline)';
             } else {
-                placeBtn.textContent = 'Create order (pending payment)';
+                placeBtn.textContent = 'Create order — Pending payment';
             }
         }
 
@@ -1237,21 +1398,49 @@
             if (el) { el.addEventListener('change', scheduleQuote); el.addEventListener('input', scheduleQuote); }
         });
         function onPaymentModeChange() {
+            offlineShowAllErrors = false;
             togglePaymentModeFields();
             renderPaySummary();
             updatePlaceButtonLabel();
+            updateActionButtons();
             // Payment mode changes the quote payload (and the offline place token),
             // so re-quote instead of showing the previous mode's totals.
             scheduleQuote();
         }
         if (payPending) { payPending.addEventListener('change', onPaymentModeChange); }
         if (payOffline) { payOffline.addEventListener('change', onPaymentModeChange); }
-        if (offlineRef) { offlineRef.addEventListener('input', renderPaySummary); }
-        if (offlineAmount) { offlineAmount.addEventListener('input', renderPaySummary); }
+        function bindOfflineField(node, key) {
+            if (!node) { return; }
+            var sync = function () {
+                renderPaySummary();
+                updateActionButtons();
+            };
+            node.addEventListener('input', sync);
+            node.addEventListener('change', function () {
+                offlineTouched[key] = true;
+                sync();
+            });
+            node.addEventListener('blur', function () {
+                offlineTouched[key] = true;
+                sync();
+            });
+        }
+        bindOfflineField(offlineMethod, 'method');
+        bindOfflineField(offlineAmount, 'amount');
+        bindOfflineField(offlineRef, 'reference');
+        bindOfflineField(offlinePayDate, 'date');
+        bindOfflineField(offlinePayTime, 'time');
+        bindOfflineField(offlineNote, 'note');
+        bindOfflineField(offlineConfirm, 'confirm');
         if (refreshQuoteBtn) { refreshQuoteBtn.addEventListener('click', refreshQuote); }
         if (placeBtn) {
             placeBtn.addEventListener('click', function () {
-                if (!lastQuote || !urlPlace) { return; }
+                if (!lastQuote || !urlPlace || quoteStale || orderPlaced) { return; }
+                if (currentPaymentMode() === 'offline_paid' && !isOfflineReady()) {
+                    offlineShowAllErrors = true;
+                    updateActionButtons();
+                    return;
+                }
                 var body = buildQuoteBody();
                 body.append('client_grand_total', String(lastQuote.grand_total));
                 if (lastQuote.place_submission_token) {
@@ -1259,19 +1448,25 @@
                 }
                 placeBtn.disabled = true;
                 fetchJson(urlPlace, { method: 'POST', body: body }).then(function (j) {
-                    placeBtn.disabled = false;
                     if (!j.success) {
-                        alert((j.error && j.error.message) || 'Could not create order.');
+                        placeResult.hidden = false;
+                        placeResult.innerHTML = '';
+                        placeResult.appendChild(el('p', 'text-sm font-semibold text-red-700', (j.error && j.error.message) || 'Could not create order.'));
+                        offlineShowAllErrors = currentPaymentMode() === 'offline_paid';
+                        updateActionButtons();
                         return;
                     }
                     var d = j.data || {};
                     orderPlaced = true;
+                    placedPaymentMode = d.payment_mode || currentPaymentMode();
                     updateStepNav();
+                    renderPaySummary();
+                    updateActionButtons();
                     placeResult.hidden = false;
                     placeResult.innerHTML = '';
                     var msg = d.payment_mode === 'offline_paid'
-                        ? 'Order ' + (d.order_number || '') + ' created — paid (offline).'
-                        : 'Order ' + (d.order_number || '') + ' created — pending payment.';
+                        ? 'Order ' + (d.order_number || '') + ' created — Paid (offline — verified).'
+                        : 'Order ' + (d.order_number || '') + ' created — Pending payment.';
                     placeResult.appendChild(el('p', 'text-sm font-semibold text-green-800', msg));
                     if (d.payment_url) {
                         var a = document.createElement('a');
@@ -1290,7 +1485,10 @@
                         placeResult.appendChild(adminA);
                     }
                 }).catch(function () {
-                    placeBtn.disabled = false;
+                    placeResult.hidden = false;
+                    placeResult.innerHTML = '';
+                    placeResult.appendChild(el('p', 'text-sm font-semibold text-red-700', 'Network error while creating the order. Please try again.'));
+                    updateActionButtons();
                 });
             });
         }
@@ -1309,10 +1507,11 @@
             if (state.customer) { body.append('customer_id', String(state.customer.id)); }
             fetchJson(urlLine, { method: 'POST', body: body }).then(function (j) {
                 if (!j.success) {
-                    alert((j.error && j.error.message) || 'Invalid quantity.');
+                    showLineFeedback((j.error && j.error.message) || 'Invalid quantity.', true);
                     renderLines();
                     return;
                 }
+                showLineFeedback('', false);
                 var updated = j.data.line;
                 var existing = state.lines.findIndex(function (l, i) {
                     return l.variant_id === updated.variant_id && i !== idx;
@@ -1331,7 +1530,8 @@
             var qty = parseInt(qtyInput.value, 10) || 1;
             var vid = state.selectedVariant.variant_id;
             var existingIx = state.lines.findIndex(function (l) { return l.variant_id === vid; });
-            if (existingIx >= 0) {
+            var merged = existingIx >= 0;
+            if (merged) {
                 qty = (parseInt(state.lines[existingIx].quantity, 10) || 0) + qty;
             }
             var body = new FormData();
@@ -1344,7 +1544,7 @@
                 addBtn.disabled = false;
                 updateAddButton();
                 if (!j.success) {
-                    alert((j.error && j.error.message) || 'Could not add item.');
+                    showLineFeedback((j.error && j.error.message) || 'Could not add item.', true);
                     return;
                 }
                 var line = j.data.line;
@@ -1359,10 +1559,16 @@
                 variantStatus.textContent = 'Type at least 2 characters.';
                 variantStatus.className = 'text-xs at-muted mt-1';
                 qtyInput.value = '1';
+                showLineFeedback(
+                    (merged ? 'Updated quantity: ' : 'Added: ')
+                    + line.product_name + ' — ' + line.variant_name + ' (×' + line.quantity + ').',
+                    false
+                );
                 renderLines();
             }).catch(function () {
                 addBtn.disabled = false;
                 updateAddButton();
+                showLineFeedback('Network error while adding item.', true);
             });
         });
 
@@ -1614,6 +1820,9 @@
         });
         if (qtyDecBtn) { qtyDecBtn.addEventListener('click', function () { stepQty(-1); }); }
         if (qtyIncBtn) { qtyIncBtn.addEventListener('click', function () { stepQty(1); }); }
+        if (qtyInput) {
+            qtyInput.addEventListener('change', function () { stepQty(0); });
+        }
 
         window.addEventListener('beforeunload', function (e) {
             if (orderPlaced) { return; }
@@ -1623,12 +1832,15 @@
         });
 
         renderLines();
-        updateActionButtons();
         toggleDeliveryModeFields();
         togglePaymentModeFields();
         toggleDiscountModeFields();
-        updateStepNav();
         updateDeliveryWhen();
+        renderReview();
+        renderPaySummary();
+        updatePlaceButtonLabel();
+        updateActionButtons();
+        updateStepNav();
     }
 
     if (document.readyState === 'loading') {

@@ -164,6 +164,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
                         </button>
                     </div>
                 </div>
+                <p class="text-xs mt-2" data-at-aorder-line-feedback role="status" aria-live="polite" hidden></p>
             </div>
         </section>
 
@@ -178,7 +179,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
                     <span class="at-aorder-empty__hint">Search for a product above to start building this order.</span>
                 </p>
                 <div class="at-admin-table-wrap" data-at-aorder-items-wrap hidden>
-                    <table class="at-admin-table at-admin-table--cards w-full" data-at-aorder-items-table>
+                    <table class="at-admin-table at-admin-table--cards at-aorder-items-table w-full" data-at-aorder-items-table>
                         <thead>
                             <tr>
                                 <th scope="col">Product</th>
@@ -384,48 +385,53 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
                 <div data-at-aorder-offline-wrap data-at-aorder-panel hidden class="at-aorder-is-hidden">
                     <div class="grid gap-3 sm:grid-cols-2 max-w-2xl">
                         <div>
-                            <label class="at-label" for="at-aorder-offline-method">Payment method</label>
-                            <select id="at-aorder-offline-method" class="at-input at-focusable w-full" data-at-aorder-offline-method>
+                            <label class="at-label" for="at-aorder-offline-method">Payment method *</label>
+                            <select id="at-aorder-offline-method" class="at-input at-focusable w-full" data-at-aorder-offline-method required>
                                 <option value="upi">UPI</option>
                                 <option value="bank_transfer">Bank transfer</option>
                             </select>
+                            <p class="text-xs text-red-700 mt-1" data-at-aorder-offline-err="method" hidden></p>
                         </div>
                         <div>
-                            <label class="at-label" for="at-aorder-offline-amount">Amount received (₹)</label>
-                            <input id="at-aorder-offline-amount" type="number" class="at-input at-focusable w-full" min="0" step="0.01" readonly data-at-aorder-offline-amount>
+                            <label class="at-label" for="at-aorder-offline-amount">Amount received (₹) *</label>
+                            <input id="at-aorder-offline-amount" type="number" class="at-input at-focusable w-full" min="0" step="0.01" readonly data-at-aorder-offline-amount required>
                             <p class="text-xs at-muted mt-1">Full payable amount — filled from the latest quote.</p>
+                            <p class="text-xs text-red-700 mt-1" data-at-aorder-offline-err="amount" hidden></p>
                         </div>
                         <div class="sm:col-span-2">
-                            <label class="at-label" for="at-aorder-offline-ref">Transaction / reference number</label>
-                            <input id="at-aorder-offline-ref" type="text" class="at-input at-focusable w-full" maxlength="191" data-at-aorder-offline-ref>
+                            <label class="at-label" for="at-aorder-offline-ref">Transaction / reference number *</label>
+                            <input id="at-aorder-offline-ref" type="text" class="at-input at-focusable w-full" maxlength="191" placeholder="UTR / UPI transaction ID / bank reference" data-at-aorder-offline-ref required>
+                            <p class="text-xs text-red-700 mt-1" data-at-aorder-offline-err="reference" hidden></p>
                         </div>
                         <div>
-                            <label class="at-label" for="at-aorder-offline-pay-date">Payment date</label>
-                            <input id="at-aorder-offline-pay-date" type="date" class="at-input at-focusable w-full" data-at-aorder-offline-pay-date>
+                            <label class="at-label" for="at-aorder-offline-pay-date">Payment date *</label>
+                            <input id="at-aorder-offline-pay-date" type="date" class="at-input at-focusable w-full" data-at-aorder-offline-pay-date required>
+                            <p class="text-xs text-red-700 mt-1" data-at-aorder-offline-err="date" hidden></p>
                         </div>
                         <div>
-                            <label class="at-label" for="at-aorder-offline-pay-time">Payment time</label>
-                            <input id="at-aorder-offline-pay-time" type="time" class="at-input at-focusable w-full" data-at-aorder-offline-pay-time>
+                            <label class="at-label" for="at-aorder-offline-pay-time">Payment time *</label>
+                            <input id="at-aorder-offline-pay-time" type="time" class="at-input at-focusable w-full" data-at-aorder-offline-pay-time required>
+                            <p class="text-xs text-red-700 mt-1" data-at-aorder-offline-err="time" hidden></p>
+                        </div>
+                        <div class="sm:col-span-2">
+                            <label class="at-label" for="at-aorder-offline-note">Verification note *</label>
+                            <textarea id="at-aorder-offline-note" class="at-input at-focusable w-full" rows="2" maxlength="500" placeholder="How was this payment verified? (e.g. checked bank statement / UPI app)" data-at-aorder-offline-note required></textarea>
+                            <p class="text-xs text-red-700 mt-1" data-at-aorder-offline-err="note" hidden></p>
                         </div>
                         <details class="at-aorder-advanced sm:col-span-2">
                             <summary class="at-focusable">Additional details (optional)</summary>
-                            <div class="grid gap-3 sm:grid-cols-2 pt-3">
-                                <div class="sm:col-span-2">
-                                    <label class="at-label" for="at-aorder-offline-provider">Provider / bank name</label>
-                                    <input id="at-aorder-offline-provider" type="text" class="at-input at-focusable w-full" maxlength="128" data-at-aorder-offline-provider>
-                                </div>
-                                <div class="sm:col-span-2">
-                                    <label class="at-label" for="at-aorder-offline-note">Verification note</label>
-                                    <textarea id="at-aorder-offline-note" class="at-input at-focusable w-full" rows="2" maxlength="500" data-at-aorder-offline-note></textarea>
-                                </div>
+                            <div class="pt-3">
+                                <label class="at-label" for="at-aorder-offline-provider">Provider / bank name (optional)</label>
+                                <input id="at-aorder-offline-provider" type="text" class="at-input at-focusable w-full" maxlength="128" placeholder="e.g. PhonePe, GPay, HDFC Bank" data-at-aorder-offline-provider>
                             </div>
                         </details>
                         <div class="sm:col-span-2 at-aorder-verify">
                             <label class="flex items-start gap-2 text-sm font-semibold">
                                 <input type="checkbox" class="at-focusable mt-1" data-at-aorder-offline-confirm value="1">
-                                I confirm that the payment has been received and verified.
+                                <span>I confirm that the payment has been received and verified. *</span>
                             </label>
-                            <p class="text-xs at-muted mt-1 mb-0">Required to record this order as paid. The server re-verifies method, reference and amount before marking the order paid.</p>
+                            <p class="text-xs at-muted mt-1 mb-0">Required to record this order as paid. The server re-verifies method, reference, date/time, note and amount before marking the order paid.</p>
+                            <p class="text-xs text-red-700 mt-1 mb-0" data-at-aorder-offline-err="confirm" hidden></p>
                         </div>
                     </div>
                 </div>
@@ -454,9 +460,10 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
                 <div class="mt-4 flex flex-wrap gap-2 items-center">
                     <button type="button" class="at-btn at-btn--secondary at-focusable" data-at-aorder-refresh-quote disabled>Refresh totals</button>
                     <button type="button" class="at-btn at-btn--primary at-focusable" data-at-aorder-place disabled<?= $migrationReady ? '' : ' title="Apply migration 1.40.0 first"' ?>>
-                        Create order
+                        Create order — Pending payment
                     </button>
                 </div>
+                <p class="text-xs text-amber-800 mt-2" data-at-aorder-offline-gate-hint hidden role="status"></p>
                 <div class="mt-3" data-at-aorder-place-result hidden></div>
             </div>
         </section>
