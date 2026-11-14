@@ -4910,6 +4910,28 @@ body.at-gallery-lightbox-open {
   display: grid;
   gap: 0.55rem;
 }
+/* Section lists must never size to max-content — an auto track would overflow
+   the narrow 2-col mobile tracks. minmax(0,1fr) keeps items within their column. */
+.at-footer__about ul,
+.at-footer__policies ul,
+.at-footer__support ul {
+  grid-template-columns: minmax(0, 1fr);
+}
+.at-footer__brand,
+.at-footer__about,
+.at-footer__policies,
+.at-footer__support,
+.at-footer__about li,
+.at-footer__policies li,
+.at-footer__support li {
+  min-width: 0;
+}
+.at-footer__about li,
+.at-footer__policies li,
+.at-footer__support li,
+.at-footer__support a {
+  overflow-wrap: break-word;
+}
 
 /* Footer grid — layout lives here (not in utilities) so mobile can compact it. */
 .at-footer__grid {
@@ -4955,12 +4977,13 @@ body.at-gallery-lightbox-open {
   .at-footer__policies ul { gap: 0.1rem; }
   .at-footer__about ul a,
   .at-footer__policies ul a {
-    display: inline-flex;
-    align-items: center;
-    min-height: 2.5rem;
+    display: block;
+    padding: 0.65rem 0;
+    overflow-wrap: break-word;
   }
   .at-footer__support ul { gap: 0.3rem; }
-  .at-footer__support li { padding: 0.15rem 0; }
+  .at-footer__support li { padding: 0.25rem 0; }
+  .at-footer__support ul a { padding: 0.15rem 0; }
   .at-footer__support > p { font-size: 0.84rem; }
   .at-footer__ticket { margin-top: 0.75rem; }
   .at-footer-apps { margin-top: 1.25rem; }
