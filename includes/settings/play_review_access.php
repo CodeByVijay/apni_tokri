@@ -105,6 +105,12 @@ final class PlayReviewAccess
             return ['ok' => false, 'error' => 'Incorrect or expired OTP.'];
         }
 
+        // Fail closed: this method must never honour the fixed OTP for a mobile
+        // other than the explicitly configured reviewer, regardless of caller.
+        if (!self::isEnabled() || !self::isConfiguredReviewerMobile($mobile) || !self::hasOtpHash()) {
+            return ['ok' => false, 'error' => 'Incorrect or expired OTP.'];
+        }
+
         $customer = self::validateReviewerCustomer($mobile);
         if (empty($customer['ok'])) {
             return ['ok' => false, 'error' => (string) ($customer['error'] ?? 'Incorrect or expired OTP.')];
