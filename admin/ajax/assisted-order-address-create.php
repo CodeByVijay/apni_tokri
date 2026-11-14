@@ -25,6 +25,13 @@ if ($customerId <= 0) {
 
 $result = AdminAssistedOrderService::createAddressForCustomer($customerId, $_POST);
 if (empty($result['ok'])) {
+    if (($result['code'] ?? '') === 'duplicate_address') {
+        Ajax::success([
+            'duplicate_warning' => true,
+            'duplicates' => $result['duplicates'] ?? [],
+            'message' => (string) ($result['message'] ?? 'A similar address is already saved.'),
+        ]);
+    }
     $errors = is_array($result['errors'] ?? null) ? $result['errors'] : [];
     Ajax::error((string) ($result['message'] ?? 'Could not save address.'), 422, 'validation', $errors !== [] ? $errors : null);
 }

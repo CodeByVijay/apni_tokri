@@ -61,9 +61,28 @@ $s4 = $stepOf($create, 4);
 wizOk(str_contains($s1, 'data-at-aorder-customer-results') && str_contains($s1, 'data-at-aorder-address-list'), 'step 1 holds customer search + address list');
 wizOk(str_contains($s2, 'data-at-aorder-variant-results') && str_contains($s2, 'data-at-aorder-items-body'), 'step 2 holds product search + items table');
 wizOk(str_contains($s2, 'data-at-aorder-items-meta') && str_contains($s2, 'data-at-aorder-items-emptystate'), 'step 2 has item count/subtotal + empty state');
+
+// --- Step 2 products layout: search alone; qty+add inside selection panel; cardable table ---
+wizOk(str_contains($s2, 'data-at-aorder-add-panel'), 'step 2 has selected-variant add panel');
+wizOk(
+    (bool) preg_match('/data-at-aorder-add-panel[^>]*\bhidden\b/', $s2),
+    'add panel hidden until a variant is selected'
+);
+$panelPos = strpos($s2, 'data-at-aorder-add-panel');
+$qtyPos = strpos($s2, 'data-at-aorder-qty-inc');
+$addPos = strpos($s2, 'data-at-aorder-add-line');
+wizOk(
+    $panelPos !== false && $qtyPos !== false && $addPos !== false && $panelPos < $qtyPos && $qtyPos < $addPos,
+    'qty stepper and Add to order live inside the selection panel'
+);
+wizOk(str_contains($s2, 'at-admin-table--cards'), 'items table stacks as cards on mobile');
+wizOk(!str_contains($s2, 'min-w-[32rem]'), 'items table has no forced desktop min-width');
 wizOk(str_contains($s3, 'data-at-aorder-delivery-advanced') && str_contains($s3, 'data-at-aorder-free-delivery'), 'step 3 has advanced delivery options with free delivery');
 wizOk(str_contains($s4, 'data-at-aorder-discount-none') && str_contains($s4, 'data-at-aorder-pay-pending') && str_contains($s4, 'data-at-aorder-place'), 'step 4 holds discounts + payment + place action');
 wizOk(str_contains($s4, 'data-at-aorder-review'), 'step 4 has review/confirmation recap');
+wizOk(substr_count($s4, 'at-aorder-review-group') >= 3, 'review card has grouped sections');
+wizOk(str_contains($s4, 'data-at-aorder-review-items') && str_contains($s4, 'data-at-aorder-pay-summary'), 'review has items + payment summary regions');
+wizOk(str_contains($s4, 'at-aorder-verify'), 'offline verification confirmation is a highlighted callout');
 
 // --- JS controller hooks ---
 foreach (['stepIsComplete', 'canEnterStep', 'goToStep', 'updateStepNav', 'beforeunload', 'orderPlaced', 'renderReview', 'updateDeliveryWhen', 'updateItemsMeta', 'stepQty'] as $fn) {
@@ -71,6 +90,20 @@ foreach (['stepIsComplete', 'canEnterStep', 'goToStep', 'updateStepNav', 'before
 }
 wizOk(substr_count($js, 'data-at-aorder-step-panel') >= 2, 'JS toggles step panels');
 wizOk(str_contains($js, 'data-at-aorder-stepnav'), 'JS wires progress buttons');
+wizOk(
+    str_contains($js, 'n < currentStep && stepIsComplete(n)'),
+    'checkmarks only on steps behind the current step'
+);
+wizOk(str_contains($js, 'data-label'), 'item rows carry mobile data-label cells');
+wizOk(str_contains($js, 'at-btn--danger'), 'remove action uses destructive styling');
+wizOk(str_contains($js, 'nextDeliveryBtn'), 'Continue to Delivery disabled while the order is empty');
+wizOk(str_contains($js, 'function currentPaymentMode'), 'single payment-mode source of truth');
+wizOk(str_contains($js, 'renderPaySummary'), 'review payment summary derives from selected mode');
+wizOk(str_contains($js, 'quoteStale'), 'submission blocked while quote is stale');
+wizOk(
+    !str_contains($js, "q.payment_mode === 'offline_paid'"),
+    'review no longer reads payment mode from a stale quote'
+);
 
 // --- CSS for wizard ---
 wizOk(str_contains($css, '.at-aorder-steps__item.is-active'), 'CSS styles active step');

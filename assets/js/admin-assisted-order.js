@@ -37,6 +37,7 @@
         var urlCustomers = root.getAttribute('data-url-customers') || '';
         var urlAddresses = root.getAttribute('data-url-addresses') || '';
         var urlAddressCreate = root.getAttribute('data-url-address-create') || '';
+        var urlAddressPreview = root.getAttribute('data-url-address-preview') || '';
         var urlVariants = root.getAttribute('data-url-variants') || '';
         var urlLine = root.getAttribute('data-url-line') || '';
         var urlQuote = root.getAttribute('data-url-quote') || '';
@@ -53,7 +54,10 @@
             variantPage: 1,
             addressSubmissionKey: '',
             selectedAddress: null,
-            discountMode: 'none'
+            discountMode: 'none',
+            addrMode: 'existing',
+            allowDuplicateOnce: false,
+            receiverPrefill: { name: '', phone: '' }
         };
 
         var customerSearch = document.getElementById('at-aorder-customer-search');
@@ -74,6 +78,17 @@
         var addrCancelBtn = root.querySelector('[data-at-aorder-addr-cancel]');
         var addrFormError = root.querySelector('[data-at-aorder-addr-form-error]');
         var addrLabelCustomWrap = root.querySelector('[data-at-aorder-addr-label-custom-wrap]');
+        var addrDupes = root.querySelector('[data-at-aorder-addr-dupes]');
+        var addrPreview = root.querySelector('[data-at-aorder-addr-preview]');
+        var pinPreview = root.querySelector('[data-at-aorder-pin-preview]');
+        var receiverNameInput = addressForm ? addressForm.querySelector('[name="receiver_name"]') : null;
+        var receiverPhoneInput = addressForm ? addressForm.querySelector('[name="receiver_phone"]') : null;
+        var addrLatInput = addressForm ? addressForm.querySelector('[name="latitude"]') : null;
+        var addrLngInput = addressForm ? addressForm.querySelector('[name="longitude"]') : null;
+        var addrPinInput = addressForm ? addressForm.querySelector('[name="pincode"]') : null;
+        var pinPreviewSeq = 0;
+        var pinPreviewTimer = null;
+        var addrPreviewSeq = 0;
 
         var variantSearch = document.getElementById('at-aorder-variant-search');
         var variantResults = root.querySelector('[data-at-aorder-variant-results]');
@@ -126,12 +141,17 @@
         var customDiscountReason = root.querySelector('[data-at-aorder-custom-discount-reason]');
         var quoteStatus = root.querySelector('[data-at-aorder-quote-status]');
         var quoteDl = root.querySelector('[data-at-aorder-quote-dl]');
+        var reviewItems = root.querySelector('[data-at-aorder-review-items]');
+        var paySummary = root.querySelector('[data-at-aorder-pay-summary]');
         var refreshQuoteBtn = root.querySelector('[data-at-aorder-refresh-quote]');
         var placeBtn = root.querySelector('[data-at-aorder-place]');
         var placeResult = root.querySelector('[data-at-aorder-place-result]');
         var slotSelect = root.querySelector('[data-at-aorder-delivery-slot]');
         var quoteTimer = null;
         var lastQuote = null;
+        // True while a new quote is in flight or the inputs changed since the
+        // last successful quote — order creation is blocked in that window.
+        var quoteStale = true;
 
         var stepPanels = Array.prototype.slice.call(root.querySelectorAll('[data-at-aorder-step-panel]'));
         var stepNavBtns = Array.prototype.slice.call(root.querySelectorAll('[data-at-aorder-stepnav]'));
@@ -140,6 +160,8 @@
         var itemsWrap = root.querySelector('[data-at-aorder-items-wrap]');
         var itemsEmptyState = root.querySelector('[data-at-aorder-items-emptystate]');
         var itemsMeta = root.querySelector('[data-at-aorder-items-meta]');
+        var addPanel = root.querySelector('[data-at-aorder-add-panel]');
+        var nextDeliveryBtn = root.querySelector('[data-at-aorder-next="3"]');
         var deliveryWhen = root.querySelector('[data-at-aorder-delivery-when]');
         var reviewDl = root.querySelector('[data-at-aorder-review]');
         var qtyDecBtn = root.querySelector('[data-at-aorder-qty-dec]');
@@ -165,6 +187,7 @@
             state.addressId = null;
             state.selectedAddress = null;
             state.addressSubmissionKey = '';
+            state.allowDuplicateOnce = false;
             customerIdInput.value = '';
             customerChip.innerHTML = '';
             customerChip.appendChild(el('span', 'text-sm at-muted', 'No customer selected.'));
@@ -173,6 +196,8 @@
             addressList.innerHTML = '';
             if (addressSummary) { addressSummary.hidden = true; addressSummary.textContent = ''; }
             if (addressForm) { addressForm.hidden = true; }
+            hideAddrDupes();
+            if (addrPreview) { addrPreview.hidden = true; addrPreview.textContent = ''; }
             updateAddButton();
             updateStepNav();
         }
@@ -203,6 +228,7 @@
 
         function setAddressMode(mode) {
             var isNew = mode === 'new';
+            state.addrMode = isNew ? 'new' : 'existing';
             addrModeButtons.forEach(function (btn) {
                 var m = btn.getAttribute('data-at-aorder-addr-mode');
                 var active = m === mode;
@@ -211,6 +237,14 @@
                 btn.classList.toggle('at-btn--ghost', !active);
             });
             if (addressExistingPanel) { addressExistingPanel.hidden = isNew; }
+            hideAddrDupes();
+            if (isNew) {
+                // Keep the modes visually separate: no saved-address summary while typing a new address.
+                if (addressSummary) { addressSummary.hidden = true; }
+                if (addrPreview) { addrPreview.hidden = true; }
+            } else {
+                updateAddressSummary(state.selectedAddress);
+            }
             if (addressForm) {
                 addressForm.hidden = !isNew;
                 if (isNew && state.addressSubmissionKey === '') {
@@ -221,9 +255,9 @@
 
         function updateAddressSummary(addr) {
             if (!addressSummary) { return; }
-            if (!addr) {
+            if (!addr || state.addrMode === 'new') {
                 addressSummary.hidden = true;
-                addressSummary.innerHTML = '';
+                if (!addr) { addressSummary.innerHTML = ''; }
                 return;
             }
             addressSummary.hidden = false;
@@ -270,7 +304,125 @@
             state.addressId = addr.id;
             state.selectedAddress = addr;
             updateAddressSummary(addr);
+            previewServiceability(addr.pincode, addr.latitude, addr.longitude, addrPreview, 'addr');
             scheduleQuote();
+        }
+
+        // Delivery serviceability + zone fee preview (server-side, read-only).
+        function previewServiceability(pin, lat, lng, targetEl, seqKey) {
+            if (!targetEl) { return; }
+            var cleanPin = String(pin || '').replace(/\D/g, '');
+            if (cleanPin.length !== 6 || !urlAddressPreview) {
+                targetEl.hidden = true;
+                targetEl.textContent = '';
+                return;
+            }
+            var isPin = seqKey === 'pin';
+            if (isPin) { pinPreviewSeq += 1; } else { addrPreviewSeq += 1; }
+            var mine = isPin ? pinPreviewSeq : addrPreviewSeq;
+            var isCurrent = function () {
+                return isPin ? mine === pinPreviewSeq : mine === addrPreviewSeq;
+            };
+            var baseCls = isPin ? 'text-xs mt-1' : 'text-sm';
+            targetEl.textContent = 'Checking delivery availability…';
+            targetEl.className = baseCls + ' at-muted';
+            targetEl.hidden = false;
+            var body = new FormData();
+            body.append(csrfField, csrf);
+            body.append('pincode', cleanPin);
+            if (lat) { body.append('latitude', String(lat)); }
+            if (lng) { body.append('longitude', String(lng)); }
+            fetchJson(urlAddressPreview, { method: 'POST', body: body }).then(function (j) {
+                if (!isCurrent()) { return; }
+                if (!j.success || !j.data) {
+                    targetEl.textContent = (j.error && j.error.message) || 'Could not check delivery availability.';
+                    targetEl.className = baseCls + ' text-red-700';
+                    return;
+                }
+                var d = j.data;
+                if (d.serviceable) {
+                    var feeBits = [];
+                    if (d.flat_fee != null) {
+                        var f = 'delivery fee ' + fmtMoney(d.flat_fee);
+                        if (d.free_above != null && d.free_above > 0) {
+                            f += ' · free above ' + fmtMoney(d.free_above);
+                        }
+                        feeBits.push(f);
+                    }
+                    targetEl.textContent = (d.message || 'This address is serviceable.')
+                        + (feeBits.length ? ' — ' + feeBits.join(' · ') : '');
+                    targetEl.className = baseCls + ' text-green-800';
+                } else {
+                    var txt = d.message || 'This pincode is not serviceable.';
+                    if (d.requires_map_pin) { txt += ' A confirmed map location may be required.'; }
+                    targetEl.textContent = txt;
+                    targetEl.className = baseCls + ' text-red-700';
+                }
+            }).catch(function () {
+                if (isCurrent()) {
+                    targetEl.textContent = 'Could not check delivery availability.';
+                    targetEl.className = baseCls + ' text-red-700';
+                }
+            });
+        }
+
+        function hideAddrDupes() {
+            if (addrDupes) {
+                addrDupes.hidden = true;
+                addrDupes.innerHTML = '';
+            }
+        }
+
+        function showAddrDupes(dupes, msg) {
+            if (!addrDupes) { return; }
+            addrDupes.innerHTML = '';
+            addrDupes.appendChild(el('p', 'font-semibold mb-2', msg || 'A similar address is already saved for this customer.'));
+            var list = el('div', 'space-y-2 mb-3');
+            dupes.forEach(function (d) {
+                var row = el('div', 'flex flex-wrap items-center justify-between gap-2 p-2 rounded border border-amber-200 bg-white');
+                var info = el('div', 'text-sm min-w-0');
+                info.appendChild(el('p', 'font-semibold mb-0', (d.label || 'Address') + (d.is_default ? ' (Default)' : '')));
+                info.appendChild(el('p', 'at-muted mb-0', d.full_address || ''));
+                var use = el('button', 'at-btn at-btn--secondary at-btn--sm at-focusable', 'Use this address');
+                use.type = 'button';
+                use.addEventListener('click', function () {
+                    hideAddrDupes();
+                    setAddressMode('existing');
+                    loadAddresses(state.customer.id, d.id);
+                });
+                row.appendChild(info);
+                row.appendChild(use);
+                list.appendChild(row);
+            });
+            addrDupes.appendChild(list);
+            var anyway = el('button', 'at-btn at-btn--ghost at-btn--sm at-focusable', 'Save anyway as a new address');
+            anyway.type = 'button';
+            anyway.addEventListener('click', function () {
+                state.allowDuplicateOnce = true;
+                hideAddrDupes();
+                saveNewAddress();
+            });
+            addrDupes.appendChild(anyway);
+            addrDupes.hidden = false;
+        }
+
+        function prefillReceiverFields() {
+            if (!state.customer) { return; }
+            var name = state.customer.name || '';
+            var phone = state.customer.mobile || '';
+            if (receiverNameInput) {
+                var curName = receiverNameInput.value.trim();
+                if (curName === '' || curName === state.receiverPrefill.name) {
+                    receiverNameInput.value = name;
+                }
+            }
+            if (receiverPhoneInput) {
+                var curPhone = receiverPhoneInput.value.trim();
+                if (curPhone === '' || curPhone === state.receiverPrefill.phone) {
+                    receiverPhoneInput.value = phone;
+                }
+            }
+            state.receiverPrefill = { name: name, phone: phone };
         }
 
         function setCustomer(c) {
@@ -295,6 +447,7 @@
                 c.is_active ? '' : 'Inactive customer'
             ].filter(Boolean).join(' · ');
             customerResults.hidden = true;
+            prefillReceiverFields();
             loadAddresses(c.id);
             updateAddButton();
             updateStepNav();
@@ -445,15 +598,21 @@
                 }
                 body.append(field.name, field.value);
             });
+            if (state.allowDuplicateOnce) { body.append('allow_duplicate', '1'); }
             return body;
         }
 
         function saveNewAddress() {
             if (!state.customer || !urlAddressCreate) { return; }
             clearAddressFieldErrors();
+            hideAddrDupes();
             if (addrSaveBtn) { addrSaveBtn.disabled = true; }
             fetchJson(urlAddressCreate, { method: 'POST', body: buildAddressCreateBody() }).then(function (j) {
                 if (addrSaveBtn) { addrSaveBtn.disabled = false; }
+                if (j && j.success && j.data && j.data.duplicate_warning) {
+                    showAddrDupes(j.data.duplicates || [], j.data.message || '');
+                    return;
+                }
                 if (!j.success) {
                     showAddressFieldErrors(j.errors || {});
                     if (j.error && j.error.message && addrFormError) {
@@ -464,6 +623,10 @@
                 }
                 var addr = (j.data && j.data.address) || null;
                 if (!addr) { return; }
+                // Reset the idempotency key so a second new address is not silently deduped.
+                state.addressSubmissionKey = '';
+                state.allowDuplicateOnce = false;
+                hideAddrDupes();
                 setAddressMode('existing');
                 addressEmpty.hidden = true;
                 loadAddresses(state.customer.id, addr.id);
@@ -484,30 +647,31 @@
         }
 
         function showVariantPreview(v) {
+            if (addPanel) { addPanel.hidden = !v; }
             if (!v) {
-                variantPreview.hidden = true;
                 variantPreview.innerHTML = '';
                 return;
             }
-            variantPreview.hidden = false;
             variantPreview.innerHTML = '';
-            var row = el('div', 'flex flex-wrap gap-2 items-center');
+            var row = el('div', 'at-aorder-addpanel__product');
             if (v.image_url) {
                 var img = document.createElement('img');
                 img.src = v.image_url;
                 img.alt = '';
-                img.className = 'w-12 h-12 object-cover rounded border border-gray-200';
+                img.className = 'at-picker__thumb';
                 row.appendChild(img);
             }
-            var text = el('div', '');
-            text.appendChild(el('p', 'font-semibold mb-0', 'Selected for this line'));
-            text.appendChild(el('p', 'mb-0', v.product_name + ' — ' + v.variant_name));
-            text.appendChild(el('p', 'at-muted text-xs mb-0', [
+            var text = el('div', 'min-w-0');
+            text.appendChild(el('p', 'font-semibold mb-0', v.product_name));
+            text.appendChild(el('p', 'mb-0', v.variant_name));
+            var meta = el('p', 'at-muted text-xs mb-0 mt-1');
+            meta.textContent = [
                 v.sku ? 'SKU ' + v.sku : '',
-                fmtMoney(v.unit_price),
+                'Price ' + fmtMoney(v.unit_price),
                 'Stock ' + (v.available_qty != null ? v.available_qty : v.stock_qty),
-                'Variant ID ' + v.variant_id
-            ].filter(Boolean).join(' · ')));
+                v.unavailable_reason || ''
+            ].filter(Boolean).join(' · ');
+            text.appendChild(meta);
             row.appendChild(text);
             variantPreview.appendChild(row);
         }
@@ -708,6 +872,8 @@
             }
             if (itemsWrap) { itemsWrap.hidden = state.lines.length === 0; }
             if (itemsEmptyState) { itemsEmptyState.hidden = state.lines.length !== 0; }
+            if (nextDeliveryBtn) { nextDeliveryBtn.disabled = state.lines.length === 0; }
+            updateStepNav();
         }
 
         function renderLines() {
@@ -723,12 +889,20 @@
             itemsEmpty.hidden = true;
             state.lines.forEach(function (line, idx) {
                 var tr = el('tr', '');
-                tr.appendChild(el('td', '', line.product_name));
-                tr.appendChild(el('td', '', line.variant_name));
-                tr.appendChild(el('td', '', line.sku || '—'));
-                var up = el('td', 'text-right', fmtMoney(line.unit_price));
+                var tdProduct = el('td', 'font-semibold', line.product_name);
+                tdProduct.setAttribute('data-label', 'Product');
+                tr.appendChild(tdProduct);
+                var tdVariant = el('td', '', line.variant_name);
+                tdVariant.setAttribute('data-label', 'Variant');
+                tr.appendChild(tdVariant);
+                var tdSku = el('td', 'is-id', line.sku || '—');
+                tdSku.setAttribute('data-label', 'SKU');
+                tr.appendChild(tdSku);
+                var up = el('td', 'is-num', fmtMoney(line.unit_price));
+                up.setAttribute('data-label', 'Unit price');
                 tr.appendChild(up);
-                var qTd = el('td', 'text-right');
+                var qTd = el('td', 'is-num');
+                qTd.setAttribute('data-label', 'Qty');
                 var qWrap = el('span', 'at-qty-stepper at-qty-stepper--sm');
                 var qMinus = el('button', 'at-qty-stepper__btn at-focusable', '−');
                 qMinus.type = 'button';
@@ -756,9 +930,12 @@
                 qWrap.appendChild(qPlus);
                 qTd.appendChild(qWrap);
                 tr.appendChild(qTd);
-                tr.appendChild(el('td', 'text-right', fmtMoney(line.line_total)));
-                var act = el('td', '');
-                var rm = el('button', 'at-btn at-btn--ghost at-btn--sm at-focusable', 'Remove');
+                var tdTotal = el('td', 'is-num font-semibold', fmtMoney(line.line_total));
+                tdTotal.setAttribute('data-label', 'Line total');
+                tr.appendChild(tdTotal);
+                var act = el('td', 'is-actions');
+                act.setAttribute('data-label', '');
+                var rm = el('button', 'at-btn at-btn--danger at-btn--sm at-focusable', 'Remove');
                 rm.type = 'button';
                 rm.addEventListener('click', function () {
                     state.lines.splice(idx, 1);
@@ -808,7 +985,7 @@
                     body.append('custom_delivery_reason', customDeliveryReason.value.trim());
                 }
             }
-            body.append('payment_mode', payOffline && payOffline.checked ? 'offline_paid' : 'pending');
+            body.append('payment_mode', currentPaymentMode());
             if (payOffline && payOffline.checked && canRecordOffline) {
                 if (offlineMethod) { body.append('offline_payment_method', offlineMethod.value); }
                 if (offlineAmount) { body.append('offline_payment_amount', offlineAmount.value); }
@@ -839,11 +1016,12 @@
         function updateActionButtons() {
             var ok = canQuote();
             if (refreshQuoteBtn) { refreshQuoteBtn.disabled = !ok; }
-            if (placeBtn) { placeBtn.disabled = !ok || !lastQuote; }
+            if (placeBtn) { placeBtn.disabled = !ok || !lastQuote || quoteStale; }
         }
 
         function scheduleQuote() {
             clearTimeout(quoteTimer);
+            if (canQuote()) { quoteStale = true; }
             quoteTimer = setTimeout(refreshQuote, 400);
             updateActionButtons();
             updateStepNav();
@@ -854,36 +1032,34 @@
             if (!q) {
                 quoteDl.hidden = true;
                 quoteStatus.textContent = 'Complete the sections above to calculate totals.';
+                quoteStatus.className = 'text-sm at-muted';
                 lastQuote = null;
+                renderPaySummary();
                 updateActionButtons();
                 return;
             }
             lastQuote = q;
+            quoteStale = false;
             quoteDl.hidden = false;
             quoteStatus.textContent = '';
             quoteDl.innerHTML = '';
             function row(label, val, strong) {
-                var d = el('div', 'flex justify-between gap-4');
-                d.appendChild(el('dt', strong ? 'font-semibold' : '', label));
-                d.appendChild(el('dd', '', val));
+                var d = el('div', 'at-aorder-totals__row' + (strong ? ' at-aorder-totals__row--grand' : ''));
+                d.appendChild(el('dt', strong ? 'at-aorder-totals__grand-label' : '', label));
+                d.appendChild(el('dd', strong ? 'at-aorder-totals__grand-value' : '', val));
                 quoteDl.appendChild(d);
             }
             row('Merchandise subtotal', fmtMoney(q.subtotal));
-            if (q.offer_discount > 0) { row('Automatic offer', '− ' + fmtMoney(q.offer_discount)); }
+            if (q.offer_discount > 0) { row('Automatic promotion', '− ' + fmtMoney(q.offer_discount)); }
             if (q.coupon_discount > 0) { row('Coupon' + (q.coupon_code ? ' (' + q.coupon_code + ')' : ''), '− ' + fmtMoney(q.coupon_discount)); }
-            if (q.custom_discount > 0) { row('Custom admin discount', '− ' + fmtMoney(q.custom_discount)); }
+            if (q.custom_discount > 0) { row('Admin discount', '− ' + fmtMoney(q.custom_discount)); }
             row('Delivery fee', fmtMoney(q.delivery_fee));
             if (q.delivery_zone) {
                 deliverySummary.textContent = 'Zone: ' + q.delivery_zone
                     + (q.calculated_delivery_fee !== q.delivery_fee ? ' · Calculated: ' + fmtMoney(q.calculated_delivery_fee) : '');
             }
-            row('Payable total', fmtMoney(q.grand_total), true);
-            if (q.payment_mode === 'offline_paid') {
-                row('Payment mode', 'Offline (admin verified)');
-            } else {
-                row('Payment mode', 'Pending online payment');
-            }
-            if (offlineAmount && payOffline && payOffline.checked) {
+            row('Total payable', fmtMoney(q.grand_total), true);
+            if (offlineAmount && currentPaymentMode() === 'offline_paid') {
                 offlineAmount.value = String(q.grand_total);
             }
             if (q.coupon_applied && q.coupon_code) {
@@ -901,12 +1077,53 @@
                 if (couponClear) { couponClear.hidden = true; }
             }
             updatePlaceButtonLabel();
+            renderPaySummary();
             updateActionButtons();
+        }
+
+        // Single source of truth for the selected payment mode — the review,
+        // the submit-button label and the posted payload all derive from this.
+        function currentPaymentMode() {
+            return (payOffline && payOffline.checked && canRecordOffline) ? 'offline_paid' : 'pending';
+        }
+
+        function paymentModeLabel(mode) {
+            return mode === 'offline_paid'
+                ? 'Already paid — offline payment'
+                : 'Pending payment — customer pays online later';
+        }
+
+        function paymentStatusLabel(mode) {
+            return mode === 'offline_paid'
+                ? 'Paid (offline) — subject to server verification'
+                : 'Pending payment';
+        }
+
+        function renderPaySummary() {
+            if (!paySummary) { return; }
+            paySummary.innerHTML = '';
+            var mode = currentPaymentMode();
+            function row(label, value) {
+                var d = el('div', 'at-aorder-review__row');
+                d.appendChild(el('dt', 'at-aorder-review__label', label));
+                d.appendChild(el('dd', 'at-aorder-review__value', value));
+                paySummary.appendChild(d);
+            }
+            row('Mode', paymentModeLabel(mode));
+            row('Status', paymentStatusLabel(mode));
+            if (mode === 'offline_paid') {
+                var amt = offlineAmount && offlineAmount.value !== ''
+                    ? offlineAmount.value
+                    : (lastQuote ? lastQuote.grand_total : null);
+                if (amt != null) { row('Amount received', fmtMoney(amt)); }
+                var ref = offlineRef ? offlineRef.value.trim() : '';
+                if (ref !== '') { row('Reference', ref); }
+            }
         }
 
         function updatePlaceButtonLabel() {
             if (!placeBtn) { return; }
-            if (payOffline && payOffline.checked && canRecordOffline) {
+            if (currentPaymentMode() === 'offline_paid') {
                 placeBtn.textContent = 'Create paid order (offline)';
             } else {
                 placeBtn.textContent = 'Create order (pending payment)';
@@ -918,17 +1135,28 @@
                 renderQuote(null);
                 return;
             }
-            quoteStatus.textContent = 'Calculating…';
+            quoteStale = true;
+            updateActionButtons();
+            quoteStatus.textContent = 'Calculating totals…';
+            quoteStatus.className = 'text-sm at-muted';
+            if (refreshQuoteBtn) { refreshQuoteBtn.classList.add('is-loading'); }
+            var done = function () {
+                if (refreshQuoteBtn) { refreshQuoteBtn.classList.remove('is-loading'); }
+            };
             fetchJson(urlQuote, { method: 'POST', body: buildQuoteBody() }).then(function (j) {
+                done();
                 if (!j.success) {
-                    quoteStatus.textContent = (j.error && j.error.message) || 'Quote failed.';
                     renderQuote(null);
+                    quoteStatus.textContent = (j.error && j.error.message) || 'Quote failed.';
+                    quoteStatus.className = 'text-sm text-red-700';
                     return;
                 }
                 renderQuote(j.data.quote);
             }).catch(function () {
-                quoteStatus.textContent = 'Quote failed.';
+                done();
                 renderQuote(null);
+                quoteStatus.textContent = 'Quote failed.';
+                quoteStatus.className = 'text-sm text-red-700';
             });
         }
 
@@ -1010,9 +1238,16 @@
         });
         function onPaymentModeChange() {
             togglePaymentModeFields();
+            renderPaySummary();
+            updatePlaceButtonLabel();
+            // Payment mode changes the quote payload (and the offline place token),
+            // so re-quote instead of showing the previous mode's totals.
+            scheduleQuote();
         }
         if (payPending) { payPending.addEventListener('change', onPaymentModeChange); }
         if (payOffline) { payOffline.addEventListener('change', onPaymentModeChange); }
+        if (offlineRef) { offlineRef.addEventListener('input', renderPaySummary); }
+        if (offlineAmount) { offlineAmount.addEventListener('input', renderPaySummary); }
         if (refreshQuoteBtn) { refreshQuoteBtn.addEventListener('click', refreshQuote); }
         if (placeBtn) {
             placeBtn.addEventListener('click', function () {
@@ -1159,6 +1394,28 @@
                 }
             });
         });
+        if (addrPinInput) {
+            addrPinInput.addEventListener('input', function () {
+                clearTimeout(pinPreviewTimer);
+                pinPreviewTimer = setTimeout(function () {
+                    var digits = addrPinInput.value.replace(/\D/g, '');
+                    if (addrPinInput.value.trim() !== '' && digits.length !== 6) {
+                        pinPreviewSeq += 1;
+                        pinPreview.textContent = 'Enter a valid 6-digit pincode.';
+                        pinPreview.className = 'text-xs mt-1 text-red-700';
+                        pinPreview.hidden = false;
+                        return;
+                    }
+                    previewServiceability(
+                        addrPinInput.value,
+                        addrLatInput ? addrLatInput.value : '',
+                        addrLngInput ? addrLngInput.value : '',
+                        pinPreview,
+                        'pin'
+                    );
+                }, 450);
+            });
+        }
 
         /* ---------- 4-step wizard ---------- */
 
@@ -1223,7 +1480,9 @@
                 var n = parseInt(btn.getAttribute('data-at-aorder-stepnav'), 10) || 0;
                 var item = btn.closest('[data-at-aorder-stepnav-item]');
                 var num = btn.querySelector('[data-at-aorder-stepnum]');
-                var done = orderPlaced || (n !== currentStep && stepIsComplete(n));
+                // Only steps behind the current one can be completed — a future
+                // step must never show a checkmark (step 4's gate is always true).
+                var done = orderPlaced || (n < currentStep && stepIsComplete(n));
                 var locked = !orderPlaced && n !== currentStep && !canEnterStep(n);
                 if (item) {
                     item.classList.toggle('is-active', n === currentStep);
@@ -1279,9 +1538,24 @@
                 a.full_address || ''
             ].filter(Boolean).join(' — ');
             reviewRow('Deliver to', addrBits !== '' ? addrBits : '—');
-            var count = state.lines.reduce(function (s, l) { return s + (parseInt(l.quantity, 10) || 0); }, 0);
-            reviewRow('Items', count + ' item(s)');
             reviewRow('Delivery', deliveryWhen ? deliveryWhen.textContent : '—');
+            if (reviewItems) {
+                reviewItems.innerHTML = '';
+                function itemRow(label, value) {
+                    var d = el('div', 'at-aorder-review__row');
+                    d.appendChild(el('dt', 'at-aorder-review__label', label));
+                    d.appendChild(el('dd', 'at-aorder-review__value', value));
+                    reviewItems.appendChild(d);
+                }
+                var count = state.lines.reduce(function (s, l) { return s + (parseInt(l.quantity, 10) || 0); }, 0);
+                itemRow('Items', count + ' item(s)');
+                state.lines.forEach(function (l) {
+                    itemRow(
+                        l.product_name,
+                        (l.variant_name ? l.variant_name + ' · ' : '') + '× ' + l.quantity
+                    );
+                });
+            }
         }
 
         function goToStep(n) {
@@ -1297,6 +1571,8 @@
             if (n === 3) { updateDeliveryWhen(); }
             if (n === stepPanels.length) {
                 renderReview();
+                renderPaySummary();
+                updatePlaceButtonLabel();
                 if (canQuote()) { refreshQuote(); }
             }
             updateStepNav();

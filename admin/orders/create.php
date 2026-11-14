@@ -53,6 +53,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
      data-url-customers="<?= Security::escape($ajaxBase . '/assisted-order-customers.php') ?>"
      data-url-addresses="<?= Security::escape($ajaxBase . '/assisted-order-addresses.php') ?>"
      data-url-address-create="<?= Security::escape($ajaxBase . '/assisted-order-address-create.php') ?>"
+     data-url-address-preview="<?= Security::escape($ajaxBase . '/assisted-order-address-preview.php') ?>"
      data-url-variants="<?= Security::escape($ajaxBase . '/assisted-order-variants.php') ?>"
      data-url-line="<?= Security::escape($ajaxBase . '/assisted-order-line.php') ?>"
      data-url-quote="<?= Security::escape($ajaxBase . '/assisted-order-quote.php') ?>"
@@ -120,6 +121,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
                 </div>
                 <?php require APNI_TOKRI_ROOT . '/includes/partials/admin/assisted-order-address-form.php'; ?>
                 <div class="p-3 rounded-lg border border-gray-200 bg-gray-50 text-sm" data-at-aorder-address-summary hidden aria-live="polite"></div>
+                <p class="text-sm" data-at-aorder-addr-preview role="status" aria-live="polite" hidden></p>
             </div>
         </section>
 
@@ -137,31 +139,31 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
         <section class="at-admin-card" aria-labelledby="at-aorder-products-title">
             <div class="at-admin-card__head"><h2 id="at-aorder-products-title">Add products</h2></div>
             <div class="at-admin-card__body overflow-visible">
-                <div class="grid gap-3 md:grid-cols-[1fr_auto_auto] md:items-end">
-                    <div class="at-picker at-assisted-order__variant-picker min-w-0">
-                        <label class="at-label" for="at-aorder-variant-search">Search product or variant</label>
-                        <input id="at-aorder-variant-search" type="search" class="at-input at-focusable w-full"
-                               autocomplete="off" placeholder="Product name, slug or SKU" aria-autocomplete="list"
-                               aria-controls="at-aorder-variant-results" aria-expanded="false">
-                        <p class="text-xs at-muted mt-1" data-at-aorder-variant-status>Type at least 2 characters.</p>
-                        <ul id="at-aorder-variant-results" class="at-picker__results" data-at-aorder-variant-results hidden role="listbox" aria-label="Product variants"></ul>
-                        <nav class="flex flex-wrap items-center gap-2 mt-2 text-sm" data-at-aorder-variant-pager hidden></nav>
-                    </div>
-                    <div>
-                        <label class="at-label" for="at-aorder-qty">Quantity</label>
-                        <div class="at-qty-stepper">
-                            <button type="button" class="at-qty-stepper__btn at-focusable" data-at-aorder-qty-dec aria-label="Decrease quantity">&minus;</button>
-                            <input id="at-aorder-qty" type="number" class="at-input at-focusable at-qty-stepper__input" min="1" step="1" value="1" inputmode="numeric">
-                            <button type="button" class="at-qty-stepper__btn at-focusable" data-at-aorder-qty-inc aria-label="Increase quantity">+</button>
+                <div class="at-picker at-assisted-order__variant-picker min-w-0">
+                    <label class="at-label" for="at-aorder-variant-search">Search product or variant</label>
+                    <input id="at-aorder-variant-search" type="search" class="at-input at-focusable w-full"
+                           autocomplete="off" placeholder="Product name, slug or SKU" aria-autocomplete="list"
+                           aria-controls="at-aorder-variant-results" aria-expanded="false">
+                    <p class="text-xs at-muted mt-1" data-at-aorder-variant-status>Type at least 2 characters.</p>
+                    <ul id="at-aorder-variant-results" class="at-picker__results" data-at-aorder-variant-results hidden role="listbox" aria-label="Product variants"></ul>
+                    <nav class="flex flex-wrap items-center gap-2 mt-2 text-sm" data-at-aorder-variant-pager hidden></nav>
+                </div>
+                <div class="at-aorder-addpanel" data-at-aorder-add-panel hidden>
+                    <div class="at-aorder-addpanel__info" data-at-aorder-variant-preview></div>
+                    <div class="at-aorder-addpanel__actions">
+                        <div class="at-aorder-addpanel__qty">
+                            <label class="at-label" for="at-aorder-qty">Quantity</label>
+                            <div class="at-qty-stepper">
+                                <button type="button" class="at-qty-stepper__btn at-focusable" data-at-aorder-qty-dec aria-label="Decrease quantity">&minus;</button>
+                                <input id="at-aorder-qty" type="number" class="at-input at-focusable at-qty-stepper__input" min="1" step="1" value="1" inputmode="numeric">
+                                <button type="button" class="at-qty-stepper__btn at-focusable" data-at-aorder-qty-inc aria-label="Increase quantity">+</button>
+                            </div>
                         </div>
-                    </div>
-                    <div>
-                        <button type="button" class="at-btn at-btn--secondary at-focusable w-full md:w-auto" data-at-aorder-add-line disabled>
+                        <button type="button" class="at-btn at-btn--primary at-focusable" data-at-aorder-add-line disabled>
                             Add to order
                         </button>
                     </div>
                 </div>
-                <div class="mt-3 p-3 rounded-lg border border-gray-200 bg-gray-50 text-sm" data-at-aorder-variant-preview hidden></div>
             </div>
         </section>
 
@@ -169,22 +171,23 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
             <div class="at-admin-card__head"><h2 id="at-aorder-items-title">Order items</h2></div>
             <div class="at-admin-card__body">
                 <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
-                    <p class="text-sm at-muted" data-at-aorder-items-meta>No items added yet.</p>
+                    <p class="text-sm font-semibold" data-at-aorder-items-meta>No items added yet.</p>
                 </div>
                 <p class="at-aorder-empty" data-at-aorder-items-emptystate>
-                    No products added yet. Search above and press <strong>Add to order</strong>.
+                    No products added yet.<br>
+                    <span class="at-aorder-empty__hint">Search for a product above to start building this order.</span>
                 </p>
-                <div class="overflow-x-auto" data-at-aorder-items-wrap hidden>
-                    <table class="at-admin-table w-full min-w-[32rem]" data-at-aorder-items-table>
+                <div class="at-admin-table-wrap" data-at-aorder-items-wrap hidden>
+                    <table class="at-admin-table at-admin-table--cards w-full" data-at-aorder-items-table>
                         <thead>
                             <tr>
                                 <th scope="col">Product</th>
                                 <th scope="col">Variant</th>
                                 <th scope="col">SKU</th>
-                                <th scope="col" class="text-right">Unit price</th>
-                                <th scope="col" class="text-right">Qty</th>
-                                <th scope="col" class="text-right">Line total</th>
-                                <th scope="col"><span class="sr-only">Actions</span></th>
+                                <th scope="col" class="is-num">Unit price</th>
+                                <th scope="col" class="is-num">Qty</th>
+                                <th scope="col" class="is-num">Line total</th>
+                                <th scope="col" class="is-actions"><span class="sr-only">Actions</span></th>
                             </tr>
                         </thead>
                         <tbody data-at-aorder-items-body>
@@ -390,6 +393,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
                         <div>
                             <label class="at-label" for="at-aorder-offline-amount">Amount received (₹)</label>
                             <input id="at-aorder-offline-amount" type="number" class="at-input at-focusable w-full" min="0" step="0.01" readonly data-at-aorder-offline-amount>
+                            <p class="text-xs at-muted mt-1">Full payable amount — filled from the latest quote.</p>
                         </div>
                         <div class="sm:col-span-2">
                             <label class="at-label" for="at-aorder-offline-ref">Transaction / reference number</label>
@@ -403,18 +407,26 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
                             <label class="at-label" for="at-aorder-offline-pay-time">Payment time</label>
                             <input id="at-aorder-offline-pay-time" type="time" class="at-input at-focusable w-full" data-at-aorder-offline-pay-time>
                         </div>
-                        <div class="sm:col-span-2">
-                            <label class="at-label" for="at-aorder-offline-provider">Provider / bank name (optional)</label>
-                            <input id="at-aorder-offline-provider" type="text" class="at-input at-focusable w-full" maxlength="128" data-at-aorder-offline-provider>
+                        <details class="at-aorder-advanced sm:col-span-2">
+                            <summary class="at-focusable">Additional details (optional)</summary>
+                            <div class="grid gap-3 sm:grid-cols-2 pt-3">
+                                <div class="sm:col-span-2">
+                                    <label class="at-label" for="at-aorder-offline-provider">Provider / bank name</label>
+                                    <input id="at-aorder-offline-provider" type="text" class="at-input at-focusable w-full" maxlength="128" data-at-aorder-offline-provider>
+                                </div>
+                                <div class="sm:col-span-2">
+                                    <label class="at-label" for="at-aorder-offline-note">Verification note</label>
+                                    <textarea id="at-aorder-offline-note" class="at-input at-focusable w-full" rows="2" maxlength="500" data-at-aorder-offline-note></textarea>
+                                </div>
+                            </div>
+                        </details>
+                        <div class="sm:col-span-2 at-aorder-verify">
+                            <label class="flex items-start gap-2 text-sm font-semibold">
+                                <input type="checkbox" class="at-focusable mt-1" data-at-aorder-offline-confirm value="1">
+                                I confirm that the payment has been received and verified.
+                            </label>
+                            <p class="text-xs at-muted mt-1 mb-0">Required to record this order as paid. The server re-verifies method, reference and amount before marking the order paid.</p>
                         </div>
-                        <div class="sm:col-span-2">
-                            <label class="at-label" for="at-aorder-offline-note">Verification note</label>
-                            <textarea id="at-aorder-offline-note" class="at-input at-focusable w-full" rows="2" maxlength="500" data-at-aorder-offline-note></textarea>
-                        </div>
-                        <label class="sm:col-span-2 flex items-start gap-2 text-sm">
-                            <input type="checkbox" class="at-focusable mt-1" data-at-aorder-offline-confirm value="1">
-                            I confirm that the payment has been received and verified.
-                        </label>
                     </div>
                 </div>
             </div>
@@ -423,9 +435,22 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
         <section class="at-admin-card mt-4" aria-labelledby="at-aorder-summary-title">
             <div class="at-admin-card__head"><h2 id="at-aorder-summary-title">Review &amp; confirm</h2></div>
             <div class="at-admin-card__body">
-                <dl class="at-aorder-review text-sm space-y-1 max-w-2xl mb-4" data-at-aorder-review></dl>
-                <p class="text-sm at-muted mb-2" data-at-aorder-quote-status>Totals will be calculated when the order is ready.</p>
-                <dl class="text-sm space-y-1 max-w-md" data-at-aorder-quote-dl hidden></dl>
+                <div class="at-aorder-review-grid">
+                    <section class="at-aorder-review-group" aria-label="Customer and delivery">
+                        <h3 class="at-aorder-review-group__title">Customer &amp; delivery</h3>
+                        <dl class="at-aorder-review text-sm" data-at-aorder-review></dl>
+                    </section>
+                    <section class="at-aorder-review-group" aria-label="Order items and totals">
+                        <h3 class="at-aorder-review-group__title">Items &amp; totals</h3>
+                        <dl class="at-aorder-review text-sm" data-at-aorder-review-items></dl>
+                        <p class="text-sm at-muted" data-at-aorder-quote-status>Totals will be calculated when the order is ready.</p>
+                        <dl class="at-aorder-totals text-sm" data-at-aorder-quote-dl hidden></dl>
+                    </section>
+                    <section class="at-aorder-review-group" aria-label="Payment summary">
+                        <h3 class="at-aorder-review-group__title">Payment</h3>
+                        <dl class="at-aorder-review text-sm" data-at-aorder-pay-summary></dl>
+                    </section>
+                </div>
                 <div class="mt-4 flex flex-wrap gap-2 items-center">
                     <button type="button" class="at-btn at-btn--secondary at-focusable" data-at-aorder-refresh-quote disabled>Refresh totals</button>
                     <button type="button" class="at-btn at-btn--primary at-focusable" data-at-aorder-place disabled<?= $migrationReady ? '' : ' title="Apply migration 1.40.0 first"' ?>>
@@ -449,6 +474,8 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
 <?php
 $esc = static fn (string $s): string => Security::escape($s);
 ?>
+<script>window.AT_ADDRESS_AUTOCOMPLETE = <?= json_encode(AddressAutocompleteSettings::publicClientConfig(), JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
+<script src="<?= $esc(asset_url('assets/js/address-autocomplete.js')) ?>"></script>
 <script src="<?= $esc(asset_url('assets/js/admin-assisted-order.js')) ?>"></script>
 <?php
 admin_layout_end();

@@ -102,6 +102,8 @@ aaOk($firstStillDefault === 1, 'default preserved when not requested');
 
 $explicitDefault = $secondPost;
 $explicitDefault['make_default'] = '1';
+// Intentionally re-saving a similar address: bypass the advisory duplicate warning.
+$explicitDefault['allow_duplicate'] = '1';
 $explicitDefault['address_submission_key'] = bin2hex(random_bytes(16));
 $third = AdminAssistedOrderService::createAddressForCustomer($withoutId, $explicitDefault);
 $thirdId = (int) ($third['address']['id'] ?? 0);

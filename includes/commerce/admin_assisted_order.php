@@ -165,7 +165,7 @@ final class AdminAssistedOrderService
      * Create a saved address for the selected customer (admin-assisted checkout).
      *
      * @param array<string, mixed> $post
-     * @return array{ok: bool, message?: string, errors?: array<string, string>, address?: array<string, mixed>, reused?: bool}
+     * @return array{ok: bool, code?: string, message?: string, errors?: array<string, string>, duplicates?: list<array<string, mixed>>, address?: array<string, mixed>, reused?: bool}
      */
     public static function createAddressForCustomer(int $customerId, array $post): array
     {
@@ -196,6 +196,18 @@ final class AdminAssistedOrderService
                         'reused' => true,
                     ];
                 }
+            }
+        }
+
+        if (empty($post['allow_duplicate'])) {
+            $dupes = self::similarSavedAddresses($customerId, $post);
+            if ($dupes !== []) {
+                return [
+                    'ok' => false,
+                    'code' => 'duplicate_address',
+                    'message' => 'A similar address is already saved for this customer.',
+                    'duplicates' => $dupes,
+                ];
             }
         }
 
@@ -252,6 +264,49 @@ final class AdminAssistedOrderService
         ];
     }
 
+    /**
+     * Non-blocking "similar address" warning for assisted order entry.
+     * Compares normalized house/street/area (+ pincode) against the customer's
+     * active saved addresses, including legacy single-line addresses via line1.
+     *
+     * @param array<string, mixed> $post raw admin form input
+     * @return list<array<string, mixed>> mapped address list items (max 5)
+     */
+    private static function similarSavedAddresses(int $customerId, array $post): array
+    {
+        $norm = static function ($v): string {
+            $s = strtolower(trim((string) $v));
+
+            return preg_replace('/[^a-z0-9]+/', '', $s) ?? '';
+        };
+        $pin = preg_replace('/\D+/', '', (string) ($post['pincode'] ?? '')) ?? '';
+        $house = $norm($post['house_number'] ?? '');
+        $street = $norm($post['street'] ?? '');
+        $area = $norm($post['area'] ?? '');
+
+        $out = [];
+        foreach (CustomerAccountService::listAddresses($customerId) as $row) {
+            if ($pin !== '' && (string) ($row['pincode'] ?? '') !== $pin) {
+                continue;
+            }
+            $rHouse = $norm($row['house_number'] ?? '');
+            $rStreet = $norm($row['street'] ?? '');
+            $rArea = $norm($row['area'] ?? '');
+            $rLine1 = $norm($row['line1'] ?? '');
+            $houseMatch = $house !== '' && ($house === $rHouse || ($rHouse === '' && str_contains($rLine1, $house)));
+            $streetMatch = $street !== '' && ($street === $rStreet || ($rStreet === '' && str_contains($rLine1, $street)));
+            $areaMatch = $area !== '' && ($area === $rArea || ($rArea === '' && str_contains($rLine1, $area)));
+            if ($houseMatch && ($streetMatch || $areaMatch)) {
+                $out[] = self::mapAddressListItem($row);
+            }
+            if (count($out) >= 5) {
+                break;
+            }
+        }
+
+        return $out;
+    }
+
     /** @param array<string, mixed> $addr */
     private static function mapAddressListItem(array $addr): array
     {
@@ -267,9 +322,48 @@ final class AdminAssistedOrderService
             'city' => (string) ($addr['city'] ?? ''),
             'state' => (string) ($addr['state'] ?? ''),
             'pincode' => (string) ($addr['pincode'] ?? ''),
+            'latitude' => isset($addr['latitude']) && $addr['latitude'] !== null ? (string) $addr['latitude'] : null,
+            'longitude' => isset($addr['longitude']) && $addr['longitude'] !== null ? (string) $addr['longitude'] : null,
             'full_address' => trim(AddressInput::fullAddress($addr)),
             'is_default' => !empty($addr['is_default']),
             'selectable' => true,
+        ];
+    }
+
+    /**
+     * Delivery serviceability + zone fee preview for a candidate/saved address.
+     * Read-only; reuses the existing zone resolver (pincode/hybrid distance).
+     *
+     * @return array{ok: bool, serviceable: bool, message: string, zone_name: ?string, flat_fee: ?float, free_above: ?float, distance_km: ?float, requires_map_pin: bool}
+     */
+    public static function previewAddressServiceability(string $pincode, ?float $latitude = null, ?float $longitude = null): array
+    {
+        $pin = preg_replace('/\D+/', '', $pincode) ?? '';
+        if (!preg_match('/^\d{6}$/', $pin)) {
+            return [
+                'ok' => true,
+                'serviceable' => false,
+                'message' => 'Enter a valid 6-digit pincode.',
+                'zone_name' => null,
+                'flat_fee' => null,
+                'free_above' => null,
+                'distance_km' => null,
+                'requires_map_pin' => false,
+            ];
+        }
+
+        $result = DeliveryService::evaluatePincode($pin, $latitude, $longitude);
+        $zone = is_array($result['zone'] ?? null) ? $result['zone'] : [];
+
+        return [
+            'ok' => true,
+            'serviceable' => !empty($result['serviceable']),
+            'message' => (string) ($result['message'] ?? ''),
+            'zone_name' => isset($zone['name']) ? (string) $zone['name'] : null,
+            'flat_fee' => isset($zone['flat_fee']) ? (float) $zone['flat_fee'] : null,
+            'free_above' => isset($zone['free_above']) ? (float) $zone['free_above'] : null,
+            'distance_km' => isset($result['distance_km']) ? (float) $result['distance_km'] : null,
+            'requires_map_pin' => !empty($result['requires_map_pin']),
         ];
     }
 
