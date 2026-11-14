@@ -516,14 +516,14 @@ final class CustomerAuth
         }
         if (!password_verify($otp, (string) $row['otp_hash'])) {
             Database::pdo()->prepare(
-                'UPDATE customer_otp_attempts SET attempt_count = attempt_count + 1 WHERE id = ?'
+                'UPDATE customer_otp_attempts SET attempt_count = attempt_count + 1, expires_at = expires_at WHERE id = ?'
             )->execute([(int) $row['id']]);
 
             return ['ok' => false, 'error' => 'Incorrect or expired OTP.'];
         }
         if (self::isExistingInactiveCustomer($mobile)) {
             Database::pdo()->prepare(
-                'UPDATE customer_otp_attempts SET attempt_count = attempt_count + 1 WHERE id = ?'
+                'UPDATE customer_otp_attempts SET attempt_count = attempt_count + 1, expires_at = expires_at WHERE id = ?'
             )->execute([(int) $row['id']]);
 
             return ['ok' => false, 'error' => 'Incorrect or expired OTP.'];
@@ -538,7 +538,7 @@ final class CustomerAuth
             return;
         }
         Database::pdo()->prepare(
-            'UPDATE customer_otp_attempts SET attempt_count = attempt_count + 1, verified_at = NOW() WHERE id = ? AND verified_at IS NULL'
+            'UPDATE customer_otp_attempts SET attempt_count = attempt_count + 1, verified_at = NOW(), expires_at = expires_at WHERE id = ? AND verified_at IS NULL'
         )->execute([$attemptId]);
     }
 }

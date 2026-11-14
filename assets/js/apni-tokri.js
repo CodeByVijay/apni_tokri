@@ -742,6 +742,7 @@
       return;
     }
     var $hint = $('#mobile-hint');
+    var attempted = false;
     function digitsOnly(raw) {
       var d = (raw || '').replace(/\D/g, '');
       if (d.length >= 12 && d.indexOf('91') === 0) {
@@ -752,16 +753,43 @@
       }
       return d;
     }
+    function showError(msg) {
+      if ($hint.length) {
+        $hint.text(msg).removeClass('hidden');
+      }
+      $input.addClass('at-input--error').attr('aria-invalid', 'true');
+    }
+    function clearError() {
+      if ($hint.length) {
+        $hint.addClass('hidden');
+      }
+      $input.removeClass('at-input--error').attr('aria-invalid', 'false');
+    }
+    function check() {
+      var d = digitsOnly($input.val());
+      if (d === '') {
+        return 'Please enter your mobile number.';
+      }
+      if (!/^[6-9]\d{9}$/.test(d)) {
+        return 'Enter a valid 10-digit Indian mobile number.';
+      }
+      return null;
+    }
     function sync() {
       var d = digitsOnly($input.val());
       if ($input.val() !== d) {
         $input.val(d);
       }
-      var ok = /^[6-9]\d{9}$/.test(d);
-      if ($hint.length) {
-        $hint.toggleClass('hidden', ok);
+      if (!attempted) {
+        return check() === null;
       }
-      return ok;
+      var err = check();
+      if (err === null) {
+        clearError();
+      } else {
+        showError(err);
+      }
+      return err === null;
     }
     $input.on('input', sync);
     $input.on('paste', function (e) {
@@ -773,11 +801,12 @@
       sync();
     });
     $input.closest('form').on('submit', function (e) {
+      attempted = true;
       if (!sync()) {
         e.preventDefault();
         $input.focus();
       }
     });
-    sync();
+    clearError();
   }
 })(jQuery);

@@ -63,7 +63,7 @@ final class CustomerOtpRegistration
         }
         $name = trim((string) ($row['name'] ?? ''));
         $email = trim((string) ($row['email'] ?? ''));
-        if ($name !== '' && $email !== '') {
+        if ($name !== '') {
             return [
                 'mode' => self::MODE_RETURNING,
                 'name' => $name,
@@ -203,10 +203,8 @@ final class CustomerOtpRegistration
         if ($nameErr !== null) {
             $fieldErrors['name'] = $nameErr;
         }
-        if ($email === null) {
-            $fieldErrors['email'] = trim($emailRaw) === ''
-                ? 'Enter your email address.'
-                : 'Enter a valid email address.';
+        if (trim($emailRaw) !== '' && $email === null) {
+            $fieldErrors['email'] = 'Enter a valid email address.';
         }
 
         if ($mode === self::MODE_NEW) {
@@ -247,20 +245,20 @@ final class CustomerOtpRegistration
         }
         /** @var string $name */
         $name = $validated['name'];
-        /** @var string $email */
+        /** @var string|null $email */
         $email = $validated['email'];
 
         Install::ensureConnection();
         $pdo = Database::pdo();
-        $emailLock = self::emailLockKey($email);
-        if (!self::acquireAdvisoryLock($pdo, $emailLock)) {
+        $emailLock = $email !== null ? self::emailLockKey($email) : null;
+        if ($emailLock !== null && !self::acquireAdvisoryLock($pdo, $emailLock)) {
             return ['ok' => false, 'error' => 'Please try again in a moment.'];
         }
 
         try {
             $pdo->beginTransaction();
             try {
-                if (self::emailUsedByOtherCustomer($pdo, $email, $customerId)) {
+                if ($email !== null && self::emailUsedByOtherCustomer($pdo, $email, $customerId)) {
                     $pdo->rollBack();
 
                     return ['ok' => false, 'field_errors' => ['email' => 'This email is already used by another account.']];
@@ -288,7 +286,9 @@ final class CustomerOtpRegistration
 
             return ['ok' => false, 'error' => 'We could not update your profile. Please try again.'];
         } finally {
-            self::releaseAdvisoryLock($pdo, $emailLock);
+            if ($emailLock !== null) {
+                self::releaseAdvisoryLock($pdo, $emailLock);
+            }
         }
     }
 
@@ -308,13 +308,13 @@ final class CustomerOtpRegistration
         }
         /** @var string $name */
         $name = $validated['name'];
-        /** @var string $email */
+        /** @var string|null $email */
         $email = $validated['email'];
 
         Install::ensureConnection();
         $pdo = Database::pdo();
         $mobileLock = self::mobileLockKey($mobile);
-        $emailLock = self::emailLockKey($email);
+        $emailLock = $email !== null ? self::emailLockKey($email) : null;
         if (!self::acquireAdvisoryLock($pdo, $mobileLock)) {
             return ['ok' => false, 'error' => 'Please try again in a moment.'];
         }
@@ -331,18 +331,18 @@ final class CustomerOtpRegistration
                 return self::completeLegacyProfile((int) $existing['id'], $input);
             }
 
-            if (!self::acquireAdvisoryLock($pdo, $emailLock)) {
+            if ($emailLock !== null && !self::acquireAdvisoryLock($pdo, $emailLock)) {
                 return ['ok' => false, 'error' => 'Please try again in a moment.'];
             }
-            $emailLockHeld = true;
+            $emailLockHeld = $emailLock !== null;
 
-            if (self::emailUsedByOtherCustomer($pdo, $email, null)) {
+            if ($email !== null && self::emailUsedByOtherCustomer($pdo, $email, null)) {
                 return ['ok' => false, 'field_errors' => ['email' => 'This email is already used by another account.']];
             }
 
             $pdo->beginTransaction();
             try {
-                if (self::emailUsedByOtherCustomer($pdo, $email, null)) {
+                if ($email !== null && self::emailUsedByOtherCustomer($pdo, $email, null)) {
                     $pdo->rollBack();
 
                     return ['ok' => false, 'field_errors' => ['email' => 'This email is already used by another account.']];

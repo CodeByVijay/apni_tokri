@@ -162,7 +162,7 @@ layout_public_start([
             </div>
             <?php else: ?>
             <h1 class="at-h1">Verify your number</h1>
-            <p class="mt-2 at-muted">Code sent to <strong class="text-[var(--at-ink)]">+91 <?= Security::escape($mobile) ?></strong></p>
+            <p class="mt-2 at-muted">Code sent to <strong class="text-[var(--at-ink)]">+91 <?= Security::escape(substr($mobile, 0, 5) . ' ' . substr($mobile, 5, 1)) ?>••••</strong></p>
             <?php if ($verifyPageTestOtp !== null): ?>
                 <div class="at-otp-test-hint mt-3" role="note">
                     <p class="at-otp-test-hint__code">Test OTP: <?= Security::escape($verifyPageTestOtp) ?></p>
@@ -172,7 +172,7 @@ layout_public_start([
                 <p class="mt-2"><span class="at-badge at-badge--neutral">Test mode — no real SMS sent</span></p>
             <?php endif; ?>
             <?php if ($isLegacy): ?>
-                <p class="mt-2 text-sm at-muted">Please add your name and email to finish setting up your account.</p>
+                <p class="mt-2 text-sm at-muted">Please add your name to finish setting up your account.</p>
             <?php endif; ?>
             <?php if ($resendNotice !== ''): ?>
                 <div class="at-alert mt-4" role="status"><?= Security::escape($resendNotice) ?></div>
@@ -213,13 +213,14 @@ layout_public_start([
                         <?php endif; ?>
                     </div>
                     <div>
-                        <label class="at-label" for="reg-email">Email address<?php if ($fieldsEditable): ?> <span class="at-muted font-normal">(required)</span><?php endif; ?></label>
+                        <label class="at-label" for="reg-email">Email address<?php if ($fieldsEditable): ?> <span class="at-muted font-normal">(optional)</span><?php endif; ?></label>
                         <?php if ($fieldsEditable): ?>
                             <input id="reg-email" name="email" type="email" inputmode="email" class="at-input at-focusable<?= isset($fieldErrors['email']) ? ' at-input--error' : '' ?>"
-                                autocomplete="email" maxlength="191" required
+                                autocomplete="email" maxlength="191"
                                 value="<?= Security::escape($displayEmail) ?>"
                                 aria-invalid="<?= isset($fieldErrors['email']) ? 'true' : 'false' ?>"
-                                aria-describedby="<?= isset($fieldErrors['email']) ? 'reg-email-error' : '' ?>">
+                                aria-describedby="reg-email-hint<?= isset($fieldErrors['email']) ? ' reg-email-error' : '' ?>">
+                            <p id="reg-email-hint" class="at-field-hint mt-1">Get order updates and invoices by email.</p>
                             <?php if (isset($fieldErrors['email'])): ?>
                                 <p id="reg-email-error" class="at-field-error" role="alert"><?= Security::escape($fieldErrors['email']) ?></p>
                             <?php endif; ?>
@@ -301,7 +302,8 @@ document.addEventListener('DOMContentLoaded', function () {
     var email = form.querySelector('[name="email"]');
     var consent = form.querySelector('[data-reg-consent]');
     var nameOk = name && name.value.trim().length >= 2;
-    var emailOk = email && emailRe.test(email.value.trim());
+    var emailVal = email ? email.value.trim() : '';
+    var emailOk = emailVal === '' || emailRe.test(emailVal);
     var consentOk = !consent || consent.checked;
     submit.disabled = !(nameOk && emailOk && consentOk);
   }

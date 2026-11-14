@@ -58,16 +58,16 @@ layout_public_start([
             <?php if ($error !== ''): ?>
                 <div class="at-alert at-alert--error mt-4" role="alert"><?= at_icon('info', 'w-5 h-5 flex-shrink-0') ?><span><?= Security::escape($error) ?></span></div>
             <?php endif; ?>
-            <form method="post" class="at-card mt-6">
+            <form method="post" class="at-card mt-6" novalidate>
                 <div class="at-card__body grid gap-4">
                     <?= Csrf::field() ?>
                     <div>
                         <label class="at-label" for="mobile">Mobile number</label>
                         <div class="at-auth-mobile">
                             <span class="at-auth-mobile__prefix" aria-hidden="true">+91</span>
-                            <input id="mobile" name="mobile" type="tel" class="at-input at-focusable flex-1 min-w-0" placeholder="98XXXXXXXX" inputmode="numeric" maxlength="10" autocomplete="tel-national" pattern="[6-9][0-9]{9}" required aria-describedby="mobile-hint">
+                            <input id="mobile" name="mobile" type="tel" class="at-input at-focusable flex-1 min-w-0" placeholder="98XXXXXXXX" inputmode="numeric" maxlength="10" autocomplete="tel-national" pattern="[6-9][0-9]{9}" required aria-invalid="false" aria-describedby="mobile-hint">
                         </div>
-                        <p id="mobile-hint" class="at-field-error hidden" role="alert">Enter a valid 10-digit mobile number starting with 6–9.</p>
+                        <p id="mobile-hint" class="at-field-error hidden" role="alert"></p>
                     </div>
                     <button type="submit" class="at-btn at-btn--primary at-btn--lg at-btn--block at-focusable">Send OTP</button>
                     <p class="text-xs at-muted flex gap-2"><?= at_icon('lock', 'w-4 h-4 flex-shrink-0') ?><?php

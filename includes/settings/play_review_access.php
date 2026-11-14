@@ -196,7 +196,7 @@ final class PlayReviewAccess
             )->execute([$newCount, self::THROTTLE_WINDOW_SECONDS, (int) $row['id']]);
         } else {
             $pdo->prepare(
-                'UPDATE customer_otp_attempts SET attempt_count = ? WHERE id = ?'
+                'UPDATE customer_otp_attempts SET attempt_count = ?, expires_at = expires_at WHERE id = ?'
             )->execute([$newCount, (int) $row['id']]);
         }
     }
