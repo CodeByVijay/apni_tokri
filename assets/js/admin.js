@@ -525,14 +525,15 @@
     if (!$wrap.length) {
       return;
     }
-    var mq = window.matchMedia('(max-width: 1023px)');
-
     function scrollActiveIntoView($link, smooth) {
-      if (!mq.matches || !$link.length) {
+      if (!$link.length) {
         return;
       }
       var el = $link[0];
       var wrap = $wrap[0];
+      if (wrap.scrollWidth <= wrap.clientWidth) {
+        return;
+      }
       var target =
         el.offsetLeft - wrap.clientWidth / 2 + el.offsetWidth / 2;
       var max = Math.max(0, wrap.scrollWidth - wrap.clientWidth);

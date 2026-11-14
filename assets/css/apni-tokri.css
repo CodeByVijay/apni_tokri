@@ -6903,53 +6903,40 @@ body.at-gallery-lightbox-open {
   color: var(--at-green);
   border-bottom-color: var(--at-green);
 }
-/* Settings section tabs (includes/partials/admin/settings-nav.php) */
+/* Settings section tabs (includes/partials/admin/settings-nav.php).
+   Single row at every width — never wraps to a second row; when the tabs are
+   wider than the container the wrapper scrolls horizontally instead. */
 .at-admin-tabs-wrap--settings {
   margin-bottom: 1rem;
   max-width: 100%;
   min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(45, 112, 72, 0.35) transparent;
+}
+.at-admin-tabs-wrap--settings::-webkit-scrollbar {
+  height: 4px;
+}
+.at-admin-tabs-wrap--settings::-webkit-scrollbar-thumb {
+  background: rgba(45, 112, 72, 0.35);
+  border-radius: 999px;
+}
+.at-admin-tabs-wrap--settings::-webkit-scrollbar-track {
+  background: transparent;
 }
 .at-admin-tabs--settings {
+  flex-wrap: nowrap;
+  width: max-content;
+  min-width: 100%;
   margin-bottom: 0;
+  gap: 0.25rem;
 }
-@media (min-width: 1024px) {
-  .at-admin-tabs-wrap--settings {
-    overflow: visible;
-  }
-  .at-admin-tabs--settings {
-    flex-wrap: wrap;
-    gap: 0.35rem 0.15rem;
-  }
-  .at-admin-tabs--settings a {
-    white-space: nowrap;
-  }
-}
-@media (max-width: 1023px) {
-  .at-admin-tabs-wrap--settings {
-    overflow-x: auto;
-    overflow-y: hidden;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior-x: contain;
-    border-bottom: 1px solid #e3e8e2;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-  }
-  .at-admin-tabs-wrap--settings::-webkit-scrollbar {
-    display: none;
-    height: 0;
-    width: 0;
-  }
-  .at-admin-tabs--settings {
-    flex-wrap: nowrap;
-    width: max-content;
-    min-width: min(100%, max-content);
-    border-bottom: 0;
-    gap: 0;
-  }
-  .at-admin-tabs--settings a {
-    white-space: nowrap;
-    flex-shrink: 0;
-  }
+.at-admin-tabs--settings a {
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 .at-admin-form-grid {
   display: grid;
