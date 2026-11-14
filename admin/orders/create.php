@@ -58,6 +58,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
      data-url-line="<?= Security::escape($ajaxBase . '/assisted-order-line.php') ?>"
      data-url-quote="<?= Security::escape($ajaxBase . '/assisted-order-quote.php') ?>"
      data-url-place="<?= Security::escape($ajaxBase . '/assisted-order-place.php') ?>"
+     data-can-min-override="<?= AdminAssistedOrderService::canOverrideMinOrder() ? '1' : '0' ?>"
      data-slots-enabled="<?= $slotsEnabled ? '1' : '0' ?>"
      data-default-slot="<?= Security::escape($defaultSlot) ?>"
      data-default-slot-date="<?= Security::escape($defaultSlotDate) ?>"
@@ -200,6 +201,8 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
                 </div>
             </div>
         </section>
+
+        <div class="at-aorder-minorder mt-4" data-at-aorder-minorder hidden role="status" aria-live="polite"></div>
 
         <div class="at-aorder-step-footer">
             <p class="at-aorder-step-footer__error" data-at-aorder-step-error role="alert" hidden></p>
@@ -456,6 +459,38 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
                         <h3 class="at-aorder-review-group__title">Payment</h3>
                         <dl class="at-aorder-review text-sm" data-at-aorder-pay-summary></dl>
                     </section>
+                </div>
+                <div class="at-aorder-minorder mt-4" data-at-aorder-minorder4 hidden role="status" aria-live="polite"></div>
+                <div class="at-admin-card mt-3 at-aorder-override" data-at-aorder-min-override hidden>
+                    <div class="at-admin-card__body">
+                        <label class="flex items-center gap-2 text-sm font-semibold">
+                            <input type="checkbox" class="at-focusable" data-at-aorder-min-override-toggle>
+                            Override minimum order for this order only
+                        </label>
+                        <div data-at-aorder-min-override-panel hidden class="mt-3">
+                            <dl class="at-aorder-review text-sm" data-at-aorder-min-override-summary></dl>
+                            <div class="at-field mt-3">
+                                <label class="at-field__label" for="at-aorder-min-override-reason">Override reason <span class="text-red-700">*</span></label>
+                                <select id="at-aorder-min-override-reason" class="at-input" data-at-aorder-min-override-reason>
+                                    <option value="">Select reason…</option>
+                                    <option value="customer_special_request">Customer special request</option>
+                                    <option value="customer_support_exception">Customer support exception</option>
+                                    <option value="first_time_customer">First-time customer exception</option>
+                                    <option value="urgent_manual_order">Urgent/manual order</option>
+                                    <option value="other">Other — explanation required</option>
+                                </select>
+                            </div>
+                            <div class="at-field mt-3" data-at-aorder-min-override-note-wrap hidden>
+                                <label class="at-field__label" for="at-aorder-min-override-note">Explain the override <span class="text-red-700">*</span></label>
+                                <input type="text" id="at-aorder-min-override-note" class="at-input" maxlength="255"
+                                       data-at-aorder-min-override-note placeholder="Why is this order allowed below the minimum?">
+                            </div>
+                            <label class="flex items-start gap-2 mt-3 at-aorder-verify">
+                                <input type="checkbox" class="at-focusable mt-0.5" data-at-aorder-min-override-confirm>
+                                <span class="text-sm">Confirm: apply a minimum-order exception to <strong>this order only</strong>. The override is recorded on the order and in the audit log.</span>
+                            </label>
+                        </div>
+                    </div>
                 </div>
                 <div class="mt-4 flex flex-wrap gap-2 items-center">
                     <button type="button" class="at-btn at-btn--secondary at-focusable" data-at-aorder-refresh-quote disabled>Refresh totals</button>

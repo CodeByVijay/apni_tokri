@@ -9,6 +9,14 @@ final class AdminAssistedOrderService
 {
     public const PERMISSION = 'orders.create_on_behalf';
     public const PERMISSION_RECORD_OFFLINE = 'orders.record_offline_payment';
+    public const PERMISSION_MIN_ORDER_OVERRIDE = 'orders.override_min_order';
+    private const MIN_ORDER_OVERRIDE_REASONS = [
+        'customer_special_request' => 'Customer special request',
+        'customer_support_exception' => 'Customer support exception',
+        'first_time_customer' => 'First-time customer exception',
+        'urgent_manual_order' => 'Urgent/manual order',
+        'other' => 'Other',
+    ];
     public const MIN_SEARCH_LEN = 2;
     public const CUSTOMER_PER_PAGE = 20;
     public const VARIANT_SEARCH_LIMIT = 20;
@@ -33,6 +41,54 @@ final class AdminAssistedOrderService
         }
 
         return Permission::can(self::PERMISSION_RECORD_OFFLINE);
+    }
+
+    public static function canOverrideMinOrder(): bool
+    {
+        if (!self::canCreateOnBehalf()) {
+            return false;
+        }
+
+        return Permission::can(self::PERMISSION_MIN_ORDER_OVERRIDE);
+    }
+
+    /**
+     * Validate a requested per-order minimum-order override for the current admin.
+     * Returns ['ok' => true, 'meta' => ?array] or ['ok' => false, 'message' => string].
+     *
+     * @param array<string, mixed> $input
+     * @return array{ok: bool, meta?: ?array<string, mixed>, message?: string}
+     */
+    private static function resolveMinOrderOverride(array $input): array
+    {
+        $flag = $input['min_order_override'] ?? '0';
+        $requested = in_array($flag, ['1', 1, true, 'on', 'true'], true);
+        if (!$requested) {
+            return ['ok' => true, 'meta' => null];
+        }
+        if (!self::canOverrideMinOrder()) {
+            return ['ok' => false, 'message' => 'You do not have permission to override the minimum order value.'];
+        }
+        $reason = trim((string) ($input['min_order_override_reason'] ?? ''));
+        if (!isset(self::MIN_ORDER_OVERRIDE_REASONS[$reason])) {
+            return ['ok' => false, 'message' => 'Choose a valid minimum-order override reason.'];
+        }
+        $note = trim((string) ($input['min_order_override_note'] ?? ''));
+        if ($reason === 'other' && $note === '') {
+            return ['ok' => false, 'message' => 'Explain the minimum-order override reason.'];
+        }
+        if ($note !== '' && function_exists('mb_strlen') && mb_strlen($note) > 255) {
+            $note = mb_substr($note, 0, 255);
+        }
+
+        return [
+            'ok' => true,
+            'meta' => [
+                'reason' => $reason,
+                'reason_label' => self::MIN_ORDER_OVERRIDE_REASONS[$reason],
+                'note' => $note !== '' ? $note : null,
+            ],
+        ];
     }
 
     public static function denyUnlessCanCreate(): void
@@ -822,15 +878,36 @@ final class AdminAssistedOrderService
             return ['ok' => false, 'message' => 'Order total cannot be negative.'];
         }
 
-        $minRejection = MarketingSettings::checkoutMinimumRejection(array_merge($totals, [
+        $minStatus = MarketingSettings::minimumOrderStatusFromTotals(array_merge($totals, [
             'total' => $grandTotal,
             'delivery_fee' => $deliveryFee,
             'zone_min_order_amount' => MarketingSettings::zoneMinimumOrderAmount(
                 is_array($deliveryQuote['zone'] ?? null) ? $deliveryQuote['zone'] : null
             ),
         ]));
-        if ($strictForPlacement && $minRejection !== null) {
-            return ['ok' => false, 'message' => $minRejection];
+        $minOrderBelow = !empty($minStatus['min_order_enabled']) && empty($minStatus['min_order_met']);
+        $minOverrideMeta = null;
+        if ($minOrderBelow) {
+            $overrideCheck = self::resolveMinOrderOverride($input);
+            if (empty($overrideCheck['ok'])) {
+                return ['ok' => false, 'message' => $overrideCheck['message']];
+            }
+            $minOverrideMeta = $overrideCheck['meta'];
+            if ($minOverrideMeta !== null) {
+                $minOverrideMeta['required_min'] = (float) $minStatus['min_order_amount_inr'];
+                $minOverrideMeta['eligible_merchandise'] = (float) $minStatus['min_order_merchandise_inr'];
+                $minOverrideMeta['shortfall'] = (float) $minStatus['min_order_shortfall'];
+            }
+            if ($strictForPlacement && $minOverrideMeta === null) {
+                return [
+                    'ok' => false,
+                    'message' => 'This order is below the minimum order value of '
+                        . MarketingSettings::formatInr((float) $minStatus['min_order_amount_inr'])
+                        . ' (eligible merchandise ' . MarketingSettings::formatInr((float) $minStatus['min_order_merchandise_inr'])
+                        . '). Add ' . MarketingSettings::formatInr((float) $minStatus['min_order_shortfall'])
+                        . ' more of merchandise to create this order.',
+                ];
+            }
         }
 
         $paymentMode = self::normalizePaymentMode($input);
@@ -856,6 +933,7 @@ final class AdminAssistedOrderService
             'delivery_schedule_mode' => $scheduleMode,
             'custom_delivery' => $customDelivery,
             'payment_mode' => $paymentMode,
+            'min_order_override' => $minOverrideMeta,
         ]);
 
         $quoteSignature = self::buildQuoteSignature(
@@ -876,7 +954,8 @@ final class AdminAssistedOrderService
             $scheduleMode,
             $customDelivery,
             $paymentMode,
-            $discountMode
+            $discountMode,
+            $minOverrideMeta
         );
 
         $placeSubmissionToken = self::issuePlaceSubmissionToken(
@@ -916,8 +995,18 @@ final class AdminAssistedOrderService
                 'quote_signature' => $quoteSignature,
                 'place_submission_token' => $placeSubmissionToken,
                 'admin_meta' => $adminMeta,
-                'min_order_met' => $minRejection === null,
-                'min_order_message' => $minRejection,
+                'min_order_enabled' => !empty($minStatus['min_order_enabled']),
+                'min_order_met' => !empty($minStatus['min_order_met']),
+                'min_order_amount_inr' => (float) ($minStatus['min_order_amount_inr'] ?? 0),
+                'min_order_merchandise_inr' => (float) ($minStatus['min_order_merchandise_inr'] ?? 0),
+                'min_order_shortfall' => (float) ($minStatus['min_order_shortfall'] ?? 0),
+                'min_order_source' => (string) ($minStatus['min_order_source'] ?? 'none'),
+                'min_order_override' => $minOverrideMeta,
+                'min_order_override_allowed' => self::canOverrideMinOrder(),
+                'min_order_message' => $minOrderBelow
+                    ? ('Below the minimum order value of '
+                        . MarketingSettings::formatInr((float) $minStatus['min_order_amount_inr']) . '.')
+                    : null,
             ],
             'delivery_quote' => $deliveryQuote,
             'address' => $address,
@@ -1271,6 +1360,20 @@ final class AdminAssistedOrderService
             ], $adminId);
         }
 
+        $minOverride = is_array($quote['min_order_override'] ?? null) ? $quote['min_order_override'] : null;
+        if ($minOverride !== null && !$reused) {
+            AuditLog::write('order.min_order_override', 'orders', (string) $orderId, [
+                'order_number' => $orderNumber,
+                'customer_id' => $customerId,
+                'reason' => (string) ($minOverride['reason'] ?? ''),
+                'reason_label' => (string) ($minOverride['reason_label'] ?? ''),
+                'note' => $minOverride['note'] ?? null,
+                'required_min' => $minOverride['required_min'] ?? null,
+                'eligible_merchandise' => $minOverride['eligible_merchandise'] ?? null,
+                'shortfall' => $minOverride['shortfall'] ?? null,
+            ], $adminId);
+        }
+
         $mobile = (string) ($customerRow['mobile'] ?? '');
         $paymentInit = null;
         if ($paymentModePlaced === 'pending') {
@@ -1400,6 +1503,7 @@ final class AdminAssistedOrderService
                 'mode' => (string) ($parts['payment_mode'] ?? 'pending'),
             ],
             'offline_payment' => $parts['offline_payment'] ?? null,
+            'min_order_override' => $parts['min_order_override'] ?? null,
         ];
     }
 
@@ -1424,7 +1528,8 @@ final class AdminAssistedOrderService
         string $scheduleMode = 'slot',
         ?array $customDelivery = null,
         string $paymentMode = 'pending',
-        string $discountMode = 'none'
+        string $discountMode = 'none',
+        ?array $minOrderOverride = null
     ): string {
         $fp = [];
         foreach ($lines as $line) {
@@ -1446,6 +1551,10 @@ final class AdminAssistedOrderService
             'custom_delivery' => $customDelivery,
             'payment_mode' => $paymentMode,
             'discount_mode' => $discountMode,
+            'min_order_override' => $minOrderOverride === null ? null : [
+                'reason' => (string) ($minOrderOverride['reason'] ?? ''),
+                'note' => $minOrderOverride['note'] ?? null,
+            ],
             'grand_total' => round($grandTotal, 2),
         ];
 
@@ -2062,6 +2171,11 @@ final class AdminAssistedOrderService
             'offline_payment_confirm' => $post['offline_payment_confirm'] ?? '0',
             'offline_payment_verification_note' => isset($post['offline_payment_verification_note']) && is_string($post['offline_payment_verification_note'])
                 ? trim($post['offline_payment_verification_note']) : '',
+            'min_order_override' => $post['min_order_override'] ?? '0',
+            'min_order_override_reason' => isset($post['min_order_override_reason']) && is_string($post['min_order_override_reason'])
+                ? trim($post['min_order_override_reason']) : '',
+            'min_order_override_note' => isset($post['min_order_override_note']) && is_string($post['min_order_override_note'])
+                ? trim($post['min_order_override_note']) : '',
             'client_grand_total' => isset($post['client_grand_total']) ? $post['client_grand_total'] : null,
             'place_submission_token' => isset($post['place_submission_token']) && is_string($post['place_submission_token'])
                 ? trim($post['place_submission_token']) : '',

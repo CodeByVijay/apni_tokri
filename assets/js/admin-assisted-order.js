@@ -164,6 +164,19 @@
         var addPanel = root.querySelector('[data-at-aorder-add-panel]');
         var lineFeedback = root.querySelector('[data-at-aorder-line-feedback]');
         var offlineGateHint = root.querySelector('[data-at-aorder-offline-gate-hint]');
+        var minOrderEls = [
+            root.querySelector('[data-at-aorder-minorder]'),
+            root.querySelector('[data-at-aorder-minorder4]')
+        ];
+        var minOverrideWrap = root.querySelector('[data-at-aorder-min-override]');
+        var minOverrideToggle = root.querySelector('[data-at-aorder-min-override-toggle]');
+        var minOverridePanel = root.querySelector('[data-at-aorder-min-override-panel]');
+        var minOverrideSummary = root.querySelector('[data-at-aorder-min-override-summary]');
+        var minOverrideReason = root.querySelector('[data-at-aorder-min-override-reason]');
+        var minOverrideNoteWrap = root.querySelector('[data-at-aorder-min-override-note-wrap]');
+        var minOverrideNote = root.querySelector('[data-at-aorder-min-override-note]');
+        var minOverrideConfirm = root.querySelector('[data-at-aorder-min-override-confirm]');
+        var canMinOverride = root.getAttribute('data-can-min-override') === '1';
         var offlineTouched = {};
         var offlineShowAllErrors = false;
         var nextDeliveryBtn = root.querySelector('[data-at-aorder-next="3"]');
@@ -1067,6 +1080,11 @@
                 body.append('offline_payment_confirm', offlineConfirm && offlineConfirm.checked ? '1' : '0');
                 if (offlineNote) { body.append('offline_payment_verification_note', offlineNote.value.trim()); }
             }
+            if (minOverrideActive()) {
+                body.append('min_order_override', '1');
+                body.append('min_order_override_reason', minOverrideReason ? minOverrideReason.value : '');
+                body.append('min_order_override_note', minOverrideNote ? minOverrideNote.value.trim() : '');
+            }
             if (!(schedCustom && schedCustom.checked)) {
                 if (slotSelect) {
                     var opt = slotSelect.options[slotSelect.selectedIndex];
@@ -1161,12 +1179,99 @@
             }
         }
 
+        // True when the latest server quote is below the minimum order value.
+        // All thresholds/amounts come from the server quote — never computed here.
+        function minOrderBelowMin() {
+            return !!(lastQuote && lastQuote.min_order_enabled && !lastQuote.min_order_met);
+        }
+
+        // Client-side mirror of the server override gate — server re-validates
+        // permission, reason and note at quote + placement regardless.
+        function minOverrideActive() {
+            if (!canMinOverride || !minOverrideToggle || !minOverrideToggle.checked) { return false; }
+            if (!minOverrideConfirm || !minOverrideConfirm.checked) { return false; }
+            var reason = minOverrideReason ? minOverrideReason.value : '';
+            if (reason === '') { return false; }
+            if (reason === 'other' && (!minOverrideNote || minOverrideNote.value.trim() === '')) { return false; }
+            return true;
+        }
+
+        function renderMinOrder() {
+            var q = lastQuote;
+            var html = '', cls = 'at-aorder-minorder at-aorder-minorder--hidden';
+            if (canQuote() && (quoteStale || !q)) {
+                cls = 'at-aorder-minorder at-aorder-minorder--pending';
+                html = '<span class="at-aorder-minorder__label">Minimum order</span>'
+                    + '<span class="at-aorder-minorder__body">Checking minimum order…</span>';
+            } else if (q && q.min_order_enabled) {
+                var min = fmtMoney(q.min_order_amount_inr);
+                var merch = fmtMoney(q.min_order_merchandise_inr);
+                if (q.min_order_met) {
+                    cls = 'at-aorder-minorder at-aorder-minorder--ok';
+                    html = '<span class="at-aorder-minorder__label">Minimum met</span>'
+                        + '<span class="at-aorder-minorder__body">Minimum order ' + min
+                        + ' · eligible items ' + merch + '</span>';
+                } else {
+                    var short = fmtMoney(q.min_order_shortfall);
+                    cls = 'at-aorder-minorder at-aorder-minorder--warn';
+                    html = '<span class="at-aorder-minorder__label">Below minimum</span>'
+                        + '<span class="at-aorder-minorder__body">Minimum order ' + min
+                        + ' · eligible items ' + merch
+                        + ' — add ' + short + ' more of merchandise to create this order.'
+                        + '</span>';
+                    if (q.min_order_override) {
+                        html += '<span class="at-aorder-minorder__override">Minimum-order exception approved by admin'
+                            + (q.min_order_override.reason_label ? ' — ' + q.min_order_override.reason_label : '') + '</span>';
+                    } else if (minOverrideToggle && minOverrideToggle.checked) {
+                        html += '<span class="at-aorder-minorder__override">'
+                            + (minOverrideActive()
+                                ? 'Override selected — totals refreshing…'
+                                : 'Select a reason and confirm the override below to continue.')
+                            + '</span>';
+                    }
+                }
+            }
+            minOrderEls.forEach(function (node) {
+                if (!node) { return; }
+                node.className = cls;
+                node.innerHTML = html;
+                node.hidden = html === '';
+            });
+
+            // Override panel only for below-minimum orders placed by an authorized admin.
+            var showWrap = !!(minOverrideWrap && canMinOverride && !orderPlaced && q && q.min_order_enabled && !q.min_order_met);
+            if (minOverrideWrap) { minOverrideWrap.hidden = !showWrap; }
+            if (!showWrap && minOverrideToggle && minOverrideToggle.checked && q && q.min_order_met) {
+                minOverrideToggle.checked = false;
+            }
+            if (minOverridePanel) {
+                minOverridePanel.hidden = !(minOverrideToggle && minOverrideToggle.checked);
+            }
+            if (minOverrideNoteWrap) {
+                minOverrideNoteWrap.hidden = !(minOverrideReason && minOverrideReason.value === 'other');
+            }
+            if (minOverrideSummary && q) {
+                minOverrideSummary.innerHTML = '';
+                [['Eligible merchandise', fmtMoney(q.min_order_merchandise_inr)],
+                 ['Required minimum', fmtMoney(q.min_order_amount_inr)],
+                 ['Shortfall', fmtMoney(q.min_order_shortfall)],
+                 ['Delivery fee (not counted)', fmtMoney(q.delivery_fee)]].forEach(function (pair) {
+                    var d = el('div', 'at-aorder-review__row');
+                    d.appendChild(el('dt', 'at-aorder-review__label', pair[0]));
+                    d.appendChild(el('dd', 'at-aorder-review__value', pair[1]));
+                    minOverrideSummary.appendChild(d);
+                });
+            }
+        }
+
         function updateActionButtons() {
             var ok = canQuote();
             var offlineBlocked = currentPaymentMode() === 'offline_paid' && !isOfflineReady();
+            var minBlocked = minOrderBelowMin() && !minOverrideActive() && !(lastQuote && lastQuote.min_order_override);
             if (refreshQuoteBtn) { refreshQuoteBtn.disabled = !ok || orderPlaced; }
-            if (placeBtn) { placeBtn.disabled = !ok || !lastQuote || quoteStale || offlineBlocked || orderPlaced; }
+            if (placeBtn) { placeBtn.disabled = !ok || !lastQuote || quoteStale || offlineBlocked || minBlocked || orderPlaced; }
             renderOfflineFieldErrors();
+            renderMinOrder();
         }
 
         function scheduleQuote() {
@@ -1279,6 +1384,12 @@
                 if (amt != null) { row('Amount received', fmtMoney(amt)); }
                 var ref = offlineRef ? offlineRef.value.trim() : '';
                 if (ref !== '') { row('Reference', ref); }
+            }
+            if (lastQuote && lastQuote.min_order_enabled && !lastQuote.min_order_met) {
+                var ov = lastQuote.min_order_override;
+                row('Min-order', ov
+                    ? 'Exception applied — ' + (ov.reason_label || 'admin approved')
+                    : 'Below minimum (' + fmtMoney(lastQuote.min_order_shortfall) + ' short)');
             }
         }
 
@@ -1409,6 +1520,25 @@
         }
         if (payPending) { payPending.addEventListener('change', onPaymentModeChange); }
         if (payOffline) { payOffline.addEventListener('change', onPaymentModeChange); }
+        if (minOverrideToggle) {
+            minOverrideToggle.addEventListener('change', function () {
+                renderMinOrder();
+                scheduleQuote();
+            });
+        }
+        if (minOverrideReason) {
+            minOverrideReason.addEventListener('change', function () {
+                renderMinOrder();
+                scheduleQuote();
+            });
+        }
+        if (minOverrideNote) { minOverrideNote.addEventListener('input', scheduleQuote); }
+        if (minOverrideConfirm) {
+            minOverrideConfirm.addEventListener('change', function () {
+                renderMinOrder();
+                scheduleQuote();
+            });
+        }
         function bindOfflineField(node, key) {
             if (!node) { return; }
             var sync = function () {

@@ -1,0 +1,5 @@
+DELETE arp FROM `admin_role_permissions` arp
+INNER JOIN `admin_permissions` p ON p.id = arp.permission_id
+WHERE p.slug = 'orders.override_min_order';
+
+DELETE FROM `admin_permissions` WHERE `slug` = 'orders.override_min_order';

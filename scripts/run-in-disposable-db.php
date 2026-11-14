@@ -170,6 +170,7 @@ $adminAssistedTest = in_array(basename($targetPath), [
     'test-admin-assisted-order-phase5.php',
     'test-admin-assisted-order-address.php',
     'test-admin-assisted-order-final-ux.php',
+    'test-admin-assisted-order-min-order.php',
     'test-storefront-canonical-urls.php',
     'test-admin-assisted-order-ui.php',
 ], true);
@@ -186,6 +187,20 @@ if ($migrateAdminAssisted || $adminAssistedTest) {
     $mig41 = disposable_apply_migration_file($pdo, $fresh, $migration41);
     if (empty($mig41['ok'])) {
         fwrite(STDERR, 'Migration failed: ' . ($mig41['message'] ?? 'unknown') . "\n");
+        exit(2);
+    }
+    $migration42 = $root . '/database/migrations/1.42.0_delivery_zone_min_order.sql';
+    fwrite(STDERR, "[disposable DB {$fresh}] applying migration 1.42.0_delivery_zone_min_order.sql\n");
+    $mig42 = disposable_apply_migration_file($pdo, $fresh, $migration42);
+    if (empty($mig42['ok'])) {
+        fwrite(STDERR, 'Migration failed: ' . ($mig42['message'] ?? 'unknown') . "\n");
+        exit(2);
+    }
+    $migration421 = $root . '/database/migrations/1.42.1_admin_min_order_override.sql';
+    fwrite(STDERR, "[disposable DB {$fresh}] applying migration 1.42.1_admin_min_order_override.sql\n");
+    $mig421 = disposable_apply_migration_file($pdo, $fresh, $migration421);
+    if (empty($mig421['ok'])) {
+        fwrite(STDERR, 'Migration failed: ' . ($mig421['message'] ?? 'unknown') . "\n");
         exit(2);
     }
 }

@@ -8847,6 +8847,30 @@ body.at-map-viewer-open { overflow: hidden; }
   border-radius: 0.6rem; background: var(--at-green-50, #eef6f0);
 }
 
+/* Minimum-order status + controlled override */
+.at-aorder-minorder {
+  display: flex; flex-wrap: wrap; gap: 0.35rem 0.6rem; align-items: baseline;
+  padding: 0.6rem 0.8rem; border-radius: 0.6rem; font-size: 0.875rem;
+  border: 1px solid var(--at-green-100, #d7e8dc); background: #fff;
+}
+.at-aorder-minorder--hidden { display: none; }
+.at-aorder-minorder__label { font-weight: 700; }
+.at-aorder-minorder__body { color: var(--at-ink-soft, #5b6b61); }
+.at-aorder-minorder__override { flex-basis: 100%; font-size: 0.8rem; font-weight: 600; color: #7a5410; }
+.at-aorder-minorder--ok {
+  border-color: #bcd9c6; background: var(--at-green-50, #eef6f0);
+}
+.at-aorder-minorder--ok .at-aorder-minorder__label { color: var(--at-green-800, #1d5c33); }
+.at-aorder-minorder--warn {
+  border-color: #f0d9a8; background: #fdf6e8;
+}
+.at-aorder-minorder--warn .at-aorder-minorder__label { color: #92650c; }
+.at-aorder-minorder--pending {
+  border-color: var(--at-green-100, #d7e8dc); background: #f7faf8;
+}
+.at-aorder-minorder--pending .at-aorder-minorder__body { color: var(--at-ink-soft, #5b6b61); font-style: italic; }
+.at-aorder-override { border: 1px solid #f0d9a8; }
+
 /* ===== Subscription Menu Planner (admin) ===== */
 .mp-root { max-width: 62rem; }
 .mp-root .at-card__footer { padding: .9rem 1.25rem; border-top: 1px solid var(--at-green-100); }

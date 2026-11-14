@@ -227,7 +227,7 @@ final class MarketingSettings
         return $template;
     }
 
-    private static function formatInr(float $amount): string
+    public static function formatInr(float $amount): string
     {
         if (function_exists('catalogue_format_price')) {
             return catalogue_format_price($amount);

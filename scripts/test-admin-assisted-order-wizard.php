@@ -119,6 +119,28 @@ wizOk(str_contains($js, 'Create order — Pending payment'), 'pending button lab
 wizOk(!str_contains($js, "Paid (offline) — subject to server verification"), 'review does not show Paid status before server verification');
 wizOk(str_contains($css, '.at-aorder-addpanel__img') && str_contains($css, 'max-width: 4rem'), 'selection card image is explicitly constrained');
 
+// --- Minimum-order early warning + controlled override ---
+wizOk(str_contains($s2, 'data-at-aorder-minorder'), 'step 2 has minimum-order status slot');
+wizOk(str_contains($s4, 'data-at-aorder-minorder4'), 'step 4 has minimum-order status slot');
+wizOk(str_contains($s4, 'data-at-aorder-min-override-toggle'), 'step 4 has override toggle');
+wizOk(str_contains($s4, 'data-at-aorder-min-override-reason'), 'override reason select present');
+wizOk(str_contains($s4, 'data-at-aorder-min-override-note'), 'override note input present');
+wizOk(str_contains($s4, 'data-at-aorder-min-override-confirm'), 'override confirm checkbox present');
+wizOk(str_contains($create, 'data-can-min-override'), 'page exposes admin override capability flag');
+wizOk(str_contains($js, 'function renderMinOrder'), 'JS renders minimum-order status');
+wizOk(str_contains($js, 'function minOverrideActive'), 'JS mirrors override gate client-side');
+wizOk(str_contains($js, "body.append('min_order_override', '1')"), 'override fields posted in quote body');
+wizOk(str_contains($js, 'minBlocked'), 'place button blocked below minimum without override');
+wizOk(str_contains($js, 'min_order_amount_inr'), 'status driven by server quote amounts');
+wizOk(str_contains($css, '.at-aorder-minorder--warn'), 'CSS styles below-minimum warning state');
+wizOk(str_contains($css, '.at-aorder-minorder--ok'), 'CSS styles minimum-met state');
+$service = (string) file_get_contents($root . '/includes/commerce/admin_assisted_order.php');
+wizOk(str_contains($service, 'PERMISSION_MIN_ORDER_OVERRIDE'), 'service declares override permission');
+wizOk(str_contains($service, 'resolveMinOrderOverride'), 'service validates override server-side');
+wizOk(str_contains($service, "'order.min_order_override'"), 'override audited on placement');
+wizOk(str_contains($service, 'more of merchandise to create this order'), 'place rejection uses admin wording');
+wizOk(file_exists($root . '/database/migrations/1.42.1_admin_min_order_override.sql'), 'override permission migration exists');
+
 // --- CSS for wizard ---
 wizOk(str_contains($css, '.at-aorder-steps__item.is-active'), 'CSS styles active step');
 wizOk(str_contains($css, '.at-aorder-steps__item.is-done'), 'CSS styles completed step');

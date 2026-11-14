@@ -36,6 +36,23 @@ $isPaidOffline = (($paymentMeta['mode'] ?? '') === 'offline_paid') && $offline !
                     <?php endif; ?>
                 </dd></div>
             <?php endif; ?>
+            <?php $minOv = is_array($meta['min_order_override'] ?? null) ? $meta['min_order_override'] : []; ?>
+            <?php if ($minOv !== []): ?>
+                <div class="at-admin-od-kv-grid--wide"><dt>Minimum-order exception</dt><dd>
+                    Approved by admin
+                    <?php if (!empty($minOv['reason_label'])): ?>
+                        · <?= Security::escape((string) $minOv['reason_label']) ?>
+                    <?php endif; ?>
+                    <br><span class="at-muted text-xs">
+                        Required <?= Security::escape(catalogue_format_price((float) ($minOv['required_min'] ?? 0))) ?>
+                        · eligible <?= Security::escape(catalogue_format_price((float) ($minOv['eligible_merchandise'] ?? 0))) ?>
+                        · shortfall <?= Security::escape(catalogue_format_price((float) ($minOv['shortfall'] ?? 0))) ?>
+                        <?php if (!empty($minOv['note'])): ?>
+                            <br><?= Security::escape((string) $minOv['note']) ?>
+                        <?php endif; ?>
+                    </span>
+                </dd></div>
+            <?php endif; ?>
             <?php if (($sched['mode'] ?? '') === 'custom' && $customSched !== []): ?>
                 <div class="at-admin-od-kv-grid--wide"><dt>Custom delivery</dt><dd>
                     <?= Security::escape((string) ($customSched['window_label'] ?? '')) ?>
