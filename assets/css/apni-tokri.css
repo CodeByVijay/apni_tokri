@@ -6932,11 +6932,28 @@ body.at-gallery-lightbox-open {
   width: max-content;
   min-width: 100%;
   margin-bottom: 0;
-  gap: 0.25rem;
+  padding-top: 0.25rem;
+  gap: 0.125rem;
 }
 .at-admin-tabs--settings a {
   white-space: nowrap;
   flex-shrink: 0;
+  padding: 0.55rem 0.9rem;
+  font-weight: 600;
+  color: var(--at-muted);
+  background: transparent;
+  border-radius: var(--at-radius-sm) var(--at-radius-sm) 0 0;
+  transition: background-color 180ms ease, color 180ms ease, border-color 180ms ease;
+}
+.at-admin-tabs--settings a:not(.is-active):hover {
+  background: var(--at-green-50);
+  color: var(--at-green-dark);
+}
+.at-admin-tabs--settings a.is-active {
+  color: var(--at-green-deep);
+  font-weight: 600;
+  background: var(--at-green-100);
+  border-bottom-color: var(--at-green);
 }
 .at-admin-form-grid {
   display: grid;
