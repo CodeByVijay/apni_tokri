@@ -2,13 +2,23 @@
 
 declare(strict_types=1);
 
-/** Rolling-window OTP request limits (mobile + IP). Counts rows in customer_otp_attempts only. */
+/**
+ * Rolling-window OTP request/SMS limits (mobile + IP + daily + global).
+ * Counts surviving rows in customer_otp_attempts — a row exists only while the
+ * OTP reservation is open or after a successful send (failed sends delete it).
+ * Play Review throttle-sentinel rows are never counted: they are not SMS sends.
+ */
 final class OtpRateLimit
 {
-    public const MOBILE_MAX = 3;
-    public const MOBILE_WINDOW_SECONDS = 900;
-    public const IP_MAX = 10;
-    public const IP_WINDOW_SECONDS = 3600;
+    public static function mobileMax(): int
+    {
+        return OtpSecuritySettings::mobileLimit();
+    }
+
+    public static function ipMax(): int
+    {
+        return OtpSecuritySettings::ipLimit();
+    }
 
     public static function assertWithinLimits(string $mobile, ?string $ip = null): void
     {
@@ -35,8 +45,8 @@ final class OtpRateLimit
         $mobileBlock = self::windowBlock(
             'mobile = ?',
             [$mobile],
-            self::MOBILE_MAX,
-            self::MOBILE_WINDOW_SECONDS,
+            self::mobileMax(),
+            OtpSecuritySettings::MOBILE_WINDOW_SECONDS,
             'mobile'
         );
         if ($mobileBlock !== null) {
@@ -50,9 +60,75 @@ final class OtpRateLimit
         return self::windowBlock(
             'ip_address = ?',
             [$ip],
-            self::IP_MAX,
-            self::IP_WINDOW_SECONDS,
+            self::ipMax(),
+            OtpSecuritySettings::IP_WINDOW_SECONDS,
             'ip'
+        );
+    }
+
+    /** Daily per-mobile successful-send limit. Call inside the send guard lock. */
+    public static function assertDailyMobileWithinLimit(string $mobile): void
+    {
+        $block = self::dailyMobileBlock($mobile);
+        if ($block === null) {
+            return;
+        }
+        throw new OtpRequestException(
+            OtpSmsService::ERR_RATE_LIMITED,
+            $block['message'],
+            $block['remaining_seconds']
+        );
+    }
+
+    /**
+     * @return array{scope: string, remaining_seconds: int, message: string}|null
+     */
+    public static function dailyMobileBlock(string $mobile): ?array
+    {
+        $mobile = Validation::normalizeMobileIndia($mobile) ?? '';
+        if ($mobile === '') {
+            return null;
+        }
+
+        return self::windowBlock(
+            'mobile = ?',
+            [$mobile],
+            OtpSecuritySettings::dailyMobileLimit(),
+            OtpSecuritySettings::DAILY_MOBILE_WINDOW_SECONDS,
+            'mobile_daily'
+        );
+    }
+
+    /** Global successful-send ceiling across all mobiles. 0 in settings disables it. */
+    public static function assertGlobalWithinLimit(): void
+    {
+        $block = self::globalBlock();
+        if ($block === null) {
+            return;
+        }
+        throw new OtpRequestException(
+            OtpSmsService::ERR_RATE_LIMITED,
+            $block['message'],
+            $block['remaining_seconds']
+        );
+    }
+
+    /**
+     * @return array{scope: string, remaining_seconds: int, message: string}|null
+     */
+    public static function globalBlock(): ?array
+    {
+        $max = OtpSecuritySettings::globalHourlyLimit();
+        if ($max <= 0) {
+            return null;
+        }
+
+        return self::windowBlock(
+            '1=1',
+            [],
+            $max,
+            OtpSecuritySettings::GLOBAL_WINDOW_SECONDS,
+            'global'
         );
     }
 
@@ -62,6 +138,9 @@ final class OtpRateLimit
      */
     private static function windowBlock(string $whereCol, array $params, int $max, int $windowSec, string $scope): ?array
     {
+        if ($max <= 0) {
+            return null;
+        }
         Install::ensureConnection();
         $pdo = Database::pdo();
         $stmt = $pdo->prepare(
@@ -69,9 +148,10 @@ final class OtpRateLimit
                     MIN(created_at) AS oldest
              FROM customer_otp_attempts
              WHERE {$whereCol}
+               AND otp_hash <> ?
                AND created_at > DATE_SUB(NOW(), INTERVAL ? SECOND)"
         );
-        $bind = array_merge($params, [$windowSec]);
+        $bind = array_merge($params, [PlayReviewAccess::THROTTLE_OTP_HASH, $windowSec]);
         $stmt->execute($bind);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$row) {
@@ -105,6 +185,12 @@ final class OtpRateLimit
 
     public static function formatMessage(string $scope, int $remainingSeconds): string
     {
+        if ($scope === 'mobile_daily') {
+            return 'Too many OTPs sent to this number today. Please try again tomorrow.';
+        }
+        if ($scope === 'global') {
+            return 'OTP service is busy right now. Please try again shortly.';
+        }
         $wait = OtpResendCooldown::formatMmSs($remainingSeconds);
         if ($scope === 'mobile') {
             return 'Too many OTP requests for this number. Try again in ' . $wait . '.';

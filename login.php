@@ -72,7 +72,7 @@ layout_public_start([
                     <button type="submit" class="at-btn at-btn--primary at-btn--lg at-btn--block at-focusable">Send OTP</button>
                     <p class="text-xs at-muted flex gap-2"><?= at_icon('lock', 'w-4 h-4 flex-shrink-0') ?><?php
                         if (Install::isSchemaReady()) {
-                            echo 'OTP is hashed in the database. Rate limits apply (3 per number / 15 min).';
+                            echo 'OTP is hashed in the database. Rate limits apply (' . (int) OtpSecuritySettings::mobileLimit() . ' per number / 15 min).';
                         } elseif (AppEnvironment::isProduction()) {
                             echo 'Login requires a configured database.';
                         } else {

@@ -2,11 +2,16 @@
 
 declare(strict_types=1);
 
-/** Server-side OTP resend cooldown (session-scoped, tied to mobile). */
+/**
+ * Server-side OTP resend cooldown.
+ *
+ * The database is authoritative: the latest surviving customer_otp_attempts row
+ * for the mobile marks the last successful SMS send, so the cooldown survives
+ * session rotation. Failed sends delete their row and never start a cooldown.
+ * The session value is retained only as a UI hint (pre-DB installs, demo mode).
+ */
 final class OtpResendCooldown
 {
-    public const SECONDS = 120;
-
     private const SESSION_KEY = 'otp_resend_cooldown';
 
     /** @var int|null override for automated tests */
@@ -17,7 +22,7 @@ final class OtpResendCooldown
 
     public static function cooldownSeconds(): int
     {
-        $n = self::$secondsForTest ?? self::SECONDS;
+        $n = self::$secondsForTest ?? OtpSecuritySettings::resendCooldownSeconds();
 
         return max(1, (int) $n);
     }
@@ -45,18 +50,51 @@ final class OtpResendCooldown
         return ['mobile' => $mobile, 'available_at' => (int) $s['available_at']];
     }
 
-    public static function remainingSeconds(string $mobile): int
+    /** Session-hint remaining seconds (UI only — never trusted for enforcement). */
+    private static function sessionRemainingSeconds(string $mobile): int
     {
-        $mobile = Validation::normalizeMobileIndia($mobile) ?? '';
-        if ($mobile === '') {
-            return 0;
-        }
         $st = self::state();
         if ($st === null || $st['mobile'] !== $mobile) {
             return 0;
         }
 
         return max(0, $st['available_at'] - time());
+    }
+
+    /**
+     * Remaining cooldown derived from the last successful send recorded in
+     * customer_otp_attempts (sentinel rows excluded). Authoritative source.
+     */
+    public static function dbRemainingSeconds(string $mobile): int
+    {
+        $mobile = Validation::normalizeMobileIndia($mobile) ?? '';
+        if ($mobile === '' || !Install::isSchemaReady()) {
+            return 0;
+        }
+        try {
+            Install::ensureConnection();
+            $stmt = Database::pdo()->prepare(
+                'SELECT GREATEST(0, TIMESTAMPDIFF(SECOND, NOW(), DATE_ADD(MAX(created_at), INTERVAL ? SECOND)))
+                 FROM customer_otp_attempts
+                 WHERE mobile = ? AND otp_hash <> ?'
+            );
+            $stmt->execute([self::cooldownSeconds(), $mobile, PlayReviewAccess::THROTTLE_OTP_HASH]);
+            $remaining = $stmt->fetchColumn();
+
+            return $remaining === false || $remaining === null ? 0 : max(0, (int) $remaining);
+        } catch (Throwable $e) {
+            return 0;
+        }
+    }
+
+    public static function remainingSeconds(string $mobile): int
+    {
+        $mobile = Validation::normalizeMobileIndia($mobile) ?? '';
+        if ($mobile === '') {
+            return 0;
+        }
+
+        return max(self::dbRemainingSeconds($mobile), self::sessionRemainingSeconds($mobile));
     }
 
     public static function resendAvailableAt(string $mobile): ?int
@@ -91,12 +129,19 @@ final class OtpResendCooldown
         }
     }
 
-    public static function assertCanSend(string $mobile): void
+    /**
+     * @param bool $dbBacked false skips the database check (Play Review fast path
+     *                       sends no SMS and writes no attempt rows).
+     */
+    public static function assertCanSend(string $mobile, bool $dbBacked = true): void
     {
         if (self::$bypassForTests) {
             return;
         }
-        $rem = self::remainingSeconds($mobile);
+        $mobile = Validation::normalizeMobileIndia($mobile) ?? '';
+        $rem = $dbBacked
+            ? self::remainingSeconds($mobile)
+            : self::sessionRemainingSeconds($mobile);
         if ($rem > 0) {
             throw new OtpRequestException(
                 OtpSmsService::ERR_RESEND_COOLDOWN,

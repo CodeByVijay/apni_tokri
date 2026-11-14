@@ -378,7 +378,7 @@ final class CustomerAuth
                 throw new OtpRequestException(OtpSmsService::ERR_INVALID_MOBILE);
             }
             OtpRateLimit::assertWithinLimits($mobile);
-            OtpResendCooldown::assertCanSend($mobile);
+            OtpResendCooldown::assertCanSend($mobile, false);
             OtpResendCooldown::recordSuccessfulSend($mobile);
 
             return ['mobile' => $mobile, 'expires_in' => $ttlSeconds];
@@ -405,19 +405,28 @@ final class CustomerAuth
         }
 
         $attemptId = 0;
+        $globalLockHeld = false;
         try {
-            OtpRateLimit::assertWithinLimits($mobile);
+            // All window counts and the reservation insert run inside the global
+            // SMS lock so concurrent senders cannot race the checks (VT-P-03).
+            OtpSendGuard::acquireGlobalLock($pdo);
+            $globalLockHeld = true;
 
-            OtpResendCooldown::assertCanSend($mobile);
+            $ip = $_SERVER['REMOTE_ADDR'] ?? null;
+            OtpSendGuard::assertAllLimitsUnderLock($mobile, $ip);
 
             $otp = OtpSmsService::generateOtpPlain();
             $hash = password_hash($otp, PASSWORD_DEFAULT);
-            $ip = $_SERVER['REMOTE_ADDR'] ?? null;
             $stmt = $pdo->prepare(
                 'INSERT INTO customer_otp_attempts (mobile, otp_hash, expires_at, ip_address) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL ? SECOND), ?)'
             );
             $stmt->execute([$mobile, $hash, $ttlSeconds, $ip]);
             $attemptId = (int) $pdo->lastInsertId();
+
+            // Reservation row is visible to all senders now — release the global
+            // lock before the external SMS call; the per-mobile lock stays held.
+            OtpSendGuard::releaseGlobalLock($pdo);
+            $globalLockHeld = false;
 
             $send = OtpSmsService::sendLoginOtp($mobile, $otp, $ttlSeconds);
             if (empty($send['ok'])) {
@@ -439,6 +448,9 @@ final class CustomerAuth
             }
             throw $e;
         } finally {
+            if ($globalLockHeld) {
+                OtpSendGuard::releaseGlobalLock($pdo);
+            }
             $pdo->query('SELECT RELEASE_LOCK(' . $pdo->quote($lockKey) . ')');
         }
     }
