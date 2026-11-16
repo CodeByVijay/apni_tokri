@@ -123,7 +123,9 @@ gOk(!GeocodingUsageMeter::quotaAllow('google'), 'daily limit reached: google blo
 gOk(!GeocodingUsageMeter::providerAvailable('google'), 'providerAvailable false at quota');
 $dash = GeocodingUsageMeter::dashboardSummary();
 gOk(count($dash) >= 2, 'dashboard rows for google services present');
-gOk(array_sum(array_map(static fn ($x) => (int) $x['month_failures'], $dash)) === 1, 'dashboard: 1 failure tracked');
+gOk(array_sum(array_map(static function ($x) {
+    return (int) $x['month_failures'];
+}, $dash)) === 1, 'dashboard: 1 failure tracked');
 AppSettings::set(sprintf(GeoProviderSettings::KEY_DAILY_LIMIT, 'google'), '0');
 AppSettings::resetCache();
 

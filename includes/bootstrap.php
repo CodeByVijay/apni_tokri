@@ -144,6 +144,7 @@ require_once APNI_TOKRI_ROOT . '/includes/commerce/delivery.php';
 require_once APNI_TOKRI_ROOT . '/includes/delivery/distance.php';
 require_once APNI_TOKRI_ROOT . '/includes/delivery/customer_messages.php';
 require_once APNI_TOKRI_ROOT . '/includes/delivery/zone_resolver.php';
+require_once APNI_TOKRI_ROOT . '/includes/delivery/zone_readiness.php';
 require_once APNI_TOKRI_ROOT . '/includes/delivery/quote.php';
 require_once APNI_TOKRI_ROOT . '/includes/delivery/admin_ui.php';
 require_once APNI_TOKRI_ROOT . '/includes/delivery/slot_display.php';

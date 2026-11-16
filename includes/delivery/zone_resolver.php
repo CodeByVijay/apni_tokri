@@ -107,7 +107,7 @@ final class DeliveryZoneResolver
      *   message_detail?: string
      * }
      */
-    public static function resolve(string $pin, ?float $customerLat, ?float $customerLon): array
+    public static function resolve(string $pin, ?float $customerLat, ?float $customerLon, ?string $modeOverride = null): array
     {
         $base = [
             'pin' => $pin,
@@ -119,7 +119,9 @@ final class DeliveryZoneResolver
             'requires_map_pin' => false,
         ];
 
-        if (self::zoneResolutionMode() === 'pincode_legacy') {
+        // Optional preview override (admin readiness) — never persisted.
+        $mode = $modeOverride ?? self::zoneResolutionMode();
+        if ($mode === 'pincode_legacy') {
             $legacy = DeliveryService::evaluatePincodeLegacy($pin);
             $base['serviceable'] = $legacy['serviceable'];
             $base['zone'] = $legacy['zone'];
