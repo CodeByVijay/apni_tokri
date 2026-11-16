@@ -215,6 +215,13 @@ final class CartService
                     return $sel;
                 }
             }
+            // A guest-style session selection (manual entry or a guest pick that could not
+            // migrate yet) is the customer's current explicit choice — same precedence the
+            // header label and resolveDeliveryPin already give it.
+            $sessionAddr = DeliverySessionAddress::current();
+            if ($sessionAddr !== null && ($sessionAddr['kind'] ?? '') === 'guest') {
+                return $sessionAddr;
+            }
             $addrs = CustomerService::addresses();
             if ($addrs !== []) {
                 return $addrs[0];

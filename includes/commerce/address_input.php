@@ -109,10 +109,14 @@ final class AddressInput
             $label = $type;
         }
 
-        // Step C — structured address
-        $house = self::req($input, 'house_number', 100, 'house_number', 'Please enter your house / flat number so the delivery partner can locate your address.', $errors);
+        // Step C — structured address. House or street alone is acceptable (guest session
+        // addresses allow either; UI forms still mark both inputs required).
+        $house = self::opt($input, 'house_number', 100, 'house_number', 'House / flat number', $errors);
         $building = self::opt($input, 'building_name', 150, 'building_name', 'Building / apartment / society', $errors);
-        $street = self::req($input, 'street', 150, 'street', 'Enter the street or road.', $errors);
+        $street = self::opt($input, 'street', 150, 'street', 'Street / road', $errors);
+        if ($house === '' && $street === '') {
+            $errors['house_number'] = 'Please enter your house / flat number or street so the delivery partner can locate your address.';
+        }
         $area = self::req($input, 'area', 150, 'area', 'Enter the area or locality.', $errors);
         $city = self::req($input, 'addr_city', 128, 'addr_city', 'Enter your city.', $errors);
         $state = self::req($input, 'addr_state', 128, 'addr_state', 'Enter your state.', $errors);

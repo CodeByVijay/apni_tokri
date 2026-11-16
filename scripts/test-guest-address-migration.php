@@ -159,6 +159,21 @@ migOk(($still['area'] ?? '') === 'Vijay Nagar', 'failed migration keeps guest sn
 $count = (int) $pdo->query("SELECT COUNT(*) FROM customer_addresses WHERE customer_id=$c1 AND archived_at IS NULL")->fetchColumn();
 migOk($count === 2, 'failed migration inserted nothing');
 
+// ---- 7b. Street-only guest address migrates (house_number optional server-side) --
+CustomerAuth::logout();
+DeliverySessionAddress::clear();
+$noHouse = $guestAddr;
+$noHouse['house_number'] = '';
+$noHouse['street'] = 'MR10 Road';
+$noHouse['area'] = 'Near store';
+selectGuest($noHouse);
+DeliverySessionAddress::migrateToCustomerAccount($c1);
+$cur = DeliverySessionAddress::current();
+migOk(($cur['kind'] ?? '') === 'saved', 'street-only guest address migrates to saved row');
+$count = (int) $pdo->query("SELECT COUNT(*) FROM customer_addresses WHERE customer_id=$c1 AND archived_at IS NULL")->fetchColumn();
+migOk($count === 3, 'street-only migration inserted a new row');
+migOk(DeliverySessionAddress::selectedAddressId() !== null, 'street-only migrated row stays selected');
+
 // ---- 8. placeOrderDb sync: session selection follows ordered address --------
 // Simulate the checkout-order line: ordered address becomes session selection.
 CustomerAuth::loginById($c1);
