@@ -150,7 +150,13 @@ $validIds = array_map(static function (array $a): string {
     return (string) $a['id'];
 }, $addresses);
 if (!in_array($selectedAddressId, $validIds, true)) {
-    $selectedAddressId = $addresses !== [] ? (string) ($addresses[0]['id'] ?? '') : '';
+    // Header-selected delivery address outranks the default-first saved address.
+    $sessionSelectedId = DeliverySessionAddress::selectedAddressId();
+    if ($sessionSelectedId !== null && in_array((string) $sessionSelectedId, $validIds, true)) {
+        $selectedAddressId = (string) $sessionSelectedId;
+    } else {
+        $selectedAddressId = $addresses !== [] ? (string) ($addresses[0]['id'] ?? '') : '';
+    }
 }
 $defaultAddressId = $loggedIn && $selectedAddressId !== '' ? (int) $selectedAddressId : null;
 $totals = CartService::totals($defaultAddressId, $defaultSlotSlug, $defaultSlotDate);

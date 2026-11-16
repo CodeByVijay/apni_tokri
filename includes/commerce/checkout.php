@@ -516,7 +516,11 @@ final class CheckoutService
         if ($address === null) {
             return ['ok' => false, 'message' => 'Select a valid delivery address.'];
         }
-        DeliveryContext::setPin((string) $address['pincode']);
+        // The address actually used for the order becomes the selected address: keeps the
+        // header/session selection coherent with the pincode written to the session.
+        DeliverySessionAddress::store(
+            DeliverySessionAddress::refreshServiceability(DeliverySessionAddress::snapshotFromSavedRow($address))
+        );
 
         $slotDateParam = DeliveryConfig::slotsEnabled() && $deliveryDateYmd !== '' ? $deliveryDateYmd : null;
         $totals = CartService::totals($addressId, $slot !== '' ? $slot : null, $slotDateParam);

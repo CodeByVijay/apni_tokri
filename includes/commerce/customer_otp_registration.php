@@ -229,6 +229,7 @@ final class CustomerOtpRegistration
         }
         CustomerAuth::loginById($customerId);
         CartService::mergeGuestIntoCustomer($customerId);
+        DeliverySessionAddress::migrateToCustomerAccount($customerId);
 
         return ['ok' => true, 'customer_id' => $customerId];
     }

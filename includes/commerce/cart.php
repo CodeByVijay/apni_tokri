@@ -207,6 +207,14 @@ final class CartService
             return CustomerService::address($addressId, CustomerAuth::id());
         }
         if (CustomerAuth::check()) {
+            // A deliberately selected address outranks the customer's default address.
+            $selectedId = DeliverySessionAddress::selectedAddressId();
+            if ($selectedId !== null) {
+                $sel = CustomerService::address($selectedId, CustomerAuth::id());
+                if ($sel !== null) {
+                    return $sel;
+                }
+            }
             $addrs = CustomerService::addresses();
             if ($addrs !== []) {
                 return $addrs[0];
@@ -219,6 +227,11 @@ final class CartService
     private static function resolveDeliveryPin(): ?string
     {
         if (CustomerAuth::check()) {
+            $sel = DeliverySessionAddress::current();
+            $selPin = $sel !== null ? trim((string) ($sel['pincode'] ?? '')) : '';
+            if ($selPin !== '') {
+                return $selPin;
+            }
             $addrs = CustomerService::addresses();
             if ($addrs !== []) {
                 return (string) ($addrs[0]['pincode'] ?? '');

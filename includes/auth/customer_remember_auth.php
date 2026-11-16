@@ -212,6 +212,7 @@ final class CustomerRememberAuth
             try {
                 CustomerAuth::loginById($customerId);
                 CartService::mergeGuestIntoCustomer($customerId);
+                DeliverySessionAddress::migrateToCustomerAccount($customerId);
             } catch (Throwable $e) {
                 error_log('CustomerRememberAuth::maybeRestoreFromCookie: login or cart merge failed.');
                 throw $e;

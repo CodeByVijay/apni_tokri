@@ -214,6 +214,206 @@ final class DeliverySessionAddress
     }
 
     /**
+     * Saved customer_addresses id the current selection points at, or null for guest
+     * selections / selections with no linked row. Callers must still verify ownership.
+     */
+    public static function selectedAddressId(): ?int
+    {
+        $s = self::current();
+        if ($s === null || ($s['kind'] ?? '') !== 'saved') {
+            return null;
+        }
+        $id = (int) ($s['source_address_id'] ?? 0);
+
+        return $id > 0 ? $id : null;
+    }
+
+    /**
+     * Phase 3: persist a guest-selected session address into the authenticated customer's
+     * account after successful OTP login, keeping it selected.
+     *
+     * - Only runs for kind === 'guest' snapshots in persisted mode.
+     * - Re-validates the snapshot server-side; reuses an equivalent existing address
+     *   instead of inserting a duplicate.
+     * - Never makes the migrated address the customer's default (makeDefault = false).
+     * - On any failure the guest snapshot is left untouched and stays selected.
+     */
+    public static function migrateToCustomerAccount(int $customerId): void
+    {
+        $snap = self::current();
+        if ($snap === null || ($snap['kind'] ?? '') !== 'guest' || $customerId <= 0) {
+            return;
+        }
+        if (!AppEnvironment::usePersistedStorefront()) {
+            return;
+        }
+
+        try {
+            $v = self::validate(self::snapshotToValidateInput($snap));
+            if ($v['errors'] !== []) {
+                return;
+            }
+            $c = $v['clean'];
+
+            $row = null;
+            $equivalentId = self::findEquivalentAddressId($customerId, $c);
+            if ($equivalentId !== null) {
+                $row = CustomerService::address($equivalentId, $customerId);
+            } else {
+                $input = self::snapshotToAccountInput($c, $customerId);
+                if ($input === null) {
+                    return;
+                }
+                $res = CustomerAccountService::addAddress($customerId, $input, false);
+                if (empty($res['ok']) || empty($res['id'])) {
+                    return;
+                }
+                $row = CustomerService::address((int) $res['id'], $customerId);
+            }
+            if ($row === null) {
+                return;
+            }
+
+            self::store(self::refreshServiceability(self::snapshotFromSavedRow($row)));
+        } catch (Throwable $e) {
+            // Migration must never break login; the guest snapshot stays selected.
+            return;
+        }
+    }
+
+    /**
+     * Locate an existing active address equivalent to the guest selection: same pincode,
+     * same normalized address text, and (when both sides carry coordinates) within ~150 m.
+     *
+     * @param array<string, mixed> $c validated clean snapshot
+     */
+    private static function findEquivalentAddressId(int $customerId, array $c): ?int
+    {
+        $newText = self::normAddressText(
+            (string) ($c['house_number'] ?? ''),
+            (string) ($c['building_name'] ?? ''),
+            (string) ($c['street'] ?? ''),
+            (string) ($c['area'] ?? '')
+        );
+        if ($newText === '') {
+            return null;
+        }
+        $newPin = (string) ($c['pincode'] ?? '');
+        $newLat = isset($c['latitude']) ? (float) $c['latitude'] : null;
+        $newLng = isset($c['longitude']) ? (float) $c['longitude'] : null;
+
+        foreach (CustomerAccountService::listAddresses($customerId) as $row) {
+            if ((string) ($row['pincode'] ?? '') !== $newPin) {
+                continue;
+            }
+            $rowText = self::normAddressText(
+                (string) ($row['house_number'] ?? ''),
+                (string) ($row['building_name'] ?? ''),
+                (string) ($row['street'] ?? ''),
+                (string) ($row['area'] ?? '')
+            );
+            if ($rowText === '') {
+                $rowText = self::normAddressText((string) ($row['line1'] ?? ''));
+            }
+            if ($rowText !== $newText) {
+                continue;
+            }
+            $rowLat = isset($row['latitude']) && $row['latitude'] !== null ? (float) $row['latitude'] : null;
+            $rowLng = isset($row['longitude']) && $row['longitude'] !== null ? (float) $row['longitude'] : null;
+            if ($newLat !== null && $newLng !== null && $rowLat !== null && $rowLng !== null) {
+                if (DeliveryService::haversineKm($newLat, $newLng, $rowLat, $rowLng) > 0.15) {
+                    continue;
+                }
+            }
+
+            return (int) $row['id'];
+        }
+
+        return null;
+    }
+
+    /** @param array<string, mixed> $snap */
+    private static function snapshotToValidateInput(array $snap): array
+    {
+        return [
+            'address_type' => (string) ($snap['label'] ?? 'Home'),
+            'house_number' => (string) ($snap['house_number'] ?? ''),
+            'building_name' => (string) ($snap['building_name'] ?? ''),
+            'street' => (string) ($snap['street'] ?? ''),
+            'area' => (string) ($snap['area'] ?? ''),
+            'landmark' => (string) ($snap['landmark'] ?? ''),
+            'city' => (string) ($snap['city'] ?? ''),
+            'state' => (string) ($snap['state'] ?? ''),
+            'pincode' => (string) ($snap['pincode'] ?? ''),
+            'latitude' => isset($snap['latitude']) ? (string) $snap['latitude'] : '',
+            'longitude' => isset($snap['longitude']) ? (string) $snap['longitude'] : '',
+            'receiver_name' => (string) ($snap['receiver_name'] ?? ''),
+            'receiver_phone' => (string) ($snap['receiver_phone'] ?? ''),
+            'location_confirmed' => !empty($snap['location_confirmed']) ? '1' : '',
+        ];
+    }
+
+    /**
+     * Build CustomerAccountService::addAddress input from a validated snapshot, filling
+     * receiver details from the customer profile when the guest did not provide them.
+     * Returns null when no valid receiver phone can be determined.
+     *
+     * @param array<string, mixed> $c validated clean snapshot
+     * @return array<string, mixed>|null
+     */
+    private static function snapshotToAccountInput(array $c, int $customerId): ?array
+    {
+        $profile = CustomerAccountService::profile($customerId) ?? [];
+        $receiverName = trim((string) ($c['receiver_name'] ?? ''));
+        if ($receiverName === '') {
+            $receiverName = trim((string) ($profile['name'] ?? ''));
+        }
+        $receiverPhone = Validation::normalizeMobileIndia((string) ($c['receiver_phone'] ?? ''));
+        if ($receiverPhone === null) {
+            $receiverPhone = Validation::normalizeMobileIndia((string) ($profile['mobile'] ?? ''));
+        }
+        if ($receiverPhone === null) {
+            return null;
+        }
+        if ($receiverName === '') {
+            $receiverName = 'Customer';
+        }
+
+        $label = (string) ($c['label'] ?? 'Home');
+        $labelType = in_array($label, ['Home', 'Office', 'Other'], true) ? $label : 'Other';
+        $labelCustom = $labelType === 'Other' && $label !== 'Other' ? $label : '';
+
+        return [
+            'label_type' => $labelType,
+            'label_custom' => $labelCustom,
+            'house_number' => (string) ($c['house_number'] ?? ''),
+            'building_name' => (string) ($c['building_name'] ?? ''),
+            'street' => (string) ($c['street'] ?? ''),
+            'area' => (string) ($c['area'] ?? ''),
+            'landmark' => (string) ($c['landmark'] ?? ''),
+            'addr_city' => (string) ($c['city'] ?? ''),
+            'addr_state' => (string) ($c['state'] ?? ''),
+            'pincode' => (string) ($c['pincode'] ?? ''),
+            'latitude' => isset($c['latitude']) ? (string) $c['latitude'] : '',
+            'longitude' => isset($c['longitude']) ? (string) $c['longitude'] : '',
+            'location_confirmed' => !empty($c['location_confirmed']) ? '1' : '',
+            'receiver_name' => $receiverName,
+            'receiver_phone' => $receiverPhone,
+            'address_confirmed' => '1',
+        ];
+    }
+
+    /** Lowercase alphanumeric-only comparison key for address equivalence. */
+    private static function normAddressText(string ...$parts): string
+    {
+        $joined = strtolower(implode(' ', array_filter(array_map('trim', $parts), static function (string $p): bool {
+            return $p !== '';
+        })));
+
+        return (string) preg_replace('/[^a-z0-9]/', '', $joined);
+    }
+
+    /**
      * Short header title, e.g. "Vijay Nagar" (area) or the pincode/city fallback.
      *
      * @param array<string, mixed> $s snapshot
