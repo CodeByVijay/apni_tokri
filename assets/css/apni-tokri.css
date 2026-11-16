@@ -2000,15 +2000,25 @@ body.at-modal-open {
   justify-content: center;
   flex-shrink: 0;
 }
+.at-location__text {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+}
 .at-location small {
   display: block;
   color: var(--at-muted);
   font-size: 0.6875rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .at-location strong {
   display: block;
   font-size: 0.8125rem;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Search with suggestions */
@@ -2567,6 +2577,18 @@ body.at-modal-open {
     color: #fff;
     font-size: 0.8125rem;
     line-height: 1.15;
+  }
+
+  .at-home-location strong [data-at-loc-title] {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .at-home-location strong [data-at-loc-pin] {
+    flex-shrink: 0;
+    white-space: nowrap;
   }
 
   .at-home-location__chevron {

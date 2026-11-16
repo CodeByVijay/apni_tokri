@@ -74,20 +74,20 @@ $navIsCategoryPage = $activeNav === 'categories';
                 <div id="at-suggest" class="at-suggest" role="listbox"></div>
             </form>
 
-            <div class="flex items-center gap-1 ml-auto flex-shrink-0">
-                <button type="button" class="at-location hidden lg:inline-flex at-focusable" data-at-open-modal="#at-delivery-modal" aria-haspopup="dialog">
+            <div class="flex items-center gap-1 ml-auto min-w-0">
+                <button type="button" class="at-location hidden lg:inline-flex at-focusable min-w-0" data-at-open-modal="#at-delivery-modal" aria-haspopup="dialog">
                     <span class="at-location__pin"><?= at_icon('pin', 'w-4 h-4') ?></span>
-                    <span><small><?= Security::escape(__('delivery_to')) ?></small><strong><span data-at-loc-title><?= Security::escape($selTitle) ?></span><span data-at-loc-pin><?= $selSub !== '' ? ' · ' . Security::escape($selSub) : '' ?></span></strong></span>
+                    <span class="at-location__text"><small><?= Security::escape(__('delivery_to')) ?></small><strong><span data-at-loc-title><?= Security::escape($selTitle) ?></span><span data-at-loc-pin><?= $selSub !== '' ? ' · ' . Security::escape($selSub) : '' ?></span></strong></span>
                 </button>
                 <?php
                 $atLoggedIn = CustomerService::isLoggedIn();
                 $atAuthLabel = $atLoggedIn ? 'My account' : __('nav_login');
                 $atAuthHref = $atLoggedIn ? '/my-account.php' : '/login.php';
                 ?>
-                <a href="<?= Security::escape($base . $atAuthHref) ?>" class="at-iconbtn at-focusable hidden md:inline-flex" aria-label="<?= Security::escape($atAuthLabel) ?>">
+                <a href="<?= Security::escape($base . $atAuthHref) ?>" class="at-iconbtn at-focusable hidden md:inline-flex flex-shrink-0" aria-label="<?= Security::escape($atAuthLabel) ?>">
                     <?= at_icon('user') ?><span class="hidden xl:inline"><?= Security::escape($atAuthLabel) ?></span>
                 </a>
-                <a href="<?= Security::escape($base) ?>/cart.php" class="at-iconbtn at-focusable" aria-label="<?= Security::escape(__('nav_cart')) ?>">
+                <a href="<?= Security::escape($base) ?>/cart.php" class="at-iconbtn at-focusable flex-shrink-0" aria-label="<?= Security::escape(__('nav_cart')) ?>">
                     <?= at_icon('cart') ?>
                     <span data-at-cart-count class="at-cart-badge <?= $cartCount > 0 ? '' : 'hidden' ?>"><?= (int) $cartCount ?></span>
                 </a>
@@ -140,7 +140,7 @@ $navIsCategoryPage = $activeNav === 'categories';
         <div class="p-3">
             <button type="button" class="at-location w-full !max-w-none mb-3 at-focusable" data-at-open-modal="#at-delivery-modal" data-at-nav-close>
                 <span class="at-location__pin"><?= at_icon('pin', 'w-4 h-4') ?></span>
-                <span><small><?= Security::escape(__('delivery_to')) ?></small><strong><span data-at-loc-title><?= Security::escape($selTitle) ?></span><span data-at-loc-pin><?= ' · ' . Security::escape($selSub) ?></span></strong></span>
+                <span class="at-location__text"><small><?= Security::escape(__('delivery_to')) ?></small><strong><span data-at-loc-title><?= Security::escape($selTitle) ?></span><span data-at-loc-pin><?= ' · ' . Security::escape($selSub) ?></span></strong></span>
             </button>
             <p class="at-eyebrow px-3 mt-2 mb-1"><?= Security::escape(__('nav_categories')) ?></p>
             <a href="<?= Security::escape($base) ?>/index.php" class="at-drawer-link at-focusable"><?= at_icon('home') ?><?= Security::escape(__('nav_home')) ?></a>
