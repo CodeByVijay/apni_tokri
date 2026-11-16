@@ -11,6 +11,7 @@ declare(strict_types=1);
  *
  * Snapshot shape (stored verbatim in $_SESSION[self::SESSION_KEY]):
  *   version, kind ('guest'|'saved'), source_address_id (?int), source_address_ref (?string),
+ *   address_type ('Home'|'Work'|'Other'), address_name (?string, custom name for Other),
  *   label ('Home'|'Work'|'Other'|custom), receiver_name, receiver_phone,
  *   house_number, building_name, street, area, landmark, city, state, pincode,
  *   latitude, longitude, location_confirmed,
@@ -45,6 +46,25 @@ final class DeliverySessionAddress
             $errors['address_type'] = 'Choose Home, Work or Other.';
             $type = 'Home';
         }
+
+        // "Other" requires a customer-facing name (e.g. Parents' Home). It is
+        // stored as the snapshot/account label so it is never overwritten by
+        // the generic "Other". Home/Work ignore the field entirely.
+        $addressName = '';
+        if ($type === 'Other') {
+            $addressName = preg_replace('/\s+/u', ' ', self::str($input, 'address_name')) ?? '';
+            if ($addressName === '') {
+                $addressName = preg_replace('/\s+/u', ' ', self::str($input, 'label_custom')) ?? '';
+            }
+            if ($addressName === '') {
+                $errors['address_name'] = 'Enter a name for this address (for example “Parents’ home”, “Friend’s house”, “Shop” or “Office”).';
+            } elseif (self::len($addressName) > 64 || self::unsafe($addressName)) {
+                $errors['address_name'] = 'Address name must be up to 64 characters, without < or >.';
+            } elseif (preg_match('/[\p{L}\p{N}]/u', $addressName) !== 1) {
+                $errors['address_name'] = 'This does not look like a real name — please enter actual text.';
+            }
+        }
+        $label = $type === 'Other' && $addressName !== '' ? $addressName : $type;
 
         $house = self::opt($input, 'house_number', 100, 'house_number', 'Flat / house number', $errors);
         $building = self::opt($input, 'building_name', 150, 'building_name', 'Building / apartment', $errors);
@@ -94,7 +114,9 @@ final class DeliverySessionAddress
             'clean' => [
                 'kind' => 'guest',
                 'source_address_id' => null,
-                'label' => $type,
+                'address_type' => $type,
+                'address_name' => $type === 'Other' ? ($addressName !== '' ? $addressName : null) : null,
+                'label' => $label,
                 'receiver_name' => $receiver !== '' ? $receiver : null,
                 'receiver_phone' => $phone,
                 'house_number' => $house !== '' ? $house : null,
@@ -125,6 +147,8 @@ final class DeliverySessionAddress
             isset($row['longitude']) ? (string) $row['longitude'] : ''
         );
         $landmark = AddressInput::landmarkOf($row);
+        $rowLabel = trim((string) ($row['label'] ?? 'Home'));
+        $rowType = in_array($rowLabel, self::ADDRESS_TYPES, true) ? $rowLabel : 'Other';
 
         return [
             'version' => self::VERSION,
@@ -132,7 +156,9 @@ final class DeliverySessionAddress
             'source_address_id' => isset($row['id']) && is_numeric($row['id']) ? (int) $row['id'] : null,
             // String ref keeps non-numeric ids (session-demo backend) comparable to saved lists.
             'source_address_ref' => isset($row['id']) && (string) $row['id'] !== '' ? (string) $row['id'] : null,
-            'label' => (string) ($row['label'] ?? 'Home'),
+            'address_type' => $rowType,
+            'address_name' => $rowType === 'Other' && $rowLabel !== 'Other' ? $rowLabel : null,
+            'label' => $rowLabel !== '' ? $rowLabel : 'Home',
             'receiver_name' => ($row['receiver_name'] ?? '') !== '' ? (string) $row['receiver_name'] : null,
             'receiver_phone' => ($row['receiver_phone'] ?? '') !== '' ? (string) $row['receiver_phone'] : null,
             'house_number' => ($row['house_number'] ?? '') !== '' ? (string) $row['house_number'] : null,
@@ -352,8 +378,21 @@ final class DeliverySessionAddress
     /** @param array<string, mixed> $snap */
     private static function snapshotToValidateInput(array $snap): array
     {
+        // Rebuild the type/name pair: newer snapshots carry them explicitly;
+        // older ones only have `label`, so a non-standard label implies Other.
+        $lbl = (string) ($snap['label'] ?? 'Home');
+        $at = (string) ($snap['address_type'] ?? '');
+        if ($at === '') {
+            $at = in_array($lbl, self::ADDRESS_TYPES, true) ? $lbl : 'Other';
+        }
+        $an = trim((string) ($snap['address_name'] ?? ''));
+        if ($at === 'Other' && $an === '') {
+            $an = (!in_array($lbl, self::ADDRESS_TYPES, true) || $lbl === 'Other') ? $lbl : '';
+        }
+
         return [
-            'address_type' => (string) ($snap['label'] ?? 'Home'),
+            'address_type' => $at,
+            'address_name' => $an,
             'house_number' => (string) ($snap['house_number'] ?? ''),
             'building_name' => (string) ($snap['building_name'] ?? ''),
             'street' => (string) ($snap['street'] ?? ''),

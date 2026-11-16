@@ -19,15 +19,13 @@ final class CartDeliveryBanner
     public static function fromTotals(array $totals): array
     {
         $quoteMsg = trim((string) ($totals['delivery_quote_message'] ?? ''));
-        $zone = trim((string) ($totals['delivery_zone'] ?? ''));
-        $zoneSuffix = $zone !== '' ? ' · ' . $zone : '';
 
         if ($quoteMsg !== '') {
             if (self::isSelectAddressMessage($quoteMsg)) {
                 return self::withCta(self::neutral(self::MSG_SELECT_ADDRESS), self::CTA_LABEL);
             }
             if (self::isSelectSlotMessage($quoteMsg)) {
-                return self::neutral('Address saved' . $zoneSuffix . ' — choose your delivery slot at checkout to see your delivery charge.');
+                return self::neutral('Address saved — choose your delivery slot at checkout to see your delivery charge.');
             }
 
             return self::withCta(self::neutral($quoteMsg), self::CTA_CHANGE_LABEL);
@@ -47,7 +45,7 @@ final class CartDeliveryBanner
 
         if ($fee <= 0) {
             return [
-                'message' => ($eligible && $toFree <= 0 ? 'Free delivery unlocked' : 'Free delivery') . $zoneSuffix,
+                'message' => ($eligible && $toFree <= 0 ? 'Free delivery unlocked' : 'Free delivery'),
                 'tone' => 'success',
                 'show_progress' => $eligible,
                 'progress' => 100,
@@ -56,14 +54,14 @@ final class CartDeliveryBanner
 
         if ($eligible && $toFree > 0) {
             return [
-                'message' => 'Delivery charge: ' . catalogue_format_price($fee) . $zoneSuffix . ' · Add ' . catalogue_format_price($toFree) . ' more for free delivery',
+                'message' => 'Delivery charge: ' . catalogue_format_price($fee) . ' · Add ' . catalogue_format_price($toFree) . ' more for free delivery',
                 'tone' => 'progress',
                 'show_progress' => true,
                 'progress' => self::progressPercent($totals, $toFree),
             ];
         }
 
-        return self::neutral('Delivery charge: ' . catalogue_format_price($fee) . $zoneSuffix);
+        return self::neutral('Delivery charge: ' . catalogue_format_price($fee));
     }
 
     /**

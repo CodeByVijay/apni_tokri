@@ -3924,6 +3924,17 @@ body.at-gallery-lightbox-open {
   color: var(--at-yellow-ink);
   font-weight: 700;
 }
+.at-slot-card.is-disabled {
+  opacity: 0.55;
+  cursor: default;
+  background: var(--at-cream-2, #f7f5ef);
+}
+.at-slot-card.is-disabled:hover {
+  border-color: var(--at-line);
+}
+.at-slot-card.is-disabled input[type="radio"] {
+  cursor: default;
+}
 /* Coupon controls: identical row alignment on cart and checkout. */
 #at-coupon-form .at-coupon-form__head {
   display: flex;

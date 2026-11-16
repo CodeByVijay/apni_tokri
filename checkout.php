@@ -133,15 +133,27 @@ if ($dbAddressMode && $addrFormOpenMode === '' && $_SERVER['REQUEST_METHOD'] ===
     }
 }
 $canShowDeliverySlots = $loggedIn && $addresses !== [];
-$checkoutSlots = DeliveryConfig::slotsEnabled() && $canShowDeliverySlots
-    ? DeliverySlotService::availableForCheckout()
-    : [];
-$defaultSlotSlug = DeliveryConfig::slotsEnabled()
-    ? ($checkoutSlots !== [] ? (string) ($checkoutSlots[0]['slug'] ?? '') : null)
-    : 'auto';
-$defaultSlotDate = DeliveryConfig::slotsEnabled() && $checkoutSlots !== []
-    ? (string) ($checkoutSlots[0]['delivery_date'] ?? '')
-    : null;
+$slotWindow = DeliveryConfig::slotsEnabled() && $canShowDeliverySlots
+    ? DeliverySlotService::checkoutWindow()
+    : ['dates' => []];
+// $checkoutSlots keeps the previous contract: only currently-bookable slots.
+$checkoutSlots = [];
+$defaultSlotSlug = null;
+$defaultSlotDate = null;
+foreach ($slotWindow['dates'] as $winDate) {
+    foreach (($winDate['slots'] ?? []) as $winSlot) {
+        if (empty($winSlot['available'])) {
+            continue;
+        }
+        $checkoutSlots[] = $winSlot;
+        if ($defaultSlotSlug === null) {
+            $defaultSlotSlug = (string) ($winSlot['slug'] ?? '');
+            $defaultSlotDate = (string) ($winSlot['delivery_date'] ?? '');
+        }
+    }
+}
+$defaultSlotSlug = DeliveryConfig::slotsEnabled() ? $defaultSlotSlug : 'auto';
+$defaultSlotDate = DeliveryConfig::slotsEnabled() ? $defaultSlotDate : null;
 // Addresses are ordered default-first; a just-added address (or one re-posted with the form) wins.
 if ($selectedAddressId === '' && isset($_POST['address_id']) && is_string($_POST['address_id'])) {
     $selectedAddressId = $_POST['address_id'];
@@ -319,70 +331,64 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
             <?php elseif (DeliveryConfig::slotsEnabled()): ?>
                 <?php if ($loggedIn && $addresses === []): ?>
                     <p class="text-sm at-muted">Add a delivery address above to see available slots.</p>
-                <?php elseif ($canShowDeliverySlots && $checkoutSlots === []): ?>
+                <?php elseif ($canShowDeliverySlots && ($slotWindow['dates'] ?? []) === []): ?>
                     <p class="at-alert at-alert--warning text-sm">No delivery slots are available right now. Please check back later.</p>
                 <?php elseif ($canShowDeliverySlots): ?>
-                    <?php
-                    $initialSlotDate = (string) ($checkoutSlots[0]['delivery_date'] ?? '');
-                    $slotTodayYmd = DeliveryConfig::now()->format('Y-m-d');
-                    $slotTomorrowYmd = DeliveryConfig::now()->modify('+1 day')->format('Y-m-d');
-                    $slotGroups = [];
-                    foreach ($checkoutSlots as $slotIdx => $s) {
-                        $dKey = (string) ($s['delivery_date'] ?? '');
-                        if (!isset($slotGroups[$dKey])) {
-                            if ($dKey === $slotTodayYmd) {
-                                $gTitle = 'Today';
-                                $gDate = InvoiceFormat::date($dKey, 'D, j M');
-                            } elseif ($dKey === $slotTomorrowYmd) {
-                                $gTitle = 'Tomorrow';
-                                $gDate = InvoiceFormat::date($dKey, 'D, j M');
-                            } elseif ($dKey !== '') {
-                                $gTitle = InvoiceFormat::date($dKey, 'D, j M');
-                                $gDate = '';
-                            } else {
-                                $gTitle = 'Available windows';
-                                $gDate = '';
-                            }
-                            $slotGroups[$dKey] = ['title' => $gTitle, 'date_sub' => $gDate, 'slots' => []];
-                        }
-                        $s['_checked'] = ($slotIdx === 0);
-                        $slotGroups[$dKey]['slots'][] = $s;
-                    }
-                    ?>
+                    <?php $initialSlotDate = $defaultSlotDate; ?>
                     <div class="at-slot-groups" data-checkout-slot-grid>
-                        <?php foreach ($slotGroups as $grp): ?>
+                        <?php foreach (($slotWindow['dates'] ?? []) as $grp):
+                            $grpSlots = $grp['slots'] ?? [];
+                            $grpSub = (string) ($grp['sub'] ?? '');
+                            ?>
                             <div class="at-slot-group">
                                 <p class="at-slot-group__head">
-                                    <span class="at-slot-group__day"><?= Security::escape($grp['title']) ?></span>
-                                    <?php if ($grp['date_sub'] !== ''): ?><span class="at-slot-group__date">· <?= Security::escape($grp['date_sub']) ?></span><?php endif; ?>
+                                    <span class="at-slot-group__day"><?= Security::escape((string) ($grp['title'] ?? '')) ?></span>
+                                    <?php if ($grpSub !== ''): ?><span class="at-slot-group__date">· <?= Security::escape($grpSub) ?></span><?php endif; ?>
                                 </p>
+                                <?php if ($grpSlots === []): ?>
+                                    <p class="text-sm at-muted">No delivery slots available<?= $grpSub !== '' ? ' on ' . Security::escape($grpSub) : ' for this date' ?>.</p>
+                                <?php else: ?>
                                 <div class="at-slot-group__grid">
-                                    <?php foreach ($grp['slots'] as $s):
+                                    <?php foreach ($grpSlots as $s):
                                         $winText = trim((string) ($s['time_range'] ?? $s['window'] ?? ''));
                                         $rawLabel = trim((string) ($s['label'] ?? ''));
                                         $hasWin = $winText !== '' && $winText !== '—';
                                         $primaryText = $hasWin ? $winText : ($rawLabel !== '' ? $rawLabel : 'Standard delivery');
                                         $showSlotName = $hasWin && $rawLabel !== '' && !in_array(strtolower($rawLabel), ['today', 'tomorrow'], true);
                                         $isDbSlot = (int) ($s['id'] ?? 0) > 0;
+                                        $slotAvail = !empty($s['available']);
+                                        $slotChecked = $slotAvail && $defaultSlotSlug !== null
+                                            && (string) ($s['slug'] ?? '') === $defaultSlotSlug
+                                            && (string) ($s['delivery_date'] ?? '') === (string) $defaultSlotDate;
                                         $remCount = (int) ($s['remaining'] ?? 0);
-                                        $showRem = $isDbSlot && $remCount > 0 && $remCount <= 10;
+                                        $showRem = $slotAvail && $isDbSlot && $remCount > 0 && $remCount <= 10;
+                                        $disabledReason = (string) ($s['disabled_reason'] ?? '');
                                         ?>
-                                        <label class="at-option at-slot-card">
+                                        <label class="at-option at-slot-card<?= $slotAvail ? '' : ' is-disabled' ?>">
                                             <input type="radio" name="delivery_slot" form="checkout-form" value="<?= Security::escape((string) $s['slug']) ?>" class="mt-0.5"
-                                                   data-delivery-date="<?= Security::escape((string) ($s['delivery_date'] ?? '')) ?>" <?= !empty($s['_checked']) ? 'checked' : '' ?>>
+                                                   data-delivery-date="<?= Security::escape((string) ($s['delivery_date'] ?? '')) ?>" <?= $slotChecked ? 'checked' : '' ?> <?= $slotAvail ? '' : 'disabled' ?>>
                                             <span class="at-slot-card__body">
                                                 <strong class="at-slot-card__window"><?= Security::escape($primaryText) ?></strong>
-                                                <?php if ($showSlotName || $showRem): ?>
-                                                    <span class="at-slot-card__meta">
-                                                        <?php if ($showSlotName): ?><span><?= Security::escape($rawLabel) ?></span><?php endif; ?>
-                                                        <?php if ($showSlotName && $showRem): ?><span aria-hidden="true">·</span><?php endif; ?>
-                                                        <?php if ($showRem): ?><span class="at-slot-card__rem"><?= $remCount === 1 ? '1 slot left' : $remCount . ' slots left' ?></span><?php endif; ?>
-                                                    </span>
+                                                <?php
+                                                $slotMeta = [];
+                                                if ($showSlotName) {
+                                                    $slotMeta[] = '<span>' . Security::escape($rawLabel) . '</span>';
+                                                }
+                                                if (!$slotAvail) {
+                                                    $slotMeta[] = '<span class="at-badge">' . ($disabledReason === 'full' ? 'Full' : 'Unavailable') . '</span>';
+                                                }
+                                                if ($showRem) {
+                                                    $slotMeta[] = '<span class="at-slot-card__rem">' . ($remCount === 1 ? '1 slot left' : $remCount . ' slots left') . '</span>';
+                                                }
+                                                if ($slotMeta !== []):
+                                                ?>
+                                                    <span class="at-slot-card__meta"><?= implode('<span aria-hidden="true">·</span>', $slotMeta) ?></span>
                                                 <?php endif; ?>
                                             </span>
                                         </label>
                                     <?php endforeach; ?>
                                 </div>
+                                <?php endif; ?>
                             </div>
                         <?php endforeach; ?>
                     </div>

@@ -234,8 +234,8 @@
         showMsg('This place has no exact coordinates — please confirm the address details or pick it on the map.', 'warn');
         return;
       }
-      setCoords(lat, lng, true, 'Location set from your search — verify and complete the details below.');
-      showMsg('Address filled from Google — please verify the details before saving.', 'ok');
+      setCoords(lat, lng, true, 'Address filled from your search. Please verify your address details before saving.');
+      showMsg('', null);
     }).fail(function (xhr) {
       if (seq !== locSeq) return;
       clearCoords();
@@ -493,7 +493,7 @@
           reset();
           return;
         }
-        setCoords(lat, lng, true, 'Location detected by GPS — verify and complete the details below.');
+        setCoords(lat, lng, true, 'Location detected. Please verify your address details before saving.');
         $gpsSub.text('Fetching address…');
         reverseFill(lat, lng, seq, function (filled, errMsg) {
           reset();
@@ -501,7 +501,7 @@
           if (!filled) {
             showMsg(errMsg || 'We could not fetch the address details for this location — please fill them in below.', 'warn');
           } else {
-            showMsg('Location detected — please verify the address details before saving.', 'ok');
+            showMsg('', null);
           }
           showStep('form');
         });
@@ -579,7 +579,7 @@
     return $form.find('[name="' + name + '"]');
   }
 
-  var DEFAULT_PINNOTE = 'Location confirmed on map — complete the address details.';
+  var DEFAULT_PINNOTE = 'Location confirmed on map. Please verify your address details before saving.';
 
   function setCoords(lat, lng, confirmed, noteText) {
     var ok = confirmed && validCoord(lat, lng);
@@ -650,6 +650,17 @@
     return filled;
   }
 
+  /* "Other" addresses need a customer-facing name (e.g. Parents' Home). The
+     field is revealed only for Other and is mandatory there; Home/Work keep
+     their existing behaviour and the value is ignored server-side. */
+  function syncOtherNameField() {
+    var isOther = String($form.find('input[name="address_type"]:checked').val() || '') === 'Other';
+    var $wrap = $modal.find('[data-at-dl-other-name]');
+    $wrap.prop('hidden', !isOther);
+    $wrap.find('input[name="address_name"]').prop('required', isOther);
+  }
+
+  $modal.on('change', '[data-at-dl-form] input[name="address_type"]', syncOtherNameField);
   $modal.on('click', '[data-at-dl-manual]', function () {
     beginSelection();
     selectedPlaceId = null;
@@ -778,17 +789,24 @@
       $cur = $('<div class="at-dl__current" data-at-dl-current>' +
         '<span class="at-dl__tag" data-at-dl-current-tag>Current</span>' +
         '<div class="at-dl__current-text"><strong data-at-dl-current-title></strong>' +
+        '<span data-at-dl-current-subtitle></span>' +
         '<span data-at-dl-current-line></span>' +
         '<span class="at-dl__status" data-at-dl-current-status hidden></span></div></div>');
       $modal.find('[data-at-dl-step="choose"]').prepend($cur);
     }
     $cur.find('[data-at-dl-current-title]').text(data.header && data.header.title ? data.header.title : 'Delivery address');
+    var $curSub = $cur.find('[data-at-dl-current-subtitle]');
+    if (!$curSub.length) {
+      $curSub = $('<span data-at-dl-current-subtitle></span>');
+      $cur.find('[data-at-dl-current-title]').after($curSub);
+    }
+    $curSub.text(data.header && data.header.subtitle ? data.header.subtitle : '');
     $cur.find('[data-at-dl-current-tag]').text(data.selected_kind === 'saved' ? 'Saved' : 'Current');
     $cur.find('[data-at-dl-current-line]').text(data.address_line || '');
     var $status = $cur.find('[data-at-dl-current-status]');
     if (data.serviceable === true) {
       $status.prop('hidden', false).attr('class', 'at-dl__status at-dl__status--ok')
-        .text('Delivery available' + (data.service_zone ? ' · ' + data.service_zone : ''));
+        .text('Delivery available');
     } else if (data.serviceable === false) {
       $status.prop('hidden', false).attr('class', 'at-dl__status at-dl__status--warn')
         .text(data.service_message || 'We do not deliver here yet.');
@@ -855,6 +873,11 @@
     e.preventDefault();
     var $err = $modal.find('[data-at-dl-formerr]');
     $err.prop('hidden', true).text('');
+    if (String($form.find('input[name="address_type"]:checked').val() || '') === 'Other' &&
+        $.trim($form.find('input[name="address_name"]').val() || '') === '') {
+      $err.prop('hidden', false).text('Enter a name for this address (for example Parents\u2019 Home, Friend\u2019s House, Shop or Office).');
+      return;
+    }
     var payload = {};
     $form.serializeArray().forEach(function (f) { payload[f.name] = f.value; });
     postSave(payload, $modal.find('[data-at-dl-save]'));
@@ -873,6 +896,7 @@
     showMsg('', null);
     hideResults();
     $search.val('');
+    syncOtherNameField();
     showStep('choose');
   });
 })(window.jQuery, window, document);

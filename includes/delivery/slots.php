@@ -48,6 +48,87 @@ final class DeliverySlotService
         }
     }
 
+    /**
+     * Checkout slot picker window: the next two delivery dates (tomorrow and
+     * day after tomorrow, store timezone). Every active configured slot is
+     * listed per date with its bookable state — slots recur per weekday_mask,
+     * the same engine admin reschedule and subscription fulfilment already use.
+     *
+     * @return array{dates: list<array{ymd: string, offset: int, title: string, sub: string, slots: list<array<string, mixed>>}>}
+     */
+    public static function checkoutWindow(): array
+    {
+        $dates = [];
+        $now = DeliveryConfig::now();
+        for ($i = 1; $i <= 2; $i++) {
+            $d = $now->modify('+' . $i . ' days');
+            $ymd = $d->format('Y-m-d');
+            $dates[] = [
+                'ymd' => $ymd,
+                'offset' => $i,
+                'title' => $i === 1 ? 'Tomorrow' : 'Day After Tomorrow',
+                'sub' => InvoiceFormat::date($ymd, 'D, j F'),
+                'slots' => [],
+            ];
+        }
+
+        if (!DeliveryConfig::slotsEnabled()
+            || (AppEnvironment::usePersistedStorefront() && !CustomerAuth::check())) {
+            return ['dates' => []];
+        }
+        if (!Install::isSchemaReady()) {
+            foreach ($dates as &$grp) {
+                foreach (self::fallbackSlots() as $s) {
+                    $grp['slots'][] = $s + [
+                        'delivery_date' => $grp['ymd'],
+                        'available' => true,
+                        'disabled_reason' => null,
+                    ];
+                }
+            }
+            unset($grp);
+
+            return ['dates' => $dates];
+        }
+
+        try {
+            Install::ensureConnection();
+            $pdo = Database::pdo();
+            DeliverySlotReservationService::releaseExpiredHolds($pdo);
+            $stmt = $pdo->query('SELECT * FROM delivery_slots WHERE is_active = 1 ORDER BY sort_order, id');
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        } catch (Throwable $e) {
+            foreach ($dates as &$grp) {
+                foreach (self::fallbackSlots() as $s) {
+                    $grp['slots'][] = $s + [
+                        'delivery_date' => $grp['ymd'],
+                        'available' => true,
+                        'disabled_reason' => null,
+                    ];
+                }
+            }
+            unset($grp);
+
+            return ['dates' => $dates];
+        }
+
+        foreach ($dates as &$grp) {
+            foreach ($rows as $slot) {
+                $remaining = self::remainingCapacity((int) $slot['id'], $grp['ymd'], $pdo);
+                $weekdayOk = self::isWeekdayAllowed($slot, $grp['ymd']);
+                $cutoffOk = self::isBeforeCutoff($slot, $now, $grp['ymd']);
+                $available = $weekdayOk && $cutoffOk && $remaining > 0;
+                $card = DeliverySlotDisplay::checkoutCard($slot, $grp['ymd'], $remaining);
+                $card['available'] = $available;
+                $card['disabled_reason'] = $available ? null : ($weekdayOk && $cutoffOk ? 'full' : 'unavailable');
+                $grp['slots'][] = $card;
+            }
+        }
+        unset($grp);
+
+        return ['dates' => $dates];
+    }
+
     public static function resolveBySlug(string $slug): ?array
     {
         if (!Install::isSchemaReady()) {
@@ -103,8 +184,13 @@ final class DeliverySlotService
         if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $deliveryDateYmd)) {
             return 'Choose a valid delivery date for this slot.';
         }
-        $today = DeliveryConfig::now()->format('Y-m-d');
-        if ($deliveryDateYmd < $today) {
+        $now = DeliveryConfig::now();
+        $today = $now->format('Y-m-d');
+        // Customer-bookable window: today through day after tomorrow (store timezone).
+        // Slots recur per weekday_mask — delivery_day only anchored the legacy
+        // same-day/next-day checkout mapping and no longer restricts the date.
+        $maxDate = $now->modify('+2 days')->format('Y-m-d');
+        if ($deliveryDateYmd < $today || $deliveryDateYmd > $maxDate) {
             return 'This delivery date is no longer available.';
         }
         if (!Install::isSchemaReady()) {
@@ -116,18 +202,6 @@ final class DeliverySlotService
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$row) {
             return 'Choose a valid delivery slot.';
-        }
-
-        $deliveryDay = (string) ($row['delivery_day'] ?? 'same_day');
-        if ($deliveryDay === 'same_day' && $deliveryDateYmd !== $today) {
-            return 'This delivery slot does not match the selected delivery date.';
-        }
-        if ($deliveryDay === 'next_day') {
-            $tomorrow = DeliveryConfig::now()->modify('+1 day')->format('Y-m-d');
-            // Allow calendar tomorrow and frozen date (e.g. prior evening’s “tomorrow” still valid after midnight).
-            if ($deliveryDateYmd !== $tomorrow && $deliveryDateYmd !== $today) {
-                return 'This delivery slot does not match the selected delivery date.';
-            }
         }
 
         return self::assertBookable($row, $deliveryDateYmd);

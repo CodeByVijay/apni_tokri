@@ -225,8 +225,6 @@
     var toFree = parseFloat(totals.amount_to_free_delivery) || 0;
     var eligible = !!totals.free_delivery_eligible;
     var fee = parseFloat(totals.delivery_fee) || 0;
-    var zone = String(totals.delivery_zone || '').trim();
-    var zoneSuffix = zone ? ' · ' + zone : '';
     var msg = '';
     var tone = 'muted';
     var showProgress = false;
@@ -239,7 +237,7 @@
         msg = 'Select your delivery address to see your delivery charge.';
         showCta = true;
       } else if (isSelectSlotMsg(quoteMsg)) {
-        msg = 'Address saved' + zoneSuffix + ' — choose your delivery slot at checkout to see your delivery charge.';
+        msg = 'Address saved — choose your delivery slot at checkout to see your delivery charge.';
         showCta = false;
       } else {
         msg = quoteMsg;
@@ -254,12 +252,12 @@
       showCta = true;
       ctaLabel = 'Change address';
     } else if (fee <= 0) {
-      msg = (eligible && toFree <= 0 ? 'Free delivery unlocked' : 'Free delivery') + zoneSuffix;
+      msg = (eligible && toFree <= 0 ? 'Free delivery unlocked' : 'Free delivery');
       tone = 'success';
       showProgress = eligible;
       progress = 100;
     } else if (eligible && toFree > 0) {
-      msg = 'Delivery charge: ' + formatMoney(fee) + zoneSuffix + ' · Add ' + formatMoney(toFree) + ' more for free delivery';
+      msg = 'Delivery charge: ' + formatMoney(fee) + ' · Add ' + formatMoney(toFree) + ' more for free delivery';
       tone = 'progress';
       showProgress = true;
       var threshold = parseFloat(totals.free_delivery_threshold) || 0;
@@ -267,7 +265,7 @@
         progress = Math.max(4, Math.min(100, Math.round(((threshold - toFree) / threshold) * 100)));
       }
     } else {
-      msg = 'Delivery charge: ' + formatMoney(fee) + zoneSuffix;
+      msg = 'Delivery charge: ' + formatMoney(fee);
     }
 
     var $cta = $('[data-cart-delivery-banner-cta]');
@@ -305,10 +303,6 @@
       deliveryLabel = parseFloat(totals.delivery_fee) <= 0 ? 'Free' : formatMoney(totals.delivery_fee);
     }
     $('[data-cart-delivery]').text(deliveryLabel);
-    var zone = String(totals.delivery_zone || '').trim();
-    $('[data-cart-delivery-context]').text(
-      quoteReady && zone ? '· ' + zone : ''
-    );
     $('[data-cart-total-label]').text(quoteReady ? 'Total payable' : 'Items payable');
     $('[data-cart-total-note]').toggleClass('hidden', quoteReady);
     $('[data-cart-sticky-label]').text(quoteReady ? 'Total payable' : 'Items payable');
@@ -945,7 +939,14 @@
           .fail(function (xhr) {
             if (seq !== quoteSeq) return;
             setQuoteLoading(false);
-            if ($alert.length) $alert.removeClass('hidden').text(parseAjaxError(xhr, 'Could not update delivery quote.'));
+            var failMsg = parseAjaxError(xhr, 'Could not update delivery quote.');
+            if ($alert.length) $alert.removeClass('hidden').text(failMsg);
+            // A rejected slot/date (full, expired, weekday-blocked) must not stay
+            // silently selected — clear it so the customer picks a valid window.
+            if (/slot|delivery date/i.test(failMsg)) {
+              $('input[name="delivery_slot"][form="checkout-form"]').prop('checked', false);
+              $('#checkout-delivery-date').val('');
+            }
             $('#checkout-proceed-pay').attr('data-at-quote-ready', '0');
             syncCheckoutPayState();
           });

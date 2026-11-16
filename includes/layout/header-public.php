@@ -172,6 +172,21 @@ $atDlConfig = [
     'map' => MapConfig::clientConfig(),
     'googleMaps' => AddressAutocompleteSettings::googleMapsClientConfig(),
 ];
+// Prefill the manual-entry form from the current selection: a custom (non
+// Home/Work) label means an "Other" address — restore its saved name.
+$dlFormType = 'Home';
+$dlFormName = '';
+if ($selAddr !== null) {
+    $dlLbl = trim((string) ($selAddr['label'] ?? 'Home'));
+    if ($dlLbl === 'Work' || $dlLbl === 'Office') {
+        $dlFormType = 'Work';
+    } elseif ($dlLbl === 'Home') {
+        $dlFormType = 'Home';
+    } else {
+        $dlFormType = 'Other';
+        $dlFormName = $dlLbl !== 'Other' ? $dlLbl : '';
+    }
+}
 ?>
 <div id="at-delivery-modal" class="at-modal-backdrop" data-current-pin="<?= Security::escape((string) ($deliveryPin ?? '')) ?>" aria-hidden="true" role="presentation">
     <div class="at-modal at-dl" role="dialog" aria-modal="true" aria-labelledby="at-delivery-modal-title">
@@ -188,13 +203,14 @@ $atDlConfig = [
                     <span class="at-dl__tag" data-at-dl-current-tag><?= $selAddr['kind'] === 'saved' ? 'Saved' : 'Current' ?></span>
                     <div class="at-dl__current-text">
                         <strong data-at-dl-current-title><?= Security::escape(DeliverySessionAddress::title($selAddr)) ?></strong>
+                        <span data-at-dl-current-subtitle><?= Security::escape(DeliverySessionAddress::subtitle($selAddr)) ?></span>
                         <span data-at-dl-current-line><?= Security::escape(DeliverySessionAddress::readableLine($selAddr)) ?></span>
                         <?php
                         $selSvc = $selAddr['serviceable'] ?? null;
                         $selSvcClass = $selSvc === true ? 'at-dl__status at-dl__status--ok' : ($selSvc === false ? 'at-dl__status at-dl__status--warn' : 'at-dl__status');
                         $selSvcText = '';
                         if ($selSvc === true) {
-                            $selSvcText = 'Delivery available' . (!empty($selAddr['service_zone']) ? ' · ' . (string) $selAddr['service_zone'] : '');
+                            $selSvcText = 'Delivery available';
                         } elseif ($selSvc === false) {
                             $selSvcText = (string) ($selAddr['service_message'] ?? 'We do not deliver here yet.');
                         }
@@ -282,7 +298,7 @@ $atDlConfig = [
 
             <section class="at-dl__step" data-at-dl-step="form" hidden>
                 <button type="button" class="at-dl__back at-focusable" data-at-dl-back>&larr; Back</button>
-                <p class="at-dl__pinnote" data-at-dl-pinnote hidden><?= at_icon('pin', 'w-4 h-4') ?> <span data-at-dl-pinnote-text>Location confirmed on map — complete the address details.</span></p>
+                <p class="at-dl__pinnote" data-at-dl-pinnote hidden><?= at_icon('pin', 'w-4 h-4') ?> <span data-at-dl-pinnote-text>Location confirmed on map. Please verify your address details before saving.</span></p>
                 <form class="at-dl__form" data-at-dl-form novalidate>
                     <input type="hidden" name="latitude" value="">
                     <input type="hidden" name="longitude" value="">
@@ -291,13 +307,17 @@ $atDlConfig = [
                     <fieldset class="at-dl__types">
                         <legend class="at-label">Address type</legend>
                         <div class="at-dl__type-row" role="radiogroup" aria-label="Address type">
-                            <label class="at-dl__type"><input type="radio" name="address_type" value="Home" checked> <span>Home</span></label>
-                            <label class="at-dl__type"><input type="radio" name="address_type" value="Work"> <span>Work</span></label>
-                            <label class="at-dl__type"><input type="radio" name="address_type" value="Other"> <span>Other</span></label>
+                            <label class="at-dl__type"><input type="radio" name="address_type" value="Home"<?= $dlFormType === 'Home' ? ' checked' : '' ?>> <span>Home</span></label>
+                            <label class="at-dl__type"><input type="radio" name="address_type" value="Work"<?= $dlFormType === 'Work' ? ' checked' : '' ?>> <span>Work</span></label>
+                            <label class="at-dl__type"><input type="radio" name="address_type" value="Other"<?= $dlFormType === 'Other' ? ' checked' : '' ?>> <span>Other</span></label>
                         </div>
                     </fieldset>
 
                     <div class="at-dl__grid">
+                        <div class="at-dl__field at-dl__field--full" data-at-dl-other-name<?= $dlFormType === 'Other' ? '' : ' hidden' ?>>
+                            <label class="at-label" for="at-dl-address-name">Address name</label>
+                            <input id="at-dl-address-name" class="at-input at-focusable" type="text" name="address_name" maxlength="64" autocomplete="off" placeholder="e.g. Parents' Home, Friend's House, Shop, Office" value="<?= Security::escape($dlFormName) ?>">
+                        </div>
                         <div class="at-dl__field">
                             <label class="at-label" for="at-dl-house">Flat / house no.</label>
                             <input id="at-dl-house" class="at-input at-focusable" type="text" name="house_number" maxlength="100" autocomplete="off">

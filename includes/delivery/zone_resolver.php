@@ -178,7 +178,7 @@ final class DeliveryZoneResolver
         $zone = $candidates[0];
         $base['serviceable'] = true;
         $base['zone'] = $zone;
-        $base['message'] = 'Good news — we deliver to your address (' . (string) $zone['name'] . ').';
+        $base['message'] = 'Good news — we deliver to your address.';
         if ($distance !== null) {
             $base['message'] .= ' About ' . $distance . ' km from our store (straight-line; not road distance).';
         }

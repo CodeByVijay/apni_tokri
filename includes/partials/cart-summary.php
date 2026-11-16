@@ -11,7 +11,6 @@ $summaryQuoteReady = !empty($totals['delivery_quote_accurate'])
     && !empty($totals['delivery_serviceable'])
     && trim((string) ($totals['delivery_quote_message'] ?? '')) === '';
 $summaryPendingMsg = $summaryQuoteReady ? '' : CartDeliveryBanner::summaryPendingMessage($totals);
-$summaryZone = trim((string) ($totals['delivery_zone'] ?? ''));
 ?>
 <div class="at-cart-summary <?= $compact ? '' : 'at-card' ?>">
     <div class="<?= $compact ? '' : 'at-card__body' ?>">
@@ -39,7 +38,7 @@ $summaryZone = trim((string) ($totals['delivery_zone'] ?? ''));
                 <dt>Coupon discount (<span data-cart-coupon-code><?= $couponApplied ? Security::escape(trim((string) $totals['coupon_code'])) : '' ?></span>)</dt>
                 <dd data-cart-coupon-amount><?= $couponApplied ? '−' . Security::escape(catalogue_format_price((float) $totals['coupon_discount'])) : '' ?></dd>
             </div>
-            <div><dt>Delivery charge <span class="at-muted font-normal text-xs" data-cart-delivery-context><?= ($summaryQuoteReady && $summaryZone !== '') ? '· ' . Security::escape($summaryZone) : '' ?></span></dt><dd data-cart-delivery><?php if (!$summaryQuoteReady): ?><span class="at-muted">—</span><?php elseif ((float) $totals['delivery_fee'] <= 0.0): ?>Free<?php else: ?><?= Security::escape(catalogue_format_price((float) $totals['delivery_fee'])) ?><?php endif; ?></dd></div>
+            <div><dt>Delivery charge</dt><dd data-cart-delivery><?php if (!$summaryQuoteReady): ?><span class="at-muted">—</span><?php elseif ((float) $totals['delivery_fee'] <= 0.0): ?>Free<?php else: ?><?= Security::escape(catalogue_format_price((float) $totals['delivery_fee'])) ?><?php endif; ?></dd></div>
             <div class="is-total">
                 <dt>
                     <span data-cart-total-label><?= $summaryQuoteReady ? 'Total payable' : 'Items payable' ?></span>

@@ -48,7 +48,7 @@ final class DeliveryService
             if ($zone !== null) {
                 $base['serviceable'] = true;
                 $base['zone'] = $zone;
-                $base['message'] = 'Good news — we deliver to ' . $pin . ' (' . $zone['name'] . ').';
+                $base['message'] = 'Good news — we deliver to ' . $pin . '.';
 
                 return $base;
             }
@@ -212,9 +212,18 @@ final class DeliveryService
         if (!DeliveryConfig::slotsEnabled()) {
             return $slug === 'auto' || $slug === '';
         }
+        if (!Install::isSchemaReady()) {
+            return DeliverySlotService::resolveBySlug($slug) !== null
+                || in_array($slug, ['morning', 'afternoon', 'tomorrow'], true);
+        }
+        // Active-slot check only: the chosen delivery date is validated separately
+        // (weekday mask / cutoff / capacity), so a slot bookable on day-after-tomorrow
+        // must not be rejected just because its legacy mapped date is blocked.
+        Install::ensureConnection();
+        $stmt = Database::pdo()->prepare('SELECT id FROM delivery_slots WHERE slug = ? AND is_active = 1 LIMIT 1');
+        $stmt->execute([$slug]);
 
-        return DeliverySlotService::resolveBySlug($slug) !== null
-            || in_array($slug, ['morning', 'afternoon', 'tomorrow'], true);
+        return (bool) $stmt->fetchColumn();
     }
 
     /** @return array<string, mixed>|null */
