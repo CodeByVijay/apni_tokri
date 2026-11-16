@@ -97,7 +97,8 @@ final class NominatimReverseGeocoder
 
     /**
      * Map Nominatim `addressdetails` (see format=jsonv2) to checkout fields.
-     * Street = thoroughfare (+ house number when present). Area / locality only = neighbourhood-scale keys — never city+state.
+     * Street = thoroughfare; house_number / building_name / landmark emitted separately when present.
+     * Area / locality only = neighbourhood-scale keys — never city+state.
      *
      * @param array<string, mixed> $json Top-level reverse JSON (must include `address`)
      * @return array<string, string|bool>
@@ -116,7 +117,9 @@ final class NominatimReverseGeocoder
         ];
         $road = self::firstStr($addr, $thoroughfareKeys);
         $houseNum = self::firstStr($addr, ['house_number']);
-        $street = trim($houseNum !== '' && $road !== '' ? $houseNum . ', ' . $road : ($road !== '' ? $road : $houseNum));
+        $street = $road;
+        $building = self::firstStr($addr, ['building', 'commercial', 'office']);
+        $landmark = self::firstStr($addr, ['amenity', 'attraction', 'tourism', 'leisure', 'shop']);
 
         $localityKeys = [
             'neighbourhood', 'suburb', 'quarter', 'locality', 'village', 'hamlet', 'city_block',
@@ -131,22 +134,28 @@ final class NominatimReverseGeocoder
         $postcode = preg_replace('/\D+/', '', $postcodeRaw) ?? '';
 
         $area = $locality;
+        if ($landmark !== '' && in_array($landmark, [$building, $street, $area, $city], true)) {
+            $landmark = '';
+        }
 
         $out = [
             'ok' => true,
+            'house_number' => $houseNum,
+            'building_name' => $building,
             'street' => $street,
             'area' => $area,
+            'landmark' => $landmark,
             'city' => $city,
             'state' => $state,
             'country' => $country,
         ];
         // Only trust postcode alongside street/locality evidence — OSM often returns a city-level
         // boundary postcode (e.g. Indore 452001) that is wrong for the actual delivery pincode.
-        if ($postcode !== '' && ($street !== '' || $area !== '') && preg_match('/^[1-9][0-9]{5}$/', $postcode) === 1) {
+        if ($postcode !== '' && ($street !== '' || $area !== '' || $houseNum !== '') && preg_match('/^[1-9][0-9]{5}$/', $postcode) === 1) {
             $out['pincode'] = $postcode;
         }
 
-        $hasAny = $street !== '' || $area !== '' || $city !== '' || $state !== '' || isset($out['pincode']) || $country !== '';
+        $hasAny = $street !== '' || $houseNum !== '' || $building !== '' || $area !== '' || $city !== '' || $state !== '' || isset($out['pincode']) || $country !== '';
         if (!$hasAny) {
             return ['ok' => false, 'error' => 'No usable address fields for this location.'];
         }

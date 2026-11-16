@@ -84,6 +84,7 @@
     var $city = $form.find('[name="addr_city"]');
     var $state = $form.find('[name="addr_state"]');
     var $pin = $form.find('[name="pincode"]');
+    var $landmark = $form.find('[name="landmark"]');
     var $hintDetected = $form.find('[data-addr-detected-hint]');
     var $btnGps = $form.find('[data-addr-gps]');
     var $btnGeoSearch = $form.find('[data-addr-geo-search]');
@@ -116,7 +117,7 @@
     $form.on('change', 'input[name="label_type"]', syncLabelType);
     syncLabelType();
 
-    var $placeFields = $house.add($building).add($street).add($area).add($city).add($state).add($pin);
+    var $placeFields = $house.add($building).add($street).add($area).add($city).add($state).add($pin).add($landmark);
 
     function clearCoords() {
       $lat.val('');
@@ -168,6 +169,7 @@
       fill($building, addr.building_name);
       fill($street, addr.street);
       fill($area, addr.area);
+      fill($landmark, addr.landmark);
       fill($city, addr.city);
       fill($state, addr.state);
       if (addr.postcode) {
@@ -436,8 +438,11 @@
             writeCoords(lat, lng);
             selectedPlaceQuery = null;
             fillFromGooglePlace({
+              house_number: ra.house_number,
+              building_name: ra.building_name,
               street: ra.street,
               area: ra.area,
+              landmark: ra.landmark,
               city: ra.city,
               state: ra.state,
               postcode: ra.pincode

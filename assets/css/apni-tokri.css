@@ -10374,7 +10374,14 @@ body.at-map-viewer-open { overflow: hidden; }
   max-width: 32.5rem;
   max-height: min(88vh, 46rem);
   max-height: min(calc(100dvh - 1.5rem - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)), 46rem);
-  overflow: hidden;
+  /* Single scroll container lives on the modal itself — an inner scrolling
+     body puts a scrollbar inset by the body padding, and overlay thumbs end
+     up clipping the right edge of form inputs. The sticky header keeps the
+     title and close button reachable while the modal scrolls beneath it. */
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   border-radius: var(--at-radius-lg);
 }
 @media (min-width: 640px) {
@@ -10386,6 +10393,9 @@ body.at-map-viewer-open { overflow: hidden; }
   display: none !important;
 }
 .at-modal.at-dl .at-modal__header {
+  position: sticky;
+  top: 0;
+  z-index: 5;
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -10417,9 +10427,6 @@ body.at-map-viewer-open { overflow: hidden; }
 .at-modal.at-dl .at-dl__body {
   flex: 1 1 auto;
   min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
   display: flex;
   flex-direction: column;
   gap: 0.875rem;

@@ -589,37 +589,67 @@ final class GooglePlacesGeocoder
         if ($first === null) {
             return ['ok' => false, 'error' => 'No address found for this location.', 'diagnostic' => $diag];
         }
-        $comp = [];
-        foreach (($first['address_components'] ?? []) as $c) {
-            if (!is_array($c)) {
-                continue;
-            }
-            $types = $c['types'] ?? [];
-            $name = isset($c['long_name']) && is_string($c['long_name']) ? $c['long_name'] : '';
-            if ($name === '' || !is_array($types)) {
-                continue;
-            }
-            foreach (['street_number', 'route', 'sublocality_level_1', 'sublocality', 'neighborhood', 'locality', 'administrative_area_level_2', 'administrative_area_level_1', 'postal_code', 'country'] as $t) {
-                if (in_array($t, $types, true) && !isset($comp[$t])) {
-                    $comp[$t] = $name;
-                }
-            }
-        }
-        $street = trim(implode(' ', array_filter([$comp['street_number'] ?? '', $comp['route'] ?? ''])));
+        $comp = self::mergeGeocodeComponents($results);
+        $houseNumber = $comp['street_number'] ?? null;
+        $building = $comp['premise'] ?? $comp['subpremise'] ?? null;
+        $street = $comp['route'] ?? null;
         $area = $comp['sublocality_level_1'] ?? $comp['sublocality'] ?? $comp['neighborhood'] ?? null;
         $city = $comp['locality'] ?? $comp['administrative_area_level_2'] ?? null;
+        $landmark = $comp['point_of_interest'] ?? $comp['establishment'] ?? null;
+        if ($landmark !== null && in_array($landmark, [$building, $street, $area, $city], true)) {
+            $landmark = null;
+        }
 
         return [
             'ok' => true,
             'diagnostic' => $diag,
-            'street' => $street !== '' ? $street : null,
+            'house_number' => $houseNumber,
+            'building_name' => $building,
+            'street' => $street,
             'area' => $area,
+            'landmark' => $landmark,
             'city' => $city,
             'state' => $comp['administrative_area_level_1'] ?? null,
             'pincode' => $comp['postal_code'] ?? null,
             'country' => $comp['country'] ?? null,
             'formatted' => isset($first['formatted_address']) && is_string($first['formatted_address']) ? $first['formatted_address'] : null,
         ];
+    }
+
+    /**
+     * Merge address components across the top Geocoding results. Results are
+     * ordered most-precise-first, but the top hit may be a locality/postal_code/
+     * plus_code entity lacking street-level components — first non-empty wins so
+     * route/street_number/premise surface whenever any nearby result has them.
+     *
+     * @param array<int, mixed> $results Geocoding `results` array
+     * @return array<string, string> Component type => long_name
+     */
+    private static function mergeGeocodeComponents(array $results): array
+    {
+        $comp = [];
+        foreach (array_slice($results, 0, 6) as $r) {
+            if (!is_array($r)) {
+                continue;
+            }
+            foreach (($r['address_components'] ?? []) as $c) {
+                if (!is_array($c)) {
+                    continue;
+                }
+                $types = $c['types'] ?? [];
+                $name = isset($c['long_name']) && is_string($c['long_name']) ? $c['long_name'] : '';
+                if ($name === '' || !is_array($types)) {
+                    continue;
+                }
+                foreach (['street_number', 'premise', 'subpremise', 'point_of_interest', 'establishment', 'route', 'sublocality_level_1', 'sublocality', 'neighborhood', 'locality', 'administrative_area_level_2', 'administrative_area_level_1', 'postal_code', 'country'] as $t) {
+                    if (in_array($t, $types, true) && !isset($comp[$t])) {
+                        $comp[$t] = $name;
+                    }
+                }
+            }
+        }
+
+        return $comp;
     }
 
     /**

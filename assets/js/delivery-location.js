@@ -68,6 +68,10 @@
       var on = this.getAttribute('data-at-dl-step') === name;
       $(this).prop('hidden', !on).toggleClass('is-active', on);
     });
+    // The modal is the scroll container (header stays sticky); reset both so a
+    // stale body scroll position can never linger if CSS is cached.
+    var modalEl = $modal.find('.at-modal')[0];
+    if (modalEl) modalEl.scrollTop = 0;
     var bodyEl = $modal.find('.at-modal__body')[0];
     if (bodyEl) bodyEl.scrollTop = 0;
     if (name === 'map') {
@@ -734,6 +738,12 @@
       : $();
     if ($radio.length) {
       $radio.prop('checked', true);
+      // .prop('checked') does not emit change, so card selection styling and
+      // quote refresh listeners would go stale. Dispatch a bubbling change.
+      var radioEl = $radio[0];
+      if (radioEl && radioEl.dispatchEvent) {
+        radioEl.dispatchEvent(new Event('change', { bubbles: true }));
+      }
     }
     if (typeof window.AT_CHECKOUT_REFRESH_QUOTE === 'function') {
       window.AT_CHECKOUT_REFRESH_QUOTE();

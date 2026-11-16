@@ -87,8 +87,11 @@
     var $btnClear = $form.find('[data-addr-clear-pin]');
     var $preview = $form.find('[data-addr-preview]');
     var $hintDetected = $form.find('[data-addr-detected-hint]');
+    var $house = $form.find('[name="house_number"]');
+    var $building = $form.find('[name="building_name"]');
     var $street = $form.find('[name="street"]');
     var $area = $form.find('[name="area"]');
+    var $landmark = $form.find('[name="landmark"]');
     var $pin = $form.find('[name="pincode"]');
 
     var $searchWrap = $form.find('[data-addr-search-wrap]');
@@ -150,12 +153,24 @@
     function fillFromGeo(addr) {
       addr = addr || {};
       var touched = false;
+      if (addr.house_number && $.trim($house.val() || '') === '') {
+        $house.val(String(addr.house_number));
+        touched = true;
+      }
+      if (addr.building_name && $.trim($building.val() || '') === '') {
+        $building.val(String(addr.building_name));
+        touched = true;
+      }
       if (addr.street && $.trim($street.val() || '') === '') {
         $street.val(String(addr.street));
         touched = true;
       }
       if (addr.area && $.trim($area.val() || '') === '') {
         $area.val(String(addr.area));
+        touched = true;
+      }
+      if (addr.landmark && $.trim($landmark.val() || '') === '') {
+        $landmark.val(String(addr.landmark));
         touched = true;
       }
       if (addr.pincode && $.trim($pin.val() || '') === '') {
