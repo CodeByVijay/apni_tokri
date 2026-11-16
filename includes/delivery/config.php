@@ -253,6 +253,11 @@ final class DeliveryContext
         return is_string($p) && preg_match('/^\d{6}$/', $p) ? $p : null;
     }
 
+    public static function clearPin(): void
+    {
+        unset($_SESSION[self::SESSION_PIN]);
+    }
+
     /**
      * @return array{
      *   pin: string,

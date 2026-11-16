@@ -170,6 +170,7 @@ foreach ($cmsFooterLinks as $cmsFooterLink) {
 <script defer src="<?= Security::escape(asset_url('assets/js/apni-tokri.js')) ?>"></script>
 <script defer src="<?= Security::escape(asset_url('assets/js/offer-countdown.js')) ?>"></script>
 <script defer src="<?= Security::escape(asset_url('assets/js/cart.js')) ?>"></script>
+<script defer src="<?= Security::escape(asset_url('assets/js/delivery-location.js')) ?>"></script>
 <?php
 global $loadCatalogueJs;
 $loadCatalogueJs = !empty($loadCatalogueJs);

@@ -7,6 +7,16 @@ $activeNav = $activeNav ?? '';
 $cartCount = isset($cartCount) ? (int) $cartCount : 0;
 $base = url_base();
 $deliveryPin = DeliveryContext::sessionPin();
+$selAddr = DeliverySessionAddress::current();
+$selTitle = $selAddr !== null ? DeliverySessionAddress::title($selAddr) : 'Indore';
+if ($selAddr !== null) {
+    $selSub = DeliverySessionAddress::subtitle($selAddr);
+} elseif ($deliveryPin !== null) {
+    $selSub = $deliveryPin;
+} else {
+    $selSub = (string) __('check_delivery');
+}
+$selSavedAddresses = CustomerService::isLoggedIn() ? CustomerService::addresses() : [];
 $currentSlug = isset($_GET['slug']) && is_string($_GET['slug']) ? $_GET['slug'] : '';
 
 if (!function_exists('catalogue_product_url')) {
@@ -67,7 +77,7 @@ $navIsCategoryPage = $activeNav === 'categories';
             <div class="flex items-center gap-1 ml-auto flex-shrink-0">
                 <button type="button" class="at-location hidden lg:inline-flex at-focusable" data-at-open-modal="#at-delivery-modal" aria-haspopup="dialog">
                     <span class="at-location__pin"><?= at_icon('pin', 'w-4 h-4') ?></span>
-                    <span><small><?= Security::escape(__('delivery_to')) ?></small><strong>Indore<span data-at-loc-pin><?= $deliveryPin !== null ? ' · ' . Security::escape($deliveryPin) : '' ?></span></strong></span>
+                    <span><small><?= Security::escape(__('delivery_to')) ?></small><strong><span data-at-loc-title><?= Security::escape($selTitle) ?></span><span data-at-loc-pin><?= $selSub !== '' ? ' · ' . Security::escape($selSub) : '' ?></span></strong></span>
                 </button>
                 <?php
                 $atLoggedIn = CustomerService::isLoggedIn();
@@ -87,7 +97,7 @@ $navIsCategoryPage = $activeNav === 'categories';
         <?php if (!empty($homeMobileChrome)): ?>
         <button type="button" class="at-location at-home-location md:hidden at-focusable" data-at-open-modal="#at-delivery-modal" aria-haspopup="dialog">
             <span class="at-location__pin"><?= at_icon('pin', 'w-4 h-4') ?></span>
-            <span class="at-home-location__text min-w-0 flex-1"><small><?= Security::escape(__('delivery_to')) ?></small><strong>Indore<span data-at-loc-pin><?= $deliveryPin !== null ? ' · ' . Security::escape($deliveryPin) : ' · ' . Security::escape(__('check_delivery')) ?></span></strong></span>
+            <span class="at-home-location__text min-w-0 flex-1"><small><?= Security::escape(__('delivery_to')) ?></small><strong><span data-at-loc-title><?= Security::escape($selTitle) ?></span><span data-at-loc-pin><?= ' · ' . Security::escape($selSub) ?></span></strong></span>
             <?= at_icon('chevron-right', 'w-4 h-4 at-home-location__chevron') ?>
         </button>
         <?php endif; ?>
@@ -132,7 +142,7 @@ $navIsCategoryPage = $activeNav === 'categories';
         <div class="p-3">
             <button type="button" class="at-location w-full !max-w-none mb-3 at-focusable" data-at-open-modal="#at-delivery-modal" data-at-nav-close>
                 <span class="at-location__pin"><?= at_icon('pin', 'w-4 h-4') ?></span>
-                <span><small><?= Security::escape(__('delivery_to')) ?></small><strong>Indore<span data-at-loc-pin><?= $deliveryPin !== null ? ' · ' . Security::escape($deliveryPin) : ' · ' . Security::escape(__('check_delivery')) ?></span></strong></span>
+                <span><small><?= Security::escape(__('delivery_to')) ?></small><strong><span data-at-loc-title><?= Security::escape($selTitle) ?></span><span data-at-loc-pin><?= ' · ' . Security::escape($selSub) ?></span></strong></span>
             </button>
             <p class="at-eyebrow px-3 mt-2 mb-1"><?= Security::escape(__('nav_categories')) ?></p>
             <a href="<?= Security::escape($base) ?>/index.php" class="at-drawer-link at-focusable"><?= at_icon('home') ?><?= Security::escape(__('nav_home')) ?></a>
@@ -149,24 +159,184 @@ $navIsCategoryPage = $activeNav === 'categories';
     </div>
 </div>
 
-<!-- Delivery modal -->
+<!-- Delivery location selector -->
+<?php
+$atDlConfig = [
+    'saveUrl' => $base . '/ajax/delivery/select-address.php',
+    'autocompleteUrl' => $base . '/ajax/address/autocomplete-search.php',
+    'reverseGeocodeUrl' => $base . '/ajax/address/reverse-geocode.php',
+    'searchEnabled' => AddressAutocompleteSettings::isEnabled(),
+    'minChars' => 3,
+    'debounceMs' => 400,
+    'maxResults' => AddressAutocompleteSettings::maxResults(),
+    'map' => MapConfig::clientConfig(),
+    'leaflet' => [
+        'css' => asset_url('assets/vendor/leaflet/leaflet.css'),
+        'js' => asset_url('assets/vendor/leaflet/leaflet.js'),
+    ],
+];
+?>
 <div id="at-delivery-modal" class="at-modal-backdrop" data-current-pin="<?= Security::escape((string) ($deliveryPin ?? '')) ?>" aria-hidden="true" role="presentation">
-    <div class="at-modal" role="dialog" aria-modal="true" aria-labelledby="at-delivery-modal-title">
+    <div class="at-modal at-dl" role="dialog" aria-modal="true" aria-labelledby="at-delivery-modal-title">
         <div class="at-modal__header">
-            <h2 id="at-delivery-modal-title" class="at-modal__title"><?= Security::escape(__('check_delivery')) ?></h2>
+            <h2 id="at-delivery-modal-title" class="at-modal__title">Choose your delivery location</h2>
             <button type="button" class="at-close at-focusable" data-at-modal-close aria-label="<?= Security::escape(__('menu_close')) ?>"><?= at_icon('close', 'w-5 h-5') ?></button>
         </div>
-        <div class="at-modal__body space-y-3">
-            <p class="text-sm at-muted">We currently plan to deliver in select Indore areas. Enter your pincode to see if we reach you.</p>
-            <div>
-                <label class="at-label" for="at-pincode">Pincode / area</label>
-                <input id="at-pincode" type="text" class="at-input at-focusable" placeholder="e.g. 452001" inputmode="numeric" maxlength="6" autocomplete="postal-code" value="<?= Security::escape((string) ($deliveryPin ?? '')) ?>">
-                <p class="at-field-hint" id="at-pin-result" role="status" aria-live="polite"></p>
-            </div>
-        </div>
-        <div class="at-modal__footer">
-            <button type="button" class="at-btn at-btn--secondary at-focusable" data-at-modal-close>Close</button>
-            <button type="button" id="at-pin-check-btn" class="at-btn at-btn--primary at-focusable">Check delivery</button>
+        <div class="at-modal__body at-dl__body">
+            <p class="at-dl__msg" data-at-dl-msg role="status" aria-live="polite" hidden></p>
+
+            <section class="at-dl__step" data-at-dl-step="choose">
+                <?php if ($selAddr !== null): ?>
+                <div class="at-dl__current" data-at-dl-current>
+                    <span class="at-dl__tag"><?= $selAddr['kind'] === 'saved' ? 'Saved' : 'Current' ?></span>
+                    <div class="at-dl__current-text">
+                        <strong data-at-dl-current-title><?= Security::escape(DeliverySessionAddress::title($selAddr)) ?></strong>
+                        <span data-at-dl-current-line><?= Security::escape(DeliverySessionAddress::readableLine($selAddr)) ?></span>
+                        <?php
+                        $selSvc = $selAddr['serviceable'] ?? null;
+                        $selSvcClass = $selSvc === true ? 'at-dl__status at-dl__status--ok' : ($selSvc === false ? 'at-dl__status at-dl__status--warn' : 'at-dl__status');
+                        $selSvcText = '';
+                        if ($selSvc === true) {
+                            $selSvcText = 'Delivery available' . (!empty($selAddr['service_zone']) ? ' · ' . (string) $selAddr['service_zone'] : '');
+                        } elseif ($selSvc === false) {
+                            $selSvcText = (string) ($selAddr['service_message'] ?? 'We do not deliver here yet.');
+                        }
+                        ?>
+                        <span class="<?= Security::escape($selSvcClass) ?>" data-at-dl-current-status<?= $selSvc === null ? ' hidden' : '' ?>><?= Security::escape($selSvcText) ?></span>
+                    </div>
+                </div>
+                <?php endif; ?>
+
+                <div class="at-dl__searchwrap<?= $atDlConfig['searchEnabled'] ? '' : ' hidden' ?>" data-at-dl-searchwrap>
+                    <?= at_icon('search') ?>
+                    <input type="search" class="at-dl__search" data-at-dl-search placeholder="Search for area, street or landmark" autocomplete="off" aria-label="Search for your delivery area" aria-expanded="false" aria-controls="at-dl-results">
+                </div>
+                <ul id="at-dl-results" class="at-dl__results" data-at-dl-results role="listbox" hidden></ul>
+                <p class="at-dl__hint" data-at-dl-searchhint<?= $atDlConfig['searchEnabled'] ? ' hidden' : '' ?>>Address search is not enabled yet — you can pick your location on the map or enter it below.</p>
+
+                <ul class="at-dl__actions">
+                    <li>
+                        <button type="button" class="at-dl__action at-focusable" data-at-dl-gps>
+                            <span class="at-dl__action-ic"><?= at_icon('pin', 'w-5 h-5') ?></span>
+                            <span class="at-dl__action-text"><strong>Use my current location</strong><small data-at-dl-gps-sub>GPS — fastest way</small></span>
+                            <?= at_icon('chevron-right', 'w-4 h-4 at-dl__action-caret') ?>
+                        </button>
+                    </li>
+                    <li>
+                        <button type="button" class="at-dl__action at-focusable" data-at-dl-map>
+                            <span class="at-dl__action-ic"><?= at_icon('pin', 'w-5 h-5') ?></span>
+                            <span class="at-dl__action-text"><strong>Select location on map</strong><small>Tap to drop a pin</small></span>
+                            <?= at_icon('chevron-right', 'w-4 h-4 at-dl__action-caret') ?>
+                        </button>
+                    </li>
+                    <li>
+                        <button type="button" class="at-dl__action at-focusable" data-at-dl-manual>
+                            <span class="at-dl__action-ic"><?= at_icon('home', 'w-5 h-5') ?></span>
+                            <span class="at-dl__action-text"><strong>Enter address manually</strong><small>Fill in the details</small></span>
+                            <?= at_icon('chevron-right', 'w-4 h-4 at-dl__action-caret') ?>
+                        </button>
+                    </li>
+                </ul>
+
+                <?php if (!empty($selSavedAddresses)): ?>
+                <div class="at-dl__saved">
+                    <p class="at-eyebrow at-dl__saved-title">Your saved addresses</p>
+                    <ul class="at-dl__saved-list">
+                        <?php foreach ($selSavedAddresses as $sa): ?>
+                        <li>
+                            <button type="button" class="at-dl__saved-item at-focusable" data-at-dl-saved="<?= Security::escape((string) $sa['id']) ?>">
+                                <span class="at-dl__saved-top">
+                                    <strong><?= Security::escape((string) $sa['label']) ?></strong>
+                                    <?= !empty($sa['is_default']) ? '<span class="at-dl__tag">Default</span>' : '' ?>
+                                </span>
+                                <span class="at-dl__saved-line"><?= Security::escape(trim((string) $sa['line1'] . ', ' . (string) $sa['city'] . ' ' . (string) $sa['pincode'], ', ')) ?></span>
+                            </button>
+                        </li>
+                        <?php endforeach; ?>
+                    </ul>
+                </div>
+                <?php endif; ?>
+            </section>
+
+            <section class="at-dl__step" data-at-dl-step="map" hidden>
+                <button type="button" class="at-dl__back at-focusable" data-at-dl-back>&larr; Back</button>
+                <p class="text-sm at-muted">Tap the map or drag the pin to your exact delivery spot.</p>
+                <div class="at-dl__mapwrap">
+                    <div class="at-dl__map" data-at-dl-map-el role="application" aria-label="Map for choosing your delivery location. Tap to place the pin or drag it."></div>
+                    <div class="at-dl__maploading" data-at-dl-maploading><span class="at-addr-spinner is-visible" aria-hidden="true"></span> Loading map&hellip;</div>
+                </div>
+                <div class="at-dl__mapbar">
+                    <button type="button" class="at-btn at-btn--secondary at-btn--sm at-focusable" data-at-dl-mapgps><?= at_icon('pin', 'w-4 h-4') ?> <span data-at-dl-mapgps-label>Use my current location</span></button>
+                    <p class="at-dl__mappoint" data-at-dl-mappoint>No location selected yet.</p>
+                </div>
+                <button type="button" class="at-btn at-btn--primary at-btn--block at-focusable" data-at-dl-mapconfirm disabled>Confirm location</button>
+            </section>
+
+            <section class="at-dl__step" data-at-dl-step="form" hidden>
+                <button type="button" class="at-dl__back at-focusable" data-at-dl-back>&larr; Back</button>
+                <p class="at-dl__pinnote" data-at-dl-pinnote hidden><?= at_icon('pin', 'w-4 h-4') ?> Location confirmed on map — complete the address details.</p>
+                <form data-at-dl-form novalidate>
+                    <input type="hidden" name="latitude" value="">
+                    <input type="hidden" name="longitude" value="">
+                    <input type="hidden" name="location_confirmed" value="0">
+
+                    <fieldset class="at-dl__types">
+                        <legend class="at-label">Address type</legend>
+                        <div class="at-dl__type-row" role="radiogroup" aria-label="Address type">
+                            <label class="at-dl__type"><input type="radio" name="address_type" value="Home" checked> <span>Home</span></label>
+                            <label class="at-dl__type"><input type="radio" name="address_type" value="Work"> <span>Work</span></label>
+                            <label class="at-dl__type"><input type="radio" name="address_type" value="Other"> <span>Other</span></label>
+                        </div>
+                    </fieldset>
+
+                    <div class="at-dl__grid">
+                        <div class="at-dl__field">
+                            <label class="at-label" for="at-dl-house">Flat / house no.</label>
+                            <input id="at-dl-house" class="at-input at-focusable" type="text" name="house_number" maxlength="100" autocomplete="off">
+                        </div>
+                        <div class="at-dl__field">
+                            <label class="at-label" for="at-dl-building">Building / apartment <span class="at-muted">(optional)</span></label>
+                            <input id="at-dl-building" class="at-input at-focusable" type="text" name="building_name" maxlength="150" autocomplete="off">
+                        </div>
+                        <div class="at-dl__field at-dl__field--full">
+                            <label class="at-label" for="at-dl-street">Street / road</label>
+                            <input id="at-dl-street" class="at-input at-focusable" type="text" name="street" maxlength="150" autocomplete="street-address">
+                        </div>
+                        <div class="at-dl__field at-dl__field--full">
+                            <label class="at-label" for="at-dl-area">Area / locality</label>
+                            <input id="at-dl-area" class="at-input at-focusable" type="text" name="area" maxlength="150" required>
+                        </div>
+                        <div class="at-dl__field at-dl__field--full">
+                            <label class="at-label" for="at-dl-landmark">Landmark <span class="at-muted">(optional)</span></label>
+                            <input id="at-dl-landmark" class="at-input at-focusable" type="text" name="landmark" maxlength="191">
+                        </div>
+                        <div class="at-dl__field">
+                            <label class="at-label" for="at-dl-city">City</label>
+                            <input id="at-dl-city" class="at-input at-focusable" type="text" name="city" maxlength="128" value="Indore" required>
+                        </div>
+                        <div class="at-dl__field">
+                            <label class="at-label" for="at-dl-state">State</label>
+                            <input id="at-dl-state" class="at-input at-focusable" type="text" name="state" maxlength="128" value="Madhya Pradesh" required>
+                        </div>
+                        <div class="at-dl__field">
+                            <label class="at-label" for="at-dl-pincode">Pincode</label>
+                            <input id="at-dl-pincode" class="at-input at-focusable" type="text" name="pincode" inputmode="numeric" maxlength="6" autocomplete="postal-code" required>
+                        </div>
+                        <div class="at-dl__field">
+                            <label class="at-label" for="at-dl-phone">Mobile <span class="at-muted">(optional)</span></label>
+                            <input id="at-dl-phone" class="at-input at-focusable" type="tel" name="receiver_phone" inputmode="tel" maxlength="16" autocomplete="tel">
+                        </div>
+                        <div class="at-dl__field at-dl__field--full">
+                            <label class="at-label" for="at-dl-name">Receiver name <span class="at-muted">(optional)</span></label>
+                            <input id="at-dl-name" class="at-input at-focusable" type="text" name="receiver_name" maxlength="100" autocomplete="name">
+                        </div>
+                    </div>
+
+                    <p class="at-dl__err" data-at-dl-formerr role="alert" hidden></p>
+                    <button type="submit" class="at-btn at-btn--primary at-btn--block at-focusable" data-at-dl-save>Confirm &amp; save address</button>
+                </form>
+            </section>
         </div>
     </div>
+    <script type="application/json" id="at-dl-config"><?= json_encode($atDlConfig, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
 </div>
