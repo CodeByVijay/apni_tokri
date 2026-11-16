@@ -408,6 +408,110 @@ final class GooglePlacesGeocoder
     }
 
     /**
+     * Google Geocoding API reverse lookup (separate API from Places — must be
+     * enabled on the key's project and billed). Key travels in the query string;
+     * it is never logged or returned.
+     *
+     * @return array{ok: bool, error?: string, diagnostic?: array<string, mixed>, street?: string, area?: string, city?: string, state?: string, pincode?: string, country?: string}
+     */
+    public static function reverseGeocode(float $lat, float $lng, int $timeoutSeconds, ?string $apiKey): array
+    {
+        $key = $apiKey !== null && $apiKey !== '' ? $apiKey : AddressAutocompleteSettings::googleApiKey();
+        if ($key === null || $key === '') {
+            return ['ok' => false, 'error' => 'Google API key is not configured.'];
+        }
+        $base = BusinessSettings::websiteUrl();
+        $ua = 'VeggieTokriGoogleGeocoding/1.0 (+' . $base . ')';
+        $endpointSafe = 'maps.googleapis.com/geocode/json';
+        $provider = 'google_geocoding';
+        $url = 'https://maps.googleapis.com/maps/api/geocode/json?latlng='
+            . rawurlencode(sprintf('%.7F,%.7F', $lat, $lng))
+            . '&language=en&key=' . rawurlencode($key);
+
+        $ch = curl_init($url);
+        if ($ch === false) {
+            return ['ok' => false, 'error' => 'Could not reach Google Geocoding.', 'diagnostic' => self::baseDiagnostic($provider, 'reverse_geocode', $endpointSafe, 0, '', '', 'curl init failed')];
+        }
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER => ['Accept: application/json', 'User-Agent: ' . $ua],
+            CURLOPT_TIMEOUT => max(3, min(25, $timeoutSeconds)),
+            CURLOPT_CONNECTTIMEOUT => 5,
+        ]);
+        $rawBody = curl_exec($ch);
+        $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $cerr = curl_error($ch);
+        curl_close($ch);
+        if (!is_string($rawBody) || $rawBody === '') {
+            $diag = self::baseDiagnostic($provider, 'reverse_geocode', $endpointSafe, $status, '', '', $cerr !== '' ? 'transport error' : 'empty body');
+            self::logPlacesDiagnostic($diag, false);
+
+            return ['ok' => false, 'error' => 'Could not reach Google Geocoding.', 'diagnostic' => $diag];
+        }
+        try {
+            $json = json_decode($rawBody, true, 512, JSON_THROW_ON_ERROR);
+        } catch (Throwable $e) {
+            $diag = self::baseDiagnostic($provider, 'reverse_geocode', $endpointSafe, $status, '', '', 'JSON decode failed');
+            self::logPlacesDiagnostic($diag, false);
+
+            return ['ok' => false, 'error' => 'Invalid response from Google Geocoding.', 'diagnostic' => $diag];
+        }
+        $gStatus = is_array($json) && isset($json['status']) ? (string) $json['status'] : '';
+        if (!is_array($json) || $status < 200 || $status >= 300 || ($gStatus !== 'OK' && $gStatus !== 'ZERO_RESULTS')) {
+            $gErrSan = self::sanitizeGoogleErrorMessage(is_array($json) && isset($json['error_message']) ? (string) $json['error_message'] : '');
+            $token = self::classifyGoogleError($gStatus, $gErrSan);
+            $diag = self::baseDiagnostic($provider, 'reverse_geocode', $endpointSafe, $status, $gStatus, $gErrSan, $token);
+            self::logPlacesDiagnostic($diag, false);
+            $friendly = $gStatus === 'ZERO_RESULTS' ? 'No address found for this location.'
+                : self::formatAdminFacingError($gStatus !== '' ? $gStatus : 'HTTP ' . $status, $gErrSan, $token !== '' ? $token : 'UNKNOWN');
+
+            return ['ok' => false, 'error' => $friendly, 'diagnostic' => $diag];
+        }
+        $diag = self::baseDiagnostic($provider, 'reverse_geocode', $endpointSafe, $status, $gStatus, '', null);
+        self::logPlacesDiagnostic($diag, true);
+        if ($gStatus === 'ZERO_RESULTS') {
+            return ['ok' => false, 'error' => 'No address found for this location.', 'diagnostic' => $diag];
+        }
+
+        $results = isset($json['results']) && is_array($json['results']) ? $json['results'] : [];
+        $first = isset($results[0]) && is_array($results[0]) ? $results[0] : null;
+        if ($first === null) {
+            return ['ok' => false, 'error' => 'No address found for this location.', 'diagnostic' => $diag];
+        }
+        $comp = [];
+        foreach (($first['address_components'] ?? []) as $c) {
+            if (!is_array($c)) {
+                continue;
+            }
+            $types = $c['types'] ?? [];
+            $name = isset($c['long_name']) && is_string($c['long_name']) ? $c['long_name'] : '';
+            if ($name === '' || !is_array($types)) {
+                continue;
+            }
+            foreach (['street_number', 'route', 'sublocality_level_1', 'sublocality', 'neighborhood', 'locality', 'administrative_area_level_2', 'administrative_area_level_1', 'postal_code', 'country'] as $t) {
+                if (in_array($t, $types, true) && !isset($comp[$t])) {
+                    $comp[$t] = $name;
+                }
+            }
+        }
+        $street = trim(implode(' ', array_filter([$comp['street_number'] ?? '', $comp['route'] ?? ''])));
+        $area = $comp['sublocality_level_1'] ?? $comp['sublocality'] ?? $comp['neighborhood'] ?? null;
+        $city = $comp['locality'] ?? $comp['administrative_area_level_2'] ?? null;
+
+        return [
+            'ok' => true,
+            'diagnostic' => $diag,
+            'street' => $street !== '' ? $street : null,
+            'area' => $area,
+            'city' => $city,
+            'state' => $comp['administrative_area_level_1'] ?? null,
+            'pincode' => $comp['postal_code'] ?? null,
+            'country' => $comp['country'] ?? null,
+            'formatted' => isset($first['formatted_address']) && is_string($first['formatted_address']) ? $first['formatted_address'] : null,
+        ];
+    }
+
+    /**
      * @param array<string, mixed> $result Place Details result (New or legacy shape)
      * @return array<string, string|null>
      */

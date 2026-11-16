@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 require_once APNI_TOKRI_ROOT . '/includes/settings/address_autocomplete_settings.php';
+require_once APNI_TOKRI_ROOT . '/includes/geocoding/provider_settings.php';
+require_once APNI_TOKRI_ROOT . '/includes/geocoding/usage_meter.php';
 require_once APNI_TOKRI_ROOT . '/includes/geocoding/address_autocomplete_service.php';
 
 /**
@@ -83,10 +85,50 @@ final class AddressAutocompleteAdminSettings
         AppSettings::set(AddressAutocompleteSettings::KEY_TIMEOUT, (string) $timeout);
         AppSettings::set(AddressAutocompleteSettings::KEY_RATE_PER_MIN_IP, (string) $rpm);
 
+        // Phase 4: provider routing, per-provider switches and quotas.
+        $fallback = isset($post['geocoding_search_fallback']) && is_string($post['geocoding_search_fallback'])
+            ? strtolower(trim($post['geocoding_search_fallback'])) : 'none';
+        if (!in_array($fallback, ['none', GeoProviderSettings::PROVIDER_GOOGLE, GeoProviderSettings::PROVIDER_PHOTON], true)) {
+            $fallback = 'none';
+        }
+        if ($fallback === $provider) {
+            $fallback = 'none';
+        }
+        AppSettings::set(GeoProviderSettings::KEY_FALLBACK, $fallback);
+
+        foreach (GeoProviderSettings::providers() as $p) {
+            GeoProviderSettings::setProviderEnabled($p, !empty($post['geocoding_provider_' . $p . '_enabled']));
+            $daily = isset($post['geocoding_quota_' . $p . '_daily']) && is_numeric($post['geocoding_quota_' . $p . '_daily'])
+                ? (int) $post['geocoding_quota_' . $p . '_daily'] : 0;
+            $monthly = isset($post['geocoding_quota_' . $p . '_monthly']) && is_numeric($post['geocoding_quota_' . $p . '_monthly'])
+                ? (int) $post['geocoding_quota_' . $p . '_monthly'] : 0;
+            AppSettings::set(sprintf(GeoProviderSettings::KEY_DAILY_LIMIT, $p), (string) max(0, min(10000000, $daily)));
+            AppSettings::set(sprintf(GeoProviderSettings::KEY_MONTHLY_LIMIT, $p), (string) max(0, min(100000000, $monthly)));
+        }
+
+        $reverseEnabled = !empty($post['geocoding_reverse_enabled']) ? '1' : '0';
+        $reverseProvider = isset($post['geocoding_reverse_provider']) && is_string($post['geocoding_reverse_provider'])
+            ? strtolower(trim($post['geocoding_reverse_provider'])) : GeoProviderSettings::PROVIDER_NOMINATIM;
+        if (!in_array($reverseProvider, [GeoProviderSettings::PROVIDER_NOMINATIM, GeoProviderSettings::PROVIDER_GOOGLE], true)) {
+            $reverseProvider = GeoProviderSettings::PROVIDER_NOMINATIM;
+        }
+        $reverseFallback = isset($post['geocoding_reverse_fallback']) && is_string($post['geocoding_reverse_fallback'])
+            ? strtolower(trim($post['geocoding_reverse_fallback'])) : 'none';
+        if (!in_array($reverseFallback, ['none', GeoProviderSettings::PROVIDER_NOMINATIM, GeoProviderSettings::PROVIDER_GOOGLE], true)
+            || $reverseFallback === $reverseProvider) {
+            $reverseFallback = 'none';
+        }
+        AppSettings::set(GeoProviderSettings::KEY_REVERSE_ENABLED, $reverseEnabled);
+        AppSettings::set(GeoProviderSettings::KEY_REVERSE_PROVIDER, $reverseProvider);
+        AppSettings::set('geocoding.reverse_fallback', $reverseFallback);
+
         $newKey = isset($post['google_places_api_key']) && is_string($post['google_places_api_key'])
             ? trim($post['google_places_api_key']) : '';
         if ($newKey !== '') {
             AppSettings::set(AddressAutocompleteSettings::KEY_GOOGLE_KEY, $newKey, true);
+        }
+        if (!empty($post['google_places_api_key_remove'])) {
+            AppSettings::set(AddressAutocompleteSettings::KEY_GOOGLE_KEY, '', true);
         }
 
         return ['ok' => true, 'message' => 'Map & geocoding settings saved.'];

@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 require_once dirname(__DIR__, 2) . '/includes/bootstrap.php';
-require_once APNI_TOKRI_ROOT . '/includes/geocoding/nominatim_reverse.php';
+require_once APNI_TOKRI_ROOT . '/includes/geocoding/router.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     Ajax::error('Method not allowed', 405);
@@ -20,7 +20,7 @@ if ($coords['lat'] === null || $coords['lng'] === null) {
     Ajax::error('Latitude and longitude are required.');
 }
 
-$res = NominatimReverseGeocoder::reverse($coords['lat'], $coords['lng']);
+$res = GeocodingRouter::reverse($coords['lat'], $coords['lng']);
 if (empty($res['ok'])) {
     Ajax::error((string) ($res['error'] ?? 'Could not look up address.'));
 }
