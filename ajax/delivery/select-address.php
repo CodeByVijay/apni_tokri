@@ -12,17 +12,39 @@ Csrf::requireValid();
 // Two selection modes:
 //  - saved_address_id: pick an existing saved address (logged-in customers only, ownership-checked)
 //  - structured form fields: guest/manual/map selection validated server-side
-$savedId = isset($_POST['saved_address_id']) && is_numeric($_POST['saved_address_id']) ? (int) $_POST['saved_address_id'] : 0;
+$savedRaw = isset($_POST['saved_address_id']) && is_string($_POST['saved_address_id']) ? trim($_POST['saved_address_id']) : '';
 
-if ($savedId > 0) {
+if ($savedRaw !== '') {
     if (!CustomerService::isLoggedIn()) {
         Ajax::error('Please log in to use a saved address.', 403, 'auth_required');
     }
-    $row = CustomerService::address($savedId);
-    if ($row === null) {
-        Ajax::error('That saved address is no longer available.', 404, 'not_found');
+    if (ctype_digit($savedRaw)) {
+        $row = CustomerService::address((int) $savedRaw);
+        if ($row === null) {
+            Ajax::error('That saved address is no longer available.', 404, 'not_found');
+        }
+        $snapshot = DeliverySessionAddress::snapshotFromSavedRow($row);
+    } else {
+        // Session-demo backend uses string ids (addr-1, addr-2, ...); returns [] when demo is off.
+        $demo = null;
+        foreach (SessionCustomerBackend::addresses() as $a) {
+            if ((string) ($a['id'] ?? '') === $savedRaw) {
+                $demo = $a;
+                break;
+            }
+        }
+        if ($demo === null) {
+            Ajax::error('That saved address is no longer available.', 404, 'not_found');
+        }
+        $snapshot = DeliverySessionAddress::snapshotFromSavedRow([
+            'label' => (string) ($demo['label'] ?? 'Home'),
+            'street' => (string) ($demo['line1'] ?? ''),
+            'line1' => (string) ($demo['line1'] ?? ''),
+            'area' => (string) ($demo['city'] ?? ''),
+            'city' => (string) ($demo['city'] ?? ''),
+            'pincode' => (string) ($demo['pincode'] ?? ''),
+        ]);
     }
-    $snapshot = DeliverySessionAddress::snapshotFromSavedRow($row);
 } else {
     $result = DeliverySessionAddress::validate($_POST);
     if (!empty($result['errors'])) {

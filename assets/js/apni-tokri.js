@@ -404,7 +404,10 @@
       if ($heroInput.length) $heroInput.val(pin);
     }
 
-    function updateHeader(pin) {
+    function updateHeader(pin, clearedAddress) {
+      if (clearedAddress) {
+        $('[data-at-loc-title]').text('Indore');
+      }
       $('[data-at-loc-pin]').text(' \u00b7 ' + pin);
     }
 
@@ -460,7 +463,7 @@
         var userMsg = ok ? (data.message || res.message || '') : (data.message || '');
         currentPin = pin;
         syncInputs(pin);
-        if (ok) updateHeader(pin);
+        if (ok) updateHeader(pin, !!data.cleared_address);
         if (source === 'modal') {
           $result.text(userMsg).css('color', ok ? 'var(--at-success)' : 'var(--at-danger)');
         }

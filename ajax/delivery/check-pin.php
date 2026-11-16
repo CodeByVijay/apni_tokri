@@ -17,8 +17,16 @@ if ($coords['error'] !== null) {
     Ajax::error($coords['error']);
 }
 $result = DeliveryContext::forPin($pin, $coords['lat'], $coords['lng']);
+$clearedAddress = false;
 if ($result['serviceable']) {
     DeliveryContext::setPin($result['pin']);
+    // A pincode check is a selection: if it conflicts with the session delivery address,
+    // the pin wins and the stale address snapshot must not survive (keeps header consistent).
+    $cur = DeliverySessionAddress::current();
+    if ($cur !== null && (string) ($cur['pincode'] ?? '') !== (string) $result['pin']) {
+        DeliverySessionAddress::clear();
+        $clearedAddress = true;
+    }
 }
 
 $requiresMap = !empty($result['requires_map_pin']);
@@ -27,6 +35,7 @@ $customerMessage = $result['serviceable']
     : DeliveryCustomerMessages::pinCheckUnavailable();
 $data = [
     'serviceable' => $result['serviceable'],
+    'cleared_address' => $clearedAddress,
     'requires_map_pin' => $requiresMap,
     'message' => $customerMessage,
     'message_detail' => null,
