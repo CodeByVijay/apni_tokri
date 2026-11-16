@@ -41,22 +41,7 @@ $categoryHints = [
             <h1 class="at-display mt-3"><?= Security::escape(__('tagline')) ?></h1>
             <p class="at-lead mt-4 max-w-lg">Fresh vegetables, fruits and daily staples — clear prices upfront.</p>
 
-            <form class="at-checker at-home-checker mt-6" id="at-hero-pin-form" action="#" novalidate aria-label="<?= Security::escape(__('check_delivery')) ?>">
-                <span class="hidden sm:flex items-center pl-3 text-[var(--at-green)]"><?= at_icon('pin', 'w-5 h-5') ?></span>
-                <label class="sr-only" for="hero-pincode">Pincode</label>
-                <input id="hero-pincode" type="text" inputmode="numeric" maxlength="6" autocomplete="postal-code" placeholder="Enter pincode, e.g. 452001" value="<?= Security::escape((string) (DeliveryContext::sessionPin() ?? '')) ?>">
-                <button type="submit" class="at-btn at-btn--primary at-focusable" id="hero-pin-check">Check</button>
-            </form>
-            <div id="hero-pin-result" class="at-pin-result mt-3 hidden" role="status" aria-live="polite">
-                <p class="at-pin-result__status"></p>
-                <p class="at-pin-result__msg text-sm"></p>
-                <div class="at-pin-result__actions mt-2 flex flex-wrap gap-2">
-                    <a href="<?= Security::escape($primaryCategoryUrl) ?>" class="at-btn at-btn--primary at-btn--sm at-focusable" data-pin-continue>Continue shopping</a>
-                    <button type="button" class="at-btn at-btn--secondary at-btn--sm at-focusable" data-pin-change>Change pincode</button>
-                </div>
-            </div>
-
-            <div class="at-home-hero__ctas mt-5 flex flex-wrap gap-3">
+            <div class="at-home-hero__ctas mt-6 flex flex-wrap gap-3">
                 <a href="<?= Security::escape($primaryCategoryUrl) ?>" class="at-btn at-btn--accent at-btn--lg at-focusable">Shop fresh vegetables <?= at_icon('arrow-right', 'w-5 h-5') ?></a>
                 <a href="<?= Security::escape($base) ?>/my-subscriptions.php" class="at-btn at-btn--secondary at-btn--lg at-focusable">See subscriptions</a>
             </div>

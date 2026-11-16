@@ -3035,28 +3035,6 @@ body.at-modal-open {
   height: 1.5rem;
   color: var(--at-green);
 }
-.at-checker {
-  display: flex;
-  gap: 0.5rem;
-  padding: 0.4rem;
-  background: #fff;
-  border: 1.5px solid var(--at-line-strong);
-  border-radius: var(--at-radius-pill);
-  max-width: 26rem;
-}
-.at-checker:focus-within {
-  border-color: var(--at-green);
-  box-shadow: 0 0 0 3px rgba(36, 92, 58, 0.15);
-}
-.at-checker input {
-  flex: 1;
-  min-width: 0;
-  border: 0;
-  outline: 0;
-  padding: 0 0.9rem;
-  font: inherit;
-  background: transparent;
-}
 .at-trust {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -8096,14 +8074,6 @@ body.at-gallery-lightbox-open {
 .at-secret-toggle[aria-pressed="true"] .icon-show { display: none; }
 .at-secret-toggle[aria-pressed="true"] .icon-hide { display: block; }
 
-/* Homepage pincode result panel */
-.at-pin-result { border-radius: var(--at-radius); padding: 0.85rem 1rem; max-width: 32rem; border: 1px solid var(--at-line); background: var(--at-surface); }
-.at-pin-result.is-ok { background: var(--at-success-bg); border-color: #b8dfc4; }
-.at-pin-result.is-bad { background: var(--at-danger-bg); border-color: #f4c7c2; }
-.at-pin-result__status { font-weight: 700; }
-.at-pin-result.is-ok .at-pin-result__status { color: var(--at-success); }
-.at-pin-result.is-bad .at-pin-result__status { color: var(--at-danger); }
-
 /* Account: logout action */
 .at-account-nav__logout { margin: 0; display: contents; }
 .at-account-nav__logout button {
@@ -10600,6 +10570,41 @@ body.at-map-viewer-open { overflow: hidden; }
   font-size: 0.8125rem;
   color: var(--at-muted);
   overflow-wrap: anywhere;
+}
+.at-dl__saved-item.is-selected {
+  border-color: var(--at-green-600);
+  background: var(--at-green-50);
+  box-shadow: inset 0 0 0 1px var(--at-green-600);
+}
+.at-dl__tag--selected {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: var(--at-green-600);
+  color: #fff;
+}
+.at-dl__tag--selected svg {
+  width: 0.625rem;
+  height: 0.625rem;
+}
+
+/* Keep the dialog title + close control reachable while long steps scroll. */
+.at-modal.at-dl .at-modal__header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #fff;
+  border-radius: var(--at-radius-lg) var(--at-radius-lg) 0 0;
+}
+@media (max-width: 639px) {
+  .at-modal.at-dl .at-modal__body {
+    padding-bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* The active selection gets a solid accent edge so it reads as "current", not a card. */
+.at-dl__current {
+  border-left: 3px solid var(--at-green-600);
 }
 .at-dl__back {
   border: 0;

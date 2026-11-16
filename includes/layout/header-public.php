@@ -240,12 +240,17 @@ $atDlConfig = [
                 <div class="at-dl__saved">
                     <p class="at-eyebrow at-dl__saved-title">Your saved addresses</p>
                     <ul class="at-dl__saved-list">
-                        <?php foreach ($selSavedAddresses as $sa): ?>
+                        <?php foreach ($selSavedAddresses as $sa):
+                            $saSelected = $selAddr !== null
+                                && ($selAddr['kind'] ?? '') === 'saved'
+                                && (int) ($selAddr['source_address_id'] ?? 0) === (int) ($sa['id'] ?? 0);
+                        ?>
                         <li>
-                            <button type="button" class="at-dl__saved-item at-focusable" data-at-dl-saved="<?= Security::escape((string) $sa['id']) ?>">
+                            <button type="button" class="at-dl__saved-item<?= $saSelected ? ' is-selected' : '' ?> at-focusable" data-at-dl-saved="<?= Security::escape((string) $sa['id']) ?>"<?= $saSelected ? ' aria-current="true"' : '' ?>>
                                 <span class="at-dl__saved-top">
                                     <strong><?= Security::escape((string) $sa['label']) ?></strong>
                                     <?= !empty($sa['is_default']) ? '<span class="at-dl__tag">Default</span>' : '' ?>
+                                    <?= $saSelected ? '<span class="at-dl__tag at-dl__tag--selected">' . at_icon('check', 'w-3 h-3') . ' Selected</span>' : '' ?>
                                 </span>
                                 <span class="at-dl__saved-line"><?= Security::escape(trim((string) $sa['line1'] . ', ' . (string) $sa['city'] . ' ' . (string) $sa['pincode'], ', ')) ?></span>
                             </button>
