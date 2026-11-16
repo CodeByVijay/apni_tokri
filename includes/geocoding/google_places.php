@@ -225,10 +225,12 @@ final class GooglePlacesGeocoder
         curl_setopt_array($ch, $opts);
         $rawBody = curl_exec($ch);
         $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlErr = trim((string) curl_error($ch));
         curl_close($ch);
 
         if (!is_string($rawBody) || $rawBody === '') {
-            $diag = self::baseDiagnostic($provider, $operation, $endpointSafe, $status, '', '', 'Empty response body.');
+            $diag = self::baseDiagnostic($provider, $operation, $endpointSafe, $status, '', '',
+                $curlErr !== '' ? 'Transport error: ' . mb_substr($curlErr, 0, 120) : 'Empty response body.');
             self::logPlacesDiagnostic($diag, false);
 
             return ['ok' => false, 'error' => 'Empty response from Google Places.', 'diagnostic' => $diag];
@@ -251,9 +253,11 @@ final class GooglePlacesGeocoder
         if ($status < 200 || $status >= 300) {
             [$gStatus, $gErrRaw] = self::extractGoogleError($json);
             $gErrSan = self::sanitizeGoogleErrorMessage($gErrRaw);
-            $token = self::classifyGoogleError($gStatus, $gErrSan);
-            $msg = self::formatAdminFacingError($gStatus, $gErrSan, $token !== '' ? $token : 'UNKNOWN');
+            $info = self::extractGoogleErrorInfo($json);
+            $token = self::classifyGoogleError($gStatus, $gErrSan, $info['reason']);
+            $msg = self::formatAdminFacingError($gStatus, $gErrSan, $token !== '' ? $token : 'UNKNOWN', $info['reason']);
             $diag = self::baseDiagnostic($provider, $operation, $endpointSafe, $status, $gStatus, $gErrSan, $token !== '' ? $token : null);
+            $diag = self::withGoogleErrorInfo($diag, $info);
             self::logPlacesDiagnostic($diag, false);
 
             return ['ok' => false, 'error' => $msg, 'diagnostic' => $diag];
@@ -262,9 +266,11 @@ final class GooglePlacesGeocoder
         if (isset($json['error']) && is_array($json['error'])) {
             [$gStatus, $gErrRaw] = self::extractGoogleError($json);
             $gErrSan = self::sanitizeGoogleErrorMessage($gErrRaw);
-            $token = self::classifyGoogleError($gStatus, $gErrSan);
-            $msg = self::formatAdminFacingError($gStatus, $gErrSan, $token !== '' ? $token : 'UNKNOWN');
+            $info = self::extractGoogleErrorInfo($json);
+            $token = self::classifyGoogleError($gStatus, $gErrSan, $info['reason']);
+            $msg = self::formatAdminFacingError($gStatus, $gErrSan, $token !== '' ? $token : 'UNKNOWN', $info['reason']);
             $diag = self::baseDiagnostic($provider, $operation, $endpointSafe, $status, $gStatus, $gErrSan, $token);
+            $diag = self::withGoogleErrorInfo($diag, $info);
             self::logPlacesDiagnostic($diag, false);
 
             return ['ok' => false, 'error' => $msg, 'diagnostic' => $diag];
@@ -296,6 +302,64 @@ final class GooglePlacesGeocoder
         $message = isset($json['error_message']) && is_string($json['error_message']) ? trim($json['error_message']) : '';
 
         return [$status, $message];
+    }
+
+    /**
+     * Pull the google.rpc.ErrorInfo detail out of a v1 error payload. The
+     * machine `reason` (e.g. API_KEY_SERVICE_BLOCKED, SERVICE_DISABLED,
+     * API_KEY_INVALID) plus service/method metadata are what actually
+     * distinguish "key restrictions exclude this API" from "API not enabled"
+     * — the top-level message alone ("Permission denied on the service.")
+     * does not. Only scalar whitelisted fields are kept; request data or key
+     * material can never appear here.
+     *
+     * @param array<string, mixed> $json
+     * @return array{reason: string, service: string, method: string}
+     */
+    private static function extractGoogleErrorInfo(array $json): array
+    {
+        $out = ['reason' => '', 'service' => '', 'method' => ''];
+        $err = isset($json['error']) && is_array($json['error']) ? $json['error'] : [];
+        $details = isset($err['details']) && is_array($err['details']) ? $err['details'] : [];
+        foreach ($details as $d) {
+            if (!is_array($d) || ($d['@type'] ?? '') !== 'type.googleapis.com/google.rpc.ErrorInfo') {
+                continue;
+            }
+            $reason = isset($d['reason']) && is_string($d['reason']) ? trim($d['reason']) : '';
+            if (preg_match('/^[A-Z0-9_]{3,64}$/', $reason) === 1) {
+                $out['reason'] = $reason;
+            }
+            $meta = isset($d['metadata']) && is_array($d['metadata']) ? $d['metadata'] : [];
+            if (isset($meta['service']) && is_string($meta['service']) && preg_match('/^[a-z0-9.-]{3,120}$/', $meta['service']) === 1) {
+                $out['service'] = $meta['service'];
+            }
+            if (isset($meta['method']) && is_string($meta['method']) && preg_match('/^[A-Za-z0-9._\/-]{3,160}$/', $meta['method']) === 1) {
+                $out['method'] = $meta['method'];
+            }
+            break;
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param array<string, string|int> $diag
+     * @param array{reason: string, service: string, method: string} $info
+     * @return array<string, string|int>
+     */
+    private static function withGoogleErrorInfo(array $diag, array $info): array
+    {
+        if ($info['reason'] !== '') {
+            $diag['google_reason'] = $info['reason'];
+        }
+        if ($info['service'] !== '') {
+            $diag['google_service'] = $info['service'];
+        }
+        if ($info['method'] !== '') {
+            $diag['google_method'] = $info['method'];
+        }
+
+        return $diag;
     }
 
     private static function safeEndpointForLog(string $url): string
@@ -354,14 +418,53 @@ final class GooglePlacesGeocoder
             return '';
         }
         $msg = preg_replace('/\bkey=[^&\s]+/iu', 'key=[redacted]', $msg) ?? $msg;
+        // Google's "enable the API" replies embed a console URL containing the
+        // project number — internal detail that must not reach the storefront.
+        $msg = preg_replace('#https?://\S+#iu', '[link]', $msg) ?? $msg;
 
         return mb_substr($msg, 0, 500);
     }
 
-    private static function classifyGoogleError(string $status, string $errorMessage): string
+    /**
+     * Maps a Google failure to a stable internal token. The structured
+     * ErrorInfo reason — when present — is authoritative; status/message
+     * heuristics remain as fallback for payloads without details.
+     */
+    private static function classifyGoogleError(string $status, string $errorMessage, string $reason = ''): string
     {
+        static $reasonMap = [
+            'API_KEY_INVALID' => 'API_KEY_INVALID',
+            'API_KEY_SERVICE_BLOCKED' => 'SERVICE_BLOCKED',      // key's API restrictions exclude this service
+            'API_TARGET_BLOCKED' => 'SERVICE_BLOCKED',
+            'SERVICE_DISABLED' => 'API_NOT_ENABLED',
+            'BILLING_DISABLED' => 'BILLING_NOT_ENABLED',
+            'BILLING_STATUS_INVALID' => 'BILLING_NOT_ENABLED',
+            'BILLING_NOT_ENABLED' => 'BILLING_NOT_ENABLED',
+            'API_KEY_HTTP_REFERRER_BLOCKED' => 'REFERRER_BLOCKED',
+            'API_KEY_IP_ADDRESS_BLOCKED' => 'IP_BLOCKED',
+            'API_KEY_ANDROID_APP_BLOCKED' => 'APP_BLOCKED',
+            'API_KEY_IOS_APP_BLOCKED' => 'APP_BLOCKED',
+            'CONSUMER_INVALID' => 'API_KEY_INVALID',
+            'USER_PROJECT_DENIED' => 'PERMISSION_DENIED',
+            'CONSUMER_SUSPENDED' => 'PERMISSION_DENIED',
+            'SECURITY_POLICY_VIOLATED' => 'PERMISSION_DENIED',
+            'ACCESS_TOKEN_SCOPE_INSUFFICIENT' => 'PERMISSION_DENIED',
+        ];
+        if ($reason !== '') {
+            $r = strtoupper($reason);
+            if (isset($reasonMap[$r])) {
+                return $reasonMap[$r];
+            }
+            if (str_contains($r, 'QUOTA') || str_contains($r, 'RATE_LIMIT') || str_contains($r, 'RESOURCE_EXHAUSTED')) {
+                return 'QUOTA_EXCEEDED';
+            }
+            if (str_contains($r, 'BILLING')) {
+                return 'BILLING_NOT_ENABLED';
+            }
+            // Unknown reason: fall back to status/message heuristics.
+        }
         $m = mb_strtolower($errorMessage);
-        if ($status === 'OVER_QUERY_LIMIT' || str_contains($m, 'quota')) {
+        if ($status === 'OVER_QUERY_LIMIT' || $status === 'RESOURCE_EXHAUSTED' || str_contains($m, 'quota')) {
             return 'QUOTA_EXCEEDED';
         }
         if ($status === 'REQUEST_DENIED' || $status === 'PERMISSION_DENIED') {
@@ -392,7 +495,13 @@ final class GooglePlacesGeocoder
         return $status !== '' ? $status : 'UNKNOWN';
     }
 
-    private static function formatAdminFacingError(string $status, string $errorMessage, string $classToken): string
+    /**
+     * `TOKEN — sanitized message [reason]` — the ErrorInfo reason is appended
+     * when present so a bare "Permission denied on the service." still names
+     * the exact gate that refused the call. Reason is a fixed token, never
+     * request data.
+     */
+    private static function formatAdminFacingError(string $status, string $errorMessage, string $classToken, string $reason = ''): string
     {
         $parts = [];
         if ($classToken !== '') {
@@ -401,7 +510,9 @@ final class GooglePlacesGeocoder
             $parts[] = $status;
         }
         if ($errorMessage !== '') {
-            $parts[] = $errorMessage;
+            $parts[] = $errorMessage . ($reason !== '' ? ' [' . $reason . ']' : '');
+        } elseif ($reason !== '') {
+            $parts[] = '[' . $reason . ']';
         }
 
         return implode(' — ', array_filter($parts, static fn ($x) => $x !== '')) ?: 'Google Places request failed.';

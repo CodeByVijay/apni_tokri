@@ -232,6 +232,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/settings-nav.php';
             <li><strong>Maps JavaScript API</strong> — required for the storefront "Choose your delivery location" map. It uses a separate browser key (below), not the server key.</li>
         </ul>
         <p class="text-xs at-muted">The key is stored encrypted; leave blank when updating other fields to keep the existing key. This is the <strong>server-side</strong> key — it is never sent to the browser. Restrict it by server IP address (or leave it unrestricted and secret) — <strong>never by HTTP referrers</strong>: Google denies referrer-restricted keys on server-to-server calls (<code class="text-xs">REQUEST_DENIED</code>), which leaves address prefill empty.</p>
+        <p class="text-xs at-muted">Under the key's <strong>API restrictions</strong> in Google Cloud you must allow every API used here — <strong>"Places API (New)"</strong> when Google is a search provider (note: the legacy <em>"Places API"</em> is a different entry and does not cover <code class="text-xs">places.googleapis.com</code>), plus <strong>"Geocoding API"</strong> if Google is a reverse provider. A key restricted to APIs that exclude these returns <code class="text-xs">PERMISSION_DENIED — Permission denied on the service.</code> even though the key itself is valid.</p>
         <?php
         $credId = 'google_places_api_key';
         $credName = 'google_places_api_key';

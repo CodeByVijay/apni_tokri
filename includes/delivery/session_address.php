@@ -10,7 +10,7 @@ declare(strict_types=1);
  * login. The snapshot keeps fields + coordinates together so they can never go out of sync.
  *
  * Snapshot shape (stored verbatim in $_SESSION[self::SESSION_KEY]):
- *   version, kind ('guest'|'saved'), source_address_id (?int),
+ *   version, kind ('guest'|'saved'), source_address_id (?int), source_address_ref (?string),
  *   label ('Home'|'Work'|'Other'|custom), receiver_name, receiver_phone,
  *   house_number, building_name, street, area, landmark, city, state, pincode,
  *   latitude, longitude, location_confirmed,
@@ -129,7 +129,9 @@ final class DeliverySessionAddress
         return [
             'version' => self::VERSION,
             'kind' => 'saved',
-            'source_address_id' => isset($row['id']) ? (int) $row['id'] : null,
+            'source_address_id' => isset($row['id']) && is_numeric($row['id']) ? (int) $row['id'] : null,
+            // String ref keeps non-numeric ids (session-demo backend) comparable to saved lists.
+            'source_address_ref' => isset($row['id']) && (string) $row['id'] !== '' ? (string) $row['id'] : null,
             'label' => (string) ($row['label'] ?? 'Home'),
             'receiver_name' => ($row['receiver_name'] ?? '') !== '' ? (string) $row['receiver_name'] : null,
             'receiver_phone' => ($row['receiver_phone'] ?? '') !== '' ? (string) $row['receiver_phone'] : null,
@@ -219,13 +221,28 @@ final class DeliverySessionAddress
      */
     public static function selectedAddressId(): ?int
     {
+        $ref = self::selectedAddressRef();
+
+        return $ref !== null && ctype_digit($ref) ? (int) $ref : null;
+    }
+
+    /**
+     * Saved-address identifier (string) the current selection points at — works for both
+     * integer DB ids and the session-demo backend's string ids. Null for guest selections.
+     */
+    public static function selectedAddressRef(): ?string
+    {
         $s = self::current();
         if ($s === null || ($s['kind'] ?? '') !== 'saved') {
             return null;
         }
+        $ref = $s['source_address_ref'] ?? null;
+        if (is_string($ref) && $ref !== '') {
+            return $ref;
+        }
         $id = (int) ($s['source_address_id'] ?? 0);
 
-        return $id > 0 ? $id : null;
+        return $id > 0 ? (string) $id : null;
     }
 
     /**

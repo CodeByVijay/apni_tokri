@@ -151,7 +151,7 @@ $validIds = array_map(static function (array $a): string {
 }, $addresses);
 if (!in_array($selectedAddressId, $validIds, true)) {
     // Header-selected delivery address outranks the default-first saved address.
-    $sessionSelectedId = DeliverySessionAddress::selectedAddressId();
+    $sessionSelectedId = DeliverySessionAddress::selectedAddressRef();
     if ($sessionSelectedId !== null && in_array((string) $sessionSelectedId, $validIds, true)) {
         $selectedAddressId = (string) $sessionSelectedId;
     } else {

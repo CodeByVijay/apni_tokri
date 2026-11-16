@@ -463,6 +463,25 @@
     }
   }
 
+  /* Address selection changed: show a clear error instead of a stale fee. */
+  function showDeliveryQuoteError(msg) {
+    var $text = $('[data-cart-delivery-banner-text]');
+    if ($text.length) {
+      var $svg = $text.find('svg').first().clone();
+      $text.removeClass('text-[var(--at-success)]');
+      $text.empty();
+      if ($svg.length) {
+        $text.append($svg).append(document.createTextNode(' ' + msg));
+      } else {
+        $text.text(msg);
+      }
+    }
+    var $qm = $('[data-cart-quote-message]');
+    if ($qm.length) {
+      $qm.removeClass('hidden').text(msg);
+    }
+  }
+
   function updateCheckoutPayAmounts(totals) {
     if (!totals) return;
     var amt = formatMoney(totals.total);
@@ -800,6 +819,26 @@
         }
         window.location.reload();
       });
+    });
+
+    // Live delivery-quote refresh after the header address selector stores a
+    // new session address. The payload is computed server-side post-selection;
+    // stale responses are already dropped by the selector's own sequence guard.
+    $(document).on('at:delivery-address-changed', function (e, cart, cartError) {
+      if (!$('[data-cart-delivery-banner-text]').length && !$('[data-cart-delivery]').length) return;
+      if (cartError) {
+        showDeliveryQuoteError(cartError);
+        return;
+      }
+      var totals = cart && cart.totals ? cart.totals : null;
+      if (!totals) return; // empty cart — no quote UI on this page
+      refreshSummary(totals);
+      if (typeof cart.offers_html === 'string') {
+        replaceOffers(cart.offers_html);
+      }
+      if (cart.count !== undefined) {
+        updateHeaderCount(cart.count);
+      }
     });
 
     function initCheckoutQuote() {

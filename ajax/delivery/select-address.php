@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once dirname(__DIR__, 2) . '/includes/bootstrap.php';
+require_once APNI_TOKRI_ROOT . '/includes/catalogue/helpers.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     Ajax::error('Method not allowed', 405);
@@ -37,6 +38,7 @@ if ($savedRaw !== '') {
             Ajax::error('That saved address is no longer available.', 404, 'not_found');
         }
         $snapshot = DeliverySessionAddress::snapshotFromSavedRow([
+            'id' => $demo['id'] ?? null,
             'label' => (string) ($demo['label'] ?? 'Home'),
             'street' => (string) ($demo['line1'] ?? ''),
             'line1' => (string) ($demo['line1'] ?? ''),
@@ -57,8 +59,29 @@ if ($savedRaw !== '') {
 $snapshot = DeliverySessionAddress::refreshServiceability($snapshot);
 DeliverySessionAddress::store($snapshot);
 
+// Fresh cart quote for the just-stored selection so cart/checkout UIs can update
+// without a reload. Server-side CartService resolves the session address — never
+// trust client-supplied coordinates or fees.
+$cartPayload = null;
+$cartError = null;
+try {
+    if (CartService::itemCount() > 0) {
+        $cartPayload = CouponOfferService::cartAjaxPayload(CartService::totals());
+        $cartPayload['count'] = CartService::itemCount();
+    }
+} catch (Throwable $e) {
+    error_log('select-address cart quote: ' . $e->getMessage());
+    $cartError = 'Could not refresh the delivery quote. Please try again.';
+}
+
 $serviceable = $snapshot['serviceable'];
 Ajax::success([
+    'selected_kind' => (string) ($snapshot['kind'] ?? 'guest'),
+    'selected_saved_id' => ($snapshot['kind'] ?? '') === 'saved'
+        ? ($snapshot['source_address_ref'] ?? $snapshot['source_address_id'] ?? null)
+        : null,
+    'cart' => $cartPayload,
+    'cart_error' => $cartError,
     'header' => [
         'title' => DeliverySessionAddress::title($snapshot),
         'subtitle' => DeliverySessionAddress::subtitle($snapshot),

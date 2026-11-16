@@ -162,6 +162,7 @@ $navIsCategoryPage = $activeNav === 'categories';
 $atDlConfig = [
     'saveUrl' => $base . '/ajax/delivery/select-address.php',
     'autocompleteUrl' => $base . '/ajax/address/autocomplete-search.php',
+    'googlePlaceDetailsUrl' => $base . '/ajax/address/google-place-details.php',
     'reverseGeocodeUrl' => $base . '/ajax/address/reverse-geocode.php',
     'mapLoadPingUrl' => $base . '/ajax/address/map-load-ping.php',
     'searchEnabled' => AddressAutocompleteSettings::isEnabled(),
@@ -184,7 +185,7 @@ $atDlConfig = [
             <section class="at-dl__step" data-at-dl-step="choose">
                 <?php if ($selAddr !== null): ?>
                 <div class="at-dl__current" data-at-dl-current>
-                    <span class="at-dl__tag"><?= $selAddr['kind'] === 'saved' ? 'Saved' : 'Current' ?></span>
+                    <span class="at-dl__tag" data-at-dl-current-tag><?= $selAddr['kind'] === 'saved' ? 'Saved' : 'Current' ?></span>
                     <div class="at-dl__current-text">
                         <strong data-at-dl-current-title><?= Security::escape(DeliverySessionAddress::title($selAddr)) ?></strong>
                         <span data-at-dl-current-line><?= Security::escape(DeliverySessionAddress::readableLine($selAddr)) ?></span>
@@ -203,12 +204,14 @@ $atDlConfig = [
                 </div>
                 <?php endif; ?>
 
-                <div class="at-dl__searchwrap<?= $atDlConfig['searchEnabled'] ? '' : ' hidden' ?>" data-at-dl-searchwrap>
-                    <?= at_icon('search') ?>
-                    <input type="search" class="at-dl__search" data-at-dl-search placeholder="Search for area, street or landmark" autocomplete="off" aria-label="Search for your delivery area" aria-expanded="false" aria-controls="at-dl-results">
+                <div class="at-dl__search-group">
+                    <div class="at-dl__searchwrap<?= $atDlConfig['searchEnabled'] ? '' : ' hidden' ?>" data-at-dl-searchwrap>
+                        <?= at_icon('search') ?>
+                        <input type="search" class="at-dl__search" data-at-dl-search placeholder="Search for area, street or landmark" autocomplete="off" aria-label="Search for your delivery area" aria-expanded="false" aria-controls="at-dl-results">
+                    </div>
+                    <ul id="at-dl-results" class="at-dl__results" data-at-dl-results role="listbox" hidden></ul>
+                    <p class="at-dl__hint" data-at-dl-searchhint<?= $atDlConfig['searchEnabled'] ? ' hidden' : '' ?>>Address search is not enabled yet — you can pick your location on the map or enter it below.</p>
                 </div>
-                <ul id="at-dl-results" class="at-dl__results" data-at-dl-results role="listbox" hidden></ul>
-                <p class="at-dl__hint" data-at-dl-searchhint<?= $atDlConfig['searchEnabled'] ? ' hidden' : '' ?>>Address search is not enabled yet — you can pick your location on the map or enter it below.</p>
 
                 <ul class="at-dl__actions">
                     <li>
@@ -239,9 +242,13 @@ $atDlConfig = [
                     <p class="at-eyebrow at-dl__saved-title">Your saved addresses</p>
                     <ul class="at-dl__saved-list">
                         <?php foreach ($selSavedAddresses as $sa):
+                            $selAddrRef = $selAddr !== null
+                                ? (string) ($selAddr['source_address_ref'] ?? ($selAddr['source_address_id'] ?? ''))
+                                : '';
                             $saSelected = $selAddr !== null
                                 && ($selAddr['kind'] ?? '') === 'saved'
-                                && (int) ($selAddr['source_address_id'] ?? 0) === (int) ($sa['id'] ?? 0);
+                                && $selAddrRef !== ''
+                                && $selAddrRef === (string) ($sa['id'] ?? '');
                         ?>
                         <li>
                             <button type="button" class="at-dl__saved-item<?= $saSelected ? ' is-selected' : '' ?> at-focusable" data-at-dl-saved="<?= Security::escape((string) $sa['id']) ?>"<?= $saSelected ? ' aria-current="true"' : '' ?>>
@@ -275,8 +282,8 @@ $atDlConfig = [
 
             <section class="at-dl__step" data-at-dl-step="form" hidden>
                 <button type="button" class="at-dl__back at-focusable" data-at-dl-back>&larr; Back</button>
-                <p class="at-dl__pinnote" data-at-dl-pinnote hidden><?= at_icon('pin', 'w-4 h-4') ?> Location confirmed on map — complete the address details.</p>
-                <form data-at-dl-form novalidate>
+                <p class="at-dl__pinnote" data-at-dl-pinnote hidden><?= at_icon('pin', 'w-4 h-4') ?> <span data-at-dl-pinnote-text>Location confirmed on map — complete the address details.</span></p>
+                <form class="at-dl__form" data-at-dl-form novalidate>
                     <input type="hidden" name="latitude" value="">
                     <input type="hidden" name="longitude" value="">
                     <input type="hidden" name="location_confirmed" value="0">

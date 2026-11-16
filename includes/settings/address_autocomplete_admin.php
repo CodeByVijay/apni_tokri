@@ -182,9 +182,39 @@ final class AddressAutocompleteAdminSettings
             if ($d !== '') {
                 $err .= ' | ' . $d;
             }
+            $hint = self::remediationHint($res['diagnostic']);
+            if ($hint !== '') {
+                $err .= ' ' . $hint;
+            }
         }
 
         return ['ok' => false, 'message' => $err];
+    }
+
+    /**
+     * Admin-only remediation pointer keyed on the classified failure / Google
+     * ErrorInfo reason. Keeps console instructions out of storefront errors.
+     *
+     * @param array<string, mixed> $diag
+     */
+    private static function remediationHint(array $diag): string
+    {
+        $token = strtoupper((string) ($diag['class'] ?? ''));
+        $reason = strtoupper((string) ($diag['google_reason'] ?? ''));
+        $key = $token !== '' ? $token : $reason;
+        static $hints = [
+            'SERVICE_BLOCKED' => 'Fix: the API key\'s "API restrictions" exclude this service — in Google Cloud add "Places API (New)" to the server key\'s allowed APIs (also "Geocoding API" if Google reverse geocoding is used).',
+            'API_NOT_ENABLED' => 'Fix: enable "Places API (New)" on the key\'s Google Cloud project, then retry.',
+            'API_KEY_INVALID' => 'Fix: the stored key is rejected — paste the correct server key or regenerate it in Google Cloud.',
+            'BILLING_NOT_ENABLED' => 'Fix: link an active billing account to the key\'s Google Cloud project.',
+            'REFERRER_BLOCKED' => 'Fix: the server key has HTTP-referrer restrictions — server-side calls need application restriction "None" or this server\'s IP.',
+            'IP_BLOCKED' => 'Fix: the server key\'s IP restriction does not include this server\'s egress IP — add it or switch to "None".',
+            'APP_BLOCKED' => 'Fix: the server key is restricted to Android/iOS apps — use a dedicated key with "None" or IP restrictions.',
+            'QUOTA_EXCEEDED' => 'Fix: Google quota or billing limit reached — check the project\'s quotas and billing in Google Cloud.',
+            'PERMISSION_DENIED' => 'Fix: Google refused the key for this service — check "Places API (New)" is enabled on the project, the server key\'s API restrictions allow it, application restrictions are "None" or the server IP (never HTTP referrers), and billing is active.',
+        ];
+
+        return $hints[$key] ?? '';
     }
 
     /**
@@ -196,6 +226,8 @@ final class AddressAutocompleteAdminSettings
         $gs = isset($diag['google_status']) && is_string($diag['google_status']) ? trim($diag['google_status']) : '';
         $cls = isset($diag['class']) && is_string($diag['class']) ? trim($diag['class']) : '';
         $ep = isset($diag['endpoint']) && is_string($diag['endpoint']) ? trim($diag['endpoint']) : '';
+        $reason = isset($diag['google_reason']) && is_string($diag['google_reason']) ? trim($diag['google_reason']) : '';
+        $svc = isset($diag['google_service']) && is_string($diag['google_service']) ? trim($diag['google_service']) : '';
         $parts = [];
         if ($http !== null) {
             $parts[] = 'HTTP ' . $http;
@@ -208,6 +240,9 @@ final class AddressAutocompleteAdminSettings
         }
         if ($cls !== '') {
             $parts[] = $cls;
+        }
+        if ($reason !== '') {
+            $parts[] = 'reason=' . $reason . ($svc !== '' ? ' (' . $svc . ')' : '');
         }
 
         return implode(' · ', array_filter($parts, static fn ($x) => $x !== ''));

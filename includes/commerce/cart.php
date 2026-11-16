@@ -208,17 +208,23 @@ final class CartService
         }
         if (CustomerAuth::check()) {
             // A deliberately selected address outranks the customer's default address.
-            $selectedId = DeliverySessionAddress::selectedAddressId();
-            if ($selectedId !== null) {
-                $sel = CustomerService::address($selectedId, CustomerAuth::id());
-                if ($sel !== null) {
-                    return $sel;
+            $sessionAddr = DeliverySessionAddress::current();
+            if ($sessionAddr !== null && ($sessionAddr['kind'] ?? '') === 'saved') {
+                $selRef = DeliverySessionAddress::selectedAddressRef();
+                if ($selRef !== null && ctype_digit($selRef)) {
+                    $sel = CustomerService::address((int) $selRef, CustomerAuth::id());
+                    if ($sel !== null) {
+                        return $sel;
+                    }
                 }
+                // Session-demo backend (string ids) or an address row that can no
+                // longer be loaded: the snapshot itself carries pincode/coordinates
+                // and is what the header shows — quote against it so all UIs agree.
+                return $sessionAddr;
             }
             // A guest-style session selection (manual entry or a guest pick that could not
             // migrate yet) is the customer's current explicit choice — same precedence the
             // header label and resolveDeliveryPin already give it.
-            $sessionAddr = DeliverySessionAddress::current();
             if ($sessionAddr !== null && ($sessionAddr['kind'] ?? '') === 'guest') {
                 return $sessionAddr;
             }
@@ -228,10 +234,10 @@ final class CartService
             }
         }
 
-        // Guests (or customers whose session selection has no saved row yet) quote against
-        // the selected session address — it carries pincode/latitude/longitude.
+        // Guests quote against the selected session address — it carries
+        // pincode/latitude/longitude for both guest and saved selections.
         $sessionAddr = DeliverySessionAddress::current();
-        if ($sessionAddr !== null && ($sessionAddr['kind'] ?? '') === 'guest') {
+        if ($sessionAddr !== null) {
             return $sessionAddr;
         }
 
