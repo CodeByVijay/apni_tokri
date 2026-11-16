@@ -122,10 +122,17 @@ final class AddressAutocompleteAdminSettings
         AppSettings::set(GeoProviderSettings::KEY_REVERSE_PROVIDER, $reverseProvider);
         AppSettings::set('geocoding.reverse_fallback', $reverseFallback);
 
+        $keyWarnings = [];
+        // The two Google credentials must stay separate: the browser key carries
+        // HTTP-referrer restrictions which Google rejects for server-side calls.
         $newKey = isset($post['google_places_api_key']) && is_string($post['google_places_api_key'])
             ? trim($post['google_places_api_key']) : '';
         if ($newKey !== '') {
-            AppSettings::set(AddressAutocompleteSettings::KEY_GOOGLE_KEY, $newKey, true);
+            if ($newKey === AddressAutocompleteSettings::googleMapsBrowserKey()) {
+                $keyWarnings[] = 'Server key not saved: it matches the browser Maps key. Use a separate server-side credential without HTTP-referrer restrictions.';
+            } else {
+                AppSettings::set(AddressAutocompleteSettings::KEY_GOOGLE_KEY, $newKey, true);
+            }
         }
         if (!empty($post['google_places_api_key_remove'])) {
             AppSettings::set(AddressAutocompleteSettings::KEY_GOOGLE_KEY, '', true);
@@ -134,13 +141,22 @@ final class AddressAutocompleteAdminSettings
         $newMapsKey = isset($post['google_maps_browser_api_key']) && is_string($post['google_maps_browser_api_key'])
             ? trim($post['google_maps_browser_api_key']) : '';
         if ($newMapsKey !== '') {
-            AppSettings::set(AddressAutocompleteSettings::KEY_GOOGLE_MAPS_BROWSER_KEY, $newMapsKey, true);
+            if ($newMapsKey === AddressAutocompleteSettings::googleApiKey()) {
+                $keyWarnings[] = 'Browser Maps key not saved: it matches the server key. Create a dedicated key restricted to the Maps JavaScript API and your site referrers.';
+            } else {
+                AppSettings::set(AddressAutocompleteSettings::KEY_GOOGLE_MAPS_BROWSER_KEY, $newMapsKey, true);
+            }
         }
         if (!empty($post['google_maps_browser_api_key_remove'])) {
             AppSettings::set(AddressAutocompleteSettings::KEY_GOOGLE_MAPS_BROWSER_KEY, '', true);
         }
 
-        return ['ok' => true, 'message' => 'Map & geocoding settings saved.'];
+        $msg = 'Map & geocoding settings saved.';
+        if ($keyWarnings !== []) {
+            $msg .= ' ' . implode(' ', $keyWarnings);
+        }
+
+        return ['ok' => true, 'message' => $msg];
     }
 
     /**

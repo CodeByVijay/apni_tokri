@@ -410,10 +410,14 @@
     geolocate(
       function (lat, lng) {
         setCoords(lat, lng, true);
-        reverseFill(lat, lng, function () {
+        reverseFill(lat, lng, function (filled) {
           $btn.prop('disabled', false).removeClass('is-busy');
           $gpsSub.text('GPS — fastest way');
-          showMsg('', null);
+          if (!filled) {
+            showMsg('We could not fetch the address details for this location — please fill them in below.', 'warn');
+          } else {
+            showMsg('', null);
+          }
           showStep('form');
         });
       },
@@ -445,6 +449,9 @@
   /* ------------------------------------------------- reverse geocoding */
 
   function reverseFill(lat, lng, done) {
+    var finish = function (filled) {
+      if (typeof done === 'function') done(filled);
+    };
     $.ajax({
       url: CFG.reverseGeocodeUrl,
       method: 'POST',
@@ -452,18 +459,23 @@
       data: { _csrf_token: csrf(), latitude: String(lat), longitude: String(lng) },
       timeout: 12000
     }).done(function (res) {
-      var a = res && res.success && res.data ? (res.data.address || {}) : {};
-      prefillForm({
+      if (!res || !res.success) {
+        finish(false);
+        return;
+      }
+      var a = res.data ? (res.data.address || {}) : {};
+      finish(prefillForm({
         house_number: a.house_number,
+        building_name: a.building_name || a.premise,
         street: a.street || a.road,
         area: a.area || a.suburb || a.neighbourhood,
         landmark: a.landmark,
         city: a.city,
         state: a.state,
         pincode: a.pincode || a.postcode
-      });
-    }).always(function () {
-      if (typeof done === 'function') done();
+      }));
+    }).fail(function () {
+      finish(false);
     });
   }
 
@@ -487,20 +499,34 @@
     $modal.find('[data-at-dl-pinnote]').prop('hidden', true);
   }
 
+  // Fields the customer has typed into are never overwritten by geocoded
+  // values; server-rendered defaults (e.g. city/state) and previous geocode
+  // fills are refreshed on each new confirmation.
+  var userEdited = {};
+  $form.on('input change', 'input[name], textarea[name], select[name]', function () {
+    userEdited[this.name] = true;
+  });
+
   function prefillForm(f) {
     var allowed = { house_number: 100, building_name: 150, street: 150, area: 150, landmark: 191, city: 128, state: 128 };
+    var sawData = false;
     $.each(f || {}, function (k, v) {
       if (v === null || v === undefined || v === '') return;
       if (k === 'pincode') {
         var pin = String(v).replace(/\D/g, '').slice(0, 6);
-        if (pin && !field('pincode').val()) field('pincode').val(pin);
+        if (pin) {
+          sawData = true;
+          if (!userEdited.pincode) field('pincode').val(pin);
+        }
         return;
       }
       if (!allowed[k]) return;
+      sawData = true;
       var $f = field(k);
-      if (!$f.length || $f.val()) return;
+      if (!$f.length || userEdited[k]) return;
       $f.val(String(v).slice(0, allowed[k]));
     });
+    return sawData;
   }
 
   $modal.on('click', '[data-at-dl-manual]', function () {
@@ -524,9 +550,13 @@
     setCoords(lat, lng, true);
     var $btn = $(this);
     $btn.prop('disabled', true).text('Checking address…');
-    reverseFill(lat, lng, function () {
+    reverseFill(lat, lng, function (filled) {
       $btn.prop('disabled', false).text('Confirm location');
-      showMsg('', null);
+      if (!filled) {
+        showMsg('We could not fetch the address details for this location — please fill them in below.', 'warn');
+      } else {
+        showMsg('', null);
+      }
       showStep('form');
     });
   });
