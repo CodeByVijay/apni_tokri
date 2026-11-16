@@ -170,17 +170,9 @@ final class PricingService
             return MarketingSettings::withZoneMinimumOrder($totals, null);
         }
 
-        if (DeliveryConfig::slotsEnabled() && ($deliverySlotSlug === null || $deliverySlotSlug === '')) {
-            $totals['delivery_quote_accurate'] = false;
-            $totals['delivery_quote_message'] = 'Select a delivery slot for an accurate total.';
-            $totals['delivery_fee'] = 0.0;
-            $after = max(0, (float) ($totals['subtotal'] ?? 0) - (float) ($totals['offer_discount'] ?? 0)
-                - (float) ($totals['coupon_discount'] ?? 0));
-            $totals['total'] = round($after, 2);
-
-            return MarketingSettings::withZoneMinimumOrder($totals, null);
-        }
-
+        // A delivery slot is not required to quote the fee: 'auto' = "no slot chosen yet"
+        // and quoteForCheckout returns fee/zone without slot fields. Slot existence and
+        // capacity are still validated separately at checkout/order placement.
         $quote = DeliveryQuoteService::quoteForCheckout(
             $address,
             $lines,

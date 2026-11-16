@@ -155,5 +155,43 @@ feeOk(empty($qBad['ok']), 'quote bogus-slot: still rejected');
 $qReal = DeliveryQuoteService::quoteForCheckout($addrRow, $lines, 'bad-slot-xyz', null, null, null, '2030-01-01');
 feeOk(empty($qReal['ok']), 'quote bogus-slot+date: still rejected');
 
+// ---- 8. Non-legacy zone mode: fee without slot (staging path) ----------------
+$prevMode = AppSettings::get('delivery.zone_resolution_mode');
+AppSettings::set('delivery.zone_resolution_mode', 'distance_hybrid');
+CustomerAuth::logout();
+DeliverySessionAddress::clear();
+$_SESSION['guest_cart_sid'] = null;
+guestCart($variantId, 2, $variantPrice);
+guestSelect([]); // 452010 + coords
+$totals = DemoCart::totals();
+$nlMsg = (string) ($totals['delivery_quote_message'] ?? '');
+feeOk(strpos($nlMsg, 'slot') === false, 'non-legacy: no slot gate (msg=' . ($nlMsg === '' ? 'none' : $nlMsg) . ')');
+feeOk(!empty($totals['delivery_quote_accurate']) && !empty($totals['delivery_serviceable']), 'non-legacy: quote accurate+serviceable without slot');
+feeOk((float) ($totals['delivery_fee'] ?? 0) > 0 || !empty($totals['free_delivery_eligible']), 'non-legacy: fee resolved');
+feeOk(trim((string)($totals['delivery_zone'] ?? '')) !== '', 'non-legacy: zone resolved');
+// same address+cart: explicit valid slot must not change the fee
+$noSlotFee = (float) ($totals['delivery_fee'] ?? -1);
+$slotSlugRow = $pdo->query("SELECT slug FROM delivery_slots WHERE is_active=1 ORDER BY id LIMIT 1")->fetchColumn();
+$guestRow = [
+    'pincode' => '452010', 'latitude' => 22.7197, 'longitude' => 75.8577,
+];
+$linesQ = CartService::items();
+if ($slotSlugRow !== false && $slotSlugRow !== null && $slotSlugRow !== '') {
+    $qNoSlot = DeliveryQuoteService::quoteForCheckout($guestRow, $linesQ, 'auto');
+    $future = date('Y-m-d', strtotime('+3 days'));
+    $qSlot = DeliveryQuoteService::quoteForCheckout($guestRow, $linesQ, (string) $slotSlugRow, null, null, null, $future);
+    if (!empty($qSlot['ok']) && !empty($qNoSlot['ok'])) {
+        feeOk(abs((float) $qSlot['delivery_fee'] - (float) $qNoSlot['delivery_fee']) < 0.01,
+            "slot vs no-slot: same fee (" . (float) $qNoSlot['delivery_fee'] . ")");
+    } else {
+        echo 'INFO: slot quote ' . (empty($qSlot['ok']) ? 'rejected(' . ($qSlot['message'] ?? '?') . ')' : 'ok')
+            . ', auto quote ' . (empty($qNoSlot['ok']) ? 'rejected' : 'ok') . PHP_EOL;
+        feeOk(!empty($qNoSlot['ok']), 'auto quote ok regardless');
+    }
+} else {
+    echo "SKIP: no active slot rows for fee-equality check" . PHP_EOL;
+}
+AppSettings::set('delivery.zone_resolution_mode', $prevMode);
+
 echo ($fail === 0 ? 'ALL OK' : "FAILURES: $fail") . PHP_EOL;
 exit($fail === 0 ? 0 : 1);
