@@ -432,6 +432,25 @@ final class DeliveryQuoteService
 
         $slotResolved = DeliverySlotService::resolveBySlug($slotSlug);
         if ($slotResolved === null && ($deliveryDateOverride === null || $deliveryDateOverride === '')) {
+            if ($slotSlug === 'auto') {
+                // 'auto' = "no slot chosen yet" (cart/delivery-charge preview): quote the
+                // fee without slot capacity. The order path validates a concrete slot slug
+                // before it reaches this point, so slot locking is unaffected.
+                return [
+                    'ok' => true,
+                    'slug' => 'auto',
+                    'slot_id' => null,
+                    'slot_label' => null,
+                    'slot_window' => null,
+                    'slot_start_time' => null,
+                    'slot_end_time' => null,
+                    'delivery_date' => null,
+                    'delivery_eta' => null,
+                    'slot_resolved' => null,
+                    'slot_row' => null,
+                ];
+            }
+
             return ['ok' => false, 'failure_code' => 'slot_invalid', 'message' => 'Choose a valid delivery slot.'];
         }
 

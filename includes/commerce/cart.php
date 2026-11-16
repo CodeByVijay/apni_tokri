@@ -221,6 +221,13 @@ final class CartService
             }
         }
 
+        // Guests (or customers whose session selection has no saved row yet) quote against
+        // the selected session address — it carries pincode/latitude/longitude.
+        $sessionAddr = DeliverySessionAddress::current();
+        if ($sessionAddr !== null && ($sessionAddr['kind'] ?? '') === 'guest') {
+            return $sessionAddr;
+        }
+
         return null;
     }
 
