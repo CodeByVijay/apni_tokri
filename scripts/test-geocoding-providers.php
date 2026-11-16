@@ -44,7 +44,7 @@ gOk(GeocodingUsageMeter::tableReady(), 'usage table exists (migration applied)')
 
 // Clean slate for the keys under test.
 $keys = [];
-foreach (['geocoding.%', 'address_autocomplete.%', 'google_places.%'] as $like) {
+foreach (['geocoding.%', 'address_autocomplete.%', 'google_places.%', 'google_maps.%'] as $like) {
     $st = $pdo->prepare('DELETE FROM settings WHERE setting_key LIKE ?');
     $st->execute([$like]);
 }
@@ -78,6 +78,7 @@ $r = AddressAutocompleteAdminSettings::saveFromPost([
     'geocoding_reverse_provider' => 'google',
     'geocoding_reverse_fallback' => 'nominatim',
     'google_places_api_key' => 'AIzaTESTKEY1234567890abcdef',
+    'google_maps_browser_api_key' => 'AIzaBROWSERKEY0987654321',
 ]);
 AppSettings::resetCache();
 gOk(!empty($r['ok']), 'admin save accepts Phase 4 fields');
@@ -97,6 +98,15 @@ gOk($row !== false && (int) $row['is_encrypted'] === 1, 'api key stored encrypte
 gOk($row !== false && strpos((string) $row['setting_value'], 'AIzaTESTKEY') === false, 'plaintext key absent from storage');
 $pub = AddressAutocompleteSettings::publicClientConfig();
 gOk(strpos(json_encode($pub) ?: '', 'AIzaTESTKEY') === false, 'public client config leaks no key');
+
+// Browser Maps JS key: separate credential, encrypted at rest, only surfaced via googleMapsClientConfig.
+$brow = $pdo->query("SELECT setting_value, is_encrypted FROM settings WHERE setting_key='google_maps.browser_api_key'")->fetch(PDO::FETCH_ASSOC);
+gOk($brow !== false && (int) $brow['is_encrypted'] === 1, 'browser maps key stored encrypted');
+gOk($brow !== false && strpos((string) $brow['setting_value'], 'AIzaBROWSERKEY') === false, 'plaintext browser key absent from storage');
+gOk(AddressAutocompleteSettings::googleMapsBrowserKeyConfigured(), 'browser maps key configured');
+$gmc = AddressAutocompleteSettings::googleMapsClientConfig();
+gOk($gmc['enabled'] === true && $gmc['apiKey'] === 'AIzaBROWSERKEY0987654321', 'browser client config exposes only the browser key');
+gOk(strpos(json_encode($gmc) ?: '', 'AIzaTESTKEY') === false, 'browser client config leaks no server key');
 
 // Fallback to primary when fallback == primary collapses to none.
 AddressAutocompleteAdminSettings::saveFromPost([
@@ -181,10 +191,12 @@ $r = AddressAutocompleteAdminSettings::saveFromPost([
     'geocoding_provider_nominatim_enabled' => '1',
     'geocoding_reverse_enabled' => '1',
     'google_places_api_key_remove' => '1',
+    'google_maps_browser_api_key_remove' => '1',
 ]);
 AppSettings::resetCache();
 gOk(!AddressAutocompleteSettings::googleKeyConfigured(), 'remove checkbox clears saved key');
 gOk(!GeoProviderSettings::providerUsable('google'), 'google unusable without key');
+gOk(!AddressAutocompleteSettings::googleMapsBrowserKeyConfigured(), 'remove checkbox clears saved browser key');
 
 // Unrelated settings save must NOT wipe the key (preserve semantics: blank keeps key).
 AppSettings::set(AddressAutocompleteSettings::KEY_GOOGLE_KEY, 'AIzaSECONDKEY0000000000', true);

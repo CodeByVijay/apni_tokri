@@ -163,15 +163,13 @@ $atDlConfig = [
     'saveUrl' => $base . '/ajax/delivery/select-address.php',
     'autocompleteUrl' => $base . '/ajax/address/autocomplete-search.php',
     'reverseGeocodeUrl' => $base . '/ajax/address/reverse-geocode.php',
+    'mapLoadPingUrl' => $base . '/ajax/address/map-load-ping.php',
     'searchEnabled' => AddressAutocompleteSettings::isEnabled(),
     'minChars' => 3,
     'debounceMs' => 400,
     'maxResults' => AddressAutocompleteSettings::maxResults(),
     'map' => MapConfig::clientConfig(),
-    'leaflet' => [
-        'css' => asset_url('assets/vendor/leaflet/leaflet.css'),
-        'js' => asset_url('assets/vendor/leaflet/leaflet.js'),
-    ],
+    'googleMaps' => AddressAutocompleteSettings::googleMapsClientConfig(),
 ];
 ?>
 <div id="at-delivery-modal" class="at-modal-backdrop" data-current-pin="<?= Security::escape((string) ($deliveryPin ?? '')) ?>" aria-hidden="true" role="presentation">

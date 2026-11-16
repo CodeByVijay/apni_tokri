@@ -1,7 +1,9 @@
 /*
  * Veggie Tokri — header delivery-location selector (Phase 2).
- * Isolated module: lazy-loads Leaflet only when the map step opens, talks to existing
- * /ajax/address/* + /ajax/delivery/select-address.php endpoints. No Google API calls.
+ * Isolated module: lazy-loads the Google Maps JavaScript API only when the map
+ * step opens, talks to existing /ajax/address/* + /ajax/delivery/select-address.php
+ * endpoints. The browser Maps key comes from the server-rendered config; the
+ * server-side Google credential is never sent to the page.
  * Requires jQuery. Loaded on every public page (small, deferred).
  */
 (function ($, window, document) {
@@ -155,15 +157,14 @@
       // the exact address text is reverse-geocoded on confirm.
       showMsg('', null);
       showStep('map');
-      ensureLeaflet().then(function () {
+      ensureGoogleMaps().then(function () {
         initMap();
         if (map) {
           setMapPoint(lat, lng);
           map.setZoom(17);
         }
-      }).catch(function () {
-        showMsg('Map could not be loaded. Please enter the address manually.', 'warn');
-        showStep('form');
+      }).catch(function (err) {
+        showMapUnavailable(err);
       });
       return;
     }
@@ -177,54 +178,102 @@
 
   /* ------------------------------------------------------------- map */
 
-  var leafletPromise = null;
+  var gmapsPromise = null;
+  var gmapsReady = false;
   var map = null;
   var marker = null;
   var mapCoords = null;
   var $mapLoading = $modal.find('[data-at-dl-maploading]');
   var $mapPoint = $modal.find('[data-at-dl-mappoint]');
   var $mapConfirm = $modal.find('[data-at-dl-mapconfirm]');
+  var GMAPS_CFG = CFG.googleMaps || {};
 
-  function ensureLeaflet() {
-    if (leafletPromise) return leafletPromise;
-    leafletPromise = new Promise(function (resolve, reject) {
-      if (window.L) return resolve();
-      if (CFG.leaflet && CFG.leaflet.css && !document.querySelector('link[href="' + CFG.leaflet.css + '"]')) {
-        var link = document.createElement('link');
-        link.rel = 'stylesheet';
-        link.href = CFG.leaflet.css;
-        document.head.appendChild(link);
-      }
-      var script = document.createElement('script');
-      script.src = CFG.leaflet && CFG.leaflet.js ? CFG.leaflet.js : '';
-      if (!script.src) return reject(new Error('Map assets unavailable.'));
-      script.onload = function () { window.L ? resolve() : reject(new Error('Map failed to load.')); };
-      script.onerror = function () { reject(new Error('Map failed to load.')); };
-      document.head.appendChild(script);
+  // Cost control: the Maps JS API is injected only when the map step opens,
+  // once per page. One ping per open feeds the server usage dashboard —
+  // browser map loads are billed by Google but invisible to server metering.
+  function reportMapLoad(ok) {
+    if (!CFG.mapLoadPingUrl) return;
+    $.ajax({
+      url: CFG.mapLoadPingUrl,
+      method: 'POST',
+      dataType: 'json',
+      timeout: 5000,
+      data: { _csrf_token: csrf(), ok: ok ? '1' : '0' }
     });
-    return leafletPromise;
+  }
+
+  function ensureGoogleMaps() {
+    if (gmapsPromise) return gmapsPromise;
+    gmapsPromise = new Promise(function (resolve, reject) {
+      if (gmapsReady && window.google && window.google.maps && window.google.maps.Map) return resolve();
+      var key = typeof GMAPS_CFG.apiKey === 'string' ? GMAPS_CFG.apiKey : '';
+      if (GMAPS_CFG.enabled === false || key === '') {
+        return reject(new Error('map_key_missing'));
+      }
+      var settled = false;
+      var cbName = '__atGmapsLoaded';
+      var script = null;
+      var finish = function (err) {
+        if (settled) return;
+        settled = true;
+        try { delete window[cbName]; } catch (e) { window[cbName] = undefined; }
+        if (err) {
+          if (script && script.parentNode) script.parentNode.removeChild(script);
+          // Transient failures may retry on the next open; a rejected key will not.
+          if (err.message === 'map_load_failed' || err.message === 'map_load_timeout') gmapsPromise = null;
+          reject(err);
+          return;
+        }
+        gmapsReady = true;
+        resolve();
+      };
+      window[cbName] = function () {
+        if (window.google && window.google.maps && window.google.maps.Map) finish(null);
+        else finish(new Error('map_load_failed'));
+      };
+      var prevAuthFailure = window.gm_authFailure;
+      window.gm_authFailure = function () {
+        if (typeof prevAuthFailure === 'function') {
+          try { prevAuthFailure(); } catch (e) { /* ignore */ }
+        }
+        // Google calls this for key/referrer/billing failures — before the
+        // callback when unlucky, or any time after the map has loaded.
+        if (settled) showMapUnavailable(new Error('map_key_rejected'));
+        else finish(new Error('map_key_rejected'));
+      };
+      script = document.createElement('script');
+      script.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(key) +
+        '&loading=async&callback=' + cbName;
+      script.async = true;
+      script.onerror = function () { finish(new Error('map_load_failed')); };
+      document.head.appendChild(script);
+      window.setTimeout(function () { finish(new Error('map_load_timeout')); }, 15000);
+    });
+    // Keep the rejected promise handled even if the caller only uses .then().
+    gmapsPromise.catch(function () { /* handled by callers */ });
+    return gmapsPromise;
   }
 
   function setMapPoint(lat, lng, fromGps) {
     mapCoords = { lat: lat, lng: lng };
-    var ll = window.L.latLng(lat, lng);
+    var pos = { lat: lat, lng: lng };
     if (!marker) {
-      marker = window.L.marker(ll, {
+      marker = new window.google.maps.Marker({
+        position: pos,
+        map: map,
         draggable: true,
-        autoPan: true,
-        keyboard: true,
-        title: 'Delivery pin — drag to move',
-        alt: 'Delivery location pin'
-      }).addTo(map);
-      marker.on('dragend', function () {
-        var p = marker.getLatLng();
-        mapCoords = { lat: p.lat, lng: p.lng };
+        title: 'Delivery pin — drag to move'
+      });
+      marker.addListener('dragend', function () {
+        var p = marker.getPosition();
+        if (!p) return;
+        mapCoords = { lat: p.lat(), lng: p.lng() };
         describePoint();
       });
     } else {
-      marker.setLatLng(ll);
+      marker.setPosition(pos);
     }
-    map.panTo(ll);
+    map.panTo(pos);
     describePoint(fromGps);
     $mapConfirm.prop('disabled', false);
   }
@@ -240,45 +289,79 @@
 
   function initMap() {
     if (map) {
-      window.setTimeout(function () { map.invalidateSize(); }, 60);
+      window.setTimeout(function () { window.google.maps.event.trigger(map, 'resize'); }, 60);
       return;
     }
     var $mapEl = $modal.find('[data-at-dl-map-el]');
     if (!$mapEl.length) return;
     $mapLoading.prop('hidden', false);
-    var hasStart = validCoord(parseFloat(field('latitude').val()), parseFloat(field('longitude').val()));
-    var center = hasStart
-      ? [parseFloat(field('latitude').val()), parseFloat(field('longitude').val())]
-      : (MAP_CFG.center || [22.7196, 75.8577]);
-    map = window.L.map($mapEl[0], {
+    var startLat = parseFloat(field('latitude').val());
+    var startLng = parseFloat(field('longitude').val());
+    var hasStart = validCoord(startLat, startLng);
+    var fallback = MAP_CFG.center || [22.7196, 75.8577];
+    var center = hasStart ? { lat: startLat, lng: startLng } : { lat: fallback[0], lng: fallback[1] };
+    map = new window.google.maps.Map($mapEl[0], {
       center: center,
       zoom: hasStart ? 17 : (MAP_CFG.zoom || 13),
-      zoomControl: true,
-      scrollWheelZoom: false,
-      tap: true
-    });
-    window.L.tileLayer(MAP_CFG.tileUrl || 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: MAP_CFG.maxZoom || 19,
-      attribution: MAP_CFG.attribution || '&copy; OpenStreetMap contributors',
-      keepBuffer: 1,
-      updateWhenIdle: true
-    }).on('load', function () {
+      mapTypeId: 'roadmap',
+      mapTypeControl: false,
+      streetViewControl: false,
+      fullscreenControl: false,
+      zoomControl: true,
+      scrollwheel: false,
+      gestureHandling: 'greedy',
+      clickableIcons: false
+    });
+    window.google.maps.event.addListenerOnce(map, 'idle', function () {
       $mapLoading.prop('hidden', true);
-    }).addTo(map);
+      reportMapLoad(true);
+    });
+    watchMapErrors($mapEl[0]);
     window.setTimeout(function () { $mapLoading.prop('hidden', true); }, 9000);
-    map.on('click', function (e) { setMapPoint(e.latlng.lat, e.latlng.lng); });
+    map.addListener('click', function (e) {
+      if (e && e.latLng) setMapPoint(e.latLng.lat(), e.latLng.lng());
+    });
     if (hasStart) {
-      setMapPoint(center[0], center[1]);
+      setMapPoint(center.lat, center.lng);
       map.setZoom(17);
     }
-    window.setTimeout(function () { map.invalidateSize(); }, 60);
+    window.setTimeout(function () { window.google.maps.event.trigger(map, 'resize'); }, 60);
+  }
+
+  function mapUnavailableMessage(err) {
+    if (err && (err.message === 'map_key_missing' || err.message === 'map_key_rejected')) {
+      return 'The interactive map is unavailable right now. You can still enter your address manually.';
+    }
+    return 'Map could not be loaded. You can still enter your address manually.';
+  }
+
+  var mapErrObserver = null;
+  // Invalid/restricted keys (and billing-off projects) render Google's own
+  // gm-err-container instead of an interactive map — catch that and fall back.
+  function watchMapErrors(el) {
+    if (mapErrObserver || !window.MutationObserver || !el) return;
+    mapErrObserver = new window.MutationObserver(function () {
+      if (el.querySelector('.gm-err-container')) {
+        showMapUnavailable(new Error('map_key_rejected'));
+      }
+    });
+    mapErrObserver.observe(el, { childList: true, subtree: true });
+    if (el.querySelector('.gm-err-container')) {
+      showMapUnavailable(new Error('map_key_rejected'));
+    }
+  }
+
+  function showMapUnavailable(err) {
+    $mapLoading.prop('hidden', true);
+    if (err && err.message === 'map_key_rejected') reportMapLoad(false);
+    showMsg(mapUnavailableMessage(err), 'warn');
+    showStep('form');
   }
 
   function ensureMap() {
-    ensureLeaflet().then(initMap).catch(function () {
-      $mapLoading.prop('hidden', true);
-      showMsg('Map could not be loaded. You can still enter your address manually.', 'warn');
-      showStep('form');
+    ensureGoogleMaps().then(initMap).catch(function (err) {
+      showMapUnavailable(err);
     });
   }
 

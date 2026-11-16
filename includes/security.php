@@ -77,7 +77,7 @@ final class Security
             "object-src 'none'",
             "frame-ancestors 'self'",
             "form-action 'self'",
-            "script-src 'self' 'nonce-{$nonce}' https://cdn.tailwindcss.com https://code.jquery.com https://sdk.cashfree.com https://checkout.razorpay.com https://www.googletagmanager.com https://www.gstatic.com",
+            "script-src 'self' 'nonce-{$nonce}' https://cdn.tailwindcss.com https://code.jquery.com https://sdk.cashfree.com https://checkout.razorpay.com https://www.googletagmanager.com https://www.gstatic.com https://maps.googleapis.com",
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
             "font-src 'self' https://fonts.gstatic.com data:",
             "img-src 'self' data: https:",

@@ -10651,7 +10651,11 @@ body.at-map-viewer-open { overflow: hidden; }
   width: 100%;
   height: clamp(14rem, 45vh, 20rem);
   max-width: 100%;
-  touch-action: pan-x pan-y;
+  /* Google Maps manages its own touch gestures (pan/zoom/marker drag). */
+  touch-action: none;
+}
+.at-dl__map img {
+  max-width: none;
 }
 .at-dl__maploading {
   position: absolute;

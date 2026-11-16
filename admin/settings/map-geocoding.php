@@ -41,6 +41,7 @@ $maxResults = AddressAutocompleteSettings::maxResults();
 $timeoutSec = AddressAutocompleteSettings::timeoutSeconds();
 $rpm = AddressAutocompleteSettings::ratePerMinuteIp();
 $googleSaved = AddressAutocompleteAdminSettings::googleKeySaved();
+$googleMapsBrowserSaved = AddressAutocompleteAdminSettings::googleMapsBrowserKeySaved();
 
 $fallback = GeoProviderSettings::searchFallback();
 $reverseEnabled = GeoProviderSettings::reverseEnabled();
@@ -62,7 +63,7 @@ $usageRows = GeocodingUsageMeter::dashboardSummary();
 
 admin_layout_start(['pageTitle' => 'Map & geocoding', 'activeAdminNav' => 'settings']);
 $pageHeading = 'Map & Geocoding';
-$pageDescription = 'Checkout address search (Google Places or Photon). Keys stay on the server; Leaflet maps elsewhere are unchanged.';
+$pageDescription = 'Address search (Google Places or Photon), reverse geocoding and the Google Maps delivery pin. The server key stays on the server; the browser map uses a separate referrer-restricted key.';
 require APNI_TOKRI_ROOT . '/includes/partials/admin/page-header.php';
 $settingsTab = 'map_geocoding';
 require APNI_TOKRI_ROOT . '/includes/partials/admin/settings-nav.php';
@@ -71,7 +72,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/settings-nav.php';
 <div class="at-card max-w-2xl mb-4">
     <div class="at-card__body text-sm space-y-2">
         <h3 class="font-bold">Overview</h3>
-        <p class="at-muted">Storefront address autocomplete runs through <code class="text-xs">/ajax/address/</code> with CSRF. The Google API key is never sent to the browser.</p>
+        <p class="at-muted">Storefront address autocomplete runs through <code class="text-xs">/ajax/address/</code> with CSRF. The server-side Google API key is never sent to the browser. The interactive delivery map uses a separate referrer-restricted browser key (Google Maps JavaScript API).</p>
         <p class="at-muted">Checkout uses the map-free address form when autocomplete is <strong>enabled</strong>. When disabled, checkout falls back to the pin map. My addresses and other pages keep the existing map behaviour.</p>
     </div>
 </div>
@@ -228,13 +229,13 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/settings-nav.php';
         <ul class="text-xs at-muted list-disc pl-5 space-y-1">
             <li><strong>Places API (New)</strong> — required when Google is the search or fallback provider (autocomplete + place details).</li>
             <li><strong>Geocoding API</strong> — required only when Google is selected as a reverse-geocoding provider.</li>
-            <li><strong>Maps JavaScript API</strong> — not required; storefront maps use Leaflet + OpenStreetMap tiles.</li>
+            <li><strong>Maps JavaScript API</strong> — required for the storefront "Choose your delivery location" map. It uses a separate browser key (below), not the server key.</li>
         </ul>
-        <p class="text-xs at-muted">The key is stored encrypted; leave blank when updating other fields to keep the existing key.</p>
+        <p class="text-xs at-muted">The key is stored encrypted; leave blank when updating other fields to keep the existing key. This is the <strong>server-side</strong> key — it is never sent to the browser.</p>
         <?php
         $credId = 'google_places_api_key';
         $credName = 'google_places_api_key';
-        $credLabel = 'API key';
+        $credLabel = 'Server API key (Places / Geocoding)';
         $credSaved = $googleSaved;
         require APNI_TOKRI_ROOT . '/includes/partials/admin/secret-credential-field.php';
         ?>
@@ -242,6 +243,29 @@ require APNI_TOKRI_ROOT . '/includes/partials/admin/settings-nav.php';
             <label class="flex gap-2 text-sm items-center">
                 <input type="checkbox" name="google_places_api_key_remove" value="1">
                 Remove saved API key (disables Google providers)
+            </label>
+        <?php endif; ?>
+
+        <hr class="border-neutral-200">
+        <h3 class="font-bold">Google Maps browser key</h3>
+        <p class="text-xs at-muted">The storefront delivery-location map needs the <strong>Maps JavaScript API</strong>, which loads in the customer's browser — so it needs a key that is visible in page requests. Create a <strong>separate</strong> API key in Google Cloud and lock it down:</p>
+        <ul class="text-xs at-muted list-disc pl-5 space-y-1">
+            <li><strong>API restriction:</strong> allow only <em>Maps JavaScript API</em>.</li>
+            <li><strong>Application restriction:</strong> HTTP referrers — add <code class="text-xs">https://your-domain/*</code> for every storefront domain (e.g. staging and production), plus <code class="text-xs">http://localhost/*</code> if you test locally.</li>
+            <li>Enable <strong>Maps JavaScript API</strong> on the project and confirm billing is active — map loads are billed.</li>
+            <li>Never paste the server key above into this field. Without this key the map step shows an "unavailable" message and customers can still type their address manually.</li>
+        </ul>
+        <?php
+        $credId = 'google_maps_browser_api_key';
+        $credName = 'google_maps_browser_api_key';
+        $credLabel = 'Browser API key (Maps JavaScript API)';
+        $credSaved = $googleMapsBrowserSaved;
+        require APNI_TOKRI_ROOT . '/includes/partials/admin/secret-credential-field.php';
+        ?>
+        <?php if ($googleMapsBrowserSaved): ?>
+            <label class="flex gap-2 text-sm items-center">
+                <input type="checkbox" name="google_maps_browser_api_key_remove" value="1">
+                Remove saved browser key (storefront map falls back to manual address entry)
             </label>
         <?php endif; ?>
 

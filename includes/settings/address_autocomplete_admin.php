@@ -131,6 +131,15 @@ final class AddressAutocompleteAdminSettings
             AppSettings::set(AddressAutocompleteSettings::KEY_GOOGLE_KEY, '', true);
         }
 
+        $newMapsKey = isset($post['google_maps_browser_api_key']) && is_string($post['google_maps_browser_api_key'])
+            ? trim($post['google_maps_browser_api_key']) : '';
+        if ($newMapsKey !== '') {
+            AppSettings::set(AddressAutocompleteSettings::KEY_GOOGLE_MAPS_BROWSER_KEY, $newMapsKey, true);
+        }
+        if (!empty($post['google_maps_browser_api_key_remove'])) {
+            AppSettings::set(AddressAutocompleteSettings::KEY_GOOGLE_MAPS_BROWSER_KEY, '', true);
+        }
+
         return ['ok' => true, 'message' => 'Map & geocoding settings saved.'];
     }
 
@@ -191,5 +200,10 @@ final class AddressAutocompleteAdminSettings
     public static function googleKeySaved(): bool
     {
         return trim(AppSettings::getSecret(AddressAutocompleteSettings::KEY_GOOGLE_KEY, '') ?? '') !== '';
+    }
+
+    public static function googleMapsBrowserKeySaved(): bool
+    {
+        return trim(AppSettings::getSecret(AddressAutocompleteSettings::KEY_GOOGLE_MAPS_BROWSER_KEY, '') ?? '') !== '';
     }
 }

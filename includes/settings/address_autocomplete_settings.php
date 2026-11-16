@@ -17,6 +17,7 @@ final class AddressAutocompleteSettings
     public const KEY_MAX_RESULTS = 'address_autocomplete.max_results';
     public const KEY_TIMEOUT = 'address_autocomplete.timeout_seconds';
     public const KEY_GOOGLE_KEY = 'google_places.api_key';
+    public const KEY_GOOGLE_MAPS_BROWSER_KEY = 'google_maps.browser_api_key';
     public const KEY_RATE_PER_MIN_IP = 'address_autocomplete.rate_per_minute_ip';
     public const KEY_GPS_ENABLED = 'address_autocomplete.gps_enabled';
 
@@ -120,6 +121,43 @@ final class AddressAutocompleteSettings
     public static function googleKeyConfigured(): bool
     {
         return self::googleApiKey() !== null;
+    }
+
+    /**
+     * Browser-restricted key for the Maps JavaScript API (storefront pin map).
+     * Stored encrypted like the server key, but intentionally sent to the
+     * browser — it must be a *separate* Google Cloud key restricted to the
+     * Maps JavaScript API and the site's HTTP referrers. Never copy the
+     * server-side Places/Geocoding key into this field.
+     */
+    public static function googleMapsBrowserKey(): ?string
+    {
+        $k = AppSettings::getSecret(self::KEY_GOOGLE_MAPS_BROWSER_KEY, null);
+
+        return ($k !== null && trim($k) !== '') ? trim($k) : null;
+    }
+
+    public static function googleMapsBrowserKeyConfigured(): bool
+    {
+        return self::googleMapsBrowserKey() !== null;
+    }
+
+    /**
+     * Storefront config for the delivery-location map. The browser key is
+     * included by design (the Maps JS API cannot load without it); its only
+     * protection is referrer/API restriction in Google Cloud, so it stays a
+     * dedicated key — never the server credential.
+     *
+     * @return array{enabled: bool, apiKey: string}
+     */
+    public static function googleMapsClientConfig(): array
+    {
+        $key = self::googleMapsBrowserKey();
+
+        return [
+            'enabled' => $key !== null,
+            'apiKey' => $key ?? '',
+        ];
     }
 
     /**
