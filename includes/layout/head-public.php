@@ -73,6 +73,7 @@ $locale = Lang::locale();
         };
     </script>
     <link rel="stylesheet" href="<?= Security::escape(asset_url('assets/css/apni-tokri.css')) ?>">
+    <link rel="stylesheet" href="<?= Security::escape(asset_url('assets/css/consent.css')) ?>">
     <?php if (!empty($loadHomeMobileCss)): ?>
     <link rel="stylesheet" href="<?= Security::escape(asset_url('assets/css/home-mobile.css')) ?>">
     <?php endif; ?>

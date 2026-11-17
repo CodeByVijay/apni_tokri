@@ -89,6 +89,12 @@
       }).done(function (res) {
         if (res.success && res.data && res.data.count !== undefined) {
           updateHeaderCount(res.data.count);
+          // Meta AddToCart — server-built payload, only on confirmed success.
+          if (res.data.meta_add_to_cart) {
+            document.dispatchEvent(new CustomEvent('at:meta:event', {
+              detail: { name: 'AddToCart', params: res.data.meta_add_to_cart }
+            }));
+          }
         }
         if (typeof done === 'function') done(null, res);
       }).fail(function (xhr) {

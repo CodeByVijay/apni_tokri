@@ -77,11 +77,14 @@ final class Security
             "object-src 'none'",
             "frame-ancestors 'self'",
             "form-action 'self'",
-            "script-src 'self' 'nonce-{$nonce}' https://cdn.tailwindcss.com https://code.jquery.com https://sdk.cashfree.com https://checkout.razorpay.com https://www.googletagmanager.com https://www.gstatic.com",
+            // connect.facebook.net: fbevents.js loader (Meta Pixel, Phase 2). Only fetched after consent.
+            "script-src 'self' 'nonce-{$nonce}' https://cdn.tailwindcss.com https://code.jquery.com https://sdk.cashfree.com https://checkout.razorpay.com https://www.googletagmanager.com https://www.gstatic.com https://connect.facebook.net",
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
             "font-src 'self' https://fonts.gstatic.com data:",
+            // img-src https: already covers the www.facebook.com/tr image beacon.
             "img-src 'self' data: https:",
-            "connect-src 'self' https://*.googleapis.com https://*.google-analytics.com https://*.googletagmanager.com https://*.gstatic.com https://*.cashfree.com https://*.razorpay.com",
+            // facebook.com origins: fbevents.js event delivery fallbacks (XHR/fetch to /tr).
+            "connect-src 'self' https://*.googleapis.com https://*.google-analytics.com https://*.googletagmanager.com https://*.gstatic.com https://*.cashfree.com https://*.razorpay.com https://www.facebook.com https://connect.facebook.net",
             "frame-src https://api.razorpay.com https://*.razorpay.com https://*.cashfree.com",
             "worker-src 'self'",
             "manifest-src 'self'",

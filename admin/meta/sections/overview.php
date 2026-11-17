@@ -27,9 +27,17 @@ $envBadge = AppEnvironment::isProduction()
     ? admin_status_badge('active', $envLabel)
     : admin_status_badge('processing', $envLabel);
 ?>
+<?php
+$browserTrackingBadge = MetaPixel::configured()
+    ? admin_status_badge('active', 'Active (consent-gated)')
+    : admin_status_badge('inactive', 'Not active');
+$consentBadge = MetaConsent::marketingAllowed()
+    ? admin_status_badge('active', 'Granted (this browser)')
+    : admin_status_badge('processing', 'Awaiting visitor consent');
+?>
 <div class="at-alert at-alert--info mb-4" role="status">
-    Phase 1 stores configuration only. No Meta Pixel script is loaded on the storefront and
-    no Conversions API requests are sent — event tracking is not yet activated.
+    Phase 2 is live: the Meta Pixel loads on the storefront only for visitors who grant
+    marketing consent. The Conversions API (Phase 3) still sends no events.
 </div>
 <div class="grid gap-4 lg:grid-cols-2 max-w-5xl">
     <div class="at-card">
@@ -40,6 +48,12 @@ $envBadge = AppEnvironment::isProduction()
             </div>
             <div class="flex justify-between items-center py-2 border-b border-slate-100">
                 <span>Meta Pixel</span><?= $pixelBadge ?>
+            </div>
+            <div class="flex justify-between items-center py-2 border-b border-slate-100">
+                <span>Browser tracking</span><?= $browserTrackingBadge ?>
+            </div>
+            <div class="flex justify-between items-center py-2 border-b border-slate-100">
+                <span>Marketing consent</span><?= $consentBadge ?>
             </div>
             <div class="flex justify-between items-center py-2 border-b border-slate-100">
                 <span>Conversions API</span><?= $capiBadge ?>
@@ -55,18 +69,20 @@ $envBadge = AppEnvironment::isProduction()
     </div>
     <div class="at-card">
         <div class="at-card__body">
-            <h3 class="font-bold mb-2">What this module will do</h3>
+            <h3 class="font-bold mb-2">How tracking works</h3>
             <p class="text-sm text-slate-600 mb-3">
                 Meta Ads connects Veggie Tokri to Meta Business so ad campaigns on Facebook and
                 Instagram can be measured: product views, add-to-cart, checkout and purchases.
             </p>
             <ul class="list-disc pl-5 text-sm text-slate-600 space-y-1">
-                <li><strong>Phase 1 (this screen):</strong> store Pixel ID, dataset and credentials safely. Nothing is tracked yet.</li>
-                <li><strong>Phase 2:</strong> load the Meta Pixel on storefront pages and fire standard events (PageView, ViewContent, AddToCart, InitiateCheckout, Purchase).</li>
-                <li><strong>Phase 3:</strong> send matching server-side events through the Conversions API with deduplication against the pixel.</li>
+                <li><strong>Phase 1:</strong> Pixel ID, dataset and credentials stored safely.</li>
+                <li><strong>Phase 2 (live):</strong> consent banner + Meta Pixel with standard events — PageView, ViewContent, Search, AddToCart, InitiateCheckout, Purchase.</li>
+                <li><strong>Phase 3 (pending):</strong> server-side Conversions API events deduplicated against the pixel.</li>
             </ul>
             <p class="text-sm text-slate-500 mt-3">
-                The access token is stored encrypted and is never shown on this screen.
+                Visitors control marketing cookies via the storefront consent banner and
+                the footer “Cookie Preferences” link. The access token is stored encrypted
+                and is never shown on this screen.
             </p>
         </div>
     </div>

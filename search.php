@@ -9,6 +9,7 @@ Security::sendSecurityHeaders(Security::isHttps());
 
 $q = isset($_GET['q']) && is_string($_GET['q']) ? trim($_GET['q']) : '';
 $loadCatalogueJs = true;
+MetaPixel::queueSearch($q);
 
 layout_public_start([
     'seo' => SeoResolver::forSearchPage($q, $q !== ''),

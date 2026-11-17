@@ -23,4 +23,5 @@ Ajax::success([
     'count' => DemoCart::itemCount(),
     'totals' => DemoCart::totals(),
     'variants_in_cart' => DemoCart::variantIdsForProduct($slug),
+    'meta_add_to_cart' => MetaPixel::addToCartPayload($slug, $variantId, $qty),
 ], $result['message']);

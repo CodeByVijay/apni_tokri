@@ -34,6 +34,7 @@ $requestedVariant = catalogue_variant_from_request($product, $_GET['variant_id']
 if ($requestedVariant !== null) {
     $defaultVariant = $requestedVariant;
 }
+MetaPixel::queueViewContent($product, $defaultVariant);
 $rating = demo_catalogue()->ratingSummary($slug);
 $reviews = demo_catalogue()->approvedReviewsFor($slug);
 $related = demo_catalogue()->relatedFor($product, 4);

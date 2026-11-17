@@ -251,7 +251,7 @@ final class OrderRepository
         $orderId = (int) $orderRow['id'];
         Install::ensureConnection();
         $itemsStmt = Database::pdo()->prepare(
-            'SELECT oi.product_name, oi.variant_name, oi.quantity, oi.unit_price, oi.line_total,
+            'SELECT oi.product_name, oi.variant_name, oi.variant_id, oi.sku, oi.quantity, oi.unit_price, oi.line_total,
                     (SELECT pi.file_path FROM product_images pi
                      INNER JOIN product_variants pv ON pv.product_id = pi.product_id
                      WHERE pv.id = oi.variant_id
@@ -264,6 +264,8 @@ final class OrderRepository
             $items[] = [
                 'name' => (string) $it['product_name'],
                 'label' => (string) $it['variant_name'],
+                'variant_id' => $it['variant_id'] !== null ? (int) $it['variant_id'] : null,
+                'sku' => $it['sku'] !== null ? (string) $it['sku'] : null,
                 'qty' => (int) $it['quantity'],
                 'unit_price' => (float) $it['unit_price'],
                 'line_total' => (float) $it['line_total'],

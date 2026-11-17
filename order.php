@@ -28,6 +28,10 @@ if ($order === null && $id !== '' && AppEnvironment::allowsSessionDemoCommerce()
     $order = DemoCustomer::order($id);
     $loadedFromDatabase = false;
 }
+// Meta Purchase — only DB-loaded, payment-confirmed orders pass the gate.
+if ($order !== null) {
+    MetaPixel::queuePurchaseIfEligible($order, $loadedFromDatabase);
+}
 
 $orderEnvironmentBadge = $order !== null
     ? OrderPaymentEnvironmentBadge::forOrderConfirmation($id, $loadedFromDatabase)

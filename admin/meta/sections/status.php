@@ -18,6 +18,14 @@ $rows = [
     }],
     ['Test event code', $metaStatus['test_event_code'] !== null
         ? (string) $metaStatus['test_event_code'] : 'Not set'],
+    ['Consent manager', 'Implemented — marketing denied by default'],
+    ['Browser integration', MetaPixel::configured()
+        ? (MetaPixel::browserAllowedNow()
+            ? 'Active — pixel + consent granted in this browser'
+            : 'Configured — waiting for visitor marketing consent')
+        : 'Not active — enable the Pixel and set a valid Pixel ID'],
+    ['CSP readiness', 'connect.facebook.net + www.facebook.com added (script/connect/img)'],
+    ['CAPI implementation', 'Pending — Phase 3 (no server events sent)'],
 ];
 ?>
 <div class="grid gap-4 lg:grid-cols-2 max-w-5xl">
@@ -37,8 +45,8 @@ $rows = [
                 </table>
             </div>
             <div class="at-alert at-alert--info mt-3" role="status">
-                Enabling these settings does not activate tracking. No Meta scripts load on the
-                storefront and no server requests are sent in Phase 1.
+                Phase 2: the pixel loads only when enabled, a valid ID is set, and the visitor
+                has granted marketing consent. No Conversions API requests are sent yet.
             </div>
         </div>
     </div>
@@ -46,11 +54,11 @@ $rows = [
         <div class="at-card__body">
             <h3 class="font-bold mb-2">Phase 2/3 readiness</h3>
             <ul class="list-disc pl-5 text-sm text-slate-600 space-y-1">
-                <li>Pixel activation (Phase 2) will need CSP additions for
-                    <code>connect.facebook.net</code> (script/img) and
-                    <code>www.facebook.com</code> (img/connect) — not added yet.</li>
+                <li>Phase 2 CSP is in place: <code>connect.facebook.net</code> (script) and
+                    <code>www.facebook.com</code> (connect/img beacons).</li>
+                <li>Purchase events carry a deterministic, non-PII event ID — Phase 3 CAPI will reuse it for browser/server deduplication.</li>
                 <li>Conversions API (Phase 3) calls <code>graph.facebook.com</code> server-side; no browser CSP change needed for it.</li>
-                <li>Purchase events will hook into the existing payment completion flow in Phase 3.</li>
+                <li>Server-side Purchase delivery still hooks the payment completion flow in Phase 3.</li>
             </ul>
             <div class="mt-3 flex gap-2">
                 <a class="at-btn at-btn--secondary" href="<?= Security::escape(MetaAdsSettings::sectionUrl('pixel')) ?>">Pixel settings</a>

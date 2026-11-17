@@ -1,0 +1,344 @@
+/* ==========================================================================
+   Veggie Tokri — first-party cookie consent (banner + preferences dialog)
+   Brand: green #245C3A / cream. Self-contained; loaded on all public pages.
+   ========================================================================== */
+
+.at-consent {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 90;
+    padding: 0.75rem;
+    padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
+    pointer-events: none;
+}
+
+/* Mobile: bottom-sheet style card spanning the viewport */
+.at-consent__card {
+    pointer-events: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.875rem;
+    background: #fff;
+    border: 1px solid var(--at-line, #e8e2d4);
+    border-radius: 16px;
+    box-shadow: 0 12px 32px rgba(19, 52, 33, 0.16), 0 2px 8px rgba(19, 52, 33, 0.08);
+    padding: 1rem 1rem 0.875rem;
+    max-width: 100%;
+    margin: 0 auto;
+}
+
+.at-consent__icon {
+    display: none;
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+    border-radius: 12px;
+    background: var(--at-green-050, #f0f6f2);
+    color: var(--at-green, #245c3a);
+    align-items: center;
+    justify-content: center;
+}
+.at-consent__icon svg {
+    width: 22px;
+    height: 22px;
+}
+
+.at-consent__title {
+    font-size: 0.9375rem;
+    font-weight: 800;
+    color: var(--at-ink, #1f2b21);
+    margin: 0 0 0.25rem;
+    line-height: 1.25;
+}
+
+.at-consent__text {
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    color: var(--at-ink-2, #55614f);
+    margin: 0;
+}
+
+.at-consent__link {
+    color: var(--at-green, #245c3a);
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.at-consent__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.at-consent__btn {
+    border: 0;
+    border-radius: 10px;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    line-height: 1;
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+    min-height: 44px;
+}
+
+.at-consent__btn--primary {
+    background: var(--at-green, #245c3a);
+    color: #fff;
+    flex: 1 1 auto;
+    min-width: 7.5rem;
+}
+.at-consent__btn--primary:hover { background: var(--at-green-700, #1b4a2e); }
+
+.at-consent__btn--secondary {
+    background: #fff;
+    color: var(--at-green, #245c3a);
+    border: 1.5px solid var(--at-green, #245c3a);
+    flex: 1 1 auto;
+    min-width: 7.5rem;
+}
+.at-consent__btn--secondary:hover { background: var(--at-green-050, #f0f6f2); }
+
+.at-consent__btn--link {
+    background: transparent;
+    color: var(--at-ink-2, #55614f);
+    padding-left: 0.25rem;
+    padding-right: 0.25rem;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    font-weight: 600;
+    min-width: 0;
+}
+.at-consent__btn--link:hover { color: var(--at-green, #245c3a); }
+
+/* Desktop: compact floating card, bottom-left */
+@media (min-width: 768px) {
+    .at-consent {
+        right: auto;
+        max-width: 26.5rem;
+        padding: 0 0 1.5rem 1.5rem;
+    }
+    .at-consent__card {
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-items: flex-start;
+        gap: 0.75rem 1rem;
+        padding: 1.25rem;
+    }
+    .at-consent__icon { display: inline-flex; }
+    .at-consent__body { flex: 1 1 12rem; min-width: 0; }
+    .at-consent__actions { flex: 1 1 100%; }
+}
+
+/* Footer "Cookie Preferences" entry — a button styled like the other links */
+.at-footer__consent-link {
+    display: inline;
+    border: 0;
+    background: none;
+    padding: 0;
+    margin: 0;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+    text-align: left;
+}
+.at-footer__consent-link:hover {
+    color: #fff;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+/* ---------- Preferences dialog ---------- */
+
+.at-consent-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 9990;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+}
+
+.at-consent-modal__backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(19, 52, 33, 0.45);
+    backdrop-filter: blur(2px);
+}
+
+.at-consent-modal__dialog {
+    position: relative;
+    background: #fff;
+    width: 100%;
+    max-height: calc(100dvh - 2rem);
+    overflow-y: auto;
+    border-radius: 16px 16px 0 0;
+    padding: 1.25rem 1.25rem calc(1.25rem + env(safe-area-inset-bottom, 0px));
+    box-shadow: 0 -8px 40px rgba(19, 52, 33, 0.22);
+}
+
+@media (min-width: 768px) {
+    .at-consent-modal {
+        align-items: center;
+        padding: 2rem;
+    }
+    .at-consent-modal__dialog {
+        max-width: 30rem;
+        border-radius: 18px;
+        padding: 1.75rem;
+    }
+}
+
+.at-consent-modal__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.at-consent-modal__title {
+    font-size: 1.125rem;
+    font-weight: 800;
+    color: var(--at-ink, #1f2b21);
+    margin: 0;
+}
+
+.at-consent-modal__close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--at-green-050, #f0f6f2);
+    color: var(--at-ink-2, #55614f);
+    cursor: pointer;
+}
+.at-consent-modal__close:hover { background: var(--at-green-100, #dfece4); }
+
+.at-consent-modal__intro {
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    color: var(--at-ink-2, #55614f);
+    margin: 0 0 1rem;
+}
+
+.at-consent-cat {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.875rem 0;
+    border-top: 1px solid var(--at-line, #e8e2d4);
+}
+
+.at-consent-cat__info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    min-width: 0;
+}
+
+.at-consent-cat__name {
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: var(--at-ink, #1f2b21);
+    cursor: pointer;
+}
+
+.at-consent-cat__desc {
+    font-size: 0.75rem;
+    line-height: 1.45;
+    color: var(--at-ink-2, #55614f);
+}
+
+.at-consent-cat__locked {
+    flex-shrink: 0;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--at-green, #245c3a);
+    background: var(--at-green-050, #f0f6f2);
+    border-radius: 999px;
+    padding: 0.3rem 0.65rem;
+}
+
+/* Toggle switch */
+.at-switch {
+    position: relative;
+    display: inline-flex;
+    flex-shrink: 0;
+    cursor: pointer;
+}
+.at-switch input {
+    position: absolute;
+    opacity: 0;
+    width: 44px;
+    height: 26px;
+    margin: 0;
+    cursor: pointer;
+}
+.at-switch__track {
+    width: 44px;
+    height: 26px;
+    border-radius: 999px;
+    background: #cdd6cc;
+    transition: background 0.15s ease;
+    position: relative;
+    pointer-events: none;
+}
+.at-switch__track::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+    transition: transform 0.15s ease;
+}
+.at-switch input:checked + .at-switch__track { background: var(--at-green, #245c3a); }
+.at-switch input:checked + .at-switch__track::after { transform: translateX(18px); }
+.at-switch input:focus-visible + .at-switch__track {
+    outline: 2px solid var(--at-green, #245c3a);
+    outline-offset: 2px;
+}
+
+.at-consent-modal__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 1.25rem;
+}
+.at-consent-modal__actions .at-consent__btn { flex: 1 1 8rem; }
+
+/* Reveal animation — subtle, respects reduced-motion */
+.at-consent__card,
+.at-consent-modal__dialog {
+    transform: translateY(12px);
+    opacity: 0;
+    transition: transform 0.22s ease, opacity 0.22s ease;
+}
+.at-consent.is-visible .at-consent__card,
+.at-consent-modal.is-visible .at-consent-modal__dialog {
+    transform: translateY(0);
+    opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .at-consent__card,
+    .at-consent-modal__dialog {
+        transition: none;
+        transform: none;
+        opacity: 1;
+    }
+}

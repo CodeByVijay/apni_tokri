@@ -154,6 +154,11 @@ if (!in_array($selectedAddressId, $validIds, true)) {
 }
 $defaultAddressId = $loggedIn && $selectedAddressId !== '' ? (int) $selectedAddressId : null;
 $totals = CartService::totals($defaultAddressId, $defaultSlotSlug, $defaultSlotDate);
+// Meta InitiateCheckout — only the initial page entry counts as starting
+// checkout; POST re-renders (failed place_order, address saves) must not refire.
+if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    MetaPixel::queueInitiateCheckout(DemoCart::items(), $totals);
+}
 $paymentGwMeta = PaymentGatewayConfig::publicCheckoutConfig();
 $paymentGatewayLabel = PaymentGatewayConfig::gatewayLabel((string) ($paymentGwMeta['gateway'] ?? 'simulate'));
 $paymentUsesSimulate = PaymentGatewayConfig::useSimulatedCheckout();

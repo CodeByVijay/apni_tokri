@@ -65,6 +65,7 @@ foreach ($cmsFooterLinks as $cmsFooterLink) {
                 <?php foreach ($cmsPolicyFooterLinks as $cmsPolicyLink): ?>
                 <li><a class="at-focusable" href="<?= Security::escape((string) $cmsPolicyLink['href']) ?>"><?= Security::escape((string) $cmsPolicyLink['title']) ?></a></li>
                 <?php endforeach; ?>
+                <li><button type="button" class="at-footer__consent-link at-focusable" data-consent-manage>Cookie Preferences</button></li>
             </ul>
         </div>
         <div class="at-footer__support">
@@ -192,5 +193,8 @@ if ($loadPushJs):
     ?><script <?= Security::cspNonceAttr() ?>>window.AT_BASE = <?= json_encode(url_base(), JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
 <script type="module" src="<?= Security::escape(asset_url('assets/js/push-notifications.mjs')) ?>"></script>
 <?php endif; ?>
+
+<?php require APNI_TOKRI_ROOT . '/includes/partials/consent-banner.php'; ?>
+<?php MetaPixel::renderBootstrap(); ?>
 </body>
 </html>

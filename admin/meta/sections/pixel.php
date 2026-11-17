@@ -15,7 +15,7 @@ $actionUrl = MetaAdsSettings::sectionUrl('pixel');
                 <label class="flex items-center gap-2 text-sm mb-3">
                     <input type="checkbox" name="pixel_enabled" value="1" <?= !empty($metaForm['pixel_enabled']) ? 'checked' : '' ?>>
                     <span><strong>Enable Meta Pixel</strong><br>
-                        <small class="text-slate-500">Stores the flag only — the pixel script is not loaded yet (Phase 2).</small></span>
+                        <small class="text-slate-500">When on with a valid ID, the pixel loads on the storefront — but only for visitors who grant marketing consent.</small></span>
                 </label>
                 <div class="at-field">
                     <label class="at-label" for="meta-pixel-id">Meta Pixel ID</label>
@@ -40,9 +40,10 @@ $actionUrl = MetaAdsSettings::sectionUrl('pixel');
         <div class="at-card__body">
             <h3 class="font-bold mb-2">Notes</h3>
             <ul class="list-disc pl-5 text-sm text-slate-600 space-y-1">
-                <li>Enabling the pixel here does <strong>not</strong> add any script to the storefront in Phase 1.</li>
+                <li>Enabling the Pixel in settings does <strong>not</strong> override visitor marketing consent — tracking only starts after a visitor accepts marketing cookies.</li>
+                <li>Consent is managed in the storefront banner and the footer “Cookie Preferences” link; withdrawing it stops all future events immediately.</li>
                 <li>The same numeric ID is normally reused as the Conversions API dataset ID.</li>
-                <li>Phase 2 will inject the base pixel snippet and standard events using this ID.</li>
+                <li>Tracked events: PageView, ViewContent, Search, AddToCart, InitiateCheckout and Purchase (paid orders only, deduplicated).</li>
             </ul>
         </div>
     </div>
