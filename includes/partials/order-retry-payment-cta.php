@@ -25,7 +25,7 @@ $amountLabel = catalogue_format_price($retryPaymentAmount);
         <?php if ($retryPaymentInfo !== ''): ?>
             <div class="at-alert at-alert--info mt-2 text-sm" role="status"><?= Security::escape($retryPaymentInfo) ?></div>
         <?php endif; ?>
-        <form method="post" action="<?= Security::escape(url_base()) ?>/order-details.php?id=<?= rawurlencode((string) ($id ?? '')) ?>" class="at-order-retry-pay__form">
+        <form method="post" action="<?= Security::escape(url_base()) ?>/order-details?id=<?= rawurlencode((string) ($id ?? '')) ?>" class="at-order-retry-pay__form">
             <?= Csrf::field() ?>
             <input type="hidden" name="storefront_retry_payment" value="1">
             <button type="submit"

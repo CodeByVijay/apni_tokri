@@ -63,6 +63,7 @@ final class SeoRedirectPath
         if ($normalized === '') {
             return '';
         }
+        $normalized = self::prettySlugPathToLegacy($normalized);
         $pathOnly = parse_url($normalized, PHP_URL_PATH);
         if (!is_string($pathOnly) || $pathOnly === '') {
             return $normalized;
@@ -162,6 +163,51 @@ final class SeoRedirectPath
         sort($parts);
 
         return implode('&', $parts);
+    }
+
+    /**
+     * Map a pretty public slug path (/product/{slug}) to the legacy slug-route
+     * form (/product.php?slug={slug}) used for redirect-rule identity.
+     * Conflicting path+query slugs yield '' (ambiguous); non-slug params are
+     * preserved for the downstream canonical-slug extraction.
+     */
+    private static function prettySlugPathToLegacy(string $normalized): string
+    {
+        $pathOnly = parse_url($normalized, PHP_URL_PATH);
+        if (!is_string($pathOnly) || $pathOnly === '') {
+            return $normalized;
+        }
+        if (preg_match('#^(.*?)/(product|category|page)/([A-Za-z0-9_-]+)/?$#i', $pathOnly, $m) !== 1) {
+            return $normalized;
+        }
+        $query = parse_url($normalized, PHP_URL_QUERY);
+        $query = is_string($query) ? $query : '';
+        $querySlug = self::canonicalSlugFromQuery($query);
+        if ($querySlug === null) {
+            return '';
+        }
+        if ($querySlug !== '' && $querySlug !== $m[3]) {
+            return '';
+        }
+        $rest = trim(preg_replace('/(?:^|&)slug=[^&]*/', '', $query) ?? '', '&');
+        $legacy = $m[1] . '/' . $m[2] . '.php?slug=' . rawurlencode($m[3]);
+
+        return $rest !== '' ? $legacy . '&' . $rest : $legacy;
+    }
+
+    /**
+     * Public URL form for an internal path/identity: legacy slug routes become
+     * pretty paths (/product.php?slug=X → /product/X); anything else is unchanged.
+     */
+    public static function publicUrl(string $internalPathAndQuery): string
+    {
+        if (preg_match('#^(.*?)/(product|category|page)\.php\?slug=([A-Za-z0-9_-]+)(?:&(.*))?$#i', $internalPathAndQuery, $m) !== 1) {
+            return $internalPathAndQuery;
+        }
+        $pretty = $m[1] . '/' . $m[2] . '/' . $m[3];
+        $rest = (string) ($m[4] ?? '');
+
+        return $rest !== '' ? $pretty . '?' . $rest : $pretty;
     }
 
     /**

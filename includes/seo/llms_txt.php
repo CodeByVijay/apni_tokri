@@ -21,8 +21,8 @@ final class LlmsTxt
 
     /** Public support routes (not checkout/login); omitted when URL is ineligible or a redirect source. */
     private const SUPPORT_APP_PATHS = [
-        '/contact.php' => 'Contact',
-        '/support.php' => 'Support tickets',
+        '/contact' => 'Contact',
+        '/support' => 'Support tickets',
     ];
 
     public static function staticRootPath(): string
@@ -325,7 +325,7 @@ final class LlmsTxt
             if (!SeoSitemap::isEligibleAbsoluteUrl($url) || isset($redirectSources[$url])) {
                 continue;
             }
-            $desc = $path === '/contact.php'
+            $desc = $path === '/contact'
                 ? 'Support phone, email, and WhatsApp when configured in business settings.'
                 : 'Form to raise help requests; logged-in customers can link an order when applicable.';
             $out[] = ['label' => $label, 'url' => $url, 'description' => $desc];

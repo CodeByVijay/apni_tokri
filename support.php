@@ -112,9 +112,9 @@ require APNI_TOKRI_ROOT . '/includes/partials/account-shell-start.php';
         </div></div>
         <div class="at-card at-card--tint"><div class="at-card__body text-sm">
             <p class="font-bold">Faster answers</p>
-            <p class="at-muted mt-1">Check the <a class="underline font-semibold" href="<?= Security::escape($base) ?>/faqs.php">FAQs</a> or the <a class="underline font-semibold" href="<?= Security::escape($base) ?>/page.php?slug=refund-policy">refund policy</a> first.</p>
+            <p class="at-muted mt-1">Check the <a class="underline font-semibold" href="<?= Security::escape($base) ?>/faqs">FAQs</a> or the <a class="underline font-semibold" href="<?= Security::escape($base) ?>/page/refund-policy">refund policy</a> first.</p>
             <?php if (CustomerService::isLoggedIn()): ?>
-                <p class="mt-2"><a class="at-link-arrow !text-sm" href="<?= Security::escape($base) ?>/my-support.php">View my tickets</a></p>
+                <p class="mt-2"><a class="at-link-arrow !text-sm" href="<?= Security::escape($base) ?>/my-support">View my tickets</a></p>
             <?php endif; ?>
         </div></div>
     </div>

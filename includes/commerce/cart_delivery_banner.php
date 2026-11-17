@@ -8,7 +8,7 @@ final class CartDeliveryBanner
     public const MSG_SELECT_ADDRESS = 'Select your delivery address to see your delivery charge.';
     public const MSG_UPDATE_ADDRESS = 'Update your saved delivery address to see your delivery charge.';
     public const MSG_SUMMARY_NO_ADDRESS = 'Select an address to calculate delivery charge.';
-    private const CTA_HREF = '/checkout.php';
+    private const CTA_HREF = '/checkout';
     private const CTA_LABEL = 'Select delivery address';
     private const CTA_CHANGE_LABEL = 'Change address';
 

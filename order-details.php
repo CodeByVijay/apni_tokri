@@ -8,7 +8,7 @@ require_once APNI_TOKRI_ROOT . '/includes/catalogue/helpers.php';
 Security::sendSecurityHeaders(Security::isHttps());
 
 if (!CustomerService::isLoggedIn()) {
-    header('Location: ' . url_base() . '/login.php?next=' . rawurlencode($_SERVER['REQUEST_URI'] ?? ''), true, 302);
+    header('Location: ' . url_base() . '/login?next=' . rawurlencode($_SERVER['REQUEST_URI'] ?? ''), true, 302);
     exit;
 }
 
@@ -42,7 +42,7 @@ if ($order === null) {
     layout_public_start(['pageTitle' => 'Order — Veggie Tokri', 'activeNav' => 'account']);
     $emptyTitle = 'Order not found';
     $emptyMessage = 'Check the link or view all orders.';
-    $emptyActionHref = url_base() . '/my-orders.php';
+    $emptyActionHref = url_base() . '/my-orders';
     $emptyActionLabel = 'My orders';
     require APNI_TOKRI_ROOT . '/includes/partials/empty-state.php';
     layout_public_end();
@@ -296,7 +296,7 @@ $formatDeliveryDay = static function (?string $d): string {
         <?php if ($cancelEligible): ?>
             <a href="#at-open-cancel-dialog" class="at-btn at-btn--ghost at-btn--sm at-focusable" onclick="document.getElementById('at-open-cancel-dialog')?.click();return false;">Cancel order</a>
         <?php endif; ?>
-        <a href="<?= Security::escape(url_base()) ?>/support.php?order=<?= rawurlencode($displayId) ?>" class="at-btn at-btn--secondary at-btn--sm at-focusable"><?= at_icon('chat', 'w-4 h-4') ?><?= Security::escape(__('need_help')) ?></a>
+        <a href="<?= Security::escape(url_base()) ?>/support?order=<?= rawurlencode($displayId) ?>" class="at-btn at-btn--secondary at-btn--sm at-focusable"><?= at_icon('chat', 'w-4 h-4') ?><?= Security::escape(__('need_help')) ?></a>
     </div>
 </header>
 
@@ -490,7 +490,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/customer-order-cancel.php';
                         <?php foreach ($orderRefunds as $or): ?>
                             <li class="border-b border-[var(--at-line)] pb-3 last:border-0">
                                 <p>
-                                    <a class="font-semibold underline" href="<?= Security::escape(url_base()) ?>/refund-details.php?refund=<?= rawurlencode((string) $or['request_number']) ?>"><?= Security::escape((string) $or['request_number']) ?></a>
+                                    <a class="font-semibold underline" href="<?= Security::escape(url_base()) ?>/refund-details?refund=<?= rawurlencode((string) $or['request_number']) ?>"><?= Security::escape((string) $or['request_number']) ?></a>
                                     <span class="at-muted"> — <?= Security::escape((string) ($or['status_label'] ?? '')) ?></span>
                                 </p>
                                 <?php if ((float) ($or['display_amount_inr'] ?? 0) > 0): ?>
@@ -511,7 +511,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/customer-order-cancel.php';
                             </li>
                         <?php endforeach; ?>
                     </ul>
-                    <p class="mt-2"><a class="text-sm underline" href="<?= Security::escape(url_base()) ?>/my-refunds.php">All refund requests</a></p>
+                    <p class="mt-2"><a class="text-sm underline" href="<?= Security::escape(url_base()) ?>/my-refunds">All refund requests</a></p>
                 </div>
             </section>
         <?php endif; ?>
@@ -527,15 +527,15 @@ require APNI_TOKRI_ROOT . '/includes/partials/customer-order-cancel.php';
                     <p class="mt-2"><strong><?= Security::escape((string) $inv['invoice_number']) ?></strong></p>
                     <p class="at-muted">Retail invoice · <?= Security::escape(InvoiceFormat::date((string) $inv['invoice_date'])) ?></p>
                     <p class="mt-3 flex flex-wrap gap-2">
-                        <a class="at-btn at-btn--primary at-btn--sm at-focusable" href="<?= Security::escape(url_base()) ?>/invoice-download.php?ref=<?= rawurlencode((string) $inv['public_ref']) ?>">Download PDF</a>
-                        <a class="at-btn at-btn--secondary at-btn--sm at-focusable" target="_blank" rel="noopener" href="<?= Security::escape(url_base()) ?>/invoice-download.php?ref=<?= rawurlencode((string) $inv['public_ref']) ?>&amp;inline=1">View</a>
+                        <a class="at-btn at-btn--primary at-btn--sm at-focusable" href="<?= Security::escape(url_base()) ?>/invoice-download?ref=<?= rawurlencode((string) $inv['public_ref']) ?>">Download PDF</a>
+                        <a class="at-btn at-btn--secondary at-btn--sm at-focusable" target="_blank" rel="noopener" href="<?= Security::escape(url_base()) ?>/invoice-download?ref=<?= rawurlencode((string) $inv['public_ref']) ?>&amp;inline=1">View</a>
                     </p>
                     <?php foreach ($invoiceSync['credit_notes'] as $cn): ?>
                         <div class="mt-4 pt-3 border-t border-[var(--at-line)]">
                             <p><strong><?= Security::escape((string) $cn['invoice_number']) ?></strong> <span class="at-muted">· Credit note · <?= Security::escape(catalogue_format_price((float) $cn['grand_total'])) ?></span></p>
                             <p class="mt-2 flex flex-wrap gap-2">
-                                <a class="at-btn at-btn--secondary at-btn--sm at-focusable" href="<?= Security::escape(url_base()) ?>/invoice-download.php?ref=<?= rawurlencode((string) $cn['public_ref']) ?>">Download</a>
-                                <a class="at-btn at-btn--secondary at-btn--sm at-focusable" target="_blank" rel="noopener" href="<?= Security::escape(url_base()) ?>/invoice-download.php?ref=<?= rawurlencode((string) $cn['public_ref']) ?>&amp;inline=1">View</a>
+                                <a class="at-btn at-btn--secondary at-btn--sm at-focusable" href="<?= Security::escape(url_base()) ?>/invoice-download?ref=<?= rawurlencode((string) $cn['public_ref']) ?>">Download</a>
+                                <a class="at-btn at-btn--secondary at-btn--sm at-focusable" target="_blank" rel="noopener" href="<?= Security::escape(url_base()) ?>/invoice-download?ref=<?= rawurlencode((string) $cn['public_ref']) ?>&amp;inline=1">View</a>
                             </p>
                         </div>
                     <?php endforeach; ?>
@@ -554,7 +554,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/customer-order-cancel.php';
         <section class="at-card at-card--tint at-order-detail__grid-full">
             <div class="at-card__body flex flex-wrap items-center justify-between gap-3">
                 <div><h2 class="at-h3">How did we do?</h2><p class="text-sm at-muted mt-1">Reviews are for delivered orders and appear after approval.</p></div>
-                <a href="<?= Security::escape(url_base()) ?>/submit-review.php?order=<?= rawurlencode($displayId) ?>" class="at-btn at-btn--secondary at-focusable">Write a review</a>
+                <a href="<?= Security::escape(url_base()) ?>/submit-review?order=<?= rawurlencode($displayId) ?>" class="at-btn at-btn--secondary at-focusable">Write a review</a>
             </div>
         </section>
     <?php endif; ?>
@@ -562,14 +562,14 @@ require APNI_TOKRI_ROOT . '/includes/partials/customer-order-cancel.php';
     <section class="at-card at-order-detail__grid-full">
     <div class="at-card__body">
         <h2 class="at-h3">Refund or quality issue</h2>
-        <p class="text-sm at-muted mt-1">Tell us what went wrong. We review every request against our <a class="underline font-semibold" href="<?= Security::escape(url_base()) ?>/page.php?slug=refund-policy">refund policy</a>.</p>
+        <p class="text-sm at-muted mt-1">Tell us what went wrong. We review every request against our <a class="underline font-semibold" href="<?= Security::escape(url_base()) ?>/page/refund-policy">refund policy</a>.</p>
         <?php if ($orderRefunds !== [] && empty($order['overview'])): ?>
             <div class="mt-3 p-3 rounded-lg bg-[var(--at-cream-2)] text-sm">
                 <p class="font-semibold">Your refund requests for this order</p>
                 <ul class="mt-2 space-y-1">
                     <?php foreach ($orderRefunds as $or): ?>
                         <li>
-                            <a class="underline font-semibold" href="<?= Security::escape(url_base()) ?>/refund-details.php?refund=<?= rawurlencode((string) $or['request_number']) ?>"><?= Security::escape((string) $or['request_number']) ?></a>
+                            <a class="underline font-semibold" href="<?= Security::escape(url_base()) ?>/refund-details?refund=<?= rawurlencode((string) $or['request_number']) ?>"><?= Security::escape((string) $or['request_number']) ?></a>
                             — <?= Security::escape(RefundRequestService::publicStatusLabel((string) $or['status'])) ?>
                         </li>
                     <?php endforeach; ?>

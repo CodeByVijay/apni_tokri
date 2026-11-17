@@ -213,7 +213,7 @@ final class HomepageTrustService
                 ],
                 'image_path' => 'assets/images/demo/about-packing.jpg',
                 'cta_label' => 'About Veggie Tokri',
-                'cta_href' => '/page.php?slug=about-us',
+                'cta_href' => '/page/about-us',
             ];
         }
         if ($id === 'testimonials') {

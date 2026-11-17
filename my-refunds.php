@@ -8,7 +8,7 @@ require_once APNI_TOKRI_ROOT . '/includes/catalogue/helpers.php';
 Security::sendSecurityHeaders(Security::isHttps(), true);
 
 if (!CustomerService::isLoggedIn()) {
-    header('Location: ' . url_base() . '/login.php?next=' . rawurlencode($_SERVER['REQUEST_URI'] ?? ''), true, 302);
+    header('Location: ' . url_base() . '/login?next=' . rawurlencode($_SERVER['REQUEST_URI'] ?? ''), true, 302);
     exit;
 }
 
@@ -35,7 +35,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/account-shell-start.php';
             $emptyTitle = 'No refund requests yet';
             $emptyMessage = 'When you submit a refund request from an order, it will appear here with status updates.';
             $emptyIcon = 'receipt';
-            $emptyActionHref = url_base() . '/my-orders.php';
+            $emptyActionHref = url_base() . '/my-orders';
             $emptyActionLabel = 'View my orders';
             require APNI_TOKRI_ROOT . '/includes/partials/empty-state.php';
             ?>
@@ -44,9 +44,9 @@ require APNI_TOKRI_ROOT . '/includes/partials/account-shell-start.php';
                 <?php foreach ($refunds as $r): ?>
                     <li class="at-refund-row">
                         <div class="min-w-0">
-                            <a class="font-bold hover:underline at-focusable" href="<?= Security::escape(url_base()) ?>/refund-details.php?refund=<?= rawurlencode((string) $r['request_number']) ?>"><?= Security::escape((string) $r['request_number']) ?></a>
+                            <a class="font-bold hover:underline at-focusable" href="<?= Security::escape(url_base()) ?>/refund-details?refund=<?= rawurlencode((string) $r['request_number']) ?>"><?= Security::escape((string) $r['request_number']) ?></a>
                             <p class="text-sm mt-1">
-                                Order <a class="underline font-semibold" href="<?= Security::escape(url_base()) ?>/order-details.php?id=<?= rawurlencode((string) $r['order_number']) ?>"><?= Security::escape((string) $r['order_number']) ?></a>
+                                Order <a class="underline font-semibold" href="<?= Security::escape(url_base()) ?>/order-details?id=<?= rawurlencode((string) $r['order_number']) ?>"><?= Security::escape((string) $r['order_number']) ?></a>
                                 <?php if (!empty($r['subscription_number'])): ?>
                                     · Subscription <?= Security::escape((string) $r['subscription_number']) ?>
                                 <?php endif; ?>

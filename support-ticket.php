@@ -7,7 +7,7 @@ require_once __DIR__ . '/includes/bootstrap.php';
 Security::sendSecurityHeaders(Security::isHttps());
 
 if (!CustomerService::isLoggedIn()) {
-    header('Location: ' . url_base() . '/login.php?next=' . rawurlencode($_SERVER['REQUEST_URI'] ?? ''), true, 302);
+    header('Location: ' . url_base() . '/login?next=' . rawurlencode($_SERVER['REQUEST_URI'] ?? ''), true, 302);
     exit;
 }
 
@@ -17,7 +17,7 @@ $err = '';
 $msg = '';
 
 if ($customerId === null || !CommerceGateway::useDatabase() || $ticketNumber === '') {
-    header('Location: ' . url_base() . '/my-support.php', true, 302);
+    header('Location: ' . url_base() . '/my-support', true, 302);
     exit;
 }
 
@@ -26,7 +26,7 @@ if ($ticket === null) {
     layout_public_start(['pageTitle' => 'Ticket — Veggie Tokri', 'activeNav' => 'account']);
     $emptyTitle = 'Ticket not found';
     $emptyMessage = 'This ticket does not belong to your account.';
-    $emptyActionHref = url_base() . '/my-support.php';
+    $emptyActionHref = url_base() . '/my-support';
     $emptyActionLabel = 'My tickets';
     require APNI_TOKRI_ROOT . '/includes/partials/empty-state.php';
     layout_public_end();
@@ -69,7 +69,7 @@ $accountTitle = $ticketNumber;
 $accountSub = (string) ($ticket['subject'] ?? '');
 require APNI_TOKRI_ROOT . '/includes/partials/account-shell-start.php';
 ?>
-<p class="text-sm"><a class="at-link-arrow !text-sm at-focusable" href="<?= Security::escape($base) ?>/my-support.php">← All tickets</a></p>
+<p class="text-sm"><a class="at-link-arrow !text-sm at-focusable" href="<?= Security::escape($base) ?>/my-support">← All tickets</a></p>
 <?php if ($msg !== ''): ?><div class="at-alert at-alert--success mt-3" role="status"><span><?= Security::escape($msg) ?></span></div><?php endif; ?>
 <?php if ($err !== ''): ?><div class="at-alert at-alert--error mt-3" role="alert"><span><?= Security::escape($err) ?></span></div><?php endif; ?>
 
@@ -86,7 +86,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/account-shell-start.php';
             <div><dt class="at-muted">Created</dt><dd class="font-semibold mt-0.5"><?= Security::escape(customer_format_datetime((string) $ticket['created_at'])) ?></dd></div>
             <div><dt class="at-muted">Last updated</dt><dd class="font-semibold mt-0.5"><?= Security::escape(customer_format_datetime((string) ($ticket['updated_at'] ?? $ticket['created_at']))) ?></dd></div>
             <?php if ($orderNumber !== ''): ?>
-                <div class="sm:col-span-2"><dt class="at-muted">Linked order</dt><dd class="font-mono font-bold mt-0.5"><a class="underline" href="<?= Security::escape($base) ?>/order-details.php?id=<?= rawurlencode($orderNumber) ?>"><?= Security::escape($orderNumber) ?></a></dd></div>
+                <div class="sm:col-span-2"><dt class="at-muted">Linked order</dt><dd class="font-mono font-bold mt-0.5"><a class="underline" href="<?= Security::escape($base) ?>/order-details?id=<?= rawurlencode($orderNumber) ?>"><?= Security::escape($orderNumber) ?></a></dd></div>
             <?php endif; ?>
         </dl>
     </div>

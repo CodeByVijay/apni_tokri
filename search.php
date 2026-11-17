@@ -20,10 +20,10 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
 <div class="at-pagehead">
     <div class="at-container pb-6">
         <nav class="at-breadcrumb" aria-label="Breadcrumb">
-            <a href="<?= Security::escape(url_base()) ?>/index.php">Home</a><span class="sep">/</span><span aria-current="page">Search</span>
+            <a href="<?= Security::escape(url_base()) ?>/">Home</a><span class="sep">/</span><span aria-current="page">Search</span>
         </nav>
         <h1 class="at-h1"><?= $q !== '' ? 'Results for “' . Security::escape($q) . '”' : 'Search the store' ?></h1>
-        <form method="get" action="<?= Security::escape(url_base()) ?>/search.php" class="at-search mt-4 max-w-xl" role="search">
+        <form method="get" action="<?= Security::escape(url_base()) ?>/search" class="at-search mt-4 max-w-xl" role="search">
             <label class="sr-only" for="search-q">Search products</label>
             <div class="at-search__field">
                 <?= at_icon('search') ?>
@@ -59,7 +59,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
                 $emptyTitle = 'No products found';
                 $emptyMessage = 'Check the spelling or try a more general word like “tomato” or “pickle”.';
                 $emptyIcon = 'search';
-                $emptyActionHref = url_base() . '/index.php';
+                $emptyActionHref = url_base() . '/';
                 $emptyActionLabel = 'Back to home';
                 require APNI_TOKRI_ROOT . '/includes/partials/empty-state.php';
                 ?>

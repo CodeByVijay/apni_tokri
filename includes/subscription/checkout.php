@@ -82,7 +82,7 @@ final class SubscriptionCheckoutService
         return [
             'ok' => true,
             'subscription_number' => $number,
-            'redirect' => url_base() . '/subscription-payment.php?sub=' . rawurlencode($number),
+            'redirect' => url_base() . '/subscription-payment?sub=' . rawurlencode($number),
         ];
     }
 

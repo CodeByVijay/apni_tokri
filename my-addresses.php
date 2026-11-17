@@ -41,7 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         if ($res['ok']) {
             $_SESSION['account_flash'] = $redirectMsg;
-            header('Location: ' . $base . '/my-addresses.php', true, 303);
+            header('Location: ' . $base . '/my-addresses', true, 303);
             exit;
         }
         $errors = $res['errors'];
@@ -49,12 +49,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($action === 'delete') {
         $res = CustomerAccountService::deleteAddress($customerId, $addrId);
         $_SESSION['account_flash'] = $res['message'];
-        header('Location: ' . $base . '/my-addresses.php', true, 303);
+        header('Location: ' . $base . '/my-addresses', true, 303);
         exit;
     } elseif ($action === 'default') {
         $res = CustomerAccountService::setDefault($customerId, $addrId);
         $_SESSION['account_flash'] = $res['message'];
-        header('Location: ' . $base . '/my-addresses.php', true, 303);
+        header('Location: ' . $base . '/my-addresses', true, 303);
         exit;
     } else {
         $errors['form'] = 'Unknown action.';
@@ -103,7 +103,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/account-shell-start.php';
     <div class="at-card__body">
         <div class="flex items-center justify-between gap-3">
             <h2 class="at-h3">Saved addresses</h2>
-            <?php if (!$showForm): ?><a href="<?= Security::escape($base) ?>/my-addresses.php?add=1" class="at-btn at-btn--primary at-btn--sm at-focusable"><?= at_icon('plus', 'w-4 h-4') ?>Add address</a><?php endif; ?>
+            <?php if (!$showForm): ?><a href="<?= Security::escape($base) ?>/my-addresses?add=1" class="at-btn at-btn--primary at-btn--sm at-focusable"><?= at_icon('plus', 'w-4 h-4') ?>Add address</a><?php endif; ?>
         </div>
         <?php if ($addresses === []): ?>
             <p class="mt-3 text-sm at-muted">You have no saved addresses yet. Add one to speed up checkout.</p>
@@ -119,13 +119,13 @@ require APNI_TOKRI_ROOT . '/includes/partials/account-shell-start.php';
                             <p class="text-xs at-muted">Instructions: <?= Security::escape((string) $a['delivery_instructions']) ?></p>
                         <?php endif; ?>
                         <div class="at-addr-card__actions">
-                            <a href="<?= Security::escape($base) ?>/my-addresses.php?edit=<?= (int) $a['id'] ?>" class="at-btn at-btn--secondary at-btn--sm at-focusable">Edit</a>
+                            <a href="<?= Security::escape($base) ?>/my-addresses?edit=<?= (int) $a['id'] ?>" class="at-btn at-btn--secondary at-btn--sm at-focusable">Edit</a>
                             <?php if (!$isDef): ?>
-                                <form method="post" action="<?= Security::escape($base) ?>/my-addresses.php"><?= Csrf::field() ?>
+                                <form method="post" action="<?= Security::escape($base) ?>/my-addresses"><?= Csrf::field() ?>
                                     <input type="hidden" name="action" value="default"><input type="hidden" name="address_id" value="<?= (int) $a['id'] ?>">
                                     <button type="submit" class="at-btn at-btn--secondary at-btn--sm at-focusable">Set as default</button></form>
                             <?php endif; ?>
-                            <form method="post" action="<?= Security::escape($base) ?>/my-addresses.php" onsubmit="return confirm('Delete this address?');"><?= Csrf::field() ?>
+                            <form method="post" action="<?= Security::escape($base) ?>/my-addresses" onsubmit="return confirm('Delete this address?');"><?= Csrf::field() ?>
                                 <input type="hidden" name="action" value="delete"><input type="hidden" name="address_id" value="<?= (int) $a['id'] ?>">
                                 <button type="submit" class="at-btn at-btn--secondary at-btn--sm at-focusable" style="color:var(--at-danger)">Delete</button></form>
                         </div>
@@ -141,12 +141,12 @@ require APNI_TOKRI_ROOT . '/includes/partials/account-shell-start.php';
     <div class="at-card__body">
         <h2 class="at-h3 mb-4"><?= $editId > 0 ? 'Edit address' : 'Add a new address' ?></h2>
         <?php
-        $addrFormAction = $base . '/my-addresses.php';
+        $addrFormAction = $base . '/my-addresses';
         $addrFormMode = $editId > 0 ? 'update' : 'add';
         $addrFormId = $editId;
         $addrFormValues = $form;
         $addrFormErrors = $errors;
-        $addrFormCancelUrl = $base . '/my-addresses.php';
+        $addrFormCancelUrl = $base . '/my-addresses';
         $addrFormShowDefault = true;
         $addrFormHidden = [];
         $addrFormUid = 'ma';

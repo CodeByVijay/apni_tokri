@@ -15,7 +15,7 @@ $cancelMessage = $cancelMessage ?? null;
 $cancelSuccess = $cancelSuccess ?? null;
 $cancelError = $cancelError ?? null;
 $cancelReasons = $cancelReasons ?? OrderCancellationService::CUSTOMER_REASONS;
-$cancelFormAction = $cancelFormAction ?? (url_base() . '/order-details.php?id=' . rawurlencode($cancelOrderNumber));
+$cancelFormAction = $cancelFormAction ?? (url_base() . '/order-details?id=' . rawurlencode($cancelOrderNumber));
 ?>
 <?php if ($cancelSuccess !== null && $cancelSuccess !== ''): ?>
     <div class="at-alert at-alert--success mb-4" role="status"><?= Security::escape($cancelSuccess) ?></div>

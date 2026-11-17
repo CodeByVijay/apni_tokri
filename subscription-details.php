@@ -8,7 +8,7 @@ require_once APNI_TOKRI_ROOT . '/includes/catalogue/helpers.php';
 Security::sendSecurityHeaders(Security::isHttps());
 
 if (!CustomerService::isLoggedIn()) {
-    header('Location: ' . url_base() . '/login.php', true, 302);
+    header('Location: ' . url_base() . '/login', true, 302);
     exit;
 }
 
@@ -17,7 +17,7 @@ $base = url_base();
 $customerId = CustomerAuth::id();
 
 if ($subNumber === '' || $customerId === null || !CommerceGateway::useDatabase() || !Install::isSchemaReady()) {
-    header('Location: ' . $base . '/my-subscriptions.php', true, 302);
+    header('Location: ' . $base . '/my-subscriptions', true, 302);
     exit;
 }
 
@@ -30,7 +30,7 @@ if ($sub === null) {
     layout_public_start(['pageTitle' => 'Subscription details — Veggie Tokri', 'activeNav' => 'account']);
     $emptyTitle = 'Subscription not found';
     $emptyMessage = 'We could not find this subscription on your account.';
-    $emptyActionHref = $base . '/my-subscriptions.php';
+    $emptyActionHref = $base . '/my-subscriptions';
     $emptyActionLabel = 'My subscriptions';
     require APNI_TOKRI_ROOT . '/includes/partials/empty-state.php';
     layout_public_end();
@@ -273,7 +273,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/account-shell-start.php';
                         <div><dt>Fulfilment</dt><dd><?= Security::escape($dp['fulfilment_status']) ?></dd></div>
                     <?php endif; ?>
                     <?php if ($dp['order_number'] !== ''): ?>
-                        <div><dt>Order</dt><dd><a href="<?= Security::escape($base . '/order.php?id=' . rawurlencode($dp['order_number'])) ?>"><?= Security::escape($dp['order_number']) ?></a></dd></div>
+                        <div><dt>Order</dt><dd><a href="<?= Security::escape($base . '/order?id=' . rawurlencode($dp['order_number'])) ?>"><?= Security::escape($dp['order_number']) ?></a></dd></div>
                     <?php endif; ?>
                 </dl>
 

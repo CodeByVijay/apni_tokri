@@ -8,8 +8,8 @@ require_once APNI_TOKRI_ROOT . '/includes/catalogue/helpers.php';
 Security::sendSecurityHeaders(Security::isHttps());
 
 if (!CustomerService::isLoggedIn()) {
-    $_SESSION['checkout_return'] = url_base() . '/subscribe.php?' . ($_SERVER['QUERY_STRING'] ?? '');
-    header('Location: ' . url_base() . '/login.php', true, 302);
+    $_SESSION['checkout_return'] = url_base() . '/subscribe?' . ($_SERVER['QUERY_STRING'] ?? '');
+    header('Location: ' . url_base() . '/login', true, 302);
     exit;
 }
 
@@ -23,14 +23,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $slotSlug = isset($_POST['delivery_slot']) && is_string($_POST['delivery_slot']) ? trim($_POST['delivery_slot']) : '';
     $customerId = CustomerAuth::id();
     if ($customerId === null) {
-        header('Location: ' . $base . '/login.php', true, 302);
+        header('Location: ' . $base . '/login', true, 302);
         exit;
     }
     $result = SubscriptionCheckoutService::beginPurchase($planId, $customerId, $slotSlug);
     if (!$result['ok']) {
         $error = $result['message'] ?? 'Could not start subscription.';
     } else {
-        header('Location: ' . ($result['redirect'] ?? $base . '/subscriptions.php'), true, 302);
+        header('Location: ' . ($result['redirect'] ?? $base . '/subscriptions'), true, 302);
         exit;
     }
 }
@@ -48,7 +48,7 @@ if ($card === null) {
     layout_public_start(['pageTitle' => 'Subscribe — Veggie Tokri', 'activeNav' => 'home']);
     $emptyTitle = 'Plan not available';
     $emptyMessage = 'This subscription plan is inactive or does not exist.';
-    $emptyActionHref = $base . '/subscriptions.php';
+    $emptyActionHref = $base . '/subscriptions';
     $emptyActionLabel = 'All plans';
     require APNI_TOKRI_ROOT . '/includes/partials/empty-state.php';
     layout_public_end();
@@ -61,7 +61,7 @@ $price = (float) $card['price'];
 layout_public_start(['pageTitle' => 'Subscribe — ' . $card['name'] . ' — Veggie Tokri', 'activeNav' => 'home']);
 ?>
 <div class="at-container py-8 md:py-12 max-w-xl">
-    <a href="<?= Security::escape($base) ?>/subscriptions.php" class="text-sm font-semibold text-[var(--at-green)]">← All plans</a>
+    <a href="<?= Security::escape($base) ?>/subscriptions" class="text-sm font-semibold text-[var(--at-green)]">← All plans</a>
     <h1 class="at-h1 mt-4"><?= Security::escape($card['name']) ?></h1>
     <?php if ($card['description'] !== ''): ?>
         <p class="at-muted mt-2"><?= Security::escape($card['description']) ?></p>

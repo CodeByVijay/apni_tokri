@@ -8,7 +8,7 @@ require_once APNI_TOKRI_ROOT . '/includes/catalogue/helpers.php';
 Security::sendSecurityHeaders(Security::isHttps(), true);
 
 if (!CustomerService::isLoggedIn()) {
-    header('Location: ' . url_base() . '/login.php', true, 302);
+    header('Location: ' . url_base() . '/login', true, 302);
     exit;
 }
 
@@ -36,7 +36,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/account-shell-start.php';
     <div class="at-card">
         <div class="at-card__body">
             <p class="at-muted">You do not have any subscriptions yet.</p>
-            <a href="<?= Security::escape($base) ?>/subscriptions.php" class="at-btn at-btn--primary at-focusable mt-4">Browse plans</a>
+            <a href="<?= Security::escape($base) ?>/subscriptions" class="at-btn at-btn--primary at-focusable mt-4">Browse plans</a>
         </div>
     </div>
 <?php else: ?>
@@ -68,11 +68,11 @@ require APNI_TOKRI_ROOT . '/includes/partials/account-shell-start.php';
                     </div>
                 <?php elseif ($status === 'pending_payment'): ?>
                     <p class="mt-4 text-sm">Complete payment to activate your delivery calendar.</p>
-                    <a href="<?= Security::escape($base) ?>/subscription-payment.php?sub=<?= rawurlencode($subNum) ?>" class="at-btn at-btn--primary at-focusable mt-3">Pay now</a>
+                    <a href="<?= Security::escape($base) ?>/subscription-payment?sub=<?= rawurlencode($subNum) ?>" class="at-btn at-btn--primary at-focusable mt-3">Pay now</a>
                 <?php endif; ?>
 
                 <?php if (in_array($status, ['active', 'paused', 'completed'], true)): ?>
-                    <a href="<?= Security::escape($base) ?>/subscription-details.php?sub=<?= rawurlencode($subNum) ?>" class="at-btn at-btn--primary at-focusable mt-5">View calendar</a>
+                    <a href="<?= Security::escape($base) ?>/subscription-details?sub=<?= rawurlencode($subNum) ?>" class="at-btn at-btn--primary at-focusable mt-5">View calendar</a>
                 <?php endif; ?>
             </div>
         </article>
@@ -83,7 +83,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/account-shell-start.php';
 
 <section class="mt-8">
     <h2 class="at-h3 mb-3">Add another plan</h2>
-    <a href="<?= Security::escape($base) ?>/subscriptions.php" class="at-btn at-btn--secondary">View all active plans</a>
+    <a href="<?= Security::escape($base) ?>/subscriptions" class="at-btn at-btn--secondary">View all active plans</a>
 </section>
 <?php
 require APNI_TOKRI_ROOT . '/includes/partials/account-shell-end.php';

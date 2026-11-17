@@ -14,10 +14,10 @@ final class ProductShare
     {
         $slug = trim((string) ($product['slug'] ?? $product['id'] ?? ''));
         if ($slug === '') {
-            return SeoUrl::absolute('/product.php');
+            return SeoUrl::absolute('/product');
         }
 
-        return SeoUrl::absolute('/product.php?slug=' . rawurlencode($slug));
+        return SeoUrl::absolute('/product/' . rawurlencode($slug));
     }
 
     /**

@@ -15,7 +15,7 @@ if ($slug === '' || !Validation::slug($slug)) {
     $emptyTitle = 'Page not found';
     $emptyMessage = 'This page is not available.';
     $emptyIcon = 'file';
-    $emptyActionHref = url_base() . '/index.php';
+    $emptyActionHref = url_base() . '/';
     $emptyActionLabel = 'Home';
     echo '<div class="at-container py-10">';
     require APNI_TOKRI_ROOT . '/includes/partials/empty-state.php';
@@ -43,7 +43,7 @@ if ($row === null) {
     $emptyTitle = 'Page not found';
     $emptyMessage = 'No page exists for this address.';
     $emptyIcon = 'file';
-    $emptyActionHref = url_base() . '/index.php';
+    $emptyActionHref = url_base() . '/';
     $emptyActionLabel = 'Home';
     echo '<div class="at-container py-10">';
     require APNI_TOKRI_ROOT . '/includes/partials/empty-state.php';
@@ -72,7 +72,7 @@ if ($visibility === CmsPageService::VISIBILITY_PRIVATE && !CmsPageService::viewe
     layout_public_start(['seo' => SeoResolver::accessDenied(), 'activeNav' => '']);
     $emptyTitle = 'Access denied';
     $emptyMessage = 'This page is restricted to authorized staff.';
-    $emptyActionHref = url_base() . '/index.php';
+    $emptyActionHref = url_base() . '/';
     $emptyActionLabel = 'Home';
     echo '<div class="at-container py-10">';
     require APNI_TOKRI_ROOT . '/includes/partials/empty-state.php';

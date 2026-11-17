@@ -7,7 +7,7 @@ require_once __DIR__ . '/includes/bootstrap.php';
 Security::sendSecurityHeaders(Security::isHttps());
 
 if (!CustomerService::isLoggedIn()) {
-    header('Location: ' . url_base() . '/login.php?next=' . rawurlencode($_SERVER['REQUEST_URI'] ?? ''), true, 302);
+    header('Location: ' . url_base() . '/login?next=' . rawurlencode($_SERVER['REQUEST_URI'] ?? ''), true, 302);
     exit;
 }
 
@@ -53,7 +53,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/account-shell-start.php';
     <div class="at-alert at-alert--error" role="status"><span><?= Security::escape($err) ?></span></div>
 <?php endif; ?>
 <?php if ($eligible === []): ?>
-    <p class="text-sm at-muted">No reviewable items for this order. Open this page from a <strong>delivered</strong> order in <a class="underline" href="<?= Security::escape(url_base()) ?>/my-orders.php">My orders</a>.</p>
+    <p class="text-sm at-muted">No reviewable items for this order. Open this page from a <strong>delivered</strong> order in <a class="underline" href="<?= Security::escape(url_base()) ?>/my-orders">My orders</a>.</p>
 <?php else: ?>
 <form method="post" class="at-card max-w-2xl" enctype="multipart/form-data">
     <div class="at-card__body grid gap-5">

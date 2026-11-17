@@ -453,7 +453,7 @@
       if (block) {
         $a.attr('href', '#').addClass('pointer-events-none opacity-50').attr('aria-disabled', 'true');
       } else if ($a.attr('data-cart-qty-blocked') !== '1') {
-        $a.attr('href', baseUrl() + '/checkout.php').removeClass('pointer-events-none opacity-50').removeAttr('aria-disabled');
+        $a.attr('href', baseUrl() + '/checkout').removeClass('pointer-events-none opacity-50').removeAttr('aria-disabled');
       }
     });
   }

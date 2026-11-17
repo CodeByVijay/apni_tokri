@@ -7,7 +7,7 @@ require_once __DIR__ . '/includes/bootstrap.php';
 Security::sendSecurityHeaders(Security::isHttps(), true);
 
 if (!CustomerService::isLoggedIn()) {
-    header('Location: ' . url_base() . '/login.php?next=' . rawurlencode($_SERVER['REQUEST_URI'] ?? ''), true, 302);
+    header('Location: ' . url_base() . '/login?next=' . rawurlencode($_SERVER['REQUEST_URI'] ?? ''), true, 302);
     exit;
 }
 
@@ -36,7 +36,7 @@ $base = url_base();
 ?>
 <div class="at-cp-toolbar">
     <p class="text-sm at-muted m-0">Need help with an order? Open a ticket and we will reply here.</p>
-    <a href="<?= Security::escape($base) ?>/support.php" class="at-btn at-btn--primary at-focusable"><?= at_icon('plus', 'w-4 h-4') ?>Open new ticket</a>
+    <a href="<?= Security::escape($base) ?>/support" class="at-btn at-btn--primary at-focusable"><?= at_icon('plus', 'w-4 h-4') ?>Open new ticket</a>
 </div>
 
 <form method="get" class="at-card at-cp-filters mt-4">
@@ -73,7 +73,7 @@ $base = url_base();
             $emptyTitle = 'No tickets yet';
             $emptyMessage = 'When you contact support, your conversations will appear here.';
             $emptyIcon = 'chat';
-            $emptyActionHref = $base . '/support.php';
+            $emptyActionHref = $base . '/support';
             $emptyActionLabel = 'Open a ticket';
             require APNI_TOKRI_ROOT . '/includes/partials/empty-state.php';
             ?>
@@ -85,7 +85,7 @@ $base = url_base();
                     ?>
                     <li class="at-ticket-row">
                         <div class="min-w-0 flex-1">
-                            <a class="at-ticket-row__title at-focusable" href="<?= Security::escape($base) ?>/support-ticket.php?ticket=<?= rawurlencode((string) $t['ticket_number']) ?>"><?= Security::escape((string) $t['ticket_number']) ?></a>
+                            <a class="at-ticket-row__title at-focusable" href="<?= Security::escape($base) ?>/support-ticket?ticket=<?= rawurlencode((string) $t['ticket_number']) ?>"><?= Security::escape((string) $t['ticket_number']) ?></a>
                             <p class="at-ticket-row__subject"><?= Security::escape((string) $t['subject']) ?></p>
                             <div class="at-ticket-row__meta">
                                 <span><?= Security::escape($catLabel) ?></span>
@@ -98,7 +98,7 @@ $base = url_base();
                         </div>
                         <div class="at-ticket-row__aside">
                             <?= customer_status_badge((string) $t['status'], ucwords(str_replace('_', ' ', (string) $t['status'])), 'ticket') ?>
-                            <a href="<?= Security::escape($base) ?>/support-ticket.php?ticket=<?= rawurlencode((string) $t['ticket_number']) ?>" class="at-link-arrow !text-sm at-focusable">View conversation</a>
+                            <a href="<?= Security::escape($base) ?>/support-ticket?ticket=<?= rawurlencode((string) $t['ticket_number']) ?>" class="at-link-arrow !text-sm at-focusable">View conversation</a>
                         </div>
                     </li>
                 <?php endforeach; ?>

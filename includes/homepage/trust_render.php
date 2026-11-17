@@ -227,8 +227,8 @@ final class HomepageTrustRenderer
             <h2 class="at-h2 mt-1"><?= Security::escape($heading) ?></h2>
             <?php if ($body !== ''): ?><p class="at-lead mt-3"><?= Security::escape($body) ?></p><?php endif; ?>
             <div class="mt-5 flex gap-3 flex-wrap">
-                <a href="<?= Security::escape($base) ?>/faqs.php" class="at-btn at-btn--secondary at-focusable">All FAQs</a>
-                <a href="<?= Security::escape($base) ?>/contact.php" class="at-btn at-btn--ghost at-focusable">Contact us</a>
+                <a href="<?= Security::escape($base) ?>/faqs" class="at-btn at-btn--secondary at-focusable">All FAQs</a>
+                <a href="<?= Security::escape($base) ?>/contact" class="at-btn at-btn--ghost at-focusable">Contact us</a>
             </div>
         </div>
         <div>

@@ -24,7 +24,7 @@ foreach ($cmsFooterLinks as $cmsFooterLink) {
 <footer class="at-footer mt-auto<?= $showBottomNav ? ' at-footer--with-bottom-nav' : '' ?>" role="contentinfo">
     <div class="at-container at-footer__grid">
         <div class="at-footer__brand">
-            <a href="<?= Security::escape($base) ?>/index.php" class="at-logo !text-white">
+            <a href="<?= Security::escape($base) ?>/" class="at-logo !text-white">
                 <img src="<?= Security::escape(BrandingSettings::footerLogoUrl()) ?>" alt="<?= Security::escape(BrandingSettings::logoAlt()) ?>" width="44" height="44">
                 <span class="at-logo__word !text-white"><?= Security::escape(__('brand_name')) ?></span>
             </a>
@@ -54,9 +54,9 @@ foreach ($cmsFooterLinks as $cmsFooterLink) {
                 <?php if ($cmsAboutFooterLink !== null): ?>
                 <li><a class="at-focusable" href="<?= Security::escape((string) $cmsAboutFooterLink['href']) ?>"><?= Security::escape((string) $cmsAboutFooterLink['title']) ?></a></li>
                 <?php endif; ?>
-                <li><a class="at-focusable" href="<?= Security::escape($base) ?>/faqs.php"><?= Security::escape(__('nav_faqs')) ?></a></li>
-                <li><a class="at-focusable" href="<?= Security::escape($base) ?>/contact.php"><?= Security::escape(__('nav_contact')) ?></a></li>
-                <li><a class="at-focusable" href="<?= Security::escape($base) ?>/my-subscriptions.php">Subscriptions</a></li>
+                <li><a class="at-focusable" href="<?= Security::escape($base) ?>/faqs"><?= Security::escape(__('nav_faqs')) ?></a></li>
+                <li><a class="at-focusable" href="<?= Security::escape($base) ?>/contact"><?= Security::escape(__('nav_contact')) ?></a></li>
+                <li><a class="at-focusable" href="<?= Security::escape($base) ?>/my-subscriptions">Subscriptions</a></li>
             </ul>
         </div>
         <div class="at-footer__policies">
@@ -97,7 +97,7 @@ foreach ($cmsFooterLinks as $cmsFooterLink) {
                 <li class="text-white/70 text-sm">Configure phone, email and WhatsApp in Admin → Settings → Business.</li>
                 <?php endif; ?>
             </ul>
-            <a href="<?= Security::escape($base) ?>/support.php" class="at-btn at-btn--light at-btn--sm at-focusable at-footer__ticket">Raise a ticket</a>
+            <a href="<?= Security::escape($base) ?>/support" class="at-btn at-btn--light at-btn--sm at-focusable at-footer__ticket">Raise a ticket</a>
             <?php $footerAppBadges = BrandingAppStores::visibleFooterBadges(); ?>
             <?php if ($footerAppBadges !== []): ?>
             <section class="at-footer-apps" aria-labelledby="at-footer-apps-heading">
@@ -139,9 +139,9 @@ foreach ($cmsFooterLinks as $cmsFooterLink) {
             </span>
             <?php if (AppEnvironment::allowsStorefrontDevelopmentLinks()): ?>
             <span>
-                <a href="<?= Security::escape($base) ?>/styleguide.php" class="at-focusable">Design system</a>
+                <a href="<?= Security::escape($base) ?>/styleguide" class="at-focusable">Design system</a>
                 <span class="mx-2">·</span>
-                <a href="<?= Security::escape($base) ?>/health-check.php" class="at-focusable">Health check</a>
+                <a href="<?= Security::escape($base) ?>/health-check" class="at-focusable">Health check</a>
             </span>
             <?php endif; ?>
         </div>
@@ -151,17 +151,17 @@ foreach ($cmsFooterLinks as $cmsFooterLink) {
 <?php if ($showBottomNav): ?>
 <nav class="at-bottom-nav md:hidden" aria-label="Mobile shortcuts">
     <div class="at-bottom-nav__inner">
-        <a href="<?= Security::escape($base) ?>/index.php" class="at-focusable <?= $activeNav === 'home' ? 'is-active' : '' ?>">
+        <a href="<?= Security::escape($base) ?>/" class="at-focusable <?= $activeNav === 'home' ? 'is-active' : '' ?>">
             <?= at_icon('home') ?><?= Security::escape(__('nav_home')) ?>
         </a>
-        <a href="<?= Security::escape($base) ?>/category.php" class="at-focusable <?= $activeNav === 'categories' ? 'is-active' : '' ?>">
+        <a href="<?= Security::escape($base) ?>/category" class="at-focusable <?= $activeNav === 'categories' ? 'is-active' : '' ?>">
             <?= at_icon('grid') ?><?= Security::escape(__('nav_categories')) ?>
         </a>
-        <a href="<?= Security::escape($base) ?>/cart.php" class="at-focusable <?= $activeNav === 'cart' ? 'is-active' : '' ?>">
+        <a href="<?= Security::escape($base) ?>/cart" class="at-focusable <?= $activeNav === 'cart' ? 'is-active' : '' ?>">
             <?= at_icon('cart') ?><?= Security::escape(__('nav_cart')) ?>
             <span data-at-cart-count class="at-cart-badge <?= $cartCount > 0 ? '' : 'hidden' ?>"><?= (int) $cartCount ?></span>
         </a>
-        <a href="<?= Security::escape($base) ?><?= CustomerService::isLoggedIn() ? '/my-account.php' : '/login.php' ?>" class="at-focusable <?= $activeNav === 'account' ? 'is-active' : '' ?>">
+        <a href="<?= Security::escape($base) ?><?= CustomerService::isLoggedIn() ? '/my-account' : '/login' ?>" class="at-focusable <?= $activeNav === 'account' ? 'is-active' : '' ?>">
             <?= at_icon('user') ?><?= Security::escape(__('nav_account')) ?>
         </a>
     </div>

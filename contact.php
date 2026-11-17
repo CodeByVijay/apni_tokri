@@ -40,7 +40,7 @@ layout_public_start(['seo' => $seo, 'activeNav' => '']);
             <?php if (!$hasAny): ?>
                 <p class="at-muted">Support contact details will appear here once configured in Admin → Settings → Business.</p>
             <?php endif; ?>
-            <p class="pt-2 border-t border-[var(--at-line)]"><a class="at-btn at-btn--secondary at-focusable" href="<?= Security::escape(url_base()) ?>/support.php">Raise a support ticket</a></p>
+            <p class="pt-2 border-t border-[var(--at-line)]"><a class="at-btn at-btn--secondary at-focusable" href="<?= Security::escape(url_base()) ?>/support">Raise a support ticket</a></p>
         </div>
     </div>
 </div>

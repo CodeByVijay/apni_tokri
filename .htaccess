@@ -4,6 +4,18 @@
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
+    # Canonical host per environment. Only known public hosts are normalized —
+    # local/dev hosts (localhost, 127.0.0.1, LAN IPs) are never redirected and
+    # staging is never sent to production.
+    # www → non-www (production and staging hosts only)
+    RewriteCond %{HTTP_HOST} ^www\.(veggietokri\.com)$ [NC,OR]
+    RewriteCond %{HTTP_HOST} ^www\.(apnitokri\.manconnect\.club)$ [NC]
+    RewriteRule ^ https://%1%{REQUEST_URI} [R=301,L,NE,QSA]
+    # http → https on the same known hosts only
+    RewriteCond %{HTTPS} off
+    RewriteCond %{HTTP_HOST} ^(veggietokri\.com|apnitokri\.manconnect\.club)$ [NC]
+    RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L,NE,QSA]
+
     # Sitemap and robots (prefer generated physical XML when present; PHP endpoint remains fallback)
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteRule ^sitemap\.xml$ sitemap.php [L]
@@ -27,10 +39,34 @@
 
     # Homepage canonical root (never strip index.php to /index).
     RewriteCond %{REQUEST_METHOD} !POST
-    RewriteRule ^index\.php$ ./ [R=301,L,QSA,NE]
+    RewriteRule ^index\.php$ %{ENV:AT_URL_PREFIX}/ [R=301,L,QSA,NE]
 
     RewriteCond %{REQUEST_METHOD} !POST
-    RewriteRule ^index/?$ ./ [R=301,L,QSA,NE]
+    RewriteRule ^index/?$ %{ENV:AT_URL_PREFIX}/ [R=301,L,QSA,NE]
+
+    # Capture the app's URL-path prefix (empty at docroot, /subdir for subdir installs)
+    # so redirect targets stay correct in both layouts.
+    RewriteCond %{REQUEST_URI} ^(.*?)/?(product|category|page)(\.php)?$ [NC]
+    RewriteRule ^ - [E=AT_URL_PREFIX:%1]
+    RewriteCond %{REQUEST_URI} ^(.*?)/?(.+?)\.php$ [NC]
+    RewriteRule ^ - [E=AT_URL_PREFIX:%1]
+
+    # Legacy slug routes → pretty path URLs in a single 301 hop (GET/HEAD only).
+    # Handles both /product.php?slug=X and /product?slug=X, with and without
+    # extra query params (extras are preserved on the pretty URL).
+    # NOTE: keep these rules BEFORE the generic .php → extensionless redirect.
+    RewriteCond %{REQUEST_METHOD} !POST
+    RewriteCond %{QUERY_STRING} ^slug=([A-Za-z0-9_-]+)&(.*)$
+    RewriteRule ^(product|category|page)\.php$ %{ENV:AT_URL_PREFIX}/$1/%1?%2 [R=301,L,NE]
+    RewriteCond %{REQUEST_METHOD} !POST
+    RewriteCond %{QUERY_STRING} ^slug=([A-Za-z0-9_-]+)&(.*)$
+    RewriteRule ^(product|category|page)$ %{ENV:AT_URL_PREFIX}/$1/%1?%2 [R=301,L,NE]
+    RewriteCond %{REQUEST_METHOD} !POST
+    RewriteCond %{QUERY_STRING} ^slug=([A-Za-z0-9_-]+)$
+    RewriteRule ^(product|category|page)\.php$ %{ENV:AT_URL_PREFIX}/$1/%1? [R=301,L,NE]
+    RewriteCond %{REQUEST_METHOD} !POST
+    RewriteCond %{QUERY_STRING} ^slug=([A-Za-z0-9_-]+)$
+    RewriteRule ^(product|category|page)$ %{ENV:AT_URL_PREFIX}/$1/%1? [R=301,L,NE]
 
     # Redirect direct .php requests to extensionless URLs (GET/HEAD only).
     # POST must not redirect — clients often re-issue as GET and break CSRF/AJAX/logout.
@@ -38,11 +74,16 @@
     RewriteCond %{THE_REQUEST} \s/+(.+?)\.php(?:[\s?]) [NC]
     RewriteCond %1 !^index$
     RewriteCond %1 !^.*/index$
-    RewriteRule ^(.+?)\.php$ /$1 [R=302,L,NE]
+    RewriteRule ^(.+?)\.php$ %{ENV:AT_URL_PREFIX}/$1 [R=301,L,NE]
 
     # Delivery settings: real directory admin/settings/delivery/ otherwise maps here with no index;
     # send the extensionless path to the PHP entry so directory listing is not required.
     RewriteRule ^admin/settings/delivery/?$ admin/settings/delivery.php [END]
+
+    # Pretty slug paths → PHP scripts (internal, no redirect; extra params kept via QSA)
+    RewriteRule ^product/([A-Za-z0-9_-]+)/?$ product.php?slug=$1 [QSA,END]
+    RewriteRule ^category/([A-Za-z0-9_-]+)/?$ category.php?slug=$1 [QSA,END]
+    RewriteRule ^page/([A-Za-z0-9_-]+)/?$ page.php?slug=$1 [QSA,END]
 
     # Internally rewrite extensionless URLs to existing PHP files
     RewriteCond %{REQUEST_FILENAME} !-d

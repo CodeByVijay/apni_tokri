@@ -51,7 +51,7 @@ final class CmsPageService
             $links[] = [
                 'title' => $title,
                 'slug' => $slug,
-                'href' => $base . '/page.php?slug=' . rawurlencode($slug),
+                'href' => $base . '/page/' . rawurlencode($slug),
             ];
         }
 
@@ -65,7 +65,7 @@ final class CmsPageService
             return null;
         }
 
-        return url_base() . '/page.php?slug=' . rawurlencode($slug);
+        return url_base() . '/page/' . rawurlencode($slug);
     }
 
     /** @return array<string, mixed>|null Published public page for storefront */

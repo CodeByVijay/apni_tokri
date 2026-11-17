@@ -8,7 +8,7 @@ require_once APNI_TOKRI_ROOT . '/includes/catalogue/helpers.php';
 Security::sendSecurityHeaders(Security::isHttps(), true);
 
 if (!CustomerService::isLoggedIn()) {
-    header('Location: ' . url_base() . '/login.php', true, 302);
+    header('Location: ' . url_base() . '/login', true, 302);
     exit;
 }
 
@@ -59,7 +59,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/account-shell-start.php';
     <nav class="at-order-filters at-no-scrollbar" aria-label="Filter orders by status">
         <?php foreach ($filterChips as $key => $label):
             $isActive = ($key === 'all' && $activeBucket === null) || $key === $activeBucket;
-            $href = $base . '/my-orders.php' . ($key === 'all' ? '' : '?status=' . rawurlencode($key));
+            $href = $base . '/my-orders' . ($key === 'all' ? '' : '?status=' . rawurlencode($key));
             ?>
             <a href="<?= Security::escape($href) ?>"
                 class="at-order-filters__chip at-focusable<?= $isActive ? ' is-active' : '' ?>"
@@ -77,12 +77,12 @@ require APNI_TOKRI_ROOT . '/includes/partials/account-shell-start.php';
         if ($activeBucket !== null && $statusCounts['all'] > 0) {
             $emptyTitle = 'No ' . strtolower($filterChips[$activeBucket]) . ' orders';
             $emptyMessage = 'You have no orders with this status right now.';
-            $emptyActionHref = $base . '/my-orders.php';
+            $emptyActionHref = $base . '/my-orders';
             $emptyActionLabel = 'View all orders';
         } else {
             $emptyTitle = 'No orders yet';
             $emptyMessage = 'Your orders will appear here with live status once you check out.';
-            $emptyActionHref = $base . '/index.php';
+            $emptyActionHref = $base . '/';
             $emptyActionLabel = 'Shop now';
         }
         $emptyIcon = 'receipt';
@@ -94,7 +94,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/account-shell-start.php';
         <?php foreach ($orders as $order):
             $st = (string) ($order['status'] ?? '');
             $orderId = (string) ($order['id'] ?? '');
-            $detailUrl = $base . '/order-details.php?id=' . rawurlencode($orderId);
+            $detailUrl = $base . '/order-details?id=' . rawurlencode($orderId);
             $itemCount = (int) ($order['item_qty'] ?? 0);
             if ($itemCount === 0) {
                 foreach ($order['items'] ?? [] as $it) {
@@ -150,7 +150,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/account-shell-start.php';
 
                         <?php if ($invRef !== null): ?>
                             <div class="at-order-card__extra">
-                                <a href="<?= Security::escape($base) ?>/invoice-download.php?ref=<?= rawurlencode($invRef) ?>"
+                                <a href="<?= Security::escape($base) ?>/invoice-download?ref=<?= rawurlencode($invRef) ?>"
                                     class="at-btn at-btn--ghost at-btn--sm at-focusable at-order-card__side"
                                     data-at-order-card-stop
                                     title="Download invoice">

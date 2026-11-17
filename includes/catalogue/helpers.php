@@ -247,13 +247,13 @@ function catalogue_stock_label(array $variant): ?string
 /** @param array<string, mixed> $product */
 function catalogue_product_url(array $product): string
 {
-    return url_base() . '/product.php?slug=' . rawurlencode((string) $product['slug']);
+    return url_base() . '/product/' . rawurlencode((string) $product['slug']);
 }
 
 /** @param array<string, mixed> $category */
 function catalogue_category_url(array $category): string
 {
-    return url_base() . '/category.php?slug=' . rawurlencode((string) $category['slug']);
+    return url_base() . '/category/' . rawurlencode((string) $category['slug']);
 }
 
 /**
@@ -305,10 +305,10 @@ function catalogue_primary_category_url(): string
 {
     $slug = catalogue_primary_category_slug();
     if ($slug !== null && $slug !== '') {
-        return url_base() . '/category.php?slug=' . rawurlencode($slug);
+        return url_base() . '/category/' . rawurlencode($slug);
     }
 
-    return url_base() . '/search.php';
+    return url_base() . '/search';
 }
 
 /**
@@ -435,7 +435,7 @@ function catalogue_render_desktop_nav(array $nodes, string $currentSlug, bool $i
         $slug = (string) $n['slug'];
         $active = $isCategoryPage && $currentSlug === $slug;
         $inPath = $isCategoryPage && catalogue_nav_contains($n, $currentSlug);
-        $href = $base . '/category.php?slug=' . rawurlencode($slug);
+        $href = $base . '/category/' . rawurlencode($slug);
         $html .= '<li class="at-dnav__item' . ($kids !== [] ? ' has-children' : '') . '" data-depth="' . $depth . '">';
         $html .= '<a class="at-dnav__link at-focusable' . ($active ? ' is-active' : ($inPath ? ' is-in-path' : '')) . '" href="' . Security::escape($href) . '"'
             . ($kids !== [] ? ' aria-haspopup="true"' : '') . ($active ? ' aria-current="page"' : '') . '>'
@@ -471,7 +471,7 @@ function catalogue_render_mobile_nav(array $nodes, string $currentSlug, bool $is
         $slug = (string) $n['slug'];
         $active = $isCategoryPage && $currentSlug === $slug;
         $open = $kids !== [] && $isCategoryPage && catalogue_nav_contains($n, $currentSlug) && !$active;
-        $href = $base . '/category.php?slug=' . rawurlencode($slug);
+        $href = $base . '/category/' . rawurlencode($slug);
         $label = catalogue_nav_label($n);
         $html .= '<div class="at-macc" style="--d:' . $depth . '"><div class="at-macc__row">'
             . '<a class="at-drawer-link at-macc__link at-focusable' . ($active ? ' is-active' : '') . '" href="' . Security::escape($href) . '"'

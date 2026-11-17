@@ -383,7 +383,7 @@ final class SeoRedirectService
         if ($destNorm === $homeNorm || $destNorm === '/') {
             $location = SeoUrl::homepageCanonicalUrl();
         } elseif ($destNorm !== '' && str_starts_with($destNorm, '/')) {
-            $location = SeoUrl::absolute($destNorm);
+            $location = SeoUrl::absolute(SeoRedirectPath::publicUrl($destNorm));
         } else {
             $location = url_to($canonicalDest);
         }

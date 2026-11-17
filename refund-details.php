@@ -8,7 +8,7 @@ require_once APNI_TOKRI_ROOT . '/includes/catalogue/helpers.php';
 Security::sendSecurityHeaders(Security::isHttps());
 
 if (!CustomerService::isLoggedIn()) {
-    header('Location: ' . url_base() . '/login.php?next=' . rawurlencode($_SERVER['REQUEST_URI'] ?? ''), true, 302);
+    header('Location: ' . url_base() . '/login?next=' . rawurlencode($_SERVER['REQUEST_URI'] ?? ''), true, 302);
     exit;
 }
 
@@ -16,7 +16,7 @@ $customerId = CustomerAuth::id();
 $requestNumber = isset($_GET['refund']) && is_string($_GET['refund']) ? trim($_GET['refund']) : '';
 
 if ($customerId === null || !CommerceGateway::useDatabase() || $requestNumber === '') {
-    header('Location: ' . url_base() . '/my-refunds.php', true, 302);
+    header('Location: ' . url_base() . '/my-refunds', true, 302);
     exit;
 }
 
@@ -25,7 +25,7 @@ if ($req === null) {
     layout_public_start(['pageTitle' => 'Refund — Veggie Tokri', 'activeNav' => 'account']);
     $emptyTitle = 'Refund request not found';
     $emptyMessage = 'This refund does not belong to your account.';
-    $emptyActionHref = url_base() . '/my-refunds.php';
+    $emptyActionHref = url_base() . '/my-refunds';
     $emptyActionLabel = 'My refunds';
     require APNI_TOKRI_ROOT . '/includes/partials/empty-state.php';
     layout_public_end();
@@ -45,12 +45,12 @@ $accountTitle = (string) $req['request_number'];
 $accountSub = 'Refund request for order ' . (string) $req['order_number'];
 require APNI_TOKRI_ROOT . '/includes/partials/account-shell-start.php';
 ?>
-<p class="text-sm"><a class="underline font-semibold" href="<?= Security::escape(url_base()) ?>/my-refunds.php">← All refunds</a></p>
+<p class="text-sm"><a class="underline font-semibold" href="<?= Security::escape(url_base()) ?>/my-refunds">← All refunds</a></p>
 <div class="at-card mt-4">
     <div class="at-card__body text-sm space-y-2">
-        <p>Order: <a class="font-bold underline" href="<?= Security::escape(url_base()) ?>/order-details.php?id=<?= rawurlencode((string) $req['order_number']) ?>"><?= Security::escape((string) $req['order_number']) ?></a></p>
+        <p>Order: <a class="font-bold underline" href="<?= Security::escape(url_base()) ?>/order-details?id=<?= rawurlencode((string) $req['order_number']) ?>"><?= Security::escape((string) $req['order_number']) ?></a></p>
         <?php if ($subCtx !== null): ?>
-            <p>Subscription: <a class="font-bold underline" href="<?= Security::escape(url_base()) ?>/subscription-details.php?sub=<?= rawurlencode($subCtx['subscription_number']) ?>"><?= Security::escape($subCtx['subscription_number']) ?></a></p>
+            <p>Subscription: <a class="font-bold underline" href="<?= Security::escape(url_base()) ?>/subscription-details?sub=<?= rawurlencode($subCtx['subscription_number']) ?>"><?= Security::escape($subCtx['subscription_number']) ?></a></p>
         <?php endif; ?>
         <p>Reason: <?= Security::escape($reasonLabels[(string) $req['reason_code']] ?? (string) $req['reason_code']) ?></p>
         <?php if (!empty($req['description'])): ?>

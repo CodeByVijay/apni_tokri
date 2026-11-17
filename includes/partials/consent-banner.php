@@ -8,7 +8,7 @@ declare(strict_types=1);
  * assets/js/meta-consent.js; styles in assets/css/consent.css.
  * Hidden by default — JS reveals the banner only when no valid consent exists.
  */
-$consentPrivacyUrl = url_base() . '/page.php?slug=privacy-policy';
+$consentPrivacyUrl = url_base() . '/page/privacy-policy';
 ?>
 <div id="at-consent" class="at-consent" hidden>
     <div class="at-consent__card" role="region" aria-label="Cookie consent">

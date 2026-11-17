@@ -18,7 +18,7 @@ if ($product === null) {
     require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
     $emptyTitle = 'Product not found';
     $emptyMessage = 'This item may be unavailable or the link is incorrect.';
-    $emptyActionHref = url_base() . '/index.php';
+    $emptyActionHref = url_base() . '/';
     $emptyActionLabel = 'Back to home';
     require APNI_TOKRI_ROOT . '/includes/partials/empty-state.php';
     layout_public_end();
@@ -64,11 +64,11 @@ foreach ($product['attributes'] ?? [] as $attr) {
 }
 $isPackaged = ($product['type'] ?? '') === 'packaged';
 $pdpVariantsInCart = DemoCart::variantIdsForProduct($slug);
-$pdpCartUrl = url_base() . '/cart.php';
+$pdpCartUrl = url_base() . '/cart';
 ?>
 <div class="at-container">
     <nav class="at-breadcrumb" aria-label="Breadcrumb">
-        <a href="<?= Security::escape(url_base()) ?>/index.php">Home</a><span class="sep">/</span>
+        <a href="<?= Security::escape(url_base()) ?>/">Home</a><span class="sep">/</span>
         <?php if ($cat): ?>
             <a href="<?= Security::escape(catalogue_category_url($cat)) ?>"><?= Security::escape($cat['name']) ?></a><span class="sep">/</span>
         <?php endif; ?>
@@ -131,7 +131,7 @@ $pdpCartUrl = url_base() . '/cart.php';
 
         <form class="space-y-5" data-at-product-form action="#" method="post"
             data-product-slug="<?= Security::escape((string) $product['slug']) ?>"
-            data-checkout-url="<?= Security::escape(url_base()) ?>/checkout.php"
+            data-checkout-url="<?= Security::escape(url_base()) ?>/checkout"
             data-cart-url="<?= Security::escape($pdpCartUrl) ?>"
             data-variants-in-cart="<?= Security::escape(json_encode($pdpVariantsInCart, JSON_THROW_ON_ERROR)) ?>">
             <?= Csrf::field() ?>
@@ -203,7 +203,7 @@ $pdpCartUrl = url_base() . '/cart.php';
 
         <div class="at-pdp-points">
             <div><?= at_icon('truck') ?><span><strong>Delivery in Indore.</strong> Fee and time slot are shown at checkout — nothing is added without your say.</span></div>
-            <div><?= at_icon('refresh') ?><span><strong>Problem with your order?</strong> See our <a class="underline font-semibold" href="<?= Security::escape(url_base()) ?>/page.php?slug=refund-policy">refund policy</a> or raise a ticket.</span></div>
+            <div><?= at_icon('refresh') ?><span><strong>Problem with your order?</strong> See our <a class="underline font-semibold" href="<?= Security::escape(url_base()) ?>/page/refund-policy">refund policy</a> or raise a ticket.</span></div>
             <?php if (($product['type'] ?? '') === 'cut'): ?>
                 <div><?= at_icon('clock') ?><span><strong>Cut to order.</strong> Check the use-by guidance below and keep refrigerated.</span></div>
             <?php endif; ?>
@@ -253,7 +253,7 @@ $pdpCartUrl = url_base() . '/cart.php';
     <?php if ($reviews === []): ?>
         <div class="at-card at-card--tint"><div class="at-card__body flex flex-wrap items-center justify-between gap-4">
             <div><h3 class="at-h3">No reviews yet</h3><p class="text-sm at-muted mt-1">Be the first to share how this arrived once your order is delivered.</p></div>
-            <a href="<?= Security::escape(url_base()) ?>/submit-review.php" class="at-btn at-btn--secondary at-focusable">Write a review</a>
+            <a href="<?= Security::escape(url_base()) ?>/submit-review" class="at-btn at-btn--secondary at-focusable">Write a review</a>
         </div></div>
     <?php else: ?>
         <div class="grid md:grid-cols-[16rem_1fr] gap-6">
@@ -261,7 +261,7 @@ $pdpCartUrl = url_base() . '/cart.php';
                 <p class="at-display !text-5xl"><?= Security::escape((string) $rating['average']) ?></p>
                 <p class="at-stars mt-1" aria-hidden="true"><?= str_repeat('★', (int) round($rating['average'])) ?><span class="is-off"><?= str_repeat('★', 5 - (int) round($rating['average'])) ?></span></p>
                 <p class="text-xs at-muted mt-1">Based on <?= (int) $rating['count'] ?> <?= storefront_uses_demo_catalogue() ? 'sample ' : '' ?>review<?= $rating['count'] === 1 ? '' : 's' ?></p>
-                <a href="<?= Security::escape(url_base()) ?>/submit-review.php" class="at-btn at-btn--secondary at-btn--sm at-btn--block at-focusable mt-4">Write a review</a>
+                <a href="<?= Security::escape(url_base()) ?>/submit-review" class="at-btn at-btn--secondary at-btn--sm at-btn--block at-focusable mt-4">Write a review</a>
             </div></div>
             <ul class="grid gap-3">
                 <?php foreach ($reviews as $review): ?>

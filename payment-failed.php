@@ -26,15 +26,15 @@ layout_public_start([
     <div class="at-card mt-8">
         <div class="at-card__body grid gap-3">
             <p class="text-sm text-[var(--at-ink-2)]">If money was debited, it is reversed as per the payment gateway’s policy. Share your order reference with support if you need help.</p>
-            <a href="<?= Security::escape(url_base()) ?>/checkout.php" class="at-btn at-btn--primary at-btn--lg at-focusable at-btn--block">Back to checkout</a>
+            <a href="<?= Security::escape(url_base()) ?>/checkout" class="at-btn at-btn--primary at-btn--lg at-focusable at-btn--block">Back to checkout</a>
             <?php
             $retryOrder = isset($_GET['order']) && is_string($_GET['order']) ? trim($_GET['order']) : '';
             if ($retryOrder !== '' && CommerceGateway::useDatabase() && CustomerService::isLoggedIn()):
                 ?>
-            <a href="<?= Security::escape(url_base()) ?>/payment.php?order=<?= rawurlencode($retryOrder) ?>" class="at-btn at-btn--secondary at-focusable at-btn--block">Retry payment for <?= Security::escape($retryOrder) ?></a>
+            <a href="<?= Security::escape(url_base()) ?>/payment?order=<?= rawurlencode($retryOrder) ?>" class="at-btn at-btn--secondary at-focusable at-btn--block">Retry payment for <?= Security::escape($retryOrder) ?></a>
             <?php endif; ?>
-            <a href="<?= Security::escape(url_base()) ?>/cart.php" class="at-btn at-btn--secondary at-focusable at-btn--block">Review cart (<?= (int) $cartCount ?> items)</a>
-            <a href="<?= Security::escape(url_base()) ?>/support.php" class="at-btn at-btn--ghost at-focusable at-btn--block">Contact support</a>
+            <a href="<?= Security::escape(url_base()) ?>/cart" class="at-btn at-btn--secondary at-focusable at-btn--block">Review cart (<?= (int) $cartCount ?> items)</a>
+            <a href="<?= Security::escape(url_base()) ?>/support" class="at-btn at-btn--ghost at-focusable at-btn--block">Contact support</a>
         </div>
     </div>
     <?php if (!$preserved): ?>

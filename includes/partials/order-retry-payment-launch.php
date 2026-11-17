@@ -40,8 +40,8 @@ window.AT_PAYMENT = {
     csrf: <?= json_encode(Csrf::token(), JSON_THROW_ON_ERROR) ?>,
     verifyUrl: <?= json_encode(url_base() . '/ajax/payment/verify.php', JSON_THROW_ON_ERROR) ?>,
     simulateUrl: <?= json_encode(url_base() . '/ajax/payment/simulate.php', JSON_THROW_ON_ERROR) ?>,
-    orderSuccessUrl: <?= json_encode(url_base() . '/order.php?id=' . rawurlencode($displayId), JSON_THROW_ON_ERROR) ?>,
-    paymentFailedUrl: <?= json_encode(url_base() . '/payment-failed.php?order=' . rawurlencode($displayId), JSON_THROW_ON_ERROR) ?>,
+    orderSuccessUrl: <?= json_encode(url_base() . '/order?id=' . rawurlencode($displayId), JSON_THROW_ON_ERROR) ?>,
+    paymentFailedUrl: <?= json_encode(url_base() . '/payment-failed?order=' . rawurlencode($displayId), JSON_THROW_ON_ERROR) ?>,
     cashfreeMode: <?= json_encode($retryPaymentCashfreeSandbox ? 'sandbox' : 'production', JSON_THROW_ON_ERROR) ?>,
     autoLaunchGateway: true,
     gatewayMode: <?= json_encode($mode, JSON_THROW_ON_ERROR) ?>

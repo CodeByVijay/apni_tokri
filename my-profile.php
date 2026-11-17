@@ -26,7 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $res = CustomerAccountService::updateProfile($customerId, $form['name'], $form['email']);
     if ($res['ok']) {
         $_SESSION['account_flash'] = 'Profile updated.';
-        header('Location: ' . $base . '/my-profile.php', true, 303);
+        header('Location: ' . $base . '/my-profile', true, 303);
         exit;
     }
     $errors = $res['errors'];
@@ -47,7 +47,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/account-shell-start.php';
 <section class="at-card">
     <div class="at-card__body">
         <h2 class="at-h3">Personal details</h2>
-        <form method="post" action="<?= Security::escape($base) ?>/my-profile.php" class="mt-4 grid gap-4 max-w-xl" novalidate>
+        <form method="post" action="<?= Security::escape($base) ?>/my-profile" class="mt-4 grid gap-4 max-w-xl" novalidate>
             <?= Csrf::field() ?>
             <div>
                 <label class="at-label" for="pf-name">Full name</label>

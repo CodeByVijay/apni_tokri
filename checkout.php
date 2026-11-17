@@ -8,7 +8,7 @@ require_once APNI_TOKRI_ROOT . '/includes/catalogue/helpers.php';
 Security::sendSecurityHeaders(Security::isHttps());
 
 if (DemoCart::items() === []) {
-    header('Location: ' . url_base() . '/cart.php', true, 302);
+    header('Location: ' . url_base() . '/cart', true, 302);
     exit;
 }
 
@@ -40,7 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $res = CustomerAccountService::updateAddress((int) CustomerAuth::id(), $editAddressId, $_POST);
         }
         if (!empty($res['ok']) && !empty($res['id'])) {
-            header('Location: ' . url_base() . '/checkout.php?address=' . (int) $res['id'], true, 303);
+            header('Location: ' . url_base() . '/checkout?address=' . (int) $res['id'], true, 303);
             exit;
         }
         $addrFormErrors = $res['errors'] ?? ['form' => 'Could not save address.'];
@@ -48,8 +48,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $addrFormOpenId = $editAddressId;
     } elseif ($action === 'add_address') {
         if (AppEnvironment::usePersistedStorefront()) {
-            $_SESSION['checkout_return'] = url_base() . '/checkout.php';
-            header('Location: ' . url_base() . '/login.php', true, 302);
+            $_SESSION['checkout_return'] = url_base() . '/checkout';
+            header('Location: ' . url_base() . '/login', true, 302);
             exit;
         }
         // Demo/session mode (no database): legacy single-line form.
@@ -65,8 +65,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($action === 'place_order') {
         if (!CustomerService::isLoggedIn()) {
-            $_SESSION['checkout_return'] = url_base() . '/checkout.php';
-            header('Location: ' . url_base() . '/login.php', true, 302);
+            $_SESSION['checkout_return'] = url_base() . '/checkout';
+            header('Location: ' . url_base() . '/login', true, 302);
             exit;
         }
         $result = CheckoutService::placeOrder([
@@ -182,7 +182,7 @@ $checkoutQuoteReady = $loggedIn
 $checkoutAddrMapFree = $dbAddressMode;
 
 layout_public_start([
-    'pageTitle' => 'Checkout — Veggie Tokri',
+    'seo' => SeoMetadata::noindex('Checkout — Veggie Tokri'),
     'activeNav' => 'cart',
     'showBottomNav' => false,
     'loadAddressMap' => false,
@@ -192,7 +192,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
 ?>
 <div class="at-pagehead">
     <div class="at-container pb-5">
-        <nav class="at-breadcrumb" aria-label="Breadcrumb"><a href="<?= Security::escape(url_base()) ?>/cart.php">Cart</a><span class="sep">/</span><span aria-current="page">Checkout</span></nav>
+        <nav class="at-breadcrumb" aria-label="Breadcrumb"><a href="<?= Security::escape(url_base()) ?>/cart">Cart</a><span class="sep">/</span><span aria-current="page">Checkout</span></nav>
         <div class="flex flex-wrap items-end justify-between gap-3">
             <h1 class="at-h1">Checkout</h1>
             <div class="at-steps-bar" aria-label="Checkout progress"><span class="is-done"><b>✓</b>Cart</span><i class="line"></i><span class="is-current"><b>2</b>Details</span><i class="line"></i><span><b>3</b>Payment</span></div>
@@ -235,7 +235,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
                 </div>
             <?php else: ?>
                 <p class="text-sm at-muted">Log in with your mobile number to continue.</p>
-                <a href="<?= Security::escape(url_base()) ?>/login.php" class="at-btn at-btn--primary at-focusable mt-3">Log in with mobile OTP</a>
+                <a href="<?= Security::escape(url_base()) ?>/login" class="at-btn at-btn--primary at-focusable mt-3">Log in with mobile OTP</a>
             <?php endif; ?>
         </section>
 
@@ -243,7 +243,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
             <div class="at-checkout-block__head justify-between flex-wrap">
                 <span class="flex items-center gap-3"><span class="at-checkout-block__num">2</span><h2 class="at-h3">Delivery address</h2></span>
                 <?php if ($loggedIn && $persistedCheckout): ?>
-                    <a href="<?= Security::escape(url_base()) ?>/my-addresses.php" class="text-xs font-semibold text-[var(--at-green)] hover:underline at-focusable">Add or manage addresses</a>
+                    <a href="<?= Security::escape(url_base()) ?>/my-addresses" class="text-xs font-semibold text-[var(--at-green)] hover:underline at-focusable">Add or manage addresses</a>
                 <?php endif; ?>
             </div>
             <?php if ($persistedCheckout && !$loggedIn): ?>
@@ -265,7 +265,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
                         <?php endforeach; ?>
                     </div>
                     <div class="at-addr-card__actions">
-                        <a class="at-btn at-btn--secondary at-btn--sm at-focusable" data-checkout-edit href="<?= Security::escape(url_base()) ?>/checkout.php?edit_address=<?= (int) $selectedAddressId ?>#checkout-address-form">Edit address</a>
+                        <a class="at-btn at-btn--secondary at-btn--sm at-focusable" data-checkout-edit href="<?= Security::escape(url_base()) ?>/checkout?edit_address=<?= (int) $selectedAddressId ?>#checkout-address-form">Edit address</a>
                     </div>
                 <?php endif; ?>
                 <?php if ($loggedIn): ?>
@@ -273,11 +273,11 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
                         <summary class="at-card__body !py-3 cursor-pointer font-bold text-[var(--at-green)] flex items-center gap-2"><?= at_icon('plus', 'w-4 h-4') ?><?= $addrFormOpenMode === 'update' ? 'Edit delivery address' : 'Add a new address' ?></summary>
                         <div class="at-card__body !pt-0">
                             <?php
-                            $addrFormAction = url_base() . '/checkout.php#checkout-address-form';
+                            $addrFormAction = url_base() . '/checkout#checkout-address-form';
                             $addrFormMode = $addrFormOpenMode === 'update' ? 'update' : 'add';
                             $addrFormId = (int) $addrFormOpenId;
                             $addrFormErrors = $addrFormErrors;
-                            $addrFormCancelUrl = url_base() . '/checkout.php' . ($selectedAddressId !== '' ? '?address=' . (int) $selectedAddressId : '');
+                            $addrFormCancelUrl = url_base() . '/checkout' . ($selectedAddressId !== '' ? '?address=' . (int) $selectedAddressId : '');
                             $addrFormShowDefault = false;
                             $addrFormHidden = [];
                             $addrFormAddAction = 'add_address';
@@ -454,7 +454,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
                     </p>
                     <p class="text-xs at-muted">Delivery charge does not count towards the minimum order.</p>
                     <div class="pt-1.5">
-                        <a href="<?= Security::escape(url_base()) ?>/index.php" class="at-btn at-btn--secondary at-btn--sm at-focusable">Browse products</a>
+                        <a href="<?= Security::escape(url_base()) ?>/" class="at-btn at-btn--secondary at-btn--sm at-focusable">Browse products</a>
                     </div>
                 </div>
                 <div class="flex flex-col sm:flex-row gap-3<?= $checkoutMinOrderMet ? '' : ' hidden' ?>" data-checkout-pay-allowed>
@@ -471,7 +471,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
 
     <aside class="at-summary grid gap-4" data-checkout-summary>
         <div class="at-card at-checkout-items"><div class="at-card__body">
-            <div class="flex items-center justify-between gap-3"><h2 class="at-card__title">Your items</h2><a href="<?= Security::escape(url_base()) ?>/cart.php" class="text-sm font-semibold text-[var(--at-green)] at-focusable">Edit cart</a></div>
+            <div class="flex items-center justify-between gap-3"><h2 class="at-card__title">Your items</h2><a href="<?= Security::escape(url_base()) ?>/cart" class="text-sm font-semibold text-[var(--at-green)] at-focusable">Edit cart</a></div>
             <ul class="mt-3 grid gap-3">
                 <?php foreach (CartService::items() as $it): ?>
                     <li class="flex gap-3 items-center">

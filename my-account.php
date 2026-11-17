@@ -8,7 +8,7 @@ require_once APNI_TOKRI_ROOT . '/includes/catalogue/helpers.php';
 Security::sendSecurityHeaders(Security::isHttps(), true);
 
 if (!CustomerService::isLoggedIn()) {
-    header('Location: ' . url_base() . '/login.php', true, 302);
+    header('Location: ' . url_base() . '/login', true, 302);
     exit;
 }
 
@@ -67,7 +67,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/account-hub.php';
     <div class="at-card__body">
         <div class="flex items-center justify-between gap-3">
             <h2 class="at-h3">Latest order</h2>
-            <a href="<?= Security::escape($base) ?>/my-orders.php" class="at-link-arrow at-focusable">All orders</a>
+            <a href="<?= Security::escape($base) ?>/my-orders" class="at-link-arrow at-focusable">All orders</a>
         </div>
         <?php if ($latest): ?>
             <div class="mt-3 flex flex-wrap items-center justify-between gap-3">
@@ -77,12 +77,12 @@ require APNI_TOKRI_ROOT . '/includes/partials/account-hub.php';
                 </div>
                 <div class="text-right">
                     <p class="font-extrabold text-lg"><?= Security::escape(catalogue_format_price((float) ($latest['totals']['total'] ?? $latest['grand_total'] ?? 0))) ?></p>
-                    <a href="<?= Security::escape($base) ?>/order-details.php?id=<?= rawurlencode((string) ($latest['id'] ?? $latest['order_number'] ?? '')) ?>" class="at-btn at-btn--secondary at-btn--sm at-focusable mt-1">Track order</a>
+                    <a href="<?= Security::escape($base) ?>/order-details?id=<?= rawurlencode((string) ($latest['id'] ?? $latest['order_number'] ?? '')) ?>" class="at-btn at-btn--secondary at-btn--sm at-focusable mt-1">Track order</a>
                 </div>
             </div>
         <?php else: ?>
             <p class="mt-2 text-sm at-muted">You haven’t placed an order yet.</p>
-            <a href="<?= Security::escape($base) ?>/index.php" class="at-btn at-btn--primary at-btn--sm at-focusable mt-3">Start shopping</a>
+            <a href="<?= Security::escape($base) ?>/" class="at-btn at-btn--primary at-btn--sm at-focusable mt-3">Start shopping</a>
         <?php endif; ?>
     </div>
 </section>
@@ -91,11 +91,11 @@ require APNI_TOKRI_ROOT . '/includes/partials/account-hub.php';
     <div class="at-card__body">
         <div class="flex items-center justify-between gap-3">
             <h2 class="at-h3">Subscription</h2>
-            <a href="<?= Security::escape($base) ?>/my-subscriptions.php" class="at-link-arrow at-focusable">Manage</a>
+            <a href="<?= Security::escape($base) ?>/my-subscriptions" class="at-link-arrow at-focusable">Manage</a>
         </div>
         <?php if ($latestSub === null): ?>
             <p class="mt-2 text-sm at-muted">You do not have any subscriptions yet.</p>
-            <a href="<?= Security::escape($base) ?>/subscriptions.php" class="at-btn at-btn--secondary at-btn--sm at-focusable mt-3">Browse plans</a>
+            <a href="<?= Security::escape($base) ?>/subscriptions" class="at-btn at-btn--secondary at-btn--sm at-focusable mt-3">Browse plans</a>
         <?php else:
             $snapshot = CustomerSubscriptionRepository::decodeSnapshot($latestSub);
             $subName = (string) ($snapshot['name'] ?? 'Subscription');
@@ -121,7 +121,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/account-hub.php';
     <div class="at-card__body">
         <div class="flex items-center justify-between gap-3">
             <h2 class="at-h3">Saved addresses</h2>
-            <a href="<?= Security::escape($base) ?>/my-addresses.php" class="at-link-arrow at-focusable">Manage addresses</a>
+            <a href="<?= Security::escape($base) ?>/my-addresses" class="at-link-arrow at-focusable">Manage addresses</a>
         </div>
         <?php if ($addresses === []): ?>
             <p class="mt-2 text-sm at-muted">No saved addresses yet.</p>
@@ -135,7 +135,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/account-hub.php';
                 <?php endforeach; ?>
             </ul>
         <?php endif; ?>
-        <p class="text-xs at-muted mt-3">Add, edit or remove addresses from <a href="<?= Security::escape($base) ?>/my-addresses.php" class="underline">My addresses</a>, or add one at checkout.</p>
+        <p class="text-xs at-muted mt-3">Add, edit or remove addresses from <a href="<?= Security::escape($base) ?>/my-addresses" class="underline">My addresses</a>, or add one at checkout.</p>
     </div>
 </section>
 

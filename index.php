@@ -58,7 +58,7 @@ $categoryHints = [
 
             <div class="at-home-hero__ctas mt-5 flex flex-wrap gap-3">
                 <a href="<?= Security::escape($primaryCategoryUrl) ?>" class="at-btn at-btn--accent at-btn--lg at-focusable">Shop fresh vegetables <?= at_icon('arrow-right', 'w-5 h-5') ?></a>
-                <a href="<?= Security::escape($base) ?>/my-subscriptions.php" class="at-btn at-btn--secondary at-btn--lg at-focusable">See subscriptions</a>
+                <a href="<?= Security::escape($base) ?>/my-subscriptions" class="at-btn at-btn--secondary at-btn--lg at-focusable">See subscriptions</a>
             </div>
         </div>
         <div class="at-hero__media at-home-hero__media at-reveal" style="animation-delay:.08s">
@@ -114,7 +114,7 @@ $sectionTitle = 'Best sellers';
 $sectionSubtitle = storefront_uses_demo_catalogue()
     ? 'Our most-picked items (demo flags until real sales data exists)'
     : 'Customer favourites';
-$sectionHref = $base . '/search.php?q=';
+$sectionHref = $base . '/search?q=';
 $sectionLinkLabel = 'Browse all';
 $products = catalogue_home_eligible_products($catalogue->productsWithFlag('bestseller', PHP_INT_MAX), 5);
 if ($products !== []) {
@@ -161,7 +161,7 @@ foreach ($rails as $rail) {
     $railSlugs = $rail[2];
     $linkSlug = catalogue_first_public_category_slug($railSlugs);
     $sectionHref = $linkSlug !== null
-        ? $base . '/category.php?slug=' . rawurlencode($linkSlug)
+        ? $base . '/category/' . rawurlencode($linkSlug)
         : $primaryCategoryUrl;
     $sectionLinkLabel = 'View all';
     $products = catalogue_home_eligible_products(catalogue_products_in_public_categories($railSlugs), 5);
@@ -200,7 +200,7 @@ foreach ($rails as $rail) {
                         <li><?= at_icon('check') ?><span>Basket allowance ≈ <?= Security::escape(catalogue_format_price((float) ($plan['daily_allowance_inr'] ?? 0))) ?>/day</span></li>
                         <li><?= at_icon('check') ?><span>Skip rules explained before you pay</span></li>
                     </ul>
-                    <a href="<?= Security::escape($base) ?>/subscribe.php?plan=<?= (int) $plan['id'] ?>" class="at-btn <?= $featured ? 'at-btn--primary' : 'at-btn--secondary' ?> at-btn--block mt-4">Subscribe</a>
+                    <a href="<?= Security::escape($base) ?>/subscribe?plan=<?= (int) $plan['id'] ?>" class="at-btn <?= $featured ? 'at-btn--primary' : 'at-btn--secondary' ?> at-btn--block mt-4">Subscribe</a>
                 </article>
             <?php endforeach; ?>
         </div>

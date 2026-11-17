@@ -962,10 +962,10 @@ final class SeoAdminCenter
     public static function productPublicSeoUrl(string $slug): string
     {
         if ($slug === '') {
-            return SeoUrl::absolute('/index.php');
+            return SeoUrl::homepageCanonicalUrl();
         }
 
-        return SeoUrl::absolute('/product.php?slug=' . rawurlencode($slug));
+        return SeoUrl::absolute('/product/' . rawurlencode($slug));
     }
 
     /**

@@ -45,7 +45,7 @@ $navIsCategoryPage = $activeNav === 'categories';
                 <?= at_icon('menu') ?>
             </button>
 
-            <a href="<?= Security::escape($base) ?>/index.php" class="at-logo at-focusable flex-shrink-0" aria-label="<?= Security::escape(BrandingSettings::logoAlt()) ?> — <?= Security::escape(__('nav_home')) ?>">
+            <a href="<?= Security::escape($base) ?>/" class="at-logo at-focusable flex-shrink-0" aria-label="<?= Security::escape(BrandingSettings::logoAlt()) ?> — <?= Security::escape(__('nav_home')) ?>">
                 <img src="<?= Security::escape(BrandingSettings::logoUrl()) ?>" alt="" width="44" height="44" decoding="async">
                 <span>
                     <span class="at-logo__word"><?= Security::escape(__('brand_name')) ?></span>
@@ -54,7 +54,7 @@ $navIsCategoryPage = $activeNav === 'categories';
             </a>
 
             <!-- Search (desktop) -->
-            <form action="<?= Security::escape($base) ?>/search.php" method="get" role="search" class="at-search hidden md:block max-w-2xl mx-auto" data-at-search>
+            <form action="<?= Security::escape($base) ?>/search" method="get" role="search" class="at-search hidden md:block max-w-2xl mx-auto" data-at-search>
                 <label class="sr-only" for="at-search"><?= Security::escape(__('search_placeholder')) ?></label>
                 <div class="at-search__field">
                     <?= at_icon('search') ?>
@@ -72,12 +72,12 @@ $navIsCategoryPage = $activeNav === 'categories';
                 <?php
                 $atLoggedIn = CustomerService::isLoggedIn();
                 $atAuthLabel = $atLoggedIn ? 'My account' : __('nav_login');
-                $atAuthHref = $atLoggedIn ? '/my-account.php' : '/login.php';
+                $atAuthHref = $atLoggedIn ? '/my-account' : '/login';
                 ?>
                 <a href="<?= Security::escape($base . $atAuthHref) ?>" class="at-iconbtn at-focusable hidden md:inline-flex" aria-label="<?= Security::escape($atAuthLabel) ?>">
                     <?= at_icon('user') ?><span class="hidden xl:inline"><?= Security::escape($atAuthLabel) ?></span>
                 </a>
-                <a href="<?= Security::escape($base) ?>/cart.php" class="at-iconbtn at-focusable" aria-label="<?= Security::escape(__('nav_cart')) ?>">
+                <a href="<?= Security::escape($base) ?>/cart" class="at-iconbtn at-focusable" aria-label="<?= Security::escape(__('nav_cart')) ?>">
                     <?= at_icon('cart') ?>
                     <span data-at-cart-count class="at-cart-badge <?= $cartCount > 0 ? '' : 'hidden' ?>"><?= (int) $cartCount ?></span>
                 </a>
@@ -93,7 +93,7 @@ $navIsCategoryPage = $activeNav === 'categories';
         <?php endif; ?>
 
         <!-- Search (mobile) -->
-        <form action="<?= Security::escape($base) ?>/search.php" method="get" role="search" class="at-search md:hidden mt-2" data-at-search>
+        <form action="<?= Security::escape($base) ?>/search" method="get" role="search" class="at-search md:hidden mt-2" data-at-search>
             <label class="sr-only" for="at-search-m"><?= Security::escape(__('search_placeholder')) ?></label>
             <div class="at-search__field">
                 <?= at_icon('search') ?>
@@ -106,12 +106,12 @@ $navIsCategoryPage = $activeNav === 'categories';
         <!-- Category nav -->
         <nav class="hidden md:flex items-center justify-between mt-2 -mb-1 border-t border-[var(--at-line)] pt-1" aria-label="Categories">
             <ul class="at-dnav -ml-3" role="list" data-at-dnav>
-                <li class="at-dnav__item"><a href="<?= Security::escape($base) ?>/index.php" class="at-dnav__link at-focusable <?= $activeNav === 'home' ? 'is-active' : '' ?>"><span><?= Security::escape(__('nav_home')) ?></span></a></li>
+                <li class="at-dnav__item"><a href="<?= Security::escape($base) ?>/" class="at-dnav__link at-focusable <?= $activeNav === 'home' ? 'is-active' : '' ?>"><span><?= Security::escape(__('nav_home')) ?></span></a></li>
                 <?= catalogue_render_desktop_nav($navTree, $currentSlug, $navIsCategoryPage) ?>
             </ul>
             <div class="at-catnav -mr-3">
-                <a href="<?= Security::escape($base) ?>/faqs.php" class="at-focusable"><?= Security::escape(__('nav_faqs')) ?></a>
-                <a href="<?= Security::escape($base) ?>/contact.php" class="at-focusable"><?= Security::escape(__('nav_contact')) ?></a>
+                <a href="<?= Security::escape($base) ?>/faqs" class="at-focusable"><?= Security::escape(__('nav_faqs')) ?></a>
+                <a href="<?= Security::escape($base) ?>/contact" class="at-focusable"><?= Security::escape(__('nav_contact')) ?></a>
             </div>
         </nav>
     </div>
@@ -135,15 +135,15 @@ $navIsCategoryPage = $activeNav === 'categories';
                 <span><small><?= Security::escape(__('delivery_to')) ?></small><strong>Indore<span data-at-loc-pin><?= $deliveryPin !== null ? ' · ' . Security::escape($deliveryPin) : ' · ' . Security::escape(__('check_delivery')) ?></span></strong></span>
             </button>
             <p class="at-eyebrow px-3 mt-2 mb-1"><?= Security::escape(__('nav_categories')) ?></p>
-            <a href="<?= Security::escape($base) ?>/index.php" class="at-drawer-link at-focusable"><?= at_icon('home') ?><?= Security::escape(__('nav_home')) ?></a>
+            <a href="<?= Security::escape($base) ?>/" class="at-drawer-link at-focusable"><?= at_icon('home') ?><?= Security::escape(__('nav_home')) ?></a>
             <nav class="at-macc-list" aria-label="<?= Security::escape(__('nav_categories')) ?>">
                 <?= catalogue_render_mobile_nav($navTree, $currentSlug, $navIsCategoryPage) ?>
             </nav>
             <hr class="at-divider">
-            <a href="<?= Security::escape($base) ?>/my-orders.php" class="at-drawer-link at-focusable"><?= at_icon('receipt') ?>My orders</a>
-            <a href="<?= Security::escape($base) ?>/my-subscriptions.php" class="at-drawer-link at-focusable"><?= at_icon('repeat') ?>My subscriptions</a>
-            <a href="<?= Security::escape($base) ?>/faqs.php" class="at-drawer-link at-focusable"><?= at_icon('help') ?><?= Security::escape(__('nav_faqs')) ?></a>
-            <a href="<?= Security::escape($base) ?>/contact.php" class="at-drawer-link at-focusable"><?= at_icon('chat') ?><?= Security::escape(__('nav_contact')) ?></a>
+            <a href="<?= Security::escape($base) ?>/my-orders" class="at-drawer-link at-focusable"><?= at_icon('receipt') ?>My orders</a>
+            <a href="<?= Security::escape($base) ?>/my-subscriptions" class="at-drawer-link at-focusable"><?= at_icon('repeat') ?>My subscriptions</a>
+            <a href="<?= Security::escape($base) ?>/faqs" class="at-drawer-link at-focusable"><?= at_icon('help') ?><?= Security::escape(__('nav_faqs')) ?></a>
+            <a href="<?= Security::escape($base) ?>/contact" class="at-drawer-link at-focusable"><?= at_icon('chat') ?><?= Security::escape(__('nav_contact')) ?></a>
             <a href="<?= Security::escape($base . $atAuthHref) ?>" class="at-btn at-btn--primary at-btn--block at-focusable mt-4"><?= Security::escape($atAuthLabel) ?></a>
         </div>
     </div>

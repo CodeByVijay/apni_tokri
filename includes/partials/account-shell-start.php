@@ -13,21 +13,21 @@ $accountSub = $accountSub ?? null;
 $_acBase = url_base();
 $_acLoggedIn = CustomerService::isLoggedIn();
 $_acItems = [
-    'overview' => ['/my-account.php', 'Overview', 'user'],
-    'profile' => ['/my-profile.php', 'Profile', 'user'],
-    'addresses' => ['/my-addresses.php', 'Addresses', 'pin'],
-    'orders' => ['/my-orders.php', 'Orders', 'receipt'],
-    'invoices' => ['/my-invoices.php', 'Invoices', 'receipt'],
-    'refunds' => ['/my-refunds.php', 'Refunds', 'receipt'],
-    'subscriptions' => ['/my-subscriptions.php', 'Subscriptions', 'repeat'],
-    'reviews' => ['/submit-review.php', 'Reviews', 'star'],
-    'support' => ['/my-support.php', 'Support', 'chat'],
+    'overview' => ['/my-account', 'Overview', 'user'],
+    'profile' => ['/my-profile', 'Profile', 'user'],
+    'addresses' => ['/my-addresses', 'Addresses', 'pin'],
+    'orders' => ['/my-orders', 'Orders', 'receipt'],
+    'invoices' => ['/my-invoices', 'Invoices', 'receipt'],
+    'refunds' => ['/my-refunds', 'Refunds', 'receipt'],
+    'subscriptions' => ['/my-subscriptions', 'Subscriptions', 'repeat'],
+    'reviews' => ['/submit-review', 'Reviews', 'star'],
+    'support' => ['/my-support', 'Support', 'chat'],
 ];
 ?>
 <div class="at-pagehead<?= $accountActive === 'overview' && $_acLoggedIn ? ' at-pagehead--hub' : '' ?>">
     <div class="at-container pb-6">
         <nav class="at-breadcrumb" aria-label="Breadcrumb">
-            <a href="<?= Security::escape($_acBase) ?>/index.php">Home</a>
+            <a href="<?= Security::escape($_acBase) ?>/">Home</a>
             <?php if ($_acLoggedIn): ?>
                 <span class="sep">/</span><span>My account</span>
                 <?php if ($accountActive !== 'overview'): ?>
@@ -57,8 +57,8 @@ $_acItems = [
             <div class="at-card__body grid gap-3 text-sm">
                 <p class="font-bold">Customer account</p>
                 <p class="at-muted">Sign in to view orders, invoices, subscriptions, and your support ticket history.</p>
-                <a href="<?= Security::escape($_acBase) ?>/login.php" class="at-btn at-btn--primary at-btn--block at-focusable">Login / Register</a>
-                <a href="<?= Security::escape($_acBase) ?>/faqs.php" class="at-link-arrow !text-sm">Browse FAQs</a>
+                <a href="<?= Security::escape($_acBase) ?>/login" class="at-btn at-btn--primary at-btn--block at-focusable">Login / Register</a>
+                <a href="<?= Security::escape($_acBase) ?>/faqs" class="at-link-arrow !text-sm">Browse FAQs</a>
             </div>
         </aside>
     <?php endif; ?>

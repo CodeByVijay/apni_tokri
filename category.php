@@ -10,7 +10,7 @@ Security::sendSecurityHeaders(Security::isHttps());
 $slug = isset($_GET['slug']) && is_string($_GET['slug']) ? trim($_GET['slug']) : '';
 if ($slug === '') {
     $primary = catalogue_primary_category_url();
-    if (strpos($primary, '/category.php?') !== false) {
+    if (strpos($primary, '/category/') !== false) {
         header('Location: ' . $primary, true, 302);
         exit;
     }
@@ -32,7 +32,7 @@ if ($category === null) {
     require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
     $emptyTitle = 'Category not found';
     $emptyMessage = 'Try browsing from the homepage categories.';
-    $emptyActionHref = url_base() . '/index.php';
+    $emptyActionHref = url_base() . '/';
     $emptyActionLabel = 'Home';
     require APNI_TOKRI_ROOT . '/includes/partials/empty-state.php';
     layout_public_end();
@@ -78,12 +78,12 @@ layout_public_start([
 ]);
 require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
 
-$baseCatUrl = url_base() . '/category.php?slug=' . rawurlencode($slug);
+$baseCatUrl = url_base() . '/category/' . rawurlencode($slug);
 ?>
 <div class="at-pagehead">
     <div class="at-container pb-6">
         <nav class="at-breadcrumb" aria-label="Breadcrumb">
-            <a href="<?= Security::escape(url_base()) ?>/index.php">Home</a><span class="sep">/</span>
+            <a href="<?= Security::escape(url_base()) ?>/">Home</a><span class="sep">/</span>
             <?php foreach (catalogue_category_trail($category) as $anc): ?>
                 <a href="<?= Security::escape(catalogue_category_url($anc)) ?>"><?= Security::escape((string) $anc['name']) ?></a><span class="sep">/</span>
             <?php endforeach; ?>
@@ -179,7 +179,7 @@ $baseCatUrl = url_base() . '/category.php?slug=' . rawurlencode($slug);
         <?php endif; ?>
     </div>
     <?php if (StorefrontDesignPreview::allowsLoadingPreview()): ?>
-        <p class="mt-8 text-xs at-muted"><a href="<?= Security::escape($baseCatUrl) ?>&amp;demo=loading" class="underline">Preview loading state</a> (design review only)</p>
+        <p class="mt-8 text-xs at-muted"><a href="<?= Security::escape($baseCatUrl) ?>?demo=loading" class="underline">Preview loading state</a> (design review only)</p>
     <?php endif; ?>
 </div>
 <?php layout_public_end(); ?>

@@ -12,7 +12,7 @@ $totals = DemoCart::totals();
 $loadCartJs = true;
 
 layout_public_start([
-    'pageTitle' => 'Cart — Veggie Tokri',
+    'seo' => SeoMetadata::noindex('Cart — Veggie Tokri'),
     'activeNav' => 'cart',
     'loadCartMobileCss' => true,
 ]);
@@ -20,7 +20,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
 ?>
 <div class="at-pagehead">
     <div class="at-container pb-5">
-        <nav class="at-breadcrumb" aria-label="Breadcrumb"><a href="<?= Security::escape(url_base()) ?>/index.php">Home</a><span class="sep">/</span><span aria-current="page"><?= Security::escape(__('nav_cart')) ?></span></nav>
+        <nav class="at-breadcrumb" aria-label="Breadcrumb"><a href="<?= Security::escape(url_base()) ?>/">Home</a><span class="sep">/</span><span aria-current="page"><?= Security::escape(__('nav_cart')) ?></span></nav>
         <div class="flex flex-wrap items-end justify-between gap-3">
             <h1 class="at-h1"><?= Security::escape(__('nav_cart')) ?><?php if ($items !== []): ?> <span class="at-muted text-lg font-sans font-semibold" data-cart-page-line-count>(<?= count($items) ?> item<?= count($items) === 1 ? '' : 's' ?>)</span><?php endif; ?></h1>
             <?php if ($items !== []): ?>
@@ -40,7 +40,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
     $emptyTitle = 'Your cart is empty';
     $emptyMessage = 'Add a few fresh items and they will wait here. Your cart stays saved even if a payment fails.';
     $emptyIcon = 'cart';
-    $emptyActionHref = url_base() . '/index.php';
+    $emptyActionHref = url_base() . '/';
     $emptyActionLabel = 'Continue shopping';
     require APNI_TOKRI_ROOT . '/includes/partials/empty-state.php';
     ?>
@@ -62,7 +62,7 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
                     <?php if (!empty($deliveryBanner['cta_href'])): ?>
                     <a href="<?= Security::escape((string) $deliveryBanner['cta_href']) ?>" class="at-btn at-btn--secondary at-btn--sm at-focusable mt-2" data-cart-delivery-banner-cta><?= Security::escape((string) ($deliveryBanner['cta_label'] ?? 'Select delivery address')) ?></a>
                     <?php else: ?>
-                    <a href="<?= Security::escape(url_base()) ?>/checkout.php" class="at-btn at-btn--secondary at-btn--sm at-focusable mt-2 hidden" data-cart-delivery-banner-cta>Select delivery address</a>
+                    <a href="<?= Security::escape(url_base()) ?>/checkout" class="at-btn at-btn--secondary at-btn--sm at-focusable mt-2 hidden" data-cart-delivery-banner-cta>Select delivery address</a>
                     <?php endif; ?>
                     <div class="at-progress mt-3 <?= $deliveryBanner['show_progress'] ? '' : 'hidden' ?>" data-cart-delivery-progress role="progressbar" aria-valuenow="<?= (int) $deliveryBanner['progress'] ?>" aria-valuemin="0" aria-valuemax="100"><div class="at-progress__bar" data-cart-delivery-progress-bar style="width:<?= (int) $deliveryBanner['progress'] ?>%"></div></div>
                 </div>
@@ -117,13 +117,13 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
                     $qtySelectId = 'cart-qty-' . preg_replace('/[^a-zA-Z0-9_-]/', '-', (string) $item['line_key']);
                     ?>
                     <li class="at-line-item" data-line-key="<?= Security::escape((string) $item['line_key']) ?>" data-product-slug="<?= Security::escape((string) ($item['product_slug'] ?? '')) ?>" data-variant-id="<?= Security::escape((string) ($item['variant_id'] ?? '')) ?>" data-item-name="<?= Security::escape((string) $item['name']) ?>" data-item-label="<?= Security::escape($packLabel) ?>" data-unit-price="<?= Security::escape((string) $unitPrice) ?>" data-qty-cap="<?= (int) $displayCap ?>" data-qty-min="<?= (int) $displayMin ?>" data-qty-limit-toast="<?= Security::escape($qtyLimitToast) ?>" data-qty-decrease-toast="<?= Security::escape($qtyDecreaseToast) ?>">
-                        <a href="<?= Security::escape(url_base()) ?>/product.php?slug=<?= rawurlencode((string) $item['product_slug']) ?>" class="at-line-item__img at-focusable" tabindex="-1" aria-hidden="true">
+                        <a href="<?= Security::escape(url_base()) ?>/product/<?= rawurlencode((string) $item['product_slug']) ?>" class="at-line-item__img at-focusable" tabindex="-1" aria-hidden="true">
                             <?php if (!empty($item['image'])): ?><img src="<?= Security::escape((string) $item['image']) ?>" alt="" loading="lazy"><?php endif; ?>
                         </a>
                         <div class="min-w-0">
                             <div class="at-line-item__head">
                                 <div class="at-line-item__title min-w-0">
-                                    <a href="<?= Security::escape(url_base()) ?>/product.php?slug=<?= rawurlencode((string) $item['product_slug']) ?>" class="font-bold hover:text-[var(--at-green)] at-focusable"><?= Security::escape((string) $item['name']) ?></a>
+                                    <a href="<?= Security::escape(url_base()) ?>/product/<?= rawurlencode((string) $item['product_slug']) ?>" class="font-bold hover:text-[var(--at-green)] at-focusable"><?= Security::escape((string) $item['name']) ?></a>
                                     <div class="at-line-item__meta">
                                         <?php if ($packLabel !== ''): ?>
                                             <span class="at-line-item__pack">Pack: <?= Security::escape($packLabel) ?></span>
@@ -198,8 +198,8 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
             <?php if ($cartQtyBlocking): ?>
                 <p class="text-sm text-red-600 mb-3" role="alert">Fix quantity issues above before checkout.</p>
             <?php endif; ?>
-            <a href="<?= $cartCheckoutBlocked ? '#' : Security::escape(url_base()) . '/checkout.php' ?>" class="at-btn at-btn--primary at-btn--lg at-btn--block at-focusable mt-4 <?= $cartCheckoutBlocked ? 'pointer-events-none opacity-50' : '' ?>" data-cart-checkout-cta <?= $cartCheckoutBlocked ? 'aria-disabled="true"' : '' ?>>Proceed to checkout <?= at_icon('chevron-right', 'w-5 h-5') ?></a>
-            <a href="<?= Security::escape(url_base()) ?>/index.php" class="at-btn at-btn--ghost at-btn--block at-focusable mt-2">Continue shopping</a>
+            <a href="<?= $cartCheckoutBlocked ? '#' : Security::escape(url_base()) . '/checkout' ?>" class="at-btn at-btn--primary at-btn--lg at-btn--block at-focusable mt-4 <?= $cartCheckoutBlocked ? 'pointer-events-none opacity-50' : '' ?>" data-cart-checkout-cta <?= $cartCheckoutBlocked ? 'aria-disabled="true"' : '' ?>>Proceed to checkout <?= at_icon('chevron-right', 'w-5 h-5') ?></a>
+            <a href="<?= Security::escape(url_base()) ?>/" class="at-btn at-btn--ghost at-btn--block at-focusable mt-2">Continue shopping</a>
         </aside>
     </div>
     <?php
@@ -212,14 +212,14 @@ require APNI_TOKRI_ROOT . '/includes/partials/demo-banner.php';
             <p class="text-xs at-muted leading-tight" data-cart-sticky-label><?= $cartStickyQuoteReady ? 'Total payable' : 'Items payable' ?></p>
             <p class="font-extrabold text-lg leading-tight tabular-nums" data-cart-total><?= Security::escape(catalogue_format_price((float) $totals['total'])) ?></p>
         </div>
-        <a href="<?= $cartCheckoutBlocked ? '#' : Security::escape(url_base()) . '/checkout.php' ?>" class="at-btn at-btn--primary at-focusable at-cart-sticky__cta <?= $cartCheckoutBlocked ? 'pointer-events-none opacity-50' : '' ?>" data-cart-checkout-cta <?= $cartCheckoutBlocked ? 'aria-disabled="true"' : '' ?>>Checkout <?= at_icon('chevron-right', 'w-5 h-5') ?></a>
+        <a href="<?= $cartCheckoutBlocked ? '#' : Security::escape(url_base()) . '/checkout' ?>" class="at-btn at-btn--primary at-focusable at-cart-sticky__cta <?= $cartCheckoutBlocked ? 'pointer-events-none opacity-50' : '' ?>" data-cart-checkout-cta <?= $cartCheckoutBlocked ? 'aria-disabled="true"' : '' ?>>Checkout <?= at_icon('chevron-right', 'w-5 h-5') ?></a>
     </div>
     <template id="at-cart-empty-template">
         <?php
         $emptyTitle = 'Your cart is empty';
         $emptyMessage = 'Add a few fresh items and they will wait here. Your cart stays saved even if a payment fails.';
         $emptyIcon = 'cart';
-        $emptyActionHref = url_base() . '/index.php';
+        $emptyActionHref = url_base() . '/';
         $emptyActionLabel = 'Continue shopping';
         require APNI_TOKRI_ROOT . '/includes/partials/empty-state.php';
         ?>

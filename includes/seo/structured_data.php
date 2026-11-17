@@ -101,7 +101,7 @@ final class SeoStructuredData
         ];
         if ($category !== null) {
             $catName = (string) ($category['name'] ?? '');
-            $catUrl = self::validatedUrl(SeoUrl::absolute('/category.php?slug=' . rawurlencode((string) ($category['slug'] ?? ''))));
+            $catUrl = self::validatedUrl(SeoUrl::absolute('/category/' . rawurlencode((string) ($category['slug'] ?? ''))));
             if ($catName !== '' && $catUrl !== null) {
                 $crumbs[] = [$catName, $catUrl];
             }
@@ -237,7 +237,7 @@ final class SeoStructuredData
         if (!$seo->isIndexableForSitemap() || $searchOrFilterActive || $faqRows === []) {
             return null;
         }
-        $canonical = self::validatedUrl($seo->canonicalUrl ?? SeoUrl::absolute('/faqs.php'));
+        $canonical = self::validatedUrl($seo->canonicalUrl ?? SeoUrl::absolute('/faqs'));
         if ($canonical === null) {
             return null;
         }
@@ -415,7 +415,7 @@ final class SeoStructuredData
 
     private static function searchUrlTemplate(): ?string
     {
-        $template = SeoUrl::absolute('/search.php?q={search_term_string}');
+        $template = SeoUrl::absolute('/search?q={search_term_string}');
 
         return self::validatedUrl($template);
     }

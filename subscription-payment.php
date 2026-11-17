@@ -8,8 +8,8 @@ require_once APNI_TOKRI_ROOT . '/includes/catalogue/helpers.php';
 Security::sendSecurityHeaders(Security::isHttps());
 
 if (!CustomerService::isLoggedIn()) {
-    $_SESSION['checkout_return'] = url_base() . '/subscription-payment.php?' . ($_SERVER['QUERY_STRING'] ?? '');
-    header('Location: ' . url_base() . '/login.php', true, 302);
+    $_SESSION['checkout_return'] = url_base() . '/subscription-payment?' . ($_SERVER['QUERY_STRING'] ?? '');
+    header('Location: ' . url_base() . '/login', true, 302);
     exit;
 }
 
@@ -19,13 +19,13 @@ $checkout = null;
 $base = url_base();
 
 if ($subNumber === '' || !CommerceGateway::useDatabase()) {
-    header('Location: ' . $base . '/subscriptions.php', true, 302);
+    header('Location: ' . $base . '/subscriptions', true, 302);
     exit;
 }
 
 $customerId = CustomerAuth::id();
 if ($customerId === null) {
-    header('Location: ' . $base . '/login.php', true, 302);
+    header('Location: ' . $base . '/login', true, 302);
     exit;
 }
 
@@ -34,7 +34,7 @@ if ($sub === null) {
     layout_public_start(['pageTitle' => 'Subscription payment — Veggie Tokri', 'activeNav' => 'account']);
     $emptyTitle = 'Subscription not found';
     $emptyMessage = 'This payment link is invalid.';
-    $emptyActionHref = $base . '/subscriptions.php';
+    $emptyActionHref = $base . '/subscriptions';
     $emptyActionLabel = 'Subscription plans';
     require APNI_TOKRI_ROOT . '/includes/partials/empty-state.php';
     layout_public_end();
@@ -42,7 +42,7 @@ if ($sub === null) {
 }
 
 if ((string) $sub['status'] === 'active') {
-    header('Location: ' . $base . '/subscription-details.php?sub=' . rawurlencode($subNumber), true, 302);
+    header('Location: ' . $base . '/subscription-details?sub=' . rawurlencode($subNumber), true, 302);
     exit;
 }
 

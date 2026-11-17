@@ -8,8 +8,8 @@ require_once APNI_TOKRI_ROOT . '/includes/catalogue/helpers.php';
 Security::sendSecurityHeaders(Security::isHttps());
 
 if (!CustomerService::isLoggedIn()) {
-    $_SESSION['checkout_return'] = url_base() . '/subscriptions.php';
-    header('Location: ' . url_base() . '/login.php', true, 302);
+    $_SESSION['checkout_return'] = url_base() . '/subscriptions';
+    header('Location: ' . url_base() . '/login', true, 302);
     exit;
 }
 
@@ -50,7 +50,7 @@ layout_public_start([
                         <li><?= at_icon('check') ?><span>Daily basket allowance ≈ <?= Security::escape(catalogue_format_price((float) $plan['daily_allowance_inr'])) ?></span></li>
                         <li><?= at_icon('check') ?><span>Unused allowance: <?= Security::escape($plan['unused_allowance_policy'] === 'carry_forward' ? 'carries forward' : 'expires daily') ?></span></li>
                     </ul>
-                    <a href="<?= Security::escape($base) ?>/subscribe.php?plan=<?= (int) $plan['id'] ?>" class="at-btn at-btn--primary at-btn--block mt-5">View &amp; subscribe</a>
+                    <a href="<?= Security::escape($base) ?>/subscribe?plan=<?= (int) $plan['id'] ?>" class="at-btn at-btn--primary at-btn--block mt-5">View &amp; subscribe</a>
                 </article>
             <?php endforeach; ?>
         </div>

@@ -40,6 +40,8 @@ final class SeoRobots
     public static function disallowPaths(): array
     {
         $prefix = url_base();
+        // Extensionless paths are the served/canonical URLs. robots Disallow is
+        // a prefix match, so each entry also covers the legacy *.php form.
         $paths = [
             '/admin/',
             '/webhooks/',
@@ -49,14 +51,22 @@ final class SeoRobots
             '/database/',
             '/storage/',
             '/api/',
-            '/cart.php',
-            '/checkout.php',
-            '/login.php',
-            '/register.php',
-            '/my-orders.php',
-            '/my-refunds.php',
-            '/order-details.php',
-            '/refund-details.php',
+            '/cart',
+            '/checkout',
+            '/login',
+            '/register',
+            '/logout',
+            '/verify-otp',
+            '/my-',
+            '/order-details',
+            '/refund-details',
+            '/order',
+            '/subscribe',
+            '/subscription',
+            '/payment',
+            '/invoice-',
+            '/support',
+            '/submit-review',
         ];
         $out = [];
         foreach ($paths as $p) {
@@ -73,6 +83,12 @@ final class SeoRobots
         return !str_contains($disallowed, '/product.php')
             && !str_contains($disallowed, '/category.php')
             && !str_contains($disallowed, '/page.php')
-            && !str_contains($disallowed, '/index.php');
+            && !str_contains($disallowed, '/index.php')
+            && !str_contains($disallowed, '/product/')
+            && !str_contains($disallowed, '/category/')
+            && !str_contains($disallowed, '/page/')
+            && !str_contains($disallowed, '/product?')
+            && !str_contains($disallowed, '/category?')
+            && !str_contains($disallowed, '/page?');
     }
 }

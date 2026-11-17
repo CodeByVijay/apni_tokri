@@ -8,7 +8,7 @@ Security::sendSecurityHeaders(Security::isHttps());
 
 $mobile = $_SESSION['otp_pending_mobile'] ?? '';
 if (!is_string($mobile) || $mobile === '') {
-    header('Location: ' . url_base() . '/login.php', true, 302);
+    header('Location: ' . url_base() . '/login', true, 302);
     exit;
 }
 
@@ -99,7 +99,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (!empty($_POST['remember_login']) && isset($result['customer_id'])) {
                     CustomerRememberAuth::issueForCustomer((int) $result['customer_id']);
                 }
-                $return = $_SESSION['checkout_return'] ?? url_base() . '/my-account.php';
+                $return = $_SESSION['checkout_return'] ?? url_base() . '/my-account';
                 unset($_SESSION['checkout_return']);
                 header('Location: ' . $return, true, 302);
                 exit;
@@ -118,7 +118,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $demoName = isset($_POST['name']) && is_string($_POST['name']) ? trim($_POST['name']) : '';
         CustomerService::loginDemoSession($mobile, $demoName);
         unset($_SESSION['otp_pending_mobile'], $_SESSION['otp_demo_code']);
-        $return = $_SESSION['checkout_return'] ?? url_base() . '/my-account.php';
+        $return = $_SESSION['checkout_return'] ?? url_base() . '/my-account';
         unset($_SESSION['checkout_return']);
         header('Location: ' . $return, true, 302);
         exit;
@@ -185,7 +185,7 @@ layout_public_start([
             <div class="at-card mt-6">
                 <div class="at-card__body grid gap-4 text-sm">
                     <p><?= Security::escape(OtpSmsService::inactiveAccountCustomerMessage()) ?></p>
-                    <a href="<?= Security::escape(url_base()) ?>/login.php" class="at-btn at-btn--primary at-btn--lg at-btn--block at-focusable">Back to login</a>
+                    <a href="<?= Security::escape(url_base()) ?>/login" class="at-btn at-btn--primary at-btn--lg at-btn--block at-focusable">Back to login</a>
                 </div>
             </div>
             <?php else: ?>
@@ -299,7 +299,7 @@ layout_public_start([
                             </noscript>
                         </div>
                     <?php endif; ?>
-                    <a href="<?= Security::escape(url_base()) ?>/login.php" class="at-btn at-btn--ghost at-btn--sm at-focusable self-center">Use a different number</a>
+                    <a href="<?= Security::escape(url_base()) ?>/login" class="at-btn at-btn--ghost at-btn--sm at-focusable self-center">Use a different number</a>
                 </div>
             </form>
             <?php endif; ?>

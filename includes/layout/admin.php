@@ -171,7 +171,7 @@ function layout_admin_start(array $vars): void
         echo '<a href="' . Security::escape($inboxUrl) . '" class="at-btn at-btn--secondary at-btn--sm at-focusable">View all</a>';
         echo '</div></div></div>';
     }
-    echo '<a href="' . Security::escape($base) . '/index.php" class="at-btn at-btn--ghost at-btn--sm at-focusable hidden sm:inline-flex">' . at_icon('store') . 'View site</a>';
+    echo '<a href="' . Security::escape($base) . '/" class="at-btn at-btn--ghost at-btn--sm at-focusable hidden sm:inline-flex">' . at_icon('store') . 'View site</a>';
     if (AdminAuth::check()) {
         echo '<form method="post" action="' . Security::escape($base) . '/admin/logout.php" class="inline-flex m-0">'
             . Csrf::field()

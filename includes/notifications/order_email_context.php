@@ -381,18 +381,18 @@ final class OrderEmailContext
             return self::customerOrdersListUrl();
         }
 
-        return SeoUrl::storefrontAbsolute('/order-details.php?id=' . rawurlencode($orderNumber));
+        return SeoUrl::storefrontAbsolute('/order-details?id=' . rawurlencode($orderNumber));
     }
 
     public static function customerPaymentRetryUrl(string $orderNumber): string
     {
         $orderNumber = trim($orderNumber);
 
-        return SeoUrl::storefrontAbsolute('/payment.php?order=' . rawurlencode($orderNumber));
+        return SeoUrl::storefrontAbsolute('/payment?order=' . rawurlencode($orderNumber));
     }
 
     public static function customerOrdersListUrl(): string
     {
-        return SeoUrl::storefrontAbsolute('/my-orders.php');
+        return SeoUrl::storefrontAbsolute('/my-orders');
     }
 }

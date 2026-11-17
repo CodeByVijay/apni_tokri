@@ -8,8 +8,8 @@ require_once APNI_TOKRI_ROOT . '/includes/catalogue/helpers.php';
 Security::sendSecurityHeaders(Security::isHttps());
 
 if (!CustomerService::isLoggedIn()) {
-    $_SESSION['checkout_return'] = url_base() . '/payment.php?' . ($_SERVER['QUERY_STRING'] ?? '');
-    header('Location: ' . url_base() . '/login.php', true, 302);
+    $_SESSION['checkout_return'] = url_base() . '/payment?' . ($_SERVER['QUERY_STRING'] ?? '');
+    header('Location: ' . url_base() . '/login', true, 302);
     exit;
 }
 
@@ -20,13 +20,13 @@ $checkout = null;
 $fulfilmentReconciliation = null;
 
 if ($orderNumber === '' || !CommerceGateway::useDatabase()) {
-    header('Location: ' . url_base() . '/checkout.php', true, 302);
+    header('Location: ' . url_base() . '/checkout', true, 302);
     exit;
 }
 
 $customerId = CustomerAuth::id();
 if ($customerId === null) {
-    header('Location: ' . url_base() . '/login.php', true, 302);
+    header('Location: ' . url_base() . '/login', true, 302);
     exit;
 }
 
@@ -35,7 +35,7 @@ if ($order === null) {
     layout_public_start(['pageTitle' => 'Payment — Veggie Tokri', 'activeNav' => 'cart']);
     $emptyTitle = 'Order not found';
     $emptyMessage = 'This payment link is invalid.';
-    $emptyActionHref = url_base() . '/my-orders.php';
+    $emptyActionHref = url_base() . '/my-orders';
     $emptyActionLabel = 'My orders';
     require APNI_TOKRI_ROOT . '/includes/partials/empty-state.php';
     layout_public_end();
@@ -43,7 +43,7 @@ if ($order === null) {
 }
 
 if ((string) $order['payment_status'] === 'paid') {
-    header('Location: ' . url_base() . '/order.php?id=' . rawurlencode($orderNumber), true, 302);
+    header('Location: ' . url_base() . '/order?id=' . rawurlencode($orderNumber), true, 302);
     exit;
 }
 
@@ -52,7 +52,7 @@ $fulfilmentReconciliation = PaymentService::storefrontFulfilmentReconciliationCo
 
 if (isset($_GET['retry']) && (string) $_GET['retry'] === '1') {
     if ($fulfilmentReconciliation !== null) {
-        header('Location: ' . url_base() . '/payment.php?order=' . rawurlencode($orderNumber), true, 302);
+        header('Location: ' . url_base() . '/payment?order=' . rawurlencode($orderNumber), true, 302);
         exit;
     }
     unset($_SESSION['checkout_payment'][$orderNumber]);
@@ -88,7 +88,7 @@ if ($cashfreeActive || PaymentService::hasOpenCashfreePayment($latestPayment)) {
     }
     $order = PaymentRepository::orderByNumberForCustomer($orderNumber, $customerId) ?? $order;
     if ((string) ($order['payment_status'] ?? '') === 'paid') {
-        header('Location: ' . url_base() . '/order.php?id=' . rawurlencode($orderNumber), true, 302);
+        header('Location: ' . url_base() . '/order?id=' . rawurlencode($orderNumber), true, 302);
         exit;
     }
     $latestPayment = PaymentRepository::latestPaymentForOrder($orderId);
@@ -190,7 +190,7 @@ if ($showGatewayCheckout && $mode === 'razorpay'): ?>
         <div class="at-alert at-alert--error mt-4" role="alert">
             <span><?= Security::escape($error) ?></span>
             <?php if ($canRetry): ?>
-                <p class="mt-2 text-sm"><a class="underline font-semibold" href="<?= Security::escape(url_base()) ?>/payment.php?order=<?= rawurlencode($orderNumber) ?>&amp;retry=1">Try again</a></p>
+                <p class="mt-2 text-sm"><a class="underline font-semibold" href="<?= Security::escape(url_base()) ?>/payment?order=<?= rawurlencode($orderNumber) ?>&amp;retry=1">Try again</a></p>
             <?php endif; ?>
         </div>
     <?php endif; ?>
@@ -224,10 +224,10 @@ if ($showGatewayCheckout && $mode === 'razorpay'): ?>
                 <button type="button" id="at-cashfree-refresh" class="at-btn at-btn--primary at-focusable at-btn--block">
                     Check payment status
                 </button>
-                <a href="<?= Security::escape(url_base()) ?>/order-details.php?id=<?= rawurlencode($orderNumber) ?>" class="at-btn at-btn--secondary at-focusable at-btn--block text-center">
+                <a href="<?= Security::escape(url_base()) ?>/order-details?id=<?= rawurlencode($orderNumber) ?>" class="at-btn at-btn--secondary at-focusable at-btn--block text-center">
                     View order details
                 </a>
-                <a href="<?= Security::escape(url_base()) ?>/support.php?order=<?= rawurlencode($orderNumber) ?>" class="at-btn at-btn--ghost at-focusable at-btn--block text-center">
+                <a href="<?= Security::escape(url_base()) ?>/support?order=<?= rawurlencode($orderNumber) ?>" class="at-btn at-btn--ghost at-focusable at-btn--block text-center">
                     Contact support
                 </a>
             <?php elseif ($mode === 'simulate' && is_array($checkout) && PaymentGatewayConfig::useSimulatedCheckout()): ?>
@@ -259,7 +259,7 @@ if ($showGatewayCheckout && $mode === 'razorpay'): ?>
                 <button type="button" id="at-cashfree-refresh" class="at-btn at-btn--secondary at-focusable at-btn--block">
                     Refresh payment status
                 </button>
-                <a href="<?= Security::escape(url_base()) ?>/my-orders.php" class="at-btn at-btn--ghost at-focusable at-btn--block text-center">
+                <a href="<?= Security::escape(url_base()) ?>/my-orders" class="at-btn at-btn--ghost at-focusable at-btn--block text-center">
                     <?= at_icon('receipt', 'w-4 h-4') ?> View My Orders
                 </a>
             <?php endif; ?>
@@ -273,8 +273,8 @@ window.AT_PAYMENT = {
     csrf: <?= json_encode(Csrf::token(), JSON_THROW_ON_ERROR) ?>,
     verifyUrl: <?= json_encode(url_base() . '/ajax/payment/verify.php', JSON_THROW_ON_ERROR) ?>,
     simulateUrl: <?= json_encode(url_base() . '/ajax/payment/simulate.php', JSON_THROW_ON_ERROR) ?>,
-    orderSuccessUrl: <?= json_encode(url_base() . '/order.php?id=' . rawurlencode($orderNumber), JSON_THROW_ON_ERROR) ?>,
-    paymentFailedUrl: <?= json_encode(url_base() . '/payment-failed.php?order=' . rawurlencode($orderNumber), JSON_THROW_ON_ERROR) ?>,
+    orderSuccessUrl: <?= json_encode(url_base() . '/order?id=' . rawurlencode($orderNumber), JSON_THROW_ON_ERROR) ?>,
+    paymentFailedUrl: <?= json_encode(url_base() . '/payment-failed?order=' . rawurlencode($orderNumber), JSON_THROW_ON_ERROR) ?>,
     cashfreeMode: <?= json_encode($cashfreeTestMode ? 'sandbox' : 'production', JSON_THROW_ON_ERROR) ?>,
     autoLaunchGateway: <?= $autoLaunchGatewayCheckout ? 'true' : 'false' ?>,
     gatewayMode: <?= json_encode($mode, JSON_THROW_ON_ERROR) ?>,

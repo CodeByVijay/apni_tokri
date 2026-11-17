@@ -9,24 +9,24 @@ declare(strict_types=1);
  * $profileInitial, $orderTotal, $subscriptionTotal, $addresses, $recentOrders.
  */
 $_hubItems = [
-    'orders' => ['/my-orders.php', 'Orders', 'box'],
-    'subscriptions' => ['/my-subscriptions.php', 'Subscriptions', 'repeat'],
-    'addresses' => ['/my-addresses.php', 'Addresses', 'pin'],
-    'invoices' => ['/my-invoices.php', 'Invoices', 'receipt'],
-    'refunds' => ['/my-refunds.php', 'Refunds', 'wallet'],
-    'reviews' => ['/submit-review.php', 'Reviews', 'star'],
-    'profile' => ['/my-profile.php', 'Profile', 'user'],
-    'support' => ['/my-support.php', 'Support', 'chat'],
+    'orders' => ['/my-orders', 'Orders', 'box'],
+    'subscriptions' => ['/my-subscriptions', 'Subscriptions', 'repeat'],
+    'addresses' => ['/my-addresses', 'Addresses', 'pin'],
+    'invoices' => ['/my-invoices', 'Invoices', 'receipt'],
+    'refunds' => ['/my-refunds', 'Refunds', 'wallet'],
+    'reviews' => ['/submit-review', 'Reviews', 'star'],
+    'profile' => ['/my-profile', 'Profile', 'user'],
+    'support' => ['/my-support', 'Support', 'chat'],
 ];
 $_hubStats = [
-    ['orders', 'Orders', (int) $orderTotal, '/my-orders.php'],
-    ['subscriptions', 'Subscriptions', (int) $subscriptionTotal, '/my-subscriptions.php'],
-    ['addresses', 'Addresses', count($addresses), '/my-addresses.php'],
+    ['orders', 'Orders', (int) $orderTotal, '/my-orders'],
+    ['subscriptions', 'Subscriptions', (int) $subscriptionTotal, '/my-subscriptions'],
+    ['addresses', 'Addresses', count($addresses), '/my-addresses'],
 ];
 $_hubName = $profileName !== '' ? $profileName : 'Customer';
 ?>
 <div class="at-hub">
-    <a href="<?= Security::escape($base) ?>/my-profile.php" class="at-hub-profile at-focusable" aria-label="<?= Security::escape('View profile for ' . $_hubName) ?>">
+    <a href="<?= Security::escape($base) ?>/my-profile" class="at-hub-profile at-focusable" aria-label="<?= Security::escape('View profile for ' . $_hubName) ?>">
         <span class="at-hub-profile__avatar" aria-hidden="true"><?= Security::escape($profileInitial) ?></span>
         <span class="at-hub-profile__text">
             <span class="at-hub-profile__name"><?= Security::escape($_hubName) ?></span>
@@ -59,12 +59,12 @@ $_hubName = $profileName !== '' ? $profileName : 'Customer';
     <section class="at-hub-recent" aria-labelledby="at-hub-recent-title">
         <div class="at-hub-recent__head">
             <h2 class="at-h3" id="at-hub-recent-title">Recent orders</h2>
-            <a href="<?= Security::escape($base) ?>/my-orders.php" class="at-link-arrow at-focusable">View All</a>
+            <a href="<?= Security::escape($base) ?>/my-orders" class="at-link-arrow at-focusable">View All</a>
         </div>
         <?php if ($recentOrders === []): ?>
             <div class="at-card"><div class="at-card__body text-sm at-muted">
                 You haven’t placed an order yet.
-                <a href="<?= Security::escape($base) ?>/index.php" class="at-btn at-btn--primary at-btn--sm at-focusable mt-3 block text-center">Start shopping</a>
+                <a href="<?= Security::escape($base) ?>/" class="at-btn at-btn--primary at-btn--sm at-focusable mt-3 block text-center">Start shopping</a>
             </div></div>
         <?php else: ?>
             <ul class="at-hub-recent__list">
@@ -81,7 +81,7 @@ $_hubName = $profileName !== '' ? $profileName : 'Customer';
                             break;
                         }
                     }
-                    $roUrl = $base . '/order-details.php?id=' . rawurlencode($roId);
+                    $roUrl = $base . '/order-details?id=' . rawurlencode($roId);
                     ?>
                     <li class="at-card at-hub-order">
                         <span class="at-hub-order__thumb" aria-hidden="true">

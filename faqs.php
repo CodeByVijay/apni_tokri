@@ -92,10 +92,10 @@ if (!$useDb && !$productionSchemaMissing) {
 <?php layout_public_end(); exit; endif; ?>
 <div class="at-pagehead">
     <div class="at-container pb-6">
-        <nav class="at-breadcrumb" aria-label="Breadcrumb"><a href="<?= Security::escape(url_base()) ?>/index.php">Home</a><span class="sep">/</span><span aria-current="page"><?= Security::escape(__('nav_faqs')) ?></span></nav>
+        <nav class="at-breadcrumb" aria-label="Breadcrumb"><a href="<?= Security::escape(url_base()) ?>/">Home</a><span class="sep">/</span><span aria-current="page"><?= Security::escape(__('nav_faqs')) ?></span></nav>
         <h1 class="at-h1">Frequently asked questions</h1>
         <p class="mt-1 at-muted">Quick answers about delivery, payments, products and reviews.</p>
-        <form method="get" class="at-search mt-4 max-w-xl" action="<?= Security::escape(url_base()) ?>/faqs.php">
+        <form method="get" class="at-search mt-4 max-w-xl" action="<?= Security::escape(url_base()) ?>/faqs">
             <?php if ($filterSlug !== ''): ?>
                 <input type="hidden" name="cat" value="<?= Security::escape($filterSlug) ?>">
             <?php endif; ?>
@@ -108,13 +108,13 @@ if (!$useDb && !$productionSchemaMissing) {
 </div>
 <div class="at-container py-8 max-w-3xl">
     <div class="flex flex-wrap gap-2">
-        <a href="<?= Security::escape(url_base()) ?>/faqs.php<?= $searchQ !== '' ? '?q=' . rawurlencode($searchQ) : '' ?>" class="at-chip at-focusable <?= $filterSlug === '' ? 'is-active' : '' ?>">All</a>
+        <a href="<?= Security::escape(url_base()) ?>/faqs<?= $searchQ !== '' ? '?q=' . rawurlencode($searchQ) : '' ?>" class="at-chip at-focusable <?= $filterSlug === '' ? 'is-active' : '' ?>">All</a>
         <?php foreach ($categories as $cat): ?>
             <?php
             $slug = (string) ($cat['slug'] ?? '');
             $qs = $searchQ !== '' ? '?q=' . rawurlencode($searchQ) . '&cat=' . rawurlencode($slug) : '?cat=' . rawurlencode($slug);
             ?>
-            <a href="<?= Security::escape(url_base()) ?>/faqs.php<?= Security::escape($qs) ?>" class="at-chip at-focusable <?= $filterSlug === $slug ? 'is-active' : '' ?>"><?= Security::escape((string) ($cat['name'] ?? $slug)) ?></a>
+            <a href="<?= Security::escape(url_base()) ?>/faqs<?= Security::escape($qs) ?>" class="at-chip at-focusable <?= $filterSlug === $slug ? 'is-active' : '' ?>"><?= Security::escape((string) ($cat['name'] ?? $slug)) ?></a>
         <?php endforeach; ?>
     </div>
 
@@ -162,7 +162,7 @@ if (!$useDb && !$productionSchemaMissing) {
 
     <div class="at-card at-card--tint mt-8"><div class="at-card__body flex flex-wrap items-center justify-between gap-3">
         <div><h2 class="at-h3">Didn’t find your answer?</h2><p class="text-sm at-muted mt-1">Raise a ticket and we’ll help.</p></div>
-        <a href="<?= Security::escape(url_base()) ?>/support.php" class="at-btn at-btn--primary at-focusable">Contact support</a>
+        <a href="<?= Security::escape(url_base()) ?>/support" class="at-btn at-btn--primary at-focusable">Contact support</a>
     </div></div>
 </div>
 <?php layout_public_end(); ?>

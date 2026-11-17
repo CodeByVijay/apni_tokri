@@ -18,7 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $issued = CustomerAuth::issueOtp($normalized);
             $_SESSION['otp_pending_mobile'] = $issued['mobile'];
             // Cooldown recorded in issueOtp after successful send.
-            header('Location: ' . url_base() . '/verify-otp.php', true, 302);
+            header('Location: ' . url_base() . '/verify-otp', true, 302);
             exit;
         } catch (OtpRequestException $e) {
             $error = $e->getMessage();
@@ -32,13 +32,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $_SESSION['otp_pending_mobile'] = $normalized;
         $_SESSION['otp_demo_code'] = '123456';
         OtpResendCooldown::recordSuccessfulSend($normalized);
-        header('Location: ' . url_base() . '/verify-otp.php', true, 302);
+        header('Location: ' . url_base() . '/verify-otp', true, 302);
         exit;
     }
 }
 
 layout_public_start([
-    'pageTitle' => 'Login — Veggie Tokri',
+    'seo' => SeoMetadata::noindex('Login — Veggie Tokri'),
     'activeNav' => 'account',
     'showBottomNav' => false,
 ]);

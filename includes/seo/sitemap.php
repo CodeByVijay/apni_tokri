@@ -394,6 +394,18 @@ final class SeoSitemap
             '/account.php',
             '/payment.php',
             '/subscription-payment.php',
+            '/search',
+            '/cart',
+            '/checkout',
+            '/login',
+            '/register',
+            '/my-orders',
+            '/my-refunds',
+            '/order-details',
+            '/refund-details',
+            '/account',
+            '/payment',
+            '/subscription-payment',
         ];
         foreach ($blocked as $b) {
             if ($path === $b || str_starts_with($path, $b . '/')) {

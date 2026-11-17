@@ -44,7 +44,7 @@ final class SeoResolver
             $metaDesc = (string) ($row['short_description'] ?? $row['description'] ?? '');
         }
         $slug = (string) ($row['slug'] ?? '');
-        $canonical = SeoUrl::absolute('/product.php?slug=' . rawurlencode($slug));
+        $canonical = SeoUrl::absolute('/product/' . rawurlencode($slug));
         $robots = !empty($row['robots_index']) ? 'index, follow' : 'noindex, nofollow';
         $ogImage = self::productOgImage((int) ($row['id'] ?? 0));
         $ogTitle = $name . ' | ' . $site;
@@ -95,7 +95,7 @@ final class SeoResolver
             $metaDesc = (string) ($row['description'] ?? '');
         }
         $slug = (string) ($row['slug'] ?? '');
-        $canonical = SeoUrl::absolute('/category.php?slug=' . rawurlencode($slug));
+        $canonical = SeoUrl::absolute('/category/' . rawurlencode($slug));
         $robots = $filteredListing ? 'noindex, follow' : 'index, follow';
 
         return new SeoMetadata(
@@ -142,7 +142,7 @@ final class SeoResolver
         $documentTitle = $metaTitle !== '' ? $metaTitle : $title . ' — ' . $site;
         $metaDesc = trim((string) ($cmsPage['meta_description'] ?? ''));
         $slug = (string) ($cmsPage['slug'] ?? '');
-        $defaultCanonical = SeoUrl::absolute('/page.php?slug=' . rawurlencode($slug));
+        $defaultCanonical = SeoUrl::absolute('/page/' . rawurlencode($slug));
         $canonical = SeoUrl::validatePublicUrl($cmsPage['canonical_url'] ?? null) ?? $defaultCanonical;
         $index = !empty($cmsPage['robots_index']);
         $follow = !empty($cmsPage['robots_follow']);
@@ -195,7 +195,7 @@ final class SeoResolver
         return new SeoMetadata(
             'FAQs — ' . $site,
             SeoMetadata::cleanDescription('Quick answers about delivery, payments, products and reviews.'),
-            SeoUrl::absolute('/faqs.php'),
+            SeoUrl::absolute('/faqs'),
             $robots,
             null,
             null,
@@ -232,7 +232,7 @@ final class SeoResolver
         return new SeoMetadata(
             $name . ' — ' . $site,
             SeoMetadata::cleanDescription($desc),
-            SeoUrl::absolute('/product.php?slug=' . rawurlencode($slug)),
+            SeoUrl::absolute('/product/' . rawurlencode($slug)),
             'index, follow',
             $name . ' | ' . $site,
             SeoMetadata::cleanDescription($desc),
@@ -285,7 +285,7 @@ final class SeoResolver
         return new SeoMetadata(
             $name . ' — ' . $site,
             SeoMetadata::cleanDescription((string) ($category['description'] ?? '')),
-            SeoUrl::absolute('/category.php?slug=' . rawurlencode($slug)),
+            SeoUrl::absolute('/category/' . rawurlencode($slug)),
             $filteredListing ? 'noindex, follow' : 'index, follow',
             $name,
             null,

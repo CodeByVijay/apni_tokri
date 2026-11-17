@@ -83,7 +83,7 @@ if ($order === null): ?>
         $emptyTitle = 'Order not found';
         $emptyMessage = 'This order link is invalid or has expired.';
         $emptyIcon = 'receipt';
-        $emptyActionHref = url_base() . '/my-orders.php';
+        $emptyActionHref = url_base() . '/my-orders';
         $emptyActionLabel = 'My orders';
         require APNI_TOKRI_ROOT . '/includes/partials/empty-state.php';
         ?>
@@ -112,8 +112,8 @@ if ($order === null): ?>
                     <div><dt>Delivery slot</dt><dd><?= Security::escape($slotLabels[(string) ($order['slot'] ?? '')] ?? (string) ($order['slot'] ?? '')) ?></dd></div>
                 </dl>
                 <div class="flex flex-col sm:flex-row gap-3 mt-5">
-                    <a href="<?= Security::escape(url_base()) ?>/order-details.php?id=<?= rawurlencode($displayNumber) ?>" class="at-btn at-btn--primary at-focusable flex-1"><?= Security::escape($heroCtaLabel) ?></a>
-                    <a href="<?= Security::escape(url_base()) ?>/index.php" class="at-btn at-btn--secondary at-focusable flex-1">Keep shopping</a>
+                    <a href="<?= Security::escape(url_base()) ?>/order-details?id=<?= rawurlencode($displayNumber) ?>" class="at-btn at-btn--primary at-focusable flex-1"><?= Security::escape($heroCtaLabel) ?></a>
+                    <a href="<?= Security::escape(url_base()) ?>/" class="at-btn at-btn--secondary at-focusable flex-1">Keep shopping</a>
                 </div>
             </div>
         </div>

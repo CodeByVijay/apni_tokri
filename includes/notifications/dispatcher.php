@@ -407,7 +407,7 @@ final class NotificationDispatcher
             }
             $completedAt = trim((string) ($row['completed_at'] ?? $row['updated_at'] ?? ''));
             $completionDate = $completedAt !== '' ? customer_format_datetime($completedAt) : date('d M Y, h:i A');
-            $orderUrl = SeoUrl::storefrontAbsolute('/order-details.php?id=' . rawurlencode((string) $row['order_number']));
+            $orderUrl = SeoUrl::storefrontAbsolute('/order-details?id=' . rawurlencode((string) $row['order_number']));
             $payload = [
                 'request_number' => (string) $row['request_number'],
                 'order_number' => (string) $row['order_number'],

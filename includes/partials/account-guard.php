@@ -8,7 +8,7 @@ declare(strict_types=1);
  * @var int $customerId
  */
 if (!CustomerService::isLoggedIn()) {
-    header('Location: ' . url_base() . '/login.php?next=' . rawurlencode((string) ($_SERVER['REQUEST_URI'] ?? '')), true, 302);
+    header('Location: ' . url_base() . '/login?next=' . rawurlencode((string) ($_SERVER['REQUEST_URI'] ?? '')), true, 302);
     exit;
 }
 $customerId = (int) CustomerAuth::id();

@@ -764,7 +764,7 @@ final class CheckoutService
         return [
             'ok' => true,
             'order_number' => $orderNumber,
-            'redirect' => url_base() . '/payment.php?order=' . rawurlencode($orderNumber),
+            'redirect' => url_base() . '/payment?order=' . rawurlencode($orderNumber),
         ];
     }
 
@@ -819,7 +819,7 @@ final class CheckoutService
             return [
                 'ok' => true,
                 'order_number' => $orderId,
-                'redirect' => url_base() . '/payment-failed.php',
+                'redirect' => url_base() . '/payment-failed',
             ];
         }
         $orderId = SessionCustomerBackend::saveOrder($order);
@@ -828,7 +828,7 @@ final class CheckoutService
         return [
             'ok' => true,
             'order_number' => $orderId,
-            'redirect' => url_base() . '/order.php?id=' . rawurlencode($orderId),
+            'redirect' => url_base() . '/order?id=' . rawurlencode($orderId),
         ];
     }
 }

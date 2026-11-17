@@ -501,7 +501,7 @@ final class InstallWizardService
      */
     public static function requestDerivedUrlPath(): string
     {
-        $script = (string) ($_SERVER['SCRIPT_NAME'] ?? '/index.php');
+        $script = (string) ($_SERVER['SCRIPT_NAME'] ?? '/');
         $dir = str_replace('\\', '/', dirname($script));
         if ($dir === '/' || $dir === '.') {
             return '';
