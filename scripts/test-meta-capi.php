@@ -151,7 +151,9 @@ $udIp = json_decode((string) ($rowIp['payload_json'] ?? ''), true)['user_data'] 
 check(!isset($udIp['client_ip_address']), 'private client_ip omitted from payload (item 6)');
 // capture side: REMOTE_ADDR is unset in CLI → snapshot must carry null, not a guess
 $snapT = json_decode(MetaCapi::checkoutTrackingSnapshot(), true);
-check(($snapT['meta_tracking']['client_ip'] ?? 'x') === null, 'untrusted REMOTE_ADDR → client_ip null');
+check(array_key_exists('client_ip', $snapT['meta_tracking'] ?? [])
+    && $snapT['meta_tracking']['client_ip'] === null,
+    'untrusted REMOTE_ADDR → client_ip null');
 
 /* ---------- 2. second completePayment → no duplicate ---------- */
 $r2 = complete($o1['order_number'], 'cashfree', $o1['idempotency']);
@@ -361,16 +363,18 @@ AppSettings::set('meta.dataset_id', '999000111222333');
 AppSettings::resetCache();
 
 /* ---------- enqueue failure: payment survives, error is visible (item 4) ---------- */
-/* A NOT NULL column without default makes the outbox INSERT throw — the catch
-   must contain it inside the transaction and record an audit-trail error. */
-$pdo->exec('ALTER TABLE meta_capi_events ADD COLUMN zz_test_guard VARCHAR(10) NOT NULL');
+/* Renaming the outbox table makes the INSERT throw (1146 — INSERT IGNORE only
+   downgrades data errors). tableReady() is already cached true in-process, so
+   enqueuePurchase reaches the INSERT and its catch must contain the failure
+   inside the transaction and record an audit-trail error. */
+$pdo->exec('RENAME TABLE meta_capi_events TO meta_capi_events_bak');
 $oE = null;
 $rE = [];
 try {
     $oE = makeOrder($pdo, 'granted');
     $rE = complete($oE['order_number'], 'cashfree', $oE['idempotency']);
 } finally {
-    $pdo->exec('ALTER TABLE meta_capi_events DROP COLUMN zz_test_guard');
+    $pdo->exec('RENAME TABLE meta_capi_events_bak TO meta_capi_events');
 }
 check(!empty($rE['ok']), 'payment succeeds despite outbox insert failure (item 4)');
 check($oE !== null && count(capiRows($pdo, $oE['id'])) === 0, 'failed enqueue leaves no outbox row');
