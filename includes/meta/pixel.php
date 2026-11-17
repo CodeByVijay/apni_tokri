@@ -20,15 +20,36 @@ final class MetaPixel
     private static array $pendingEvents = [];
 
     /**
+     * Dev-environment hosts where browser tracking is additionally permitted.
+     * This project deliberately runs its remote staging server with
+     * app.env=development — env alone cannot tell staging from a local dev
+     * machine, so the trusted configured canonical URL decides.
+     */
+    private const TRACKING_ALLOWED_DEV_HOSTS = [
+        'apnitokri.manconnect.club',
+    ];
+
+    /**
      * Environment policy for browser tracking.
-     * Explicit development environments are excluded so dev machines cannot
-     * pollute pixel data; local/staging/production are allowed so the same
-     * build can be verified end-to-end before release. Effective activation
-     * still requires the admin enable flag, a valid Pixel ID and consent.
+     *
+     * - staging/production envs: allowed (effective activation still requires
+     *   the admin enable flag, a valid Pixel ID and marketing consent).
+     * - development envs (local/development/dev): allowed ONLY when the
+     *   trusted configured canonical URL — BusinessSettings::storefrontBaseUrl(),
+     *   which intentionally never derives origin from the HTTP Host header —
+     *   resolves to an authorized staging host. Local machines and arbitrary
+     *   development hosts therefore stay blocked even when they share the
+     *   same app.env value as the staging server.
      */
     public static function environmentAllowed(): bool
     {
-        return !in_array(AppEnvironment::env(), ['development', 'dev'], true);
+        $env = AppEnvironment::env();
+        if (!in_array($env, ['local', 'development', 'dev'], true)) {
+            return true;
+        }
+        $host = strtolower((string) parse_url(BusinessSettings::storefrontBaseUrl(), PHP_URL_HOST));
+
+        return in_array($host, self::TRACKING_ALLOWED_DEV_HOSTS, true);
     }
 
     /** Pixel configured for this environment (consent evaluated separately). */
