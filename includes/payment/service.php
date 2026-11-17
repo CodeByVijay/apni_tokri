@@ -1684,7 +1684,7 @@ final class PaymentService
                 }
 
                 $itemsStmt = $pdo->prepare(
-                    'SELECT variant_id, quantity, product_name, unit_price FROM order_items WHERE order_id = ?'
+                    'SELECT variant_id, sku, quantity, product_name, unit_price FROM order_items WHERE order_id = ?'
                 );
                 $itemsStmt->execute([$orderId]);
                 $items = $itemsStmt->fetchAll(PDO::FETCH_ASSOC);
@@ -1745,6 +1745,11 @@ final class PaymentService
 
                 DeliverySlotReservationService::consumeForOrder($orderId, $pdo);
 
+                // Meta CAPI outbox — same transaction as the authoritative
+                // paid update; self-gates on storefront source, real gateway
+                // and checkout-time marketing consent. Never throws.
+                MetaCapi::enqueuePurchase($pdo, $order, $items, $gateway);
+
                 $coupon = $order['coupon_code'] ?? null;
                 if ($coupon) {
                     CouponService::recordUsage((string) $coupon, $orderId, (int) $order['customer_id']);
@@ -1775,6 +1780,10 @@ final class PaymentService
                 if ($custId > 0) {
                     CartService::removeLinesForPaidOrder($oid, $custId);
                 }
+                // Post-commit CAPI delivery — outside the transaction, fully
+                // guarded; also covers events whose first attempt was lost to
+                // a crash between commit and send (idempotent re-entry).
+                MetaCapi::afterOrderPaid($oid);
             }
             unset($_SESSION['payment_simulate'][$orderNumber]);
 

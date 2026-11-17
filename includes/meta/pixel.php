@@ -303,7 +303,7 @@ final class MetaPixel
     }
 
     /** Order item content id — order_items carries the purchased SKU/variant. */
-    private static function orderItemContentId(array $item): string
+    public static function orderItemContentId(array $item): string
     {
         $sku = trim((string) ($item['sku'] ?? ''));
         if ($sku !== '') {
@@ -349,6 +349,7 @@ final class MetaPixel
     /** Render the nonce-protected bootstrap config + script tags for the footer. */
     public static function renderBootstrap(): void
     {
+        MetaCapi::observeVisitorConsent();
         echo '<script ' . Security::cspNonceAttr() . '>window.__AT_META__ = '
             . json_encode(self::clientConfig(), JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT)
             . ';</script>' . "\n";

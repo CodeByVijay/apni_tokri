@@ -32,6 +32,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         case 'clear_token':
             $result = MetaAdsSettings::clearAccessToken($_POST);
             break;
+        case 'retry_capi':
+            $result = MetaCapi::retryFromAdmin((int) (AdminAuth::id() ?? 0));
+            break;
         default:
             $result = ['ok' => false, 'message' => 'Unknown Meta settings action.'];
     }

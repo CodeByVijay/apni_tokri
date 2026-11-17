@@ -583,6 +583,10 @@ final class CheckoutService
             return ['ok' => false, 'message' => 'The receiver phone on this address is not valid. Please edit the address.'];
         }
         $snapshot = json_encode(DeliveryQuoteService::buildSnapshot($quote, $addrSnapshot), JSON_UNESCAPED_UNICODE);
+        // Marketing-consent + browser-context snapshot for Meta CAPI (Phase 3):
+        // this is the last point where the visitor's cookie, User-Agent and IP
+        // exist — payment webhooks carry none of them.
+        $metaTracking = MetaCapi::checkoutTrackingSnapshot();
         $checkoutSpec = CheckoutIdempotencyService::buildSpec(
             $customerId,
             $addressId,
@@ -608,7 +612,8 @@ final class CheckoutService
                 $lines,
                 $status,
                 $paymentStatus,
-                $checkoutSpec
+                $checkoutSpec,
+                $metaTracking
             ): array {
                 $pdo = Database::pdo();
 
@@ -630,7 +635,8 @@ final class CheckoutService
                         $lines,
                         $status,
                         $paymentStatus,
-                        $checkoutSpec
+                        $checkoutSpec,
+                        $metaTracking
                     ): array {
                         $orderNumber = OrderNumberService::allocate($pdo, 'storefront');
                         if ($slotId !== null && $slotId > 0 && is_string($deliveryDate) && $deliveryDate !== '') {
@@ -640,8 +646,8 @@ final class CheckoutService
                         $pdo->prepare(
                             'INSERT INTO orders (order_number, customer_id, customer_address_id, status, subtotal, discount_total,
                              delivery_fee, grand_total, payment_status, delivery_slot, delivery_zone_id, delivery_slot_id,
-                             delivery_date, delivery_eta, delivery_snapshot_json, coupon_code, checkout_nonce, placed_at)
-                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())'
+                             delivery_date, delivery_eta, delivery_snapshot_json, admin_meta_json, coupon_code, checkout_nonce, placed_at)
+                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())'
                         )->execute([
                             $orderNumber,
                             $customerId,
@@ -658,6 +664,7 @@ final class CheckoutService
                             $deliveryDate,
                             $deliveryEta,
                             $snapshot,
+                            $metaTracking,
                             $totals['coupon_code'],
                             (string) $checkoutSpec['signature'],
                         ]);
@@ -726,6 +733,9 @@ final class CheckoutService
         } else {
             $pdoHold = Database::pdo();
             PaymentSlotHoldService::synchronizeOpenPaymentHold($pdoHold, $orderId);
+            // Reused pending order: re-stamp consent/browser context so the
+            // latest request's decision governs CAPI eligibility.
+            MetaCapi::refreshCheckoutSnapshot($orderId);
         }
 
         if (!PaymentGatewayConfig::useSimulatedCheckout()) {
