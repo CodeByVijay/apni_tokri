@@ -32,6 +32,7 @@ final class Permission
             'payments' => 'payments.view',
             'seo' => 'seo.manage',
             'marketing' => 'marketing.manage',
+            'meta' => 'meta.manage',
             'reports' => 'reports.view',
             'settings' => 'settings.manage',
             'notifications' => 'notifications.manage',

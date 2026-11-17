@@ -175,6 +175,7 @@ require_once APNI_TOKRI_ROOT . '/includes/settings/branding_app_stores.php';
 require_once APNI_TOKRI_ROOT . '/includes/settings/business.php';
 require_once APNI_TOKRI_ROOT . '/includes/settings/order_number.php';
 require_once APNI_TOKRI_ROOT . '/includes/settings/marketing.php';
+require_once APNI_TOKRI_ROOT . '/includes/settings/meta_ads.php';
 require_once APNI_TOKRI_ROOT . '/includes/settings/play_review_access.php';
 require_once APNI_TOKRI_ROOT . '/includes/settings/otp_security.php';
 require_once APNI_TOKRI_ROOT . '/includes/payment/diagnostics.php';
