@@ -433,6 +433,9 @@
   }
 
   function cartAjaxUrl(route) {
+    if (typeof window.AT_BASE === 'string') {
+      return window.AT_BASE + '/ajax/cart/' + route;
+    }
     var path = window.location.pathname;
     var idx = path.indexOf('/ajax/');
     var base = idx !== -1 ? path.substring(0, idx) : path.substring(0, path.lastIndexOf('/'));

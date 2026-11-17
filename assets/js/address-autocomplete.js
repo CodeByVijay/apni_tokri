@@ -24,8 +24,13 @@
     var path = window.location.pathname;
     var idx = path.indexOf('/ajax/');
     if (idx !== -1) return path.substring(0, idx);
-    var last = path.lastIndexOf('/');
-    var base = last > 0 ? path.substring(0, last) : '';
+    var base;
+    if (typeof window.AT_BASE === 'string') {
+      base = window.AT_BASE;
+    } else {
+      var last = path.lastIndexOf('/');
+      base = last > 0 ? path.substring(0, last) : '';
+    }
     var fallback = '/ajax/address/autocomplete-search.php';
     if (key === 'googlePlaceDetailsUrl') fallback = '/ajax/address/google-place-details.php';
     else if (key === 'reverseGeocodeUrl') fallback = '/ajax/address/reverse-geocode.php';

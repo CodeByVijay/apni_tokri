@@ -12,6 +12,7 @@ $locale = Lang::locale();
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="csrf-token" content="<?= Security::escape(Csrf::token()) ?>">
+    <script <?= Security::cspNonceAttr() ?>>window.AT_BASE = <?= json_encode(url_base(), JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
     <link rel="icon" href="<?= Security::escape(BrandingSettings::faviconUrl()) ?>" sizes="any">
     <link rel="describedby" href="<?= Security::escape(rtrim(BusinessSettings::websiteUrl(), '/') . '/llms.txt') ?>">
     <title><?= Security::escape($seo->documentTitle) ?></title>

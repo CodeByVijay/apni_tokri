@@ -190,8 +190,7 @@ $loadCatalogueJs = !empty($loadCatalogueJs);
 <?php
 $loadPushJs = !empty($loadPushJs) && FirebaseProjectManager::publicWebConfig() !== null;
 if ($loadPushJs):
-    ?><script <?= Security::cspNonceAttr() ?>>window.AT_BASE = <?= json_encode(url_base(), JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
-<script type="module" src="<?= Security::escape(asset_url('assets/js/push-notifications.mjs')) ?>"></script>
+    ?><script type="module" src="<?= Security::escape(asset_url('assets/js/push-notifications.mjs')) ?>"></script>
 <?php endif; ?>
 
 <?php require APNI_TOKRI_ROOT . '/includes/partials/consent-banner.php'; ?>

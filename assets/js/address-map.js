@@ -55,6 +55,7 @@
   }
 
   function appBasePrefix() {
+    if (typeof window.AT_BASE === 'string') return window.AT_BASE;
     var path = window.location.pathname;
     var idx = path.indexOf('/ajax/');
     if (idx !== -1) return path.substring(0, idx);
